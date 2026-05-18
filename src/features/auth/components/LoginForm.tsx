@@ -1,0 +1,72 @@
+"use client";
+
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Loader } from "@/components/ui/Loader";
+import { GoogleButton } from "@/features/auth/components/GoogleButton";
+import { getAuthErrorMessage } from "@/features/auth/utils/auth.helper";
+
+type LoginFormProps = {
+  callbackUrl?: string;
+  error?: string | null;
+};
+
+export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps) {
+  const router = useRouter();
+  const [message, setMessage] = useState(getAuthErrorMessage(error ?? null));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(formData: FormData) {
+    setMessage("");
+    setIsSubmitting(true);
+
+    const result = await signIn("credentials", {
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      redirect: false,
+    });
+
+    setIsSubmitting(false);
+
+    if (result?.error) {
+      setMessage("Invalid email or password.");
+      return;
+    }
+
+    router.push(callbackUrl);
+    router.refresh();
+  }
+
+  return (
+    <div className="grid w-full gap-6 rounded-lg border border-stone-200 bg-white p-7 shadow-[0_24px_70px_rgba(22,32,29,0.12)] sm:p-8">
+      <div className="grid gap-2">
+        <h1 className="text-3xl font-black leading-tight">Welcome back</h1>
+        <p className="text-neutral-600">Login to continue to your workspace.</p>
+      </div>
+
+      <form className="grid gap-4" action={onSubmit}>
+        <Input label="Email" name="email" type="email" autoComplete="email" required />
+        <Input
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+        />
+        {message ? <p className="text-sm text-red-700">{message}</p> : null}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <Loader /> : "Login"}
+        </Button>
+      </form>
+
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-neutral-500 before:h-px before:bg-stone-200 before:content-[''] after:h-px after:bg-stone-200 after:content-['']">
+        or
+      </div>
+      <GoogleButton callbackUrl={callbackUrl} />
+    </div>
+  );
+}
