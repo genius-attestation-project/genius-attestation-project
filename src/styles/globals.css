@@ -1,25 +1,125 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --bg: #f8fafc;
+  --bg-elevated: rgba(255, 255, 255, 0.78);
+  --bg-panel: rgba(255, 255, 255, 0.92);
+  --bg-sidebar: #0f172a;
+  --text: #0f172a;
+  --text-soft: #475569;
+  --text-muted: #64748b;
+  --border: rgba(148, 163, 184, 0.16);
+  --border-strong: rgba(148, 163, 184, 0.26);
+  --ring: rgba(59, 130, 246, 0.2);
+  --shadow-soft: 0 18px 48px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 14px 30px rgba(15, 23, 42, 0.06);
+  --blue: #2563eb;
+  --blue-soft: #3b82f6;
+  --zinc-accent: #18181b;
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #020817;
+  --bg-elevated: rgba(15, 23, 42, 0.76);
+  --bg-panel: rgba(15, 23, 42, 0.9);
+  --bg-sidebar: #020617;
+  --text: #f8fafc;
+  --text-soft: rgba(226, 232, 240, 0.82);
+  --text-muted: rgba(203, 213, 225, 0.65);
+  --border: rgba(148, 163, 184, 0.12);
+  --border-strong: rgba(148, 163, 184, 0.24);
+  --ring: rgba(59, 130, 246, 0.3);
+  --shadow-soft: 0 30px 70px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 24px 52px rgba(0, 0, 0, 0.32);
+  --blue: #60a5fa;
+  --blue-soft: #3b82f6;
+  --zinc-accent: #fafafa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]):not(.dark) {
+    color-scheme: dark;
+    --bg: #020817;
+    --bg-elevated: rgba(15, 23, 42, 0.76);
+    --bg-panel: rgba(15, 23, 42, 0.9);
+    --bg-sidebar: #020617;
+    --text: #f8fafc;
+    --text-soft: rgba(226, 232, 240, 0.82);
+    --text-muted: rgba(203, 213, 225, 0.65);
+    --border: rgba(148, 163, 184, 0.12);
+    --border-strong: rgba(148, 163, 184, 0.24);
+    --ring: rgba(59, 130, 246, 0.3);
+    --shadow-soft: 0 30px 70px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 24px 52px rgba(0, 0, 0, 0.32);
+    --blue: #60a5fa;
+    --blue-soft: #3b82f6;
+    --zinc-accent: #fafafa;
+  }
+}
 
 @layer base {
+  * {
+    @apply border-[color:var(--border)];
+  }
+
   html,
   body {
     min-height: 100%;
   }
 
   body {
-    @apply bg-stone-100 text-neutral-900 antialiased;
-    background-image: linear-gradient(
-      135deg,
-      rgba(20, 108, 95, 0.08),
-      transparent 35%
-    );
+    @apply antialiased;
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 26%),
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 18%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 24%),
+      var(--bg);
+    color: var(--text);
+    font-family: Inter, "Plus Jakarta Sans", Manrope, "Segoe UI", ui-sans-serif, sans-serif;
   }
 
   a {
     @apply no-underline;
   }
 
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.28);
+    color: var(--text);
+  }
+
   main {
-    @apply min-h-[calc(100vh-72px)];
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: var(--bg-elevated);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .surface-panel {
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  .text-soft {
+    color: var(--text-soft);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
   }
 }
