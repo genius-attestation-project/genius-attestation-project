@@ -11,20 +11,42 @@ enum Role {
   ADMIN
 }
 
+enum LeadStatus {
+  New
+  Followup
+  Assigned
+  Pending_Approval
+  Closed
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          Role      @default(USER)
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  password       String?
+  provider       String?   @default("credentials")
+  roleId         String?   @map("role_id")
+  role           AccessRole? @relation(fields: [roleId], references: [id])
+  ownerAdminId   String?   @map("owner_admin_id")
+  ownerAdmin     User?     @relation("UserOwner", fields: [ownerAdminId], references: [id])
+  ownedUsers     User[]    @relation("UserOwner")
+  createdBy      String?   @map("created_by")
+  department     String?
+  officeLocation String?
+  isActive       Boolean   @default(true) @map("is_active")
+  lastLoginAt    DateTime?
 
-  accounts Account[]
-  sessions Session[]
+  accounts       Account[]
+  sessions       Session[]
+  userRoles      UserRole[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([ownerAdminId])
+  @@map("users")
 }
 
 model Account {
@@ -61,4 +83,92 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Lead {
+  id                    String     @id @default(cuid())
+  leadCode              String     @unique
+  firstName             String
+  lastName              String?
+  countryCode           String     @default("+91")
+  mobileNumber          String
+  email                 String
+  docType               String?
+  noOfDocuments         Int?
+  country               String
+  state                 String?
+  documentIssuedCountry String?
+  service               String
+  source                String?
+  leadStatus            LeadStatus @default(New)
+  clientType            String?
+  amount                Decimal    @default(0) @db.Decimal(12, 2)
+  workingDays           Int?
+  remark                String?
+  assignedUser          String?
+  ownerAdminId          String?    @map("owner_admin_id")
+  nextFollowupAt        DateTime?
+  closedAt              DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@index([leadStatus])
+  @@index([createdAt])
+  @@index([service])
+  @@index([email])
+  @@index([ownerAdminId])
+}
+
+model AccessRole {
+  id              String           @id @default(cuid())
+  name            String           
+  description     String?
+  isActive        Boolean          @default(true)
+  ownerAdminId    String?          @map("owner_admin_id")
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  users           User[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  module          String
+  description     String?
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         AccessRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
 }

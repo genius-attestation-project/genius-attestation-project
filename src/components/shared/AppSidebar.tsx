@@ -8,7 +8,11 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { adminManagementLinks, sidebarItems } from "@/features/dashboard/data/dashboard.data";
+import {
+  adminManagementLinks,
+  leadManagementLinks,
+  sidebarItems,
+} from "@/features/dashboard/data/dashboard.data";
 import { cn } from "@/utils/cn";
 
 type AppSidebarProps = {
@@ -21,10 +25,15 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(pathname.startsWith("/dashboard/admin-management"));
+  const [leadOpen, setLeadOpen] = useState(pathname.startsWith("/dashboard/lead-management"));
 
   useEffect(() => {
     if (pathname.startsWith("/dashboard/admin-management")) {
       setAdminOpen(true);
+    }
+
+    if (pathname.startsWith("/dashboard/lead-management")) {
+      setLeadOpen(true);
     }
   }, [pathname]);
 
@@ -32,16 +41,25 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
     () => adminManagementLinks.find((link) => pathname.startsWith(link.href)),
     [pathname],
   );
+  const activeLeadLink = useMemo(
+    () => leadManagementLinks.find((link) => pathname.startsWith(link.href)),
+    [pathname],
+  );
 
   function renderNavItems(showLabels: boolean) {
     return sidebarItems.map((item) => {
       const isAdmin = item.href === "/dashboard/admin-management";
+      const isLead = item.href === "/dashboard/lead-management";
       const isActive =
         item.href === "/dashboard"
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
-      if (isAdmin) {
+      if (isAdmin || isLead) {
+        const accordionOpen = isAdmin ? adminOpen : leadOpen;
+        const setAccordionOpen = isAdmin ? setAdminOpen : setLeadOpen;
+        const nestedLinks = isAdmin ? adminManagementLinks : leadManagementLinks;
+
         return (
           <div key={item.href} className="grid gap-2">
             <button
@@ -49,15 +67,15 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
               onClick={() => {
                 if (!showLabels) {
                   setCollapsed(false);
-                  setAdminOpen(true);
+                  setAccordionOpen(true);
                   return;
                 }
 
-                setAdminOpen((value) => !value);
+                setAccordionOpen((value) => !value);
               }}
               className={cn(
                 "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm font-medium transition",
-                isActive || adminOpen
+                isActive || accordionOpen
                   ? "border-blue-100 bg-blue-100 text-blue-700 shadow-sm dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-white"
                   : "border-transparent text-slate-700 hover:bg-blue-50 hover:text-slate-900 dark:text-white/72 dark:hover:border-white/10 dark:hover:bg-white/6 dark:hover:text-white",
               )}
@@ -68,7 +86,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
                   <span className="flex-1">{item.label}</span>
                   <ChevronDown
                     size={16}
-                    className={cn("transition", adminOpen && "rotate-180")}
+                    className={cn("transition", accordionOpen && "rotate-180")}
                   />
                 </>
               ) : null}
@@ -76,7 +94,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
 
             {showLabels ? (
               <AnimatePresence initial={false}>
-                {adminOpen ? (
+                {accordionOpen ? (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
@@ -84,7 +102,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
                     className="overflow-hidden"
                   >
                     <div className="ml-4 grid gap-1 border-l border-blue-200 pl-4 dark:border-blue-500/25">
-                      {adminManagementLinks.map((link) => {
+                      {nestedLinks.map((link) => {
                         const isSubActive = pathname.startsWith(link.href);
 
                         return (
@@ -162,7 +180,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
                 collapsed={false}
                 userName={userName}
                 userEmail={userEmail}
-                activeAdminLabel={activeAdminLink?.label}
+                activeLabel={activeAdminLink?.label ?? activeLeadLink?.label}
               >
                 {renderNavItems(true)}
               </SidebarPanel>
@@ -179,7 +197,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
           collapsed={collapsed}
           userName={userName}
           userEmail={userEmail}
-          activeAdminLabel={activeAdminLink?.label}
+          activeLabel={activeAdminLink?.label ?? activeLeadLink?.label}
           toggle={
             <Button
               variant="ghost"
@@ -202,7 +220,7 @@ type SidebarPanelProps = {
   collapsed: boolean;
   userName: string;
   userEmail: string;
-  activeAdminLabel?: string;
+  activeLabel?: string;
   toggle?: ReactNode;
   children: ReactNode;
 };
@@ -211,7 +229,7 @@ function SidebarPanel({
   collapsed,
   userName,
   userEmail,
-  activeAdminLabel,
+  activeLabel,
   toggle,
   children,
 }: SidebarPanelProps) {
@@ -241,9 +259,9 @@ function SidebarPanel({
           </p>
           <p className="mt-3 font-semibold text-slate-900 dark:text-white">{userName}</p>
           <p className="text-sm text-slate-600 dark:text-white/58">{userEmail}</p>
-          {activeAdminLabel ? (
+          {activeLabel ? (
             <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-blue-600 dark:text-blue-200/80">
-              Focus: {activeAdminLabel}
+              Focus: {activeLabel}
             </p>
           ) : null}
         </div>
