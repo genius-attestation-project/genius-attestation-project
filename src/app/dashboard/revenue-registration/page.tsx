@@ -1,6 +1,17 @@
+import { AccessDenied } from "@/components/shared/AccessDenied";
 import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { requirePermission } from "@/middleware/auth.middleware";
 
-export default function RevenueRegistrationPage() {
+export default async function RevenueRegistrationPage() {
+  const session = await requirePermission(
+    "revenue_registration.view",
+    "/dashboard/revenue-registration",
+  );
+
+  if (!session) {
+    return <AccessDenied description="Your role cannot access revenue registration." />;
+  }
+
   return (
     <ModulePlaceholder
       eyebrow="Revenue Registration"

@@ -1,11 +1,17 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { adminManagementLinks } from "@/features/dashboard/data/dashboard.data";
 
-export function AdminOverview() {
+type AdminOverviewLink = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+};
+
+export function AdminOverview({ links }: { links: AdminOverviewLink[] }) {
   return (
     <div className="grid gap-6">
       <PageHeader
@@ -20,7 +26,7 @@ export function AdminOverview() {
       />
 
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {adminManagementLinks.map((item) => (
+        {links.map((item) => (
           <DashboardCard
             key={item.href}
             title={item.label}

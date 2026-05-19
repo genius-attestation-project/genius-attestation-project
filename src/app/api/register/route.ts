@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 
+import { ensureRbacBootstrap, setUserRole } from "@/features/admin/server/rbac.service";
 import { registerSchema } from "@/features/auth/validations/auth.schema";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -34,6 +35,17 @@ export async function POST(request: Request) {
       email: true,
     },
   });
+
+  await ensureRbacBootstrap();
+
+  const staffRole = await prisma.accessRole.findUnique({
+    where: { name: "Staff" },
+    select: { id: true },
+  });
+
+  if (staffRole) {
+    await setUserRole(user.id, staffRole.id);
+  }
 
   return jsonOk({ user }, 201);
 }

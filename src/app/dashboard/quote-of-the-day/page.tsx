@@ -1,6 +1,17 @@
+import { AccessDenied } from "@/components/shared/AccessDenied";
 import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { requirePermission } from "@/middleware/auth.middleware";
 
-export default function QuoteOfTheDayPage() {
+export default async function QuoteOfTheDayPage() {
+  const session = await requirePermission(
+    "quote_of_the_day.view",
+    "/dashboard/quote-of-the-day",
+  );
+
+  if (!session) {
+    return <AccessDenied description="Your role cannot access quote of the day." />;
+  }
+
   return (
     <ModulePlaceholder
       eyebrow="Quote Of The Day"
