@@ -1,17 +1,19 @@
 "use client";
 
-import type { ChangeEventHandler, FormEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Country, State } from "country-state-city";
+import Select from "react-select";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Loader } from "@/components/ui/Loader";
 import { Textarea } from "@/components/ui/Textarea";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   assignedUsers,
   clientTypes,
-  countries,
   countryCodes,
   defaultLeadValues,
   docTypes,
@@ -19,7 +21,6 @@ import {
   leadStatuses,
   services,
   sources,
-  states,
 } from "@/features/lead/data/lead.data";
 
 type LeadFormProps = {
@@ -31,6 +32,9 @@ type LeadFormProps = {
 };
 
 type FormErrors = Partial<Record<keyof LeadFormValues, string>>;
+
+const mapToOptions = (arr: readonly string[]) =>
+  arr.map((item) => ({ label: item, value: item }));
 
 export function LeadForm({
   initialValues = defaultLeadValues,
@@ -44,7 +48,19 @@ export function LeadForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
-  const issuedCountryOptions = useMemo(() => countries, []);
+  const allCountries = useMemo(() => 
+    Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
+  []);
+  
+  const countryOptions = useMemo(
+    () => allCountries.map((c) => ({ label: c.name, value: c.name })),
+    [allCountries]
+  );
+  
+  const issuedCountryOptions = countryOptions;
+
+  const [stateOptions, setStateOptions] = useState<{ label: string; value: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<{ name: string; isoCode: string } | null>(null);
 
   useEffect(() => {
     setValues(initialValues);
@@ -52,8 +68,42 @@ export function LeadForm({
     setMessage("");
   }, [initialValues]);
 
+  // Handle edit mode: Sync selectedCountry when values.country changes externally
+  useEffect(() => {
+    if (values.country && (!selectedCountry || selectedCountry.name !== values.country)) {
+      const c = allCountries.find((x) => x.name === values.country);
+      if (c) {
+        setSelectedCountry({ name: c.name, isoCode: c.isoCode });
+      }
+    } else if (!values.country) {
+      setSelectedCountry(null);
+    }
+  }, [values.country, allCountries]);
+
+  // Fetch dynamic states based on selectedCountry ISO code
+  useEffect(() => {
+    if (selectedCountry?.isoCode) {
+      const fetchedStates = State.getStatesOfCountry(selectedCountry.isoCode);
+      setStateOptions(fetchedStates.map((s) => ({ label: s.name, value: s.name })));
+    } else {
+      setStateOptions([]);
+    }
+  }, [selectedCountry]);
+
   function updateField<Key extends keyof LeadFormValues>(key: Key, value: LeadFormValues[Key]) {
-    setValues((current) => ({ ...current, [key]: value }));
+    setValues((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "country" && current.country !== value) {
+        next.state = ""; // clear state when country changes
+      }
+      return next;
+    });
+    
+    if (key === "country") {
+      const c = allCountries.find((x) => x.name === value);
+      setSelectedCountry(c ? { name: c.name, isoCode: c.isoCode } : null);
+    }
+    
     setErrors((current) => ({ ...current, [key]: undefined }));
     setMessage("");
   }
@@ -157,12 +207,12 @@ export function LeadForm({
           />
         </FieldWrapper>
         <FieldWrapper error={errors.mobileNumber}>
-          <SelectLikeInput
+          <SearchableSelect
             label="Country Code"
             name="countryCode"
             value={values.countryCode}
-            onChange={(event) => updateField("countryCode", event.target.value)}
-            options={countryCodes}
+            onChange={(value) => updateField("countryCode", value)}
+            options={mapToOptions(countryCodes)}
           />
         </FieldWrapper>
         <FieldWrapper error={errors.mobileNumber}>
@@ -188,12 +238,12 @@ export function LeadForm({
 
       <LeadSection title="Document Information">
         <FieldWrapper>
-          <SelectLikeInput
+          <SearchableSelect
             label="Doc Type"
             name="docType"
             value={values.docType}
-            onChange={(event) => updateField("docType", event.target.value)}
-            options={docTypes}
+            onChange={(value) => updateField("docType", value)}
+            options={mapToOptions(docTypes)}
             placeholder="Select document type"
           />
         </FieldWrapper>
@@ -210,85 +260,92 @@ export function LeadForm({
 
       <LeadSection title="Location Information">
         <FieldWrapper error={errors.country}>
-          <SelectLikeInput
-            label="Country"
-            name="country"
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Country
+          </label>
+          <CountryStateSelect
             value={values.country}
-            onChange={(event) => updateField("country", event.target.value)}
-            options={countries}
+            onChange={(value) => updateField("country", value)}
+            options={countryOptions}
             placeholder="Select country"
           />
+          <input type="hidden" name="country" value={values.country} />
         </FieldWrapper>
         <FieldWrapper>
-          <SelectLikeInput
-            label="State"
-            name="state"
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            State
+          </label>
+          <CountryStateSelect
             value={values.state}
-            onChange={(event) => updateField("state", event.target.value)}
-            options={states}
-            placeholder="Select state"
+            onChange={(value) => updateField("state", value)}
+            options={stateOptions}
+            placeholder={values.country ? "Select state" : "Select country first"}
+            disabled={!values.country}
           />
+          <input type="hidden" name="state" value={values.state} />
         </FieldWrapper>
         <FieldWrapper className="md:col-span-2">
-          <SelectLikeInput
-            label="Document Issued Country"
-            name="documentIssuedCountry"
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Document Issued Country
+          </label>
+          <CountryStateSelect
             value={values.documentIssuedCountry}
-            onChange={(event) => updateField("documentIssuedCountry", event.target.value)}
+            onChange={(value) => updateField("documentIssuedCountry", value)}
             options={issuedCountryOptions}
             placeholder="Select issued country"
           />
+          <input type="hidden" name="documentIssuedCountry" value={values.documentIssuedCountry} />
         </FieldWrapper>
       </LeadSection>
 
       <LeadSection title="Service Information">
         <FieldWrapper error={errors.service}>
-          <SelectLikeInput
+          <SearchableSelect
             label="Service"
             name="service"
             value={values.service}
-            onChange={(event) => updateField("service", event.target.value)}
-            options={services}
+            onChange={(value) => updateField("service", value)}
+            options={mapToOptions(services)}
             placeholder="Select service"
           />
         </FieldWrapper>
         <FieldWrapper>
-          <SelectLikeInput
+          <SearchableSelect
             label="Source"
             name="source"
             value={values.source}
-            onChange={(event) => updateField("source", event.target.value)}
-            options={sources}
+            onChange={(value) => updateField("source", value)}
+            options={mapToOptions(sources)}
             placeholder="Select source"
           />
         </FieldWrapper>
         <FieldWrapper error={errors.leadStatus}>
-          <SelectLikeInput
+          <SearchableSelect
             label="Lead Status"
             name="leadStatus"
             value={values.leadStatus}
-            onChange={(event) => updateField("leadStatus", event.target.value)}
-            options={leadStatuses}
+            onChange={(value) => updateField("leadStatus", value)}
+            options={mapToOptions(leadStatuses)}
             placeholder="Select lead status"
           />
         </FieldWrapper>
         <FieldWrapper>
-          <SelectLikeInput
+          <SearchableSelect
             label="Assigned User"
             name="assignedUser"
             value={values.assignedUser}
-            onChange={(event) => updateField("assignedUser", event.target.value)}
-            options={assignedUsers}
+            onChange={(value) => updateField("assignedUser", value)}
+            options={mapToOptions(assignedUsers)}
             placeholder="Select assigned user"
           />
         </FieldWrapper>
         <FieldWrapper>
-          <SelectLikeInput
+          <SearchableSelect
             label="Client Type"
             name="clientType"
             value={values.clientType}
-            onChange={(event) => updateField("clientType", event.target.value)}
-            options={clientTypes}
+            onChange={(value) => updateField("clientType", value)}
+            options={mapToOptions(clientTypes)}
             placeholder="Select client type"
           />
         </FieldWrapper>
@@ -395,38 +452,54 @@ function FieldWrapper({
   );
 }
 
-function SelectLikeInput({
-  label,
-  name,
+function CountryStateSelect({
+  options,
   value,
   onChange,
-  options,
   placeholder,
+  disabled,
 }: {
-  label: string;
-  name: string;
+  options: { label: string; value: string }[];
   value: string;
-  onChange: ChangeEventHandler<HTMLInputElement>;
-  options: string[];
+  onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
-  const listId = `${name}-list`;
-
+  const selectedOption = options.find((opt) => opt.value === value) || null;
   return (
-    <>
-      <Input
-        label={label}
-        name={name}
-        list={listId}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-      <datalist id={listId}>
-        {options.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
-    </>
+    <Select
+      options={options}
+      value={selectedOption}
+      onChange={(opt) => onChange(opt?.value || "")}
+      placeholder={placeholder}
+      isDisabled={disabled}
+      isClearable
+      unstyled
+      classNames={{
+        control: (state) =>
+          `flex min-h-[42px] w-full items-center justify-between rounded-xl border bg-white px-3 py-1.5 text-sm transition-all dark:bg-slate-900 ${
+            state.isFocused
+              ? "border-blue-500 ring-1 ring-blue-500"
+              : "border-slate-200 dark:border-slate-800"
+          } ${disabled ? "cursor-not-allowed opacity-60 bg-slate-50 dark:bg-slate-900/50" : "cursor-pointer"} hover:border-slate-300 dark:hover:border-slate-700`,
+        menu: () =>
+          "mt-1 rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900 absolute z-50 w-full",
+        option: (state) =>
+          `px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+            state.isSelected
+              ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+              : "text-slate-700 dark:text-slate-300"
+          }`,
+        input: () => "text-slate-900 dark:text-white outline-none",
+        singleValue: () => "text-slate-900 dark:text-slate-100",
+        placeholder: () => "text-slate-500",
+        menuList: () => "max-h-60 overflow-y-auto py-1",
+        dropdownIndicator: (state) =>
+          `text-slate-400 transition-transform ${state.selectProps.menuIsOpen ? "rotate-180" : ""}`,
+        clearIndicator: () =>
+          "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1",
+        indicatorSeparator: () => "hidden",
+      }}
+    />
   );
 }
