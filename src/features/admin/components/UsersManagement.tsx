@@ -13,7 +13,11 @@ import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchBar } from "@/components/ui/SearchBar";
-import type { RoleOption, UserAccessRow } from "@/features/admin/types/rbac.types";
+import type {
+  DepartmentRow,
+  RoleOption,
+  UserAccessRow,
+} from "@/features/admin/types/rbac.types";
 import { getInitials } from "@/utils/format";
 
 type UserFormState = {
@@ -40,6 +44,7 @@ export function UsersManagement() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [users, setUsers] = useState<UserAccessRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
   const [editingUser, setEditingUser] = useState<UserAccessRow | null>(null);
   const [formState, setFormState] = useState<UserFormState>(defaultFormState);
   const [loading, setLoading] = useState(true);
@@ -70,19 +75,31 @@ export function UsersManagement() {
     setError("");
 
     try {
-      const response = await fetch("/api/users", { cache: "no-store" });
-      const payload = (await response.json()) as {
+      const [usersResponse, departmentsResponse] = await Promise.all([
+        fetch("/api/users", { cache: "no-store" }),
+        fetch("/api/departments", { cache: "no-store" }),
+      ]);
+      const payload = (await usersResponse.json()) as {
         users?: UserAccessRow[];
         roles?: RoleOption[];
         message?: string;
       };
+      const departmentsPayload = (await departmentsResponse.json()) as {
+        departments?: DepartmentRow[];
+        message?: string;
+      };
 
-      if (!response.ok) {
+      if (!usersResponse.ok) {
         throw new Error(payload.message ?? "Unable to load users.");
+      }
+
+      if (!departmentsResponse.ok) {
+        throw new Error(departmentsPayload.message ?? "Unable to load departments.");
       }
 
       setUsers(payload.users ?? []);
       setRoles(payload.roles ?? []);
+      setDepartments(departmentsPayload.departments ?? []);
     } catch (loadError) {
       console.error("Failed to load users", loadError);
       setError(loadError instanceof Error ? loadError.message : "Unable to load users.");
@@ -341,15 +358,23 @@ export function UsersManagement() {
               ))}
             </select>
           </label>
-          <Input
-            label="Department"
-            name="department"
-            value={formState.department}
-            onChange={(event) =>
-              setFormState((current) => ({ ...current, department: event.target.value }))
-            }
-            placeholder="Operations"
-          />
+          <label className="grid gap-2">
+            <span className="text-sm font-bold">Department</span>
+            <select
+              value={formState.department}
+              onChange={(event) =>
+                setFormState((current) => ({ ...current, department: event.target.value }))
+              }
+              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+            >
+              <option value="">Select department</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.name}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <Input
             label="Office Location"
             name="officeLocation"

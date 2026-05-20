@@ -1,4 +1,4 @@
-
+import { randomUUID } from "node:crypto";
 
 import {
   buildPermissionCatalog,
@@ -15,6 +15,8 @@ import type {
   SessionAccess,
   UserAccessRow,
   UserPayload,
+  DepartmentPayload,
+  DepartmentRow,
 } from "@/features/admin/types/rbac.types";
 import { prisma } from "@/lib/prisma";
 
@@ -72,6 +74,37 @@ function formatDate(date: Date) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function mapDepartment(department: {
+  id: string;
+  name: string;
+  createdAt: Date;
+}): DepartmentRow {
+  return {
+    id: department.id,
+    name: department.name,
+    createdDate: formatDate(department.createdAt),
+  };
+}
+
+async function assertUniqueDepartmentName(
+  ownerAdminId: string,
+  name: string,
+  departmentId?: string,
+) {
+  const duplicates = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM departments
+    WHERE owner_admin_id = ${ownerAdminId}
+      AND LOWER(name) = LOWER(${name})
+      AND (${departmentId ?? ""} = '' OR id <> ${departmentId ?? ""})
+    LIMIT 1
+  `;
+
+  if (duplicates.length > 0) {
+    throw new Error("A department with this name already exists.");
+  }
 }
 
 export async function ensureRbacBootstrap() {
@@ -457,6 +490,69 @@ export async function deleteUser(ownerAdminId: string, userId: string) {
   });
 
   return true;
+}
+
+export async function listDepartments(ownerAdminId: string) {
+  const departments = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    SELECT id, name, created_at AS "createdAt"
+    FROM departments
+    WHERE owner_admin_id = ${ownerAdminId}
+    ORDER BY created_at DESC
+  `;
+
+  return departments.map(mapDepartment);
+}
+
+export async function createDepartment(ownerAdminId: string, payload: DepartmentPayload) {
+  await assertUniqueDepartmentName(ownerAdminId, payload.name);
+
+  const [department] = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    INSERT INTO departments (id, name, owner_admin_id, created_at, updated_at)
+    VALUES (${randomUUID()}, ${payload.name}, ${ownerAdminId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    RETURNING id, name, created_at AS "createdAt"
+  `;
+
+  return mapDepartment(department);
+}
+
+export async function updateDepartment(
+  ownerAdminId: string,
+  departmentId: string,
+  payload: DepartmentPayload,
+) {
+  await assertUniqueDepartmentName(ownerAdminId, payload.name, departmentId);
+
+  const [department] = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    UPDATE departments
+    SET name = ${payload.name}, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
+    RETURNING id, name, created_at AS "createdAt"
+  `;
+
+  if (!department) return null;
+
+  return mapDepartment(department);
+}
+
+export async function deleteDepartment(ownerAdminId: string, departmentId: string) {
+  const deletedCount = await prisma.$executeRaw`
+    DELETE FROM departments
+    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
+  `;
+
+  return deletedCount > 0;
 }
 
 export async function getSessionAccess(userId: string): Promise<SessionAccess | null> {

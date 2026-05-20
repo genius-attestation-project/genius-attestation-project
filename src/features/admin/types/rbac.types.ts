@@ -65,3 +65,13 @@ export type RoleOption = {
   id: string;
   name: string;
 };
+
+export type DepartmentRow = {
+  id: string;
+  name: string;
+  createdDate: string;
+};
+
+export type DepartmentPayload = {
+  name: string;
+};
