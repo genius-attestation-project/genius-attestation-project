@@ -7,6 +7,15 @@ import type {
   LeadRow,
   LobResponse,
 } from "@/features/lead/types/lead.types";
+import type {
+  FollowupCalendarEvent,
+  FollowupCalendarResponse,
+  FollowupCounts,
+  FollowupFilter,
+  FollowupItem,
+  FollowupTone,
+  FollowupsByDateResponse,
+} from "@/features/lead/types/followup.types";
 import type { LeadInput } from "@/features/lead/validations/lead.schema";
 
 const leadSelect = {
@@ -39,7 +48,9 @@ type LeadRecord = Prisma.LeadGetPayload<{
 }>;
 
 function formatLeadStatus(status: LeadStatus): LeadRow["status"] {
-  return status === LeadStatus.Pending_Approval ? "Pending Approval" : status;
+  if (status === LeadStatus.Pending_Approval) return "Pending Approval";
+  if (status === LeadStatus.Potential_Qualified) return "Potential Qualified";
+  return status;
 }
 
 function parseLeadStatus(status?: string): LeadStatus | undefined {
@@ -49,6 +60,10 @@ function parseLeadStatus(status?: string): LeadStatus | undefined {
 
   if (status === "Pending Approval") {
     return LeadStatus.Pending_Approval;
+  }
+  
+  if (status === "Potential Qualified") {
+    return LeadStatus.Potential_Qualified;
   }
 
   if (Object.values(LeadStatus).includes(status as LeadStatus)) {
@@ -124,6 +139,171 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     rawAmount: Number(lead.amount),
     nextFollowupAt: lead.nextFollowupAt ? lead.nextFollowupAt.toISOString() : null,
   };
+}
+
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function endOfDay(date: Date) {
+  const value = startOfDay(date);
+  value.setDate(value.getDate() + 1);
+  return value;
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateTime(date: Date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatTime(date: Date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getFollowupTone(status: LeadStatus, followupAt: Date, today: Date): FollowupTone {
+  const todayStart = startOfDay(today);
+  const followupStart = startOfDay(followupAt);
+
+  if (status === LeadStatus.Closed) {
+    return "completed";
+  }
+
+  if (followupStart < todayStart) {
+    return "missed";
+  }
+
+  if (status === LeadStatus.Qualified || status === LeadStatus.Potential_Qualified) {
+    return "qualified";
+  }
+
+  if (status === LeadStatus.New) {
+    return "new";
+  }
+
+  return "upcoming";
+}
+
+function getFollowupColor(tone: FollowupTone) {
+  const palette: Record<FollowupTone, string> = {
+    new: "#2563eb",
+    completed: "#16a34a",
+    upcoming: "#ea580c",
+    missed: "#dc2626",
+    qualified: "#9333ea",
+  };
+
+  return palette[tone];
+}
+
+function getFollowupStatusLabel(tone: FollowupTone) {
+  const labels: Record<FollowupTone, string> = {
+    new: "New",
+    completed: "Completed",
+    upcoming: "Upcoming",
+    missed: "Missed",
+    qualified: "Qualified",
+  };
+
+  return labels[tone];
+}
+
+function matchesFollowupFilter(item: FollowupItem, filter: FollowupFilter) {
+  if (filter === "all") return true;
+  if (filter === "today") return item.isToday;
+  if (filter === "upcoming") return !item.isCompleted && !item.isToday && !item.isOverdue;
+  if (filter === "missed") return item.isOverdue && !item.isCompleted;
+  if (filter === "completed") return item.isCompleted;
+  return true;
+}
+
+function mapFollowupItem(lead: LeadRecord, today: Date): FollowupItem {
+  const base = mapLeadRow(lead);
+  const followupAt = lead.nextFollowupAt ?? lead.createdAt;
+  const dateKey = toDateKey(followupAt);
+  const todayKey = toDateKey(today);
+  const tone = getFollowupTone(lead.leadStatus, followupAt, today);
+  const color = getFollowupColor(tone);
+  const phoneNumber = `${lead.countryCode}${lead.mobileNumber}`.replace(/[^\d+]/g, "");
+
+  return {
+    ...base,
+    title: `${base.clientName} - ${lead.service}`,
+    dateKey,
+    followupDate: followupAt.toISOString(),
+    followupDateLabel: formatDate(followupAt),
+    followupTimeLabel: formatTime(followupAt),
+    followupDateTimeLabel: formatDateTime(followupAt),
+    followupStatusLabel: getFollowupStatusLabel(tone),
+    statusTone: tone,
+    calendarColor: color,
+    isToday: dateKey === todayKey,
+    isOverdue: startOfDay(followupAt) < startOfDay(today),
+    isCompleted: lead.leadStatus === LeadStatus.Closed,
+    whatsappLink: `https://wa.me/${phoneNumber.replace(/[^\d]/g, "")}`,
+    callLink: `tel:${phoneNumber}`,
+  };
+}
+
+function buildFollowupCounts(items: FollowupItem[]): FollowupCounts {
+  return items.reduce<FollowupCounts>(
+    (counts, item) => {
+      counts.all += 1;
+      if (item.isToday) counts.today += 1;
+      if (!item.isCompleted && !item.isToday && !item.isOverdue) counts.upcoming += 1;
+      if (item.isOverdue && !item.isCompleted) counts.missed += 1;
+      if (item.isCompleted) counts.completed += 1;
+      return counts;
+    },
+    { all: 0, today: 0, upcoming: 0, missed: 0, completed: 0 },
+  );
+}
+
+function buildCalendarEvents(items: FollowupItem[]): FollowupCalendarEvent[] {
+  return items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    start: item.dateKey,
+    allDay: true,
+    backgroundColor: item.calendarColor,
+    borderColor: item.calendarColor,
+    textColor: "#ffffff",
+    extendedProps: {
+      dateKey: item.dateKey,
+      service: item.service,
+      assignedUser: item.assignedUser,
+      statusTone: item.statusTone,
+      followup: item,
+    },
+  }));
+}
+
+async function listScheduledFollowupRecords(ownerAdminId: string) {
+  return prisma.lead.findMany({
+    where: {
+      ownerAdminId,
+      nextFollowupAt: { not: null },
+    },
+    orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
+    select: leadSelect,
+  });
 }
 
 function startOfMonth(date: Date) {
@@ -319,6 +499,76 @@ export async function listFollowups(ownerAdminId: string) {
       totalItems: items.length,
       totalPages: 1,
     },
+  };
+}
+
+export async function getFollowupCalendar(
+  ownerAdminId: string,
+  filter: FollowupFilter = "all",
+): Promise<FollowupCalendarResponse> {
+  const today = new Date();
+  const records = await listScheduledFollowupRecords(ownerAdminId);
+  const items = records.map((lead) => mapFollowupItem(lead, today));
+  const counts = buildFollowupCounts(items);
+  const filteredItems = items.filter((item) => matchesFollowupFilter(item, filter));
+
+  return {
+    filter,
+    today: toDateKey(today),
+    counts,
+    items: filteredItems,
+    events: buildCalendarEvents(filteredItems),
+  };
+}
+
+export async function getTodayFollowups(ownerAdminId: string): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "today");
+}
+
+export async function getUpcomingFollowups(ownerAdminId: string): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "upcoming");
+}
+
+export async function getFollowupsByDate(
+  ownerAdminId: string,
+  date: string,
+): Promise<FollowupsByDateResponse> {
+  const [year, month, day] = date.split("-").map((value) => Number.parseInt(value, 10));
+
+  if (!year || !month || !day) {
+    return {
+      date,
+      label: date,
+      count: 0,
+      items: [],
+    };
+  }
+
+  const selectedDate = new Date(year, month - 1, day);
+  const records = await prisma.lead.findMany({
+    where: {
+      ownerAdminId,
+      nextFollowupAt: {
+        gte: startOfDay(selectedDate),
+        lt: endOfDay(selectedDate),
+      },
+    },
+    orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
+    select: leadSelect,
+  });
+
+  const items = records.map((lead) => mapFollowupItem(lead, new Date()));
+
+  return {
+    date: toDateKey(selectedDate),
+    label: new Intl.DateTimeFormat("en-IN", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(selectedDate),
+    count: items.length,
+    items,
   };
 }
 

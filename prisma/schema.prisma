@@ -17,6 +17,9 @@ enum LeadStatus {
   Assigned
   Pending_Approval
   Closed
+  Qualified
+  Potential_Qualified
+  LOB
 }
 
 model User {

@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { AllLeadsManagement } from "@/features/lead/components/AllLeadsManagement";
+import { FollowupsCalendarManagement } from "@/features/lead/components/FollowupsCalendarManagement";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function LeadFollowupsPage() {
@@ -9,13 +9,5 @@ export default async function LeadFollowupsPage() {
     return <AccessDenied description="Your role cannot access followup leads." />;
   }
 
-  return (
-    <AllLeadsManagement
-      title="Followups"
-      description="Followup leads synced from the live CRM database."
-      endpoint="/api/followups"
-      showAddLead={false}
-      allowStatusFilter={false}
-    />
-  );
+  return <FollowupsCalendarManagement />;
 }
