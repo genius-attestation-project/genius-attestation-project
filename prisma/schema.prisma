@@ -52,6 +52,18 @@ model User {
   @@map("users")
 }
 
+model Department {
+  id           String   @id @default(cuid())
+  name         String
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("departments")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String

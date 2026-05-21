@@ -22,3 +22,7 @@ export const userSchema = z.object({
 export const userRoleSchema = z.object({
   roleId: z.string().trim().min(1, "Role is required."),
 });
+
+export const departmentSchema = z.object({
+  name: z.string().trim().min(1, "Department name is required."),
+});
