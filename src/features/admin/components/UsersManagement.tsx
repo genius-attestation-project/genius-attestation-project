@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchBar } from "@/components/ui/SearchBar";
 import type {
   DepartmentRow,
+  OfficeLocationRow,
   RoleOption,
   UserAccessRow,
 } from "@/features/admin/types/rbac.types";
@@ -45,10 +46,12 @@ export function UsersManagement() {
   const [users, setUsers] = useState<UserAccessRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+  const [officeLocations, setOfficeLocations] = useState<OfficeLocationRow[]>([]);
   const [editingUser, setEditingUser] = useState<UserAccessRow | null>(null);
   const [formState, setFormState] = useState<UserFormState>(defaultFormState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const filteredUsers = useMemo(
@@ -75,9 +78,10 @@ export function UsersManagement() {
     setError("");
 
     try {
-      const [usersResponse, departmentsResponse] = await Promise.all([
+      const [usersResponse, departmentsResponse, officeLocationsResponse] = await Promise.all([
         fetch("/api/users", { cache: "no-store" }),
         fetch("/api/departments", { cache: "no-store" }),
+        fetch("/api/office-locations", { cache: "no-store" }),
       ]);
       const payload = (await usersResponse.json()) as {
         users?: UserAccessRow[];
@@ -86,6 +90,10 @@ export function UsersManagement() {
       };
       const departmentsPayload = (await departmentsResponse.json()) as {
         departments?: DepartmentRow[];
+        message?: string;
+      };
+      const officeLocationsPayload = (await officeLocationsResponse.json()) as {
+        officeLocations?: OfficeLocationRow[];
         message?: string;
       };
 
@@ -97,12 +105,18 @@ export function UsersManagement() {
         throw new Error(departmentsPayload.message ?? "Unable to load departments.");
       }
 
+      if (!officeLocationsResponse.ok) {
+        throw new Error(officeLocationsPayload.message ?? "Unable to load office locations.");
+      }
+
       setUsers(payload.users ?? []);
       setRoles(payload.roles ?? []);
       setDepartments(departmentsPayload.departments ?? []);
+      setOfficeLocations(officeLocationsPayload.officeLocations ?? []);
     } catch (loadError) {
-      console.error("Failed to load users", loadError);
-      setError(loadError instanceof Error ? loadError.message : "Unable to load users.");
+      const message = loadError instanceof Error ? loadError.message : "Unable to load users.";
+      console.error("Failed to load users:", message);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -111,6 +125,7 @@ export function UsersManagement() {
   function openCreateDrawer() {
     setEditingUser(null);
     setFormState(defaultFormState);
+    setError("");
     setIsDrawerOpen(true);
   }
 
@@ -124,12 +139,15 @@ export function UsersManagement() {
       roleId: user.roleId ?? "",
       isActive: user.status === "Active",
     });
+    setError("");
     setIsDrawerOpen(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
+    setError("");
+    setMessage("");
 
     try {
       const response = await fetch(editingUser ? `/api/users/${editingUser.id}` : "/api/users", {
@@ -153,9 +171,11 @@ export function UsersManagement() {
 
       await loadUsers();
       setIsDrawerOpen(false);
+      setMessage(editingUser ? "User updated successfully." : "User created successfully.");
     } catch (submitError) {
-      console.error("Failed to save user", submitError);
-      setError(submitError instanceof Error ? submitError.message : "Unable to save user.");
+      const message = submitError instanceof Error ? submitError.message : "Unable to save user.";
+      console.error("Failed to save user:", message);
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -169,6 +189,8 @@ export function UsersManagement() {
     }
 
     try {
+      setError("");
+      setMessage("");
       const response = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
@@ -177,9 +199,11 @@ export function UsersManagement() {
       }
 
       await loadUsers();
+      setMessage("User deleted successfully.");
     } catch (deleteError) {
-      console.error("Failed to delete user", deleteError);
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete user.");
+      const message = deleteError instanceof Error ? deleteError.message : "Unable to delete user.";
+      console.error("Failed to delete user:", message);
+      setError(message);
     }
   }
 
@@ -196,6 +220,12 @@ export function UsersManagement() {
           </Button>
         }
       />
+
+      {message ? (
+        <DashboardCard>
+          <p className="text-sm font-semibold text-blue-600">{message}</p>
+        </DashboardCard>
+      ) : null}
 
       {error ? (
         <DashboardCard>
@@ -375,15 +405,23 @@ export function UsersManagement() {
               ))}
             </select>
           </label>
-          <Input
-            label="Office Location"
-            name="officeLocation"
-            value={formState.officeLocation}
-            onChange={(event) =>
-              setFormState((current) => ({ ...current, officeLocation: event.target.value }))
-            }
-            placeholder="Kochi HQ"
-          />
+          <label className="grid gap-2">
+            <span className="text-sm font-bold">Office Location</span>
+            <select
+              value={formState.officeLocation}
+              onChange={(event) =>
+                setFormState((current) => ({ ...current, officeLocation: event.target.value }))
+              }
+              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+            >
+              <option value="">Select office location</option>
+              {officeLocations.map((officeLocation) => (
+                <option key={officeLocation.id} value={officeLocation.officeName}>
+                  {officeLocation.officeName} - {officeLocation.location}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="inline-flex items-center gap-3 text-sm font-bold">
             <input
               type="checkbox"
