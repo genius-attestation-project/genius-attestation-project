@@ -75,3 +75,19 @@ export type DepartmentRow = {
 export type DepartmentPayload = {
   name: string;
 };
+
+export type OfficeLocationRow = {
+  id: string;
+  officeName: string;
+  location: string;
+  timezone: string;
+  employees: number;
+  createdDate: string;
+};
+
+export type OfficeLocationPayload = {
+  officeName: string;
+  location: string;
+  timezone: string;
+  employees: number;
+};

@@ -61,6 +61,21 @@ model Department {
   @@map("departments")
 }
 
+model OfficeLocation {
+  id           String   @id @default(cuid())
+  officeName   String   @map("office_name")
+  location     String
+  timezone     String
+  employees    Int      @default(0)
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([officeName, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("office_locations")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
