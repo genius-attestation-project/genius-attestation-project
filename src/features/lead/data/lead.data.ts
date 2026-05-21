@@ -22,31 +22,16 @@ export type LeadFormValues = {
 
 export const leadStatuses = [
   "New",
+  "Qualified",
+  "Potential Qualified",
   "Followup",
   "Assigned",
   "Pending Approval",
   "Closed",
+  "LOB",
 ];
 
-export const countryCodes = ["+91", "+971", "+968", "+974", "+965", "+973", "+966"];
-export const countries = [
-  "India",
-  "United Arab Emirates",
-  "Oman",
-  "Qatar",
-  "Kuwait",
-  "Bahrain",
-  "Saudi Arabia",
-];
-export const states = [
-  "Kerala",
-  "Tamil Nadu",
-  "Karnataka",
-  "Maharashtra",
-  "Dubai",
-  "Doha",
-  "Muscat",
-];
+export const countryCodes = ["+91", "+971", "+968", "+974", "+965", "+973", "+966", "+1", "+44", "+61"];
 export const services = [
   "Degree Attestation",
   "Birth Certificate",
