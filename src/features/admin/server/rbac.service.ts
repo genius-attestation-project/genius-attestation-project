@@ -1,4 +1,4 @@
-
+import { randomUUID } from "node:crypto";
 
 import {
   buildPermissionCatalog,
@@ -15,6 +15,10 @@ import type {
   SessionAccess,
   UserAccessRow,
   UserPayload,
+  DepartmentPayload,
+  DepartmentRow,
+  OfficeLocationPayload,
+  OfficeLocationRow,
 } from "@/features/admin/types/rbac.types";
 import { prisma } from "@/lib/prisma";
 
@@ -72,6 +76,74 @@ function formatDate(date: Date) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function mapDepartment(department: {
+  id: string;
+  name: string;
+  createdAt: Date;
+}): DepartmentRow {
+  return {
+    id: department.id,
+    name: department.name,
+    createdDate: formatDate(department.createdAt),
+  };
+}
+
+function mapOfficeLocation(officeLocation: {
+  id: string;
+  officeName: string;
+  location: string;
+  timezone: string;
+  employees: number;
+  createdAt: Date;
+}): OfficeLocationRow {
+  return {
+    id: officeLocation.id,
+    officeName: officeLocation.officeName,
+    location: officeLocation.location,
+    timezone: officeLocation.timezone,
+    employees: officeLocation.employees,
+    createdDate: formatDate(officeLocation.createdAt),
+  };
+}
+
+async function assertUniqueDepartmentName(
+  ownerAdminId: string,
+  name: string,
+  departmentId?: string,
+) {
+  const duplicates = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM departments
+    WHERE owner_admin_id = ${ownerAdminId}
+      AND LOWER(name) = LOWER(${name})
+      AND (${departmentId ?? ""} = '' OR id <> ${departmentId ?? ""})
+    LIMIT 1
+  `;
+
+  if (duplicates.length > 0) {
+    throw new Error("A department with this name already exists.");
+  }
+}
+
+async function assertUniqueOfficeName(
+  ownerAdminId: string,
+  officeName: string,
+  officeLocationId?: string,
+) {
+  const duplicates = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM office_locations
+    WHERE owner_admin_id = ${ownerAdminId}
+      AND LOWER(office_name) = LOWER(${officeName})
+      AND (${officeLocationId ?? ""} = '' OR id <> ${officeLocationId ?? ""})
+    LIMIT 1
+  `;
+
+  if (duplicates.length > 0) {
+    throw new Error("An office location with this name already exists.");
+  }
 }
 
 export async function ensureRbacBootstrap() {
@@ -455,6 +527,224 @@ export async function deleteUser(ownerAdminId: string, userId: string) {
   await prisma.user.delete({
     where: { id: userId },
   });
+
+  return true;
+}
+
+export async function listDepartments(ownerAdminId: string) {
+  const departments = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    SELECT id, name, created_at AS "createdAt"
+    FROM departments
+    WHERE owner_admin_id = ${ownerAdminId}
+    ORDER BY created_at DESC
+  `;
+
+  return departments.map(mapDepartment);
+}
+
+export async function createDepartment(ownerAdminId: string, payload: DepartmentPayload) {
+  await assertUniqueDepartmentName(ownerAdminId, payload.name);
+
+  const [department] = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    INSERT INTO departments (id, name, owner_admin_id, created_at, updated_at)
+    VALUES (${randomUUID()}, ${payload.name}, ${ownerAdminId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    RETURNING id, name, created_at AS "createdAt"
+  `;
+
+  return mapDepartment(department);
+}
+
+export async function updateDepartment(
+  ownerAdminId: string,
+  departmentId: string,
+  payload: DepartmentPayload,
+) {
+  await assertUniqueDepartmentName(ownerAdminId, payload.name, departmentId);
+
+  const [department] = await prisma.$queryRaw<Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+  }>>`
+    UPDATE departments
+    SET name = ${payload.name}, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
+    RETURNING id, name, created_at AS "createdAt"
+  `;
+
+  if (!department) return null;
+
+  return mapDepartment(department);
+}
+
+export async function deleteDepartment(ownerAdminId: string, departmentId: string) {
+  const deletedCount = await prisma.$executeRaw`
+    DELETE FROM departments
+    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
+  `;
+
+  return deletedCount > 0;
+}
+
+export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeLocationRow[]> {
+  const officeLocations = await prisma.$queryRaw<Array<{
+    id: string;
+    officeName: string;
+    location: string;
+    timezone: string;
+    employees: number;
+    createdAt: Date;
+  }>>`
+    SELECT
+      id,
+      office_name AS "officeName",
+      location,
+      timezone,
+      employees,
+      created_at AS "createdAt"
+    FROM office_locations
+    WHERE owner_admin_id = ${ownerAdminId}
+    ORDER BY created_at DESC
+  `;
+
+  return officeLocations.map(mapOfficeLocation);
+}
+
+export async function createOfficeLocation(
+  ownerAdminId: string,
+  payload: OfficeLocationPayload,
+) {
+  await assertUniqueOfficeName(ownerAdminId, payload.officeName);
+
+  const [officeLocation] = await prisma.$queryRaw<Array<{
+    id: string;
+    officeName: string;
+    location: string;
+    timezone: string;
+    employees: number;
+    createdAt: Date;
+  }>>`
+    INSERT INTO office_locations (
+      id,
+      office_name,
+      location,
+      timezone,
+      employees,
+      owner_admin_id,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomUUID()},
+      ${payload.officeName},
+      ${payload.location},
+      ${payload.timezone},
+      ${payload.employees},
+      ${ownerAdminId},
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    )
+    RETURNING
+      id,
+      office_name AS "officeName",
+      location,
+      timezone,
+      employees,
+      created_at AS "createdAt"
+  `;
+
+  return mapOfficeLocation(officeLocation);
+}
+
+export async function updateOfficeLocation(
+  ownerAdminId: string,
+  officeLocationId: string,
+  payload: OfficeLocationPayload,
+) {
+  const [existingOfficeLocation] = await prisma.$queryRaw<Array<{
+    id: string;
+    officeName: string;
+  }>>`
+    SELECT id, office_name AS "officeName"
+    FROM office_locations
+    WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
+    LIMIT 1
+  `;
+
+  if (!existingOfficeLocation) return null;
+
+  await assertUniqueOfficeName(ownerAdminId, payload.officeName, officeLocationId);
+
+  const [officeLocation] = await prisma.$queryRaw<Array<{
+    id: string;
+    officeName: string;
+    location: string;
+    timezone: string;
+    employees: number;
+    createdAt: Date;
+  }>>`
+    UPDATE office_locations
+    SET
+      office_name = ${payload.officeName},
+      location = ${payload.location},
+      timezone = ${payload.timezone},
+      employees = ${payload.employees},
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
+    RETURNING
+      id,
+      office_name AS "officeName",
+      location,
+      timezone,
+      employees,
+      created_at AS "createdAt"
+  `;
+
+  if (existingOfficeLocation.officeName !== payload.officeName) {
+    await prisma.$executeRaw`
+      UPDATE users
+      SET "officeLocation" = ${payload.officeName}, updated_at = CURRENT_TIMESTAMP
+      WHERE owner_admin_id = ${ownerAdminId}
+        AND "officeLocation" = ${existingOfficeLocation.officeName}
+    `;
+  }
+
+  return mapOfficeLocation(officeLocation);
+}
+
+export async function deleteOfficeLocation(ownerAdminId: string, officeLocationId: string) {
+  const [officeLocation] = await prisma.$queryRaw<Array<{
+    id: string;
+    officeName: string;
+  }>>`
+    SELECT id, office_name AS "officeName"
+    FROM office_locations
+    WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
+    LIMIT 1
+  `;
+
+  if (!officeLocation) return false;
+
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE users
+      SET "officeLocation" = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE owner_admin_id = ${ownerAdminId}
+        AND "officeLocation" = ${officeLocation.officeName}
+    `,
+    prisma.$executeRaw`
+      DELETE FROM office_locations
+      WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
+    `,
+  ]);
 
   return true;
 }

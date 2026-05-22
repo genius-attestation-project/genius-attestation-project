@@ -65,3 +65,29 @@ export type RoleOption = {
   id: string;
   name: string;
 };
+
+export type DepartmentRow = {
+  id: string;
+  name: string;
+  createdDate: string;
+};
+
+export type DepartmentPayload = {
+  name: string;
+};
+
+export type OfficeLocationRow = {
+  id: string;
+  officeName: string;
+  location: string;
+  timezone: string;
+  employees: number;
+  createdDate: string;
+};
+
+export type OfficeLocationPayload = {
+  officeName: string;
+  location: string;
+  timezone: string;
+  employees: number;
+};

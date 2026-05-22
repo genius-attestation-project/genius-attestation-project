@@ -22,3 +22,18 @@ export const userSchema = z.object({
 export const userRoleSchema = z.object({
   roleId: z.string().trim().min(1, "Role is required."),
 });
+
+export const departmentSchema = z.object({
+  name: z.string().trim().min(1, "Department name is required."),
+});
+
+export const officeLocationSchema = z.object({
+  officeName: z.string().trim().min(1, "Office name is required."),
+  location: z.string().trim().min(1, "Location is required."),
+  timezone: z.string().trim().min(1, "Timezone is required."),
+  employees: z.coerce
+    .number()
+    .int("Employees must be a whole number.")
+    .min(0, "Employees cannot be negative.")
+    .default(0),
+});
