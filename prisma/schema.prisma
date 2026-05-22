@@ -142,11 +142,30 @@ model Lead {
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
+  statusHistory         LeadStatusHistory[]
+
   @@index([leadStatus])
   @@index([createdAt])
   @@index([service])
   @@index([email])
   @@index([ownerAdminId])
+}
+
+model LeadStatusHistory {
+  id             String     @id @default(cuid())
+  leadId         String     @map("lead_id")
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  previousStatus LeadStatus @map("previous_status")
+  newStatus      LeadStatus @map("new_status")
+  changedBy      String?    @map("changed_by")
+  ownerAdminId   String?    @map("owner_admin_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([newStatus])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("lead_status_history")
 }
 
 model AccessRole {

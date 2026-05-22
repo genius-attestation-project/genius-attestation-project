@@ -310,10 +310,21 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function buildLeadData(input: LeadInput, leadCode?: string): Prisma.LeadUncheckedCreateInput {
+function buildLeadData(
+  input: LeadInput,
+  leadCode?: string,
+  existing?: {
+    closedAt: Date | null;
+    leadStatus: LeadStatus;
+  },
+): Prisma.LeadUncheckedCreateInput {
   const amount =
     typeof input.amount === "number" ? new Prisma.Decimal(input.amount) : new Prisma.Decimal(0);
   const leadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
+  const closedAt =
+    leadStatus === LeadStatus.Closed
+      ? existing?.closedAt ?? new Date()
+      : null;
 
   return {
     leadCode: leadCode ?? "",
@@ -340,7 +351,7 @@ function buildLeadData(input: LeadInput, leadCode?: string): Prisma.LeadUnchecke
     remark: input.remark || null,
     assignedUser: input.assignedUser || null,
     nextFollowupAt: input.nextFollowupAt ?? null,
-    closedAt: leadStatus === LeadStatus.Closed ? new Date() : null,
+    closedAt,
   };
 }
 
@@ -430,24 +441,45 @@ export async function createLead(ownerAdminId: string, input: LeadInput) {
   return mapLeadRow(lead);
 }
 
-export async function updateLead(ownerAdminId: string, id: string, input: LeadInput) {
+export async function updateLead(ownerAdminId: string, id: string, input: LeadInput, changedBy?: string) {
   const existingLead = await prisma.lead.findFirst({
     where: {
       ownerAdminId,
       OR: [{ id }, { leadCode: id }],
     },
-    select: { id: true, leadCode: true },
+    select: { id: true, leadCode: true, leadStatus: true, closedAt: true },
   });
 
   if (!existingLead) {
     return null;
   }
 
-  const lead = await prisma.lead.update({
-    where: { id: existingLead.id },
-    data: buildLeadData(input, existingLead.leadCode),
-    select: leadSelect,
-  });
+  const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
+  const statusChanged = existingLead.leadStatus !== newLeadStatus;
+
+  const [lead] = await prisma.$transaction([
+    prisma.lead.update({
+      where: { id: existingLead.id },
+      data: buildLeadData(input, existingLead.leadCode, {
+        closedAt: existingLead.closedAt,
+        leadStatus: existingLead.leadStatus,
+      }),
+      select: leadSelect,
+    }),
+    ...(statusChanged
+      ? [
+          prisma.leadStatusHistory.create({
+            data: {
+              leadId: existingLead.id,
+              previousStatus: existingLead.leadStatus,
+              newStatus: newLeadStatus,
+              changedBy: changedBy ?? null,
+              ownerAdminId: ownerAdminId,
+            },
+          }),
+        ]
+      : []),
+  ]);
 
   return mapLeadRow(lead);
 }

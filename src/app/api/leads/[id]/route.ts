@@ -43,7 +43,8 @@ export async function PUT(request: Request, context: RouteContext) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid lead payload.");
     }
 
-    const lead = await updateLead(ownerAdminId, id, parsed.data);
+    const changedBy = session.user?.name ?? session.user?.email ?? undefined;
+    const lead = await updateLead(ownerAdminId, id, parsed.data, changedBy);
 
     if (!lead) {
       return jsonError("Lead not found.", 404);

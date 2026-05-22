@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { AllLeadsManagement } from "@/features/lead/components/AllLeadsManagement";
+import { ClosedAnalyticsDashboard } from "@/features/closed/components/ClosedAnalyticsDashboard";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function ClosedLeadsPage() {
@@ -9,13 +9,5 @@ export default async function ClosedLeadsPage() {
     return <AccessDenied description="Your role cannot access closed leads." />;
   }
 
-  return (
-    <AllLeadsManagement
-      title="Closed Leads"
-      description="Closed lead records synced from the live CRM database."
-      endpoint="/api/leads/closed"
-      showAddLead={false}
-      allowStatusFilter={false}
-    />
-  );
+  return <ClosedAnalyticsDashboard />;
 }

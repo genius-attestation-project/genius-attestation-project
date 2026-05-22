@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { LeadLobManagement } from "@/features/lead/components/LeadLobManagement";
+import { LobAnalyticsDashboard } from "@/features/lob/components/LobAnalyticsDashboard";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function LeadLobPage() {
@@ -9,5 +9,5 @@ export default async function LeadLobPage() {
     return <AccessDenied description="Your role cannot access line-of-business reporting." />;
   }
 
-  return <LeadLobManagement />;
+  return <LobAnalyticsDashboard />;
 }

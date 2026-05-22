@@ -15,4 +15,3 @@ export async function GET() {
     return jsonError("Unable to fetch line-of-business data.", 500);
   }
 }
-
