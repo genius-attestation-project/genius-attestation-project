@@ -310,16 +310,28 @@ export function LobAnalyticsDashboard() {
         interval: trendInterval,
       };
 
-      const [cardsRes, chartsRes, trendsRes, historyRes, leadsRes] = await Promise.all([
-        fetch(`/api/lob/analytics${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/lob/charts${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/lob/trends${buildParams(trendParams)}`, { cache: "no-store" }),
-        fetch(`/api/lob/status-history${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/lob/leads${buildParams(leadsParams)}`, { cache: "no-store" }),
-      ]);
+      const requests = [
+        { label: "analytics", url: `/api/lob/analytics${buildParams(sharedFilters)}` },
+        { label: "charts", url: `/api/lob/charts${buildParams(sharedFilters)}` },
+        { label: "trends", url: `/api/lob/trends${buildParams(trendParams)}` },
+        { label: "status history", url: `/api/lob/status-history${buildParams(sharedFilters)}` },
+        { label: "LOB leads", url: `/api/lob/leads${buildParams(leadsParams)}` },
+      ] as const;
 
-      if (![cardsRes, chartsRes, trendsRes, historyRes, leadsRes].every((response) => response.ok)) {
-        throw new Error("Failed to fetch one or more LOB endpoints.");
+      const [cardsRes, chartsRes, trendsRes, historyRes, leadsRes] = await Promise.all(
+        requests.map((request) => fetch(request.url, { cache: "no-store" })),
+      );
+
+      const responses = [cardsRes, chartsRes, trendsRes, historyRes, leadsRes];
+      const failedIndex = responses.findIndex((response) => !response.ok);
+
+      if (failedIndex >= 0) {
+        const failedResponse = responses[failedIndex];
+        const responseBody = await failedResponse.json().catch(() => null) as { message?: string } | null;
+        const responseMessage = responseBody?.message ? ` ${responseBody.message}` : "";
+        throw new Error(
+          `Failed to fetch LOB ${requests[failedIndex].label} endpoint (${failedResponse.status}).${responseMessage}`,
+        );
       }
 
       const [cardsData, chartsData, trendsData, historyData, leadsData] = await Promise.all([

@@ -30,13 +30,17 @@ function parseFilters(url: string): ClosedFilters {
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("Authentication required.", 401);
 
     const data = await getClosedTimeline(ownerAdminId, parseFilters(request.url));
     return jsonOk({ items: data });
   } catch (error) {
     console.error("Failed to fetch closed status history", error);
-    return jsonError("Unable to fetch closed status history.", 500);
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Unable to fetch closed status history.";
+    return jsonError(message, 500);
   }
 }

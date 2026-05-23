@@ -100,6 +100,16 @@ type LobLeadSnapshot = Prisma.LeadGetPayload<{
   };
 }>;
 
+type LobLeadBase = Omit<LobLeadSnapshot, "statusHistory">;
+type StatusHistoryRow = {
+  id: string;
+  lead_id: string;
+  previous_status: LeadStatus;
+  new_status: LeadStatus;
+  changed_by: string | null;
+  created_at: Date;
+};
+
 function formatLeadStatusLabel(status: LeadStatus | string): string {
   if (status === LeadStatus.Pending_Approval || status === "Pending_Approval") {
     return "Pending Approval";
@@ -232,9 +242,22 @@ function buildHistoryRelationFilter(filters: LobFilters): Prisma.LeadStatusHisto
 
 function matchesLatestHistory(snapshot: LobLeadSnapshot, filters: LobFilters): boolean {
   const latestHistory = snapshot.statusHistory[0];
+  const lobDate = latestHistory?.createdAt ?? snapshot.updatedAt;
 
   if (!latestHistory) {
-    return !filters.previousStatus && !filters.dateFrom && !filters.dateTo;
+    if (filters.previousStatus) {
+      return false;
+    }
+
+    if (filters.dateFrom && lobDate < filters.dateFrom) {
+      return false;
+    }
+
+    if (filters.dateTo && lobDate >= filters.dateTo) {
+      return false;
+    }
+
+    return true;
   }
 
   const previousStatus = parsePreviousStatus(filters.previousStatus);
@@ -242,11 +265,11 @@ function matchesLatestHistory(snapshot: LobLeadSnapshot, filters: LobFilters): b
     return false;
   }
 
-  if (filters.dateFrom && latestHistory.createdAt < filters.dateFrom) {
+  if (filters.dateFrom && lobDate < filters.dateFrom) {
     return false;
   }
 
-  if (filters.dateTo && latestHistory.createdAt >= filters.dateTo) {
+  if (filters.dateTo && lobDate >= filters.dateTo) {
     return false;
   }
 
@@ -259,7 +282,6 @@ async function listCurrentLobSnapshots(
 ): Promise<LobLeadSnapshot[]> {
   const where: Prisma.LeadWhereInput = {
     ...buildBaseLeadWhere(ownerAdminId, filters),
-    ...(buildHistoryRelationFilter(filters) ? { statusHistory: buildHistoryRelationFilter(filters) } : {}),
   };
 
   const records = await prisma.lead.findMany({
@@ -280,22 +302,33 @@ async function listCurrentLobSnapshots(
       assignedUser: true,
       nextFollowupAt: true,
       updatedAt: true,
-      statusHistory: {
-        where: { newStatus: LeadStatus.LOB },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          previousStatus: true,
-          newStatus: true,
-          changedBy: true,
-          createdAt: true,
-        },
-      },
     },
   });
 
-  return records.filter((record) => matchesLatestHistory(record, filters));
+  const historiesByLeadId = new Map<string, LobLeadSnapshot["statusHistory"]>();
+
+  if (records.length > 0) {
+    const histories = await findStatusHistoryRows(records.map((record) => record.id), LeadStatus.LOB);
+
+    for (const history of histories) {
+      if (!historiesByLeadId.has(history.lead_id)) {
+        historiesByLeadId.set(history.lead_id, [{
+          id: history.id,
+          previousStatus: history.previous_status,
+          newStatus: history.new_status,
+          changedBy: history.changed_by,
+          createdAt: history.created_at,
+        }]);
+      }
+    }
+  }
+
+  return (records as LobLeadBase[])
+    .map((record) => ({
+      ...record,
+      statusHistory: historiesByLeadId.get(record.id) ?? [],
+    }))
+    .filter((record) => matchesLatestHistory(record, filters));
 }
 
 function buildLobLeadRow(snapshot: LobLeadSnapshot): LobLeadRow {
@@ -372,6 +405,56 @@ function getTrendKey(value: Date, interval: LobTrendInterval) {
   return formatDateKey(value);
 }
 
+async function findStatusHistoryRows(
+  leadIds: string[],
+  newStatus: LeadStatus,
+): Promise<StatusHistoryRow[]> {
+  if (leadIds.length === 0) {
+    return [];
+  }
+
+  return prisma.$queryRaw<StatusHistoryRow[]>(Prisma.sql`
+    SELECT id, lead_id, previous_status, new_status, changed_by, created_at
+    FROM lead_status_history
+    WHERE lead_id IN (${Prisma.join(leadIds)})
+      AND new_status = ${newStatus}::"LeadStatus"
+    ORDER BY created_at DESC
+  `);
+}
+
+async function findTimelineRows(
+  ownerAdminId: string,
+  newStatus: LeadStatus,
+  filters: LobFilters,
+  limit: number,
+): Promise<StatusHistoryRow[]> {
+  const previousStatus = parsePreviousStatus(filters.previousStatus);
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`owner_admin_id = ${ownerAdminId}`,
+    Prisma.sql`new_status = ${newStatus}::"LeadStatus"`,
+  ];
+
+  if (previousStatus) {
+    conditions.push(Prisma.sql`previous_status = ${previousStatus}::"LeadStatus"`);
+  }
+
+  if (filters.dateFrom) {
+    conditions.push(Prisma.sql`created_at >= ${filters.dateFrom}`);
+  }
+
+  if (filters.dateTo) {
+    conditions.push(Prisma.sql`created_at < ${filters.dateTo}`);
+  }
+
+  return prisma.$queryRaw<StatusHistoryRow[]>(Prisma.sql`
+    SELECT id, lead_id, previous_status, new_status, changed_by, created_at
+    FROM lead_status_history
+    WHERE ${Prisma.join(conditions, " AND ")}
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `);
+}
+
 export async function getLobAnalyticsCards(
   ownerAdminId: string,
   filters: LobFilters = {},
@@ -418,12 +501,12 @@ export async function getLobAnalyticsCards(
 
   const totalLobLeads = filteredSnapshots.length;
   const todayLobLeads = filteredSnapshots.filter((snapshot) => {
-    const latestHistory = snapshot.statusHistory[0];
-    return latestHistory && latestHistory.createdAt >= todayStart && latestHistory.createdAt < todayEnd;
+    const lobDate = snapshot.statusHistory[0]?.createdAt ?? snapshot.updatedAt;
+    return lobDate >= todayStart && lobDate < todayEnd;
   }).length;
   const thisMonthLobLeads = filteredSnapshots.filter((snapshot) => {
-    const latestHistory = snapshot.statusHistory[0];
-    return latestHistory && latestHistory.createdAt >= monthStart && latestHistory.createdAt < monthEnd;
+    const lobDate = snapshot.statusHistory[0]?.createdAt ?? snapshot.updatedAt;
+    return lobDate >= monthStart && lobDate < monthEnd;
   }).length;
   const mostLostService =
     Object.entries(serviceCounts).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "None";
@@ -528,12 +611,8 @@ export async function getLobTrends(
   const grouped = new Map(buckets.map((bucket) => [bucket.key, 0]));
 
   for (const snapshot of snapshots) {
-    const latestHistory = snapshot.statusHistory[0];
-    if (!latestHistory) {
-      continue;
-    }
-
-    const key = getTrendKey(latestHistory.createdAt, interval);
+    const lobDate = snapshot.statusHistory[0]?.createdAt ?? snapshot.updatedAt;
+    const key = getTrendKey(lobDate, interval);
     if (grouped.has(key)) {
       grouped.set(key, (grouped.get(key) ?? 0) + 1);
     }
@@ -551,48 +630,35 @@ export async function getLobStatusHistory(
   filters: LobFilters = {},
   limit = 50,
 ): Promise<LobStatusHistoryEntry[]> {
-  const previousStatus = parsePreviousStatus(filters.previousStatus);
   const query = filters.query?.trim();
 
-  const records = await prisma.leadStatusHistory.findMany({
-    where: {
-      ownerAdminId,
-      newStatus: LeadStatus.LOB,
-      ...(previousStatus ? { previousStatus } : {}),
-      ...(filters.dateFrom || filters.dateTo
-        ? {
-            createdAt: {
-              ...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
-              ...(filters.dateTo ? { lt: filters.dateTo } : {}),
-            },
-          }
-        : {}),
-      lead: {
-        ...(filters.service ? { service: filters.service } : {}),
-        ...(filters.assignedUser
-          ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
-          : {}),
-        ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
-        ...(query
-          ? {
-              OR: [
-                { leadCode: { contains: query, mode: "insensitive" } },
-                { firstName: { contains: query, mode: "insensitive" } },
-                { lastName: { contains: query, mode: "insensitive" } },
-                { mobileNumber: { contains: query, mode: "insensitive" } },
-                { email: { contains: query, mode: "insensitive" } },
-                { service: { contains: query, mode: "insensitive" } },
-                { assignedUser: { contains: query, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    include: {
-      lead: {
+  const records = await findTimelineRows(ownerAdminId, LeadStatus.LOB, filters, limit);
+  const leadIds = records.map((record) => record.lead_id);
+  const leads = leadIds.length > 0
+    ? await prisma.lead.findMany({
+        where: {
+          id: { in: leadIds },
+          ...(filters.service ? { service: filters.service } : {}),
+          ...(filters.assignedUser
+            ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
+            : {}),
+          ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+          ...(query
+            ? {
+                OR: [
+                  { leadCode: { contains: query, mode: "insensitive" } },
+                  { firstName: { contains: query, mode: "insensitive" } },
+                  { lastName: { contains: query, mode: "insensitive" } },
+                  { mobileNumber: { contains: query, mode: "insensitive" } },
+                  { email: { contains: query, mode: "insensitive" } },
+                  { service: { contains: query, mode: "insensitive" } },
+                  { assignedUser: { contains: query, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        },
         select: {
+          id: true,
           leadCode: true,
           firstName: true,
           lastName: true,
@@ -601,22 +667,25 @@ export async function getLobStatusHistory(
           country: true,
           source: true,
         },
-      },
-    },
-  });
+      })
+    : [];
+  const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
 
-  return records.map((record) => ({
+  return records.filter((record) => leadsById.has(record.lead_id)).map((record) => ({
     id: record.id,
-    leadId: record.leadId,
-    leadCode: record.lead.leadCode,
-    clientName: [record.lead.firstName, record.lead.lastName].filter(Boolean).join(" "),
-    previousStatus: formatLeadStatusLabel(record.previousStatus),
-    newStatus: formatLeadStatusLabel(record.newStatus),
-    changedBy: record.changedBy,
-    createdAt: record.createdAt.toISOString(),
-    service: record.lead.service,
-    assignedUser: record.lead.assignedUser ?? "",
-    country: record.lead.country,
-    source: record.lead.source ?? "",
+    leadId: record.lead_id,
+    leadCode: leadsById.get(record.lead_id)?.leadCode ?? "Unknown",
+    clientName: [
+      leadsById.get(record.lead_id)?.firstName,
+      leadsById.get(record.lead_id)?.lastName,
+    ].filter(Boolean).join(" "),
+    previousStatus: formatLeadStatusLabel(record.previous_status),
+    newStatus: formatLeadStatusLabel(record.new_status),
+    changedBy: record.changed_by,
+    createdAt: record.created_at.toISOString(),
+    service: leadsById.get(record.lead_id)?.service ?? "",
+    assignedUser: leadsById.get(record.lead_id)?.assignedUser ?? "",
+    country: leadsById.get(record.lead_id)?.country ?? "",
+    source: leadsById.get(record.lead_id)?.source ?? "",
   }));
 }
