@@ -412,7 +412,7 @@ export function ClosedAnalyticsDashboard() {
         </div>
       ) : null}
 
-      <DashboardCard className="overflow-hidden rounded-3xl border-emerald-100 bg-gradient-to-br from-white via-emerald-50/70 to-sky-50/70 dark:border-emerald-500/20 dark:from-slate-950 dark:via-emerald-950/20 dark:to-slate-950">
+      <DashboardCard className="overflow-hidden rounded-3xl border-emerald-100 bg-linear-to-br from-white via-emerald-50/70 to-sky-50/70 dark:border-emerald-500/20 dark:from-slate-950 dark:via-emerald-950/20 dark:to-slate-950">
         <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="sm:col-span-2 xl:col-span-1">
@@ -492,12 +492,12 @@ export function ClosedAnalyticsDashboard() {
           Array.from({ length: 6 }).map((_, index) => <LoadingSkeleton key={index} className="h-32 rounded-3xl" />)
         ) : cards ? (
           <>
-            <MetricCard label="Total Closed Leads" value={cards.totalClosedLeads} sub="Current leads in Closed status" icon={TrendingUp} accent="border-emerald-200 bg-gradient-to-br from-emerald-500/95 via-teal-400 to-cyan-400 text-white" />
-            <MetricCard label="Today's Closed" value={cards.todayClosedLeads} sub="Leads closed today" icon={Calendar} accent="border-sky-200 bg-gradient-to-br from-sky-500/95 via-blue-400 to-cyan-300 text-white" />
-            <MetricCard label="This Month" value={cards.thisMonthClosedLeads} sub="Leads closed this month" icon={Clock} accent="border-teal-200 bg-gradient-to-br from-teal-500/95 via-emerald-400 to-lime-300 text-white" />
-            <MetricCard label="Closed Revenue" value={currencyFormatter.format(cards.totalClosedRevenue)} sub="Revenue from currently closed leads" icon={TrendingUp} accent="border-blue-200 bg-gradient-to-br from-blue-600/95 via-sky-500 to-cyan-400 text-white" />
-            <MetricCard label="Top Service" value={cards.topClosingService} sub="Best-performing closing service" icon={AlertCircle} accent="border-cyan-200 bg-gradient-to-br from-cyan-500/95 via-teal-400 to-emerald-300 text-white" />
-            <MetricCard label="Top Country" value={cards.highestClosingCountry} sub="Country with the most closed leads" icon={Globe} accent="border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white" />
+            <MetricCard label="Total Closed Leads" value={cards.totalClosedLeads} sub="Current leads in Closed status" icon={TrendingUp} accent="border-emerald-200 bg-linear-to-br from-emerald-500/95 via-teal-400 to-cyan-400 text-white" />
+            <MetricCard label="Today's Closed" value={cards.todayClosedLeads} sub="Leads closed today" icon={Calendar} accent="border-sky-200 bg-linear-to-br from-sky-500/95 via-blue-400 to-cyan-300 text-white" />
+            <MetricCard label="This Month" value={cards.thisMonthClosedLeads} sub="Leads closed this month" icon={Clock} accent="border-teal-200 bg-linear-to-br from-teal-500/95 via-emerald-400 to-lime-300 text-white" />
+            <MetricCard label="Closed Revenue" value={currencyFormatter.format(cards.totalClosedRevenue)} sub="Revenue from currently closed leads" icon={TrendingUp} accent="border-blue-200 bg-linear-to-br from-blue-600/95 via-sky-500 to-cyan-400 text-white" />
+            <MetricCard label="Top Service" value={cards.topClosingService} sub="Best-performing closing service" icon={AlertCircle} accent="border-cyan-200 bg-linear-to-br from-cyan-500/95 via-teal-400 to-emerald-300 text-white" />
+            <MetricCard label="Top Country" value={cards.highestClosingCountry} sub="Country with the most closed leads" icon={Globe} accent="border-slate-200 bg-linear-to-br from-slate-900 via-slate-800 to-slate-700 text-white" />
           </>
         ) : null}
       </div>
@@ -614,7 +614,7 @@ export function ClosedAnalyticsDashboard() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px] text-sm">
+                <table className="w-full min-w-295 text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-white/10">
                       {["Lead Name", "Mobile", "Email", "Service", "Country", "Amount", "Assigned User", "Closed Date", "Previous Status", "Created Date"].map((heading) => (

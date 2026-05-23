@@ -68,7 +68,7 @@ export function SearchReportClient() {
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-white/75 p-6 shadow-[var(--shadow-card)] dark:bg-white/5">
+      <section className="rounded-[28px] border border-(--border) bg-white/75 p-6 shadow-(--shadow-card) dark:bg-white/5">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Search / Report</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Tracking number search</h1>

@@ -213,11 +213,14 @@ model RegistrationFile {
   registrationId String       @map("registration_id")
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   fileName       String       @map("file_name")
-  fileUrl        String       @map("file_url")
-  fileType       String       @map("file_type")
+  mimeType       String       @map("mime_type")
+  fileSize       Int          @map("file_size")
+  fileData       Bytes        @map("file_data")
+  fileCategory   String       @map("file_category")
   uploadedAt     DateTime     @default(now()) @map("uploaded_at")
 
   @@index([registrationId])
+  @@index([fileCategory])
   @@map("registration_files")
 }
 

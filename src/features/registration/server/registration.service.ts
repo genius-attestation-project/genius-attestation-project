@@ -4,7 +4,18 @@ import { prisma } from "@/lib/prisma";
 import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
 
 const registrationInclude = {
-  files: { orderBy: { uploadedAt: "desc" as const } },
+  files: {
+    orderBy: { uploadedAt: "desc" as const },
+    select: {
+      id: true,
+      registrationId: true,
+      fileName: true,
+      mimeType: true,
+      fileSize: true,
+      fileCategory: true,
+      uploadedAt: true,
+    },
+  },
   auditTrail: { orderBy: { createdAt: "desc" as const } },
 };
 
@@ -221,7 +232,13 @@ export async function deleteRegistration(ownerAdminId: string, id: string, perfo
 export async function addRegistrationFile(
   ownerAdminId: string,
   id: string,
-  file: { fileName: string; fileUrl: string; fileType: string },
+  file: {
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+    fileData: Uint8Array<ArrayBuffer>;
+    fileCategory: string;
+  },
   performedBy?: string,
 ) {
   const existing = await prisma.registration.findFirst({
@@ -235,8 +252,10 @@ export async function addRegistrationFile(
     data: {
       registrationId: existing.id,
       fileName: file.fileName,
-      fileUrl: file.fileUrl,
-      fileType: file.fileType,
+      mimeType: file.mimeType,
+      fileSize: file.fileSize,
+      fileData: file.fileData,
+      fileCategory: file.fileCategory,
     },
   });
 
@@ -255,6 +274,23 @@ export async function addRegistrationFile(
   });
 
   return mapRegistration(registration);
+}
+
+export async function getRegistrationFile(ownerAdminId: string, fileId: string) {
+  return prisma.registrationFile.findFirst({
+    where: {
+      id: fileId,
+      registration: {
+        ownerAdminId,
+      },
+    },
+    select: {
+      fileName: true,
+      mimeType: true,
+      fileSize: true,
+      fileData: true,
+    },
+  });
 }
 
 export async function setRegistrationApproval(

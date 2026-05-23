@@ -120,7 +120,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
-        className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-[color:var(--text)] outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+        className="h-12 w-full rounded-2xl border border-(--border) bg-white/80 px-4 text-(--text) outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
       >
         <option value="">Select</option>
         {options.map((option) => (
@@ -135,7 +135,7 @@ function SelectField({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid gap-4 rounded-[24px] border border-[color:var(--border)] bg-white/60 p-4 dark:bg-white/5">
+    <section className="grid gap-4 rounded-3xl border border-(--border) bg-white/60 p-4 dark:bg-white/5">
       <h3 className="text-base font-extrabold">{title}</h3>
       <div className="grid gap-4 md:grid-cols-2">{children}</div>
     </section>
@@ -235,11 +235,16 @@ export function RegistrationManager({
   }
 
   async function uploadSelectedFiles(registrationId: string) {
-    const files = [documentFile, invoiceFile, supportingFile].filter(Boolean) as File[];
+    const files = [
+      { file: documentFile, category: "DOCUMENT" },
+      { file: invoiceFile, category: "INVOICE" },
+      { file: supportingFile, category: "SUPPORTING_DOCUMENT" },
+    ].filter((item): item is { file: File; category: string } => Boolean(item.file));
 
-    for (const file of files) {
+    for (const { file, category } of files) {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("fileCategory", category);
       await parseResponse(await fetch(`/api/registrations/${registrationId}/files`, {
         method: "POST",
         body: formData,
@@ -314,7 +319,7 @@ export function RegistrationManager({
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-white/75 p-6 shadow-[var(--shadow-card)] dark:bg-white/5">
+      <section className="rounded-[28px] border border-(--border) bg-white/75 p-6 shadow-(--shadow-card) dark:bg-white/5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -331,9 +336,9 @@ export function RegistrationManager({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-[28px] border border-[color:var(--border)] bg-white/75 p-5 shadow-[var(--shadow-card)] dark:bg-white/5">
+      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/75 p-5 shadow-(--shadow-card) dark:bg-white/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex h-12 min-w-[260px] flex-1 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm dark:bg-white/5">
+          <label className="flex h-12 min-w-65 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm dark:bg-white/5">
             <Search size={17} className="text-muted" />
             <input
               value={query}
@@ -341,7 +346,7 @@ export function RegistrationManager({
               onKeyDown={(event) => {
                 if (event.key === "Enter") fetchRegistrations(query);
               }}
-              className="h-full flex-1 bg-transparent text-[color:var(--text)] outline-none"
+              className="h-full flex-1 bg-transparent text-(--text) outline-none"
               placeholder="Search tracking, customer, mobile, document, status"
             />
           </label>
@@ -367,11 +372,11 @@ export function RegistrationManager({
         ) : null}
 
         {loading ? (
-          <div className="rounded-[28px] border border-[color:var(--border)] p-8 text-center text-sm text-soft">
+          <div className="rounded-[28px] border border-(--border) p-8 text-center text-sm text-soft">
             Loading registrations...
           </div>
         ) : registrations.length ? (
-          <div className="overflow-hidden rounded-[28px] border border-[color:var(--border)]">
+          <div className="overflow-hidden rounded-[28px] border border-(--border)">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
@@ -386,7 +391,7 @@ export function RegistrationManager({
                     <th className="px-5 py-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[color:var(--border)] bg-white/70 dark:bg-white/5">
+                <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
                   {registrations.map((registration) => (
                     <tr key={registration.id} className="transition hover:bg-blue-50 dark:hover:bg-blue-500/5">
                       <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
