@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { addRegistrationFile } from "@/features/registration/server/registration.service";
@@ -16,7 +13,12 @@ const allowedTypes = new Set([
   "image/webp",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
 ]);
+
+const fileCategories = new Set(["DOCUMENT", "INVOICE", "SUPPORTING_DOCUMENT"]);
 
 export async function POST(request: Request, context: RouteContext) {
   try {
@@ -27,32 +29,31 @@ export async function POST(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const formData = await request.formData();
     const file = formData.get("file");
+    const fileCategory = String(formData.get("fileCategory") ?? "DOCUMENT");
 
     if (!(file instanceof File)) {
       return jsonError("File is required.");
+    }
+
+    if (!fileCategories.has(fileCategory)) {
+      return jsonError("Invalid file category.");
     }
 
     if (file.type && !allowedTypes.has(file.type)) {
       return jsonError("Unsupported file type.");
     }
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "registrations");
-    await mkdir(uploadsDir, { recursive: true });
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const storedName = `${Date.now()}-${safeName}`;
-    const filePath = path.join(uploadsDir, storedName);
-    const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
-
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
+    const bytes = await file.arrayBuffer();
     const registration = await addRegistrationFile(
       ownerAdminId,
       id,
       {
         fileName: file.name,
-        fileUrl: `/uploads/registrations/${storedName}`,
-        fileType: file.type || "application/octet-stream",
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        fileData: new Uint8Array(bytes),
+        fileCategory,
       },
       performedBy,
     );

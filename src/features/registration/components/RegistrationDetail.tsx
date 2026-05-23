@@ -35,6 +35,12 @@ function StatusPill({ value, tone }: { value: string; tone?: "green" | "red" | "
   );
 }
 
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function RegistrationDetail({
   registration,
   onApprove,
@@ -118,12 +124,19 @@ export function RegistrationDetail({
             {registration.files.map((file) => (
               <a
                 key={file.id}
-                href={file.fileUrl}
+                href={`/api/registrations/files/${file.id}`}
                 target="_blank"
                 className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
               >
-                <span>{file.fileName}</span>
-                <span className="text-xs text-muted">{new Date(file.uploadedAt).toLocaleString()}</span>
+                <span className="grid gap-1">
+                  <span>{file.fileName}</span>
+                  <span className="text-xs text-muted">{file.fileCategory.replace(/_/g, " ")}</span>
+                </span>
+                <span className="text-right text-xs text-muted">
+                  {formatFileSize(file.fileSize)}
+                  <br />
+                  {new Date(file.uploadedAt).toLocaleString()}
+                </span>
               </a>
             ))}
           </div>

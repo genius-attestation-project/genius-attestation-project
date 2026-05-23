@@ -2,8 +2,9 @@ export type RegistrationFileItem = {
   id: string;
   registrationId: string;
   fileName: string;
-  fileUrl: string;
-  fileType: string;
+  mimeType: string;
+  fileSize: number;
+  fileCategory: string;
   uploadedAt: string;
 };
 
