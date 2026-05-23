@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -16,7 +15,6 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps) {
-  const router = useRouter();
   const [message, setMessage] = useState(getAuthErrorMessage(error ?? null));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,18 +25,32 @@ export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps)
     const result = await signIn("credentials", {
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
+      callbackUrl,
       redirect: false,
     });
 
     setIsSubmitting(false);
 
     if (result?.error) {
+      console.error("[auth] Credentials sign-in failed.", {
+        error: result.error,
+      });
       setMessage("Invalid email or password.");
       return;
     }
 
-    router.push(callbackUrl);
-    router.refresh();
+    const destination = result?.url ?? callbackUrl;
+
+    if (!destination) {
+      setMessage("Login succeeded but no redirect destination was returned.");
+      return;
+    }
+
+    console.info("[auth] Credentials sign-in succeeded, redirecting.", {
+      destination,
+    });
+
+    window.location.assign(destination);
   }
 
   return (

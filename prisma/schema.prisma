@@ -11,20 +11,72 @@ enum Role {
   ADMIN
 }
 
+enum LeadStatus {
+  New
+  Followup
+  Assigned
+  Pending_Approval
+  Closed
+  Qualified
+  Potential_Qualified
+  LOB
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          Role      @default(USER)
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  password       String?
+  provider       String?   @default("credentials")
+  roleId         String?   @map("role_id")
+  role           AccessRole? @relation(fields: [roleId], references: [id])
+  ownerAdminId   String?   @map("owner_admin_id")
+  ownerAdmin     User?     @relation("UserOwner", fields: [ownerAdminId], references: [id])
+  ownedUsers     User[]    @relation("UserOwner")
+  createdBy      String?   @map("created_by")
+  department     String?
+  officeLocation String?
+  isActive       Boolean   @default(true) @map("is_active")
+  lastLoginAt    DateTime?
 
-  accounts Account[]
-  sessions Session[]
+  accounts       Account[]
+  sessions       Session[]
+  userRoles      UserRole[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([ownerAdminId])
+  @@map("users")
+}
+
+model Department {
+  id           String   @id @default(cuid())
+  name         String
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("departments")
+}
+
+model OfficeLocation {
+  id           String   @id @default(cuid())
+  officeName   String   @map("office_name")
+  location     String
+  timezone     String
+  employees    Int      @default(0)
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([officeName, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("office_locations")
 }
 
 model Account {
@@ -61,4 +113,181 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Lead {
+  id                    String     @id @default(cuid())
+  leadCode              String     @unique
+  firstName             String
+  lastName              String?
+  countryCode           String     @default("+91")
+  mobileNumber          String
+  email                 String
+  docType               String?
+  noOfDocuments         Int?
+  country               String
+  state                 String?
+  documentIssuedCountry String?
+  service               String
+  source                String?
+  leadStatus            LeadStatus @default(New)
+  clientType            String?
+  amount                Decimal    @default(0) @db.Decimal(12, 2)
+  workingDays           Int?
+  remark                String?
+  assignedUser          String?
+  ownerAdminId          String?    @map("owner_admin_id")
+  nextFollowupAt        DateTime?
+  closedAt              DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  statusHistory         LeadStatusHistory[]
+
+  @@index([leadStatus])
+  @@index([createdAt])
+  @@index([service])
+  @@index([email])
+  @@index([ownerAdminId])
+}
+
+model LeadStatusHistory {
+  id             String     @id @default(cuid())
+  leadId         String     @map("lead_id")
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  previousStatus LeadStatus @map("previous_status")
+  newStatus      LeadStatus @map("new_status")
+  changedBy      String?    @map("changed_by")
+  ownerAdminId   String?    @map("owner_admin_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([newStatus])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("lead_status_history")
+}
+
+model Registration {
+  id                    String             @id @default(cuid())
+  trackingNumber        String             @unique @map("tracking_number")
+  customerName          String             @map("customer_name")
+  mobile                String
+  email                 String?
+  address               String?
+  country               String?
+  state                 String?
+  city                  String?
+  customerType          String?            @map("customer_type")
+  documentType          String?            @map("document_type")
+  documentIssuedCountry String?            @map("document_issued_country")
+  processType           String?            @map("process_type")
+  externalProcess       String?            @map("external_process")
+  priority              String?
+  committedDuration     String?            @map("committed_duration")
+  deliveryLocation      String?            @map("delivery_location")
+  totalCharges          Decimal            @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid           Decimal            @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount         Decimal            @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  paymentMode           String?            @map("payment_mode")
+  paymentStatus         String             @default("Pending") @map("payment_status")
+  approvalStatus        String             @default("Pending") @map("approval_status")
+  trackingStatus        String             @default("Registered") @map("tracking_status")
+  ownerAdminId          String?            @map("owner_admin_id")
+  createdBy             String?            @map("created_by")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  files                 RegistrationFile[]
+  auditTrail            AuditTrail[]
+
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@index([paymentStatus])
+  @@index([approvalStatus])
+  @@map("registrations")
+}
+
+model RegistrationFile {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fileName       String       @map("file_name")
+  mimeType       String       @map("mime_type")
+  fileSize       Int          @map("file_size")
+  fileData       Bytes        @map("file_data")
+  fileCategory   String       @map("file_category")
+  uploadedAt     DateTime     @default(now()) @map("uploaded_at")
+
+  @@index([registrationId])
+  @@index([fileCategory])
+  @@map("registration_files")
+}
+
+model AuditTrail {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  action         String
+  description    String
+  performedBy    String?      @map("performed_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([createdAt])
+  @@map("audit_trails")
+}
+
+model AccessRole {
+  id              String           @id @default(cuid())
+  name            String           
+  description     String?
+  isActive        Boolean          @default(true)
+  ownerAdminId    String?          @map("owner_admin_id")
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  users           User[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  module          String
+  description     String?
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         AccessRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
 }

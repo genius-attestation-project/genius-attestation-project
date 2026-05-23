@@ -40,7 +40,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <LoginForm callbackUrl={params?.callbackUrl} error={params?.error} />
           <p className="mt-6 text-center text-neutral-600">
             New here?{" "}
-            <Link className="font-extrabold text-emerald-700" href="/login">
+            <Link className="font-extrabold text-blue-600" href="/register">
               Create an account
             </Link>
           </p>

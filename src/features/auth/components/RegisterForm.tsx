@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -10,7 +9,6 @@ import { Loader } from "@/components/ui/Loader";
 import { GoogleButton } from "@/features/auth/components/GoogleButton";
 
 export function RegisterForm() {
-  const router = useRouter();
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,18 +41,21 @@ export function RegisterForm() {
     const result = await signIn("credentials", {
       email,
       password,
+      callbackUrl: "/dashboard",
       redirect: false,
     });
 
     setIsSubmitting(false);
 
     if (result?.error) {
-      router.push("/login");
+      console.error("[auth] Auto-login after registration failed.", {
+        error: result.error,
+      });
+      window.location.assign("/login");
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    window.location.assign(result?.url ?? "/dashboard");
   }
 
   return (
