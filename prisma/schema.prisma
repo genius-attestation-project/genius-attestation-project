@@ -168,6 +168,73 @@ model LeadStatusHistory {
   @@map("lead_status_history")
 }
 
+model Registration {
+  id                    String             @id @default(cuid())
+  trackingNumber        String             @unique @map("tracking_number")
+  customerName          String             @map("customer_name")
+  mobile                String
+  email                 String?
+  address               String?
+  country               String?
+  state                 String?
+  city                  String?
+  customerType          String?            @map("customer_type")
+  documentType          String?            @map("document_type")
+  documentIssuedCountry String?            @map("document_issued_country")
+  processType           String?            @map("process_type")
+  externalProcess       String?            @map("external_process")
+  priority              String?
+  committedDuration     String?            @map("committed_duration")
+  deliveryLocation      String?            @map("delivery_location")
+  totalCharges          Decimal            @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid           Decimal            @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount         Decimal            @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  paymentMode           String?            @map("payment_mode")
+  paymentStatus         String             @default("Pending") @map("payment_status")
+  approvalStatus        String             @default("Pending") @map("approval_status")
+  trackingStatus        String             @default("Registered") @map("tracking_status")
+  ownerAdminId          String?            @map("owner_admin_id")
+  createdBy             String?            @map("created_by")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  files                 RegistrationFile[]
+  auditTrail            AuditTrail[]
+
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@index([paymentStatus])
+  @@index([approvalStatus])
+  @@map("registrations")
+}
+
+model RegistrationFile {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fileName       String       @map("file_name")
+  fileUrl        String       @map("file_url")
+  fileType       String       @map("file_type")
+  uploadedAt     DateTime     @default(now()) @map("uploaded_at")
+
+  @@index([registrationId])
+  @@map("registration_files")
+}
+
+model AuditTrail {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  action         String
+  description    String
+  performedBy    String?      @map("performed_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([createdAt])
+  @@map("audit_trails")
+}
+
 model AccessRole {
   id              String           @id @default(cuid())
   name            String           

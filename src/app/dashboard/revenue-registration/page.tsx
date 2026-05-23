@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { RegistrationManager } from "@/features/registration/components/RegistrationManager";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function RevenueRegistrationPage() {
@@ -12,11 +12,5 @@ export default async function RevenueRegistrationPage() {
     return <AccessDenied description="Your role cannot access revenue registration." />;
   }
 
-  return (
-    <ModulePlaceholder
-      eyebrow="Revenue Registration"
-      title="Revenue registration console"
-      description="This module can now inherit the new ERP shell, premium cards, and actionable analytics patterns."
-    />
-  );
+  return <RegistrationManager />;
 }

@@ -30,7 +30,7 @@ function parseFilters(url: string): ClosedFilters {
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
@@ -41,6 +41,10 @@ export async function GET(request: Request) {
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch closed leads", error);
-    return jsonError("Unable to fetch closed leads.", 500);
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Unable to fetch closed leads.";
+    return jsonError(message, 500);
   }
 }

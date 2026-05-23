@@ -294,17 +294,32 @@ export function ClosedAnalyticsDashboard() {
       const leadsParams = { ...sharedFilters, page: String(page) };
       const intervalParams = { ...sharedFilters, interval: trendInterval };
 
-      const [cardsRes, trendsRes, revenueRes, chartsRes, historyRes, leadsRes] = await Promise.all([
-        fetch(`/api/closed/analytics${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/closed/trends${buildParams(intervalParams)}`, { cache: "no-store" }),
-        fetch(`/api/closed/revenue${buildParams({ ...sharedFilters, interval: "monthly" })}`, { cache: "no-store" }),
-        fetch(`/api/closed/charts${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/closed/status-history${buildParams(sharedFilters)}`, { cache: "no-store" }),
-        fetch(`/api/leads/closed${buildParams(leadsParams)}`, { cache: "no-store" }),
-      ]);
+      const requests = [
+        { label: "analytics", url: `/api/closed/analytics${buildParams(sharedFilters)}` },
+        { label: "trends", url: `/api/closed/trends${buildParams(intervalParams)}` },
+        { label: "revenue", url: `/api/closed/revenue${buildParams({ ...sharedFilters, interval: "monthly" })}` },
+        { label: "charts", url: `/api/closed/charts${buildParams(sharedFilters)}` },
+        { label: "status history", url: `/api/closed/status-history${buildParams(sharedFilters)}` },
+        { label: "closed leads", url: `/api/leads/closed${buildParams(leadsParams)}` },
+      ] as const;
 
-      if (![cardsRes, trendsRes, revenueRes, chartsRes, historyRes, leadsRes].every((response) => response.ok)) {
-        throw new Error("Failed to fetch one or more Closed endpoints.");
+      const [cardsRes, trendsRes, revenueRes, chartsRes, historyRes, leadsRes] = await Promise.all(
+        requests.map((request) => fetch(request.url, { cache: "no-store" })),
+      );
+
+      const failedRequest = requests.find((_, index) => {
+        return ![cardsRes, trendsRes, revenueRes, chartsRes, historyRes, leadsRes][index].ok;
+      });
+
+      if (failedRequest) {
+        const failedResponse = [cardsRes, trendsRes, revenueRes, chartsRes, historyRes, leadsRes][
+          requests.indexOf(failedRequest)
+        ];
+        const responseBody = await failedResponse.json().catch(() => null) as { message?: string } | null;
+        const responseMessage = responseBody?.message ? ` ${responseBody.message}` : "";
+        throw new Error(
+          `Failed to fetch Closed ${failedRequest.label} endpoint (${failedResponse.status}).${responseMessage}`,
+        );
       }
 
       const [cardsData, trendsData, revenueData, chartsData, historyData, leadsData] = await Promise.all([

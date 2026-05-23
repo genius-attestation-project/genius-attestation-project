@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { SearchReportClient } from "@/features/registration/components/SearchReportClient";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function SearchReportPage() {
@@ -9,11 +9,5 @@ export default async function SearchReportPage() {
     return <AccessDenied description="Your role cannot access search and reports." />;
   }
 
-  return (
-    <ModulePlaceholder
-      eyebrow="Search / Report"
-      title="Search and reporting hub"
-      description="The reporting area now has a polished entry point that can be extended without changing your existing route architecture."
-    />
-  );
+  return <SearchReportClient />;
 }
