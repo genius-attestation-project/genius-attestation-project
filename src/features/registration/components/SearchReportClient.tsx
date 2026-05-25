@@ -67,17 +67,17 @@ export function SearchReportClient() {
   }
 
   return (
-    <div className="grid gap-6">
-      <section className="rounded-[28px] border border-(--border) bg-white/75 p-6 shadow-(--shadow-card) dark:bg-white/5">
-        <div>
+    <div className="grid min-w-0 gap-4 sm:gap-6">
+      <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Search / Report</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Tracking number search</h1>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Tracking number search</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
             Search a manual tracking, bill, receipt, or external reference number.
           </p>
         </div>
         <form onSubmit={handleSearch} className="mt-6 flex flex-col gap-3 md:flex-row">
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <Input
               label="Tracking Number"
               value={trackingNumber}

@@ -34,16 +34,16 @@ export function DashboardCharts({
   const maxRevenue = Math.max(...revenueTrends.map((point) => point.value), 1);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+    <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
       <DashboardCard
         title="Analytics Overview"
         description="Live lead volume, revenue trend, and followup activity."
       >
-        <div className="grid gap-6">
-          <div className="grid gap-5 lg:grid-cols-2">
-            <div>
+        <div className="grid min-w-0 gap-4 sm:gap-6">
+          <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+            <div className="min-w-0 overflow-x-auto">
               <p className="mb-4 text-sm font-semibold tracking-tight">Monthly Leads</p>
-              <div className="flex h-72 items-end gap-3">
+              <div className="flex h-72 min-w-[420px] items-end gap-3">
                 {monthlyLeads.map((point, index) => (
                   <motion.div
                     key={point.month}
@@ -69,7 +69,7 @@ export function DashboardCharts({
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="mb-4 text-sm font-semibold tracking-tight">Revenue Trend</p>
               <div className="grid gap-3">
                 {revenueTrends.map((item, index) => (
@@ -129,7 +129,7 @@ export function DashboardCharts({
               className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5"
             >
               <div className="mb-3 flex items-center justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold tracking-tight">{item.label}</p>
                   <p className="text-sm text-soft">{item.value.toLocaleString()} records</p>
                 </div>

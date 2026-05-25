@@ -59,9 +59,9 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="grid w-full max-w-[440px] gap-6 rounded-lg border border-stone-200 bg-white p-7 shadow-[0_18px_50px_rgba(22,32,29,0.09)]">
+    <div className="grid w-full min-w-0 max-w-[440px] gap-5 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_50px_rgba(22,32,29,0.09)] sm:gap-6 sm:p-7">
       <div className="grid gap-2">
-        <h1 className="text-3xl font-black leading-tight">Create account</h1>
+        <h1 className="text-2xl font-black leading-tight sm:text-3xl">Create account</h1>
         <p className="text-neutral-600">Register with email and password.</p>
       </div>
 

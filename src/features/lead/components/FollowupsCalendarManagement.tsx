@@ -316,7 +316,7 @@ export function FollowupsCalendarManagement() {
   ];
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Lead Management"
         title="Followup Calendar"
@@ -336,9 +336,9 @@ export function FollowupsCalendarManagement() {
             <DashboardCard key={card.label} className="overflow-hidden">
               <div className={`rounded-2xl bg-linear-to-br p-4 ${card.tone}`}>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{card.label}</p>
-                    <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+                    <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                       {card.value}
                     </p>
                   </div>
@@ -354,7 +354,7 @@ export function FollowupsCalendarManagement() {
 
       <DashboardCard>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
             {filterOptions.map((option) => {
               const isActive = activeFilter === option.value;
               const count = calendarData.counts[option.value];
@@ -387,7 +387,7 @@ export function FollowupsCalendarManagement() {
         </div>
       </DashboardCard>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <DashboardCard
           title="Calendar View"
           description="Month, week, and day views powered by live followup schedules from the leads database."
@@ -418,7 +418,7 @@ export function FollowupsCalendarManagement() {
           ) : (
             <>
               <div className="hidden md:block">
-                <div className="followup-calendar rounded-[28px] border border-[color:var(--border)] bg-white/85 p-3 shadow-sm">
+                <div className="followup-calendar min-w-0 overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-white/85 p-3 shadow-sm sm:rounded-[28px]">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
@@ -452,7 +452,7 @@ export function FollowupsCalendarManagement() {
                     onClick={() => void openDateDrawer(item.dateKey)}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900">{item.clientName}</p>
                         <p className="mt-1 text-sm text-soft">{item.service}</p>
                       </div>
@@ -557,10 +557,10 @@ export function FollowupsCalendarManagement() {
             {selectedDate.items.map((item) => (
               <div
                 key={item.id}
-                className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm"
+                className="min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/90 p-4 shadow-sm sm:rounded-[26px] sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-lg font-semibold text-slate-900">{item.clientName}</p>
                     <p className="mt-1 text-sm text-soft">{item.service}</p>
                   </div>
@@ -797,11 +797,11 @@ function FollowupToneBadge({ item }: { item: FollowupItem }) {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </span>
-      <span className="max-w-[65%] text-right text-sm font-medium text-slate-900">{value}</span>
+      <span className="max-w-full break-words text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">{value}</span>
     </div>
   );
 }
