@@ -61,7 +61,7 @@ export function LeadLobManagement() {
   }, []);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Lead Management"
         title="LOB"

@@ -135,7 +135,7 @@ function SelectField({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid gap-4 rounded-3xl border border-(--border) bg-white/60 p-4 dark:bg-white/5">
+    <section className="grid min-w-0 gap-4 rounded-2xl border border-(--border) bg-white/60 p-4 sm:rounded-3xl dark:bg-white/5">
       <h3 className="text-base font-extrabold">{title}</h3>
       <div className="grid gap-4 md:grid-cols-2">{children}</div>
     </section>
@@ -318,14 +318,14 @@ export function RegistrationManager({
   }
 
   return (
-    <div className="grid gap-6">
-      <section className="rounded-[28px] border border-(--border) bg-white/75 p-6 shadow-(--shadow-card) dark:bg-white/5">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
+      <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
               Revenue Registration
             </p>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Registration console</h1>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Registration console</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
               Create, search, approve, and track registrations with manual tracking numbers.
             </p>
@@ -336,9 +336,9 @@ export function RegistrationManager({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/75 p-5 shadow-(--shadow-card) dark:bg-white/5">
+      <section className="grid min-w-0 gap-4 rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-5 dark:bg-white/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex h-12 min-w-65 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm dark:bg-white/5">
+          <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm sm:min-w-[16rem] dark:bg-white/5">
             <Search size={17} className="text-muted" />
             <input
               value={query}
@@ -346,11 +346,11 @@ export function RegistrationManager({
               onKeyDown={(event) => {
                 if (event.key === "Enter") fetchRegistrations(query);
               }}
-              className="h-full flex-1 bg-transparent text-(--text) outline-none"
+              className="h-full min-w-0 flex-1 bg-transparent text-(--text) outline-none"
               placeholder="Search tracking, customer, mobile, document, status"
             />
           </label>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Button variant="secondary" onClick={() => fetchRegistrations(query)}>
               <Search size={16} /> Search
             </Button>
@@ -372,13 +372,13 @@ export function RegistrationManager({
         ) : null}
 
         {loading ? (
-          <div className="rounded-[28px] border border-(--border) p-8 text-center text-sm text-soft">
+          <div className="rounded-2xl border border-(--border) p-6 text-center text-sm text-soft sm:rounded-[28px] sm:p-8">
             Loading registrations...
           </div>
         ) : registrations.length ? (
-          <div className="overflow-hidden rounded-[28px] border border-(--border)">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-[920px] text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
                   <tr>
                     <th className="px-5 py-4">Tracking Number</th>
@@ -549,7 +549,7 @@ export function RegistrationManager({
           </Section>
 
           {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => setDrawerMode(null)}>
               Cancel
             </Button>

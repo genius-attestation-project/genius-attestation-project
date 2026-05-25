@@ -23,7 +23,7 @@ export function SearchBar({
   return (
     <label
       className={cn(
-        "flex h-12 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5",
+        "flex h-12 min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5",
         className,
       )}
     >
@@ -34,7 +34,7 @@ export function SearchBar({
           setValue(event.target.value);
           onSearch?.(event.target.value);
         }}
-        className="h-full flex-1 bg-transparent text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+        className="h-full min-w-0 flex-1 bg-transparent text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
         placeholder={placeholder}
       />
     </label>

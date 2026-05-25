@@ -10,12 +10,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const userEmail = session.user.email ?? "workspace@geniuserp.com";
 
   return (
-    <div className="min-h-screen p-3 md:p-5">
-      <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
+    <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
+      <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
         <Sidebar userName={userName} userEmail={userEmail} />
-        <div className="grid content-start gap-4">
+        <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
           <Navbar userName={session.user.name} userEmail={session.user.email} />
-          <main className="grid content-start gap-6 pb-8">{children}</main>
+          <main className="grid min-h-0 min-w-0 content-start gap-4 overflow-y-auto pb-8 pr-1 sm:gap-6 sm:pr-2">
+            {children}
+          </main>
         </div>
       </div>
     </div>

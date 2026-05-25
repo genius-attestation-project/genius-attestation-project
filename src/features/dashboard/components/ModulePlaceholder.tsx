@@ -17,7 +17,7 @@ export function ModulePlaceholder({
   description,
 }: ModulePlaceholderProps) {
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow={eyebrow}
         title={title}

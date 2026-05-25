@@ -13,7 +13,7 @@ type AdminOverviewLink = {
 
 export function AdminOverview({ links }: { links: AdminOverviewLink[] }) {
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Admin Management"
         title="Control people, permissions, and operating structure"
@@ -25,7 +25,7 @@ export function AdminOverview({ links }: { links: AdminOverviewLink[] }) {
         }
       />
 
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
         {links.map((item) => (
           <DashboardCard
             key={item.href}

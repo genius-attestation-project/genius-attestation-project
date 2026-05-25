@@ -186,7 +186,7 @@ export function LeadForm({
   }
 
   return (
-    <form className="grid gap-6" onSubmit={onSubmit}>
+    <form className="grid min-w-0 gap-4 sm:gap-6" onSubmit={onSubmit}>
       <LeadSection title="Personal Information">
         <FieldWrapper error={errors.firstName}>
           <Input
@@ -399,7 +399,7 @@ export function LeadForm({
         </p>
       ) : null}
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-slate-100 bg-white/95 px-4 py-4 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-lg backdrop-blur sm:gap-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/90">
         <Button variant="ghost" type="button" onClick={onCancel}>
           Cancel
         </Button>
@@ -424,13 +424,13 @@ function LeadSection({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
+    <section className="grid min-w-0 gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5 dark:border-white/10 dark:bg-white/5">
       <div>
         <h3 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
           {title}
         </h3>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">{children}</div>
     </section>
   );
 }
@@ -445,7 +445,7 @@ function FieldWrapper({
   children: ReactNode;
 }) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className ?? ""}`}>
       {children}
       {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
     </div>
@@ -477,7 +477,7 @@ function CountryStateSelect({
       unstyled
       classNames={{
         control: (state) =>
-          `flex min-h-[42px] w-full items-center justify-between rounded-xl border bg-white px-3 py-1.5 text-sm transition-all dark:bg-slate-900 ${
+          `flex min-h-[42px] w-full min-w-0 items-center justify-between rounded-xl border bg-white px-3 py-1.5 text-sm transition-all dark:bg-slate-900 ${
             state.isFocused
               ? "border-blue-500 ring-1 ring-blue-500"
               : "border-slate-200 dark:border-slate-800"

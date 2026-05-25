@@ -25,7 +25,7 @@ export function FilterDropdown({
   const [value, setValue] = useState(defaultValue ?? fallbackValue);
 
   return (
-    <label className="inline-flex h-12 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5">
+    <label className="inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm sm:w-auto dark:bg-white/5">
       <span className="font-semibold text-soft">{label}</span>
       <select
         value={value}
@@ -33,7 +33,7 @@ export function FilterDropdown({
           setValue(event.target.value);
           onChange?.(event.target.value);
         }}
-        className="bg-transparent font-semibold outline-none"
+        className="min-w-0 flex-1 bg-transparent font-semibold outline-none sm:flex-none"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
