@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   const userName = session.user.name ?? session.user.email ?? "Workspace User";
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Home Dashboard"
         title={`${greeting}, ${userName}`}

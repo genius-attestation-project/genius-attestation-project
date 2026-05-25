@@ -15,7 +15,7 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="grid place-items-center gap-4 rounded-[28px] border border-dashed border-[color:var(--border-strong)] bg-white/40 px-6 py-12 text-center dark:bg-white/5">
+    <div className="grid min-w-0 place-items-center gap-4 rounded-2xl border border-dashed border-[color:var(--border-strong)] bg-white/40 px-4 py-10 text-center sm:rounded-[28px] sm:px-6 sm:py-12 dark:bg-white/5">
       <span className="inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-blue-50 text-blue-600 dark:bg-blue-500/10">
         <Icon size={24} />
       </span>

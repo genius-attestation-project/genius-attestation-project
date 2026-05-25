@@ -156,7 +156,7 @@ export function OfficeLocationManagement() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Office Location Module"
         title="Global office location management"
@@ -283,7 +283,7 @@ export function OfficeLocationManagement() {
             onChange={(event) => setFormState((current) => ({ ...current, employees: event.target.value }))}
             placeholder="0"
           />
-          <div className="mt-2 flex items-center justify-end gap-3">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={() => setIsDrawerOpen(false)}>
               Cancel
             </Button>

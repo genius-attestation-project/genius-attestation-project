@@ -191,7 +191,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
 
       <motion.aside
         animate={{ width: collapsed ? 96 : 292 }}
-        className="sticky top-0 hidden h-screen shrink-0 lg:block"
+        className="hidden h-full min-h-0 shrink-0 lg:block"
       >
         <SidebarPanel
           collapsed={collapsed}

@@ -208,7 +208,7 @@ export function UsersManagement() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Users Module"
         title="Enterprise user management"
@@ -235,7 +235,7 @@ export function UsersManagement() {
 
       <DashboardCard>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 md:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row">
             <SearchBar
               placeholder="Search users, email, department, or role"
               className="w-full md:max-w-md"
@@ -285,7 +285,7 @@ export function UsersManagement() {
                       <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 text-sm font-extrabold text-white">
                         {getInitials(String(row.name), String(row.email))}
                       </span>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-extrabold">{String(row.name)}</p>
                         <p className="text-sm text-soft">{String(row.email)}</p>
                       </div>
@@ -336,7 +336,7 @@ export function UsersManagement() {
                 },
               ]}
             />
-            <div className="mt-4 flex items-center justify-between gap-3 text-sm text-soft">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-soft">
               <p>Pagination: 1 of 1</p>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" disabled>
@@ -378,7 +378,7 @@ export function UsersManagement() {
             <select
               value={formState.roleId}
               onChange={(event) => setFormState((current) => ({ ...current, roleId: event.target.value }))}
-              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
             >
               <option value="">Select role</option>
               {roles.map((role) => (
@@ -395,7 +395,7 @@ export function UsersManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, department: event.target.value }))
               }
-              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
             >
               <option value="">Select department</option>
               {departments.map((department) => (
@@ -412,7 +412,7 @@ export function UsersManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, officeLocation: event.target.value }))
               }
-              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
             >
               <option value="">Select office location</option>
               {officeLocations.map((officeLocation) => (
@@ -433,7 +433,7 @@ export function UsersManagement() {
             />
             Active User
           </label>
-          <div className="mt-2 flex items-center justify-end gap-3">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={() => setIsDrawerOpen(false)}>
               Cancel
             </Button>

@@ -182,7 +182,7 @@ export function RolesManagement() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Roles Module"
         title="RBAC and permission matrix"
@@ -201,7 +201,7 @@ export function RolesManagement() {
         </DashboardCard>
       ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <DashboardCard title="Role Library" description="Database-backed role definitions and access surfaces.">
           {loading ? (
             <div className="grid gap-4">
@@ -221,10 +221,10 @@ export function RolesManagement() {
               {roles.map((role) => (
                 <div
                   key={role.id}
-                  className="rounded-[24px] border border-[color:var(--border)] bg-white/60 p-4 dark:bg-white/5"
+                  className="min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/60 p-4 sm:rounded-[24px] dark:bg-white/5"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-extrabold">{role.name}</p>
                       <p className="mt-1 text-sm text-soft">{role.userCount} assigned users</p>
                       <p className="mt-2 text-sm leading-6 text-soft">
@@ -285,7 +285,7 @@ export function RolesManagement() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-[760px] text-left text-sm">
                 <thead className="text-xs font-extrabold uppercase tracking-[0.22em] text-soft">
                   <tr>
                     <th className="px-4 py-3">Permission</th>
@@ -324,7 +324,7 @@ export function RolesManagement() {
         title={selectedRole ? "Edit Role" : "Create Role"}
         description="Create or update roles, menu visibility, and module permissions."
       >
-        <form className="grid gap-6" onSubmit={handleSubmit}>
+        <form className="grid min-w-0 gap-4 sm:gap-6" onSubmit={handleSubmit}>
           <Input
             label="Role Name"
             name="name"
@@ -339,7 +339,7 @@ export function RolesManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, description: event.target.value }))
               }
-              className="min-h-28 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="min-h-28 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
               placeholder="Describe what this role can access."
             />
           </label>
@@ -426,7 +426,7 @@ export function RolesManagement() {
             </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-end gap-3">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={() => setIsDrawerOpen(false)}>
               Cancel
             </Button>

@@ -165,9 +165,9 @@ function MetricCard({
     >
       <div className="absolute inset-x-0 top-0 h-1 bg-white/40" />
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</p>
-          <strong className="mt-3 block text-3xl font-bold tracking-tight">{value}</strong>
+          <strong className="mt-3 block break-words text-2xl font-bold tracking-tight sm:text-3xl">{value}</strong>
           <p className="mt-1 text-xs opacity-70">{sub}</p>
         </div>
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/25 shadow-sm">
@@ -192,12 +192,12 @@ function FilterSelect({
   placeholder: string;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
+    <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
       {label}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (
@@ -397,7 +397,7 @@ export function LobAnalyticsDashboard() {
   };
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Lead Management"
         title="LOB Analytics"
@@ -423,14 +423,14 @@ export function LobAnalyticsDashboard() {
       ) : null}
 
       <DashboardCard className="overflow-hidden rounded-3xl border-violet-100 bg-gradient-to-br from-white via-violet-50/70 to-sky-50/70 dark:border-violet-500/20 dark:from-slate-950 dark:via-violet-950/20 dark:to-slate-950">
-        <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="sm:col-span-2 xl:col-span-1">
               <div className="flex h-full items-center gap-3 rounded-3xl border border-violet-200/70 bg-white/80 p-4 shadow-sm dark:border-violet-500/20 dark:bg-slate-950/60">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-200">
                   <Filter size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-soft">Active View</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                     {dateRange === "all"
@@ -477,7 +477,7 @@ export function LobAnalyticsDashboard() {
               placeholder="All countries"
             />
 
-            <label className="sm:col-span-2 xl:col-span-2 grid gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
+            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft sm:col-span-2 xl:col-span-2">
               Search
               <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
                 <Search size={15} className="text-soft" />
@@ -485,7 +485,7 @@ export function LobAnalyticsDashboard() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Lead name, mobile, email, service, assigned user"
-                  className="w-full bg-transparent text-sm outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                 />
               </div>
             </label>
@@ -777,7 +777,7 @@ export function LobAnalyticsDashboard() {
               </div>
 
               {leads.totalPages > 1 ? (
-                <div className="mt-4 flex items-center justify-between gap-3 text-sm text-soft">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-soft">
                   <span>
                     Page {leads.page} of {leads.totalPages} with {leads.totalItems} LOB leads
                   </span>

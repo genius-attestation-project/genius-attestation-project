@@ -45,13 +45,13 @@ export function FormDrawer({
             transition={{ type: "spring", stiffness: 220, damping: 28 }}
             className={
               isCenter
-                ? "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[var(--bg-panel)] p-6 shadow-2xl"
-                : "fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto border-l border-[color:var(--border)] bg-[var(--bg-panel)] p-6 shadow-2xl"
+                ? "fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100vw-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[var(--bg-panel)] p-4 shadow-2xl sm:w-[calc(100vw-2rem)] sm:p-6"
+                : "fixed inset-y-0 right-0 z-50 w-full max-w-2xl overflow-y-auto border-l border-[color:var(--border)] bg-[var(--bg-panel)] p-4 shadow-2xl sm:p-6"
             }
           >
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-extrabold">{title}</h2>
+            <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
+              <div className="min-w-0">
+                <h2 className="text-xl font-extrabold sm:text-2xl">{title}</h2>
                 <p className="mt-2 text-sm leading-6 text-soft">{description}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose}>

@@ -23,13 +23,13 @@ export function DataTable<T extends Record<string, unknown>>({
   className,
 }: DataTableProps<T>) {
   return (
-    <div className={cn("overflow-hidden rounded-[28px] border border-[color:var(--border)]", className)}>
+    <div className={cn("min-w-0 overflow-hidden rounded-2xl border border-[color:var(--border)] sm:rounded-[28px]", className)}>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-[760px] text-left text-sm">
           <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
             <tr>
               {columns.map((column) => (
-                <th key={String(column.key)} className={cn("px-5 py-4", column.className)}>
+                <th key={String(column.key)} className={cn("px-4 py-3 sm:px-5 sm:py-4", column.className)}>
                   {column.label}
                 </th>
               ))}
@@ -39,7 +39,7 @@ export function DataTable<T extends Record<string, unknown>>({
             {rows.map((row) => (
               <tr key={String(row[keyField])} className="transition hover:bg-blue-50 dark:hover:bg-blue-500/5">
                 {columns.map((column) => (
-                  <td key={String(column.key)} className={cn("px-5 py-4 align-middle", column.className)}>
+                  <td key={String(column.key)} className={cn("px-4 py-3 align-middle sm:px-5 sm:py-4", column.className)}>
                     {column.render ? column.render(row) : String(row[column.key as keyof T] ?? "-")}
                   </td>
                 ))}

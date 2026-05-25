@@ -14,9 +14,9 @@ type RegistrationDetailProps = {
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
   return (
-    <div className="grid gap-1 rounded-2xl border border-[color:var(--border)] bg-white/65 p-4 dark:bg-white/5">
+    <div className="grid min-w-0 gap-1 rounded-2xl border border-[color:var(--border)] bg-white/65 p-4 dark:bg-white/5">
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{label}</span>
-      <span className="text-sm font-semibold text-[color:var(--text)]">{value || "-"}</span>
+      <span className="break-words text-sm font-semibold text-[color:var(--text)]">{value || "-"}</span>
     </div>
   );
 }
@@ -55,12 +55,12 @@ export function RegistrationDetail({
         : "blue";
 
   return (
-    <div className="grid gap-5">
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-white/70 p-5 shadow-[var(--shadow-card)] dark:bg-white/5">
+    <div className="grid min-w-0 gap-5">
+      <section className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4 shadow-[var(--shadow-card)] sm:rounded-[28px] sm:p-5 dark:bg-white/5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Tracking</p>
-            <h2 className="mt-2 text-2xl font-extrabold">{registration.trackingNumber}</h2>
+            <h2 className="mt-2 break-words text-xl font-extrabold sm:text-2xl">{registration.trackingNumber}</h2>
             <p className="mt-1 text-sm text-soft">{registration.customerName}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -126,9 +126,9 @@ export function RegistrationDetail({
                 key={file.id}
                 href={`/api/registrations/files/${file.id}`}
                 target="_blank"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
               >
-                <span className="grid gap-1">
+                <span className="grid min-w-0 gap-1">
                   <span>{file.fileName}</span>
                   <span className="text-xs text-muted">{file.fileCategory.replace(/_/g, " ")}</span>
                 </span>

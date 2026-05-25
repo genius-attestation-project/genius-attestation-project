@@ -135,7 +135,7 @@ export function DepartmentManagement() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Department Module"
         title="Department management"
@@ -240,7 +240,7 @@ export function DepartmentManagement() {
             placeholder="Operations"
             required
           />
-          <div className="mt-2 flex items-center justify-end gap-3">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={closeDrawer}>
               Cancel
             </Button>

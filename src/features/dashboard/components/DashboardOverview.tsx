@@ -138,13 +138,13 @@ export function DashboardOverview() {
 
   if (loading) {
     return (
-      <div className="grid gap-6">
+      <div className="grid min-w-0 gap-4 sm:gap-6">
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((card) => (
             <StatsCard key={card.label} {...card} />
           ))}
         </section>
-        <section className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
           <LoadingSkeleton className="h-[540px] w-full" />
           <LoadingSkeleton className="h-[540px] w-full" />
         </section>
@@ -164,14 +164,14 @@ export function DashboardOverview() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((stat) => (
           <StatsCard key={stat.label} {...stat} />
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+      <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
         <DashboardCharts
           monthlyLeads={stats.charts.monthlyLeads}
           revenueTrends={stats.charts.revenueTrends}

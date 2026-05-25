@@ -218,7 +218,7 @@ export function AllLeadsManagement({
   const totalCount = isServerFilteredEndpoint ? leadData.pagination.totalItems : leadData.items.length;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Lead Management"
         title={title}
@@ -235,7 +235,7 @@ export function AllLeadsManagement({
 
       <DashboardCard>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 md:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row">
             <SearchBar
               placeholder="Search by lead id, client, email, service, or assigned user"
               className="w-full md:max-w-xl"
@@ -337,7 +337,7 @@ export function AllLeadsManagement({
             />
 
             {isServerFilteredEndpoint ? (
-              <div className="mt-4 flex items-center justify-between gap-3 text-sm text-soft">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-soft">
                 <p>
                   Pagination: {leadData.pagination.page} of {leadData.pagination.totalPages}
                 </p>

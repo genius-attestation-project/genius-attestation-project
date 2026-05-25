@@ -54,9 +54,9 @@ export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps)
   }
 
   return (
-    <div className="grid w-full gap-6 rounded-lg border border-stone-200 bg-white p-7 shadow-[0_24px_70px_rgba(22,32,29,0.12)] sm:p-8">
+    <div className="grid w-full min-w-0 gap-5 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_24px_70px_rgba(22,32,29,0.12)] sm:gap-6 sm:p-8">
       <div className="grid gap-2">
-        <h1 className="text-3xl font-black leading-tight">Welcome back</h1>
+        <h1 className="text-2xl font-black leading-tight sm:text-3xl">Welcome back</h1>
         <p className="text-neutral-600">Login to continue to your workspace.</p>
       </div>
 
