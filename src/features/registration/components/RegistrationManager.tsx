@@ -27,6 +27,7 @@ import {
   paymentStatusOptions,
   priorityOptions,
   processTypeOptions,
+  registrationInputSchema,
 } from "@/features/registration/validations/registration.schema";
 
 type RegistrationManagerProps = {
@@ -107,12 +108,14 @@ function SelectField({
   value,
   options,
   onChange,
+  required = false,
 }: {
   label: string;
   name: keyof RegistrationFormState;
   value: string;
   options: readonly string[];
   onChange: (name: keyof RegistrationFormState, value: string) => void;
+  required?: boolean;
 }) {
   return (
     <label className="grid gap-2">
@@ -120,6 +123,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
+        required={required}
         className="h-12 w-full rounded-2xl border border-(--border) bg-white/80 px-4 text-(--text) outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
       >
         <option value="">Select</option>
@@ -152,6 +156,10 @@ async function parseResponse(response: Response) {
   return data;
 }
 
+function hasUploadedFile(registration: Registration | null, category: string) {
+  return Boolean(registration?.files.some((file) => file.fileCategory === category));
+}
+
 export function RegistrationManager({
   initialTrackingNumber = "",
   initialOpen = false,
@@ -179,6 +187,10 @@ export function RegistrationManager({
     const advance = Number(form.advancePaid || 0);
     return Number.isNaN(total - advance) ? 0 : total - advance;
   }, [form.advancePaid, form.totalCharges]);
+
+  const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
+  const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
+  const needsSupportingFile = !hasUploadedFile(selected, "SUPPORTING_DOCUMENT");
 
   async function fetchRegistrations(search = query) {
     setLoading(true);
@@ -259,15 +271,27 @@ export function RegistrationManager({
     setSuccess("");
 
     try {
-      const payload = {
-        ...form,
-        totalCharges: Number(form.totalCharges || 0),
-        advancePaid: Number(form.advancePaid || 0),
-      };
+      const payload = { ...form };
+      const parsed = registrationInputSchema.safeParse(payload);
+
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? "Please complete all required fields.");
+        return;
+      }
+
+      if (
+        (needsDocumentFile && !documentFile) ||
+        (needsInvoiceFile && !invoiceFile) ||
+        (needsSupportingFile && !supportingFile)
+      ) {
+        setError("Document, invoice, and supporting document uploads are required.");
+        return;
+      }
+
       const response = await fetch(selected ? `/api/registrations/${selected.id}` : "/api/registrations", {
         method: selected ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(parsed.data),
       });
       const data = await parseResponse(response);
       await uploadSelectedFiles(data.registration.id);
@@ -462,53 +486,66 @@ export function RegistrationManager({
               onChange={(event) => updateField("mobile", event.target.value)}
               required
             />
-            <Input label="Email" value={form.email} onChange={(event) => updateField("email", event.target.value)} />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+              required
+            />
             <Input
               label="Address"
               value={form.address}
               onChange={(event) => updateField("address", event.target.value)}
+              required
             />
             <Input
               label="Country"
               value={form.country}
               onChange={(event) => updateField("country", event.target.value)}
+              required
             />
-            <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} />
-            <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} />
+            <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} required />
+            <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} required />
             <Input
               label="Customer Type"
               value={form.customerType}
               onChange={(event) => updateField("customerType", event.target.value)}
+              required
             />
           </Section>
 
           <Section title="Section 2: Document Upload">
-            <SelectField label="Document Type" name="documentType" value={form.documentType} options={documentTypeOptions} onChange={updateField} />
+            <SelectField label="Document Type" name="documentType" value={form.documentType} options={documentTypeOptions} onChange={updateField} required />
             <SelectField
               label="Document Issued Country"
               name="documentIssuedCountry"
               value={form.documentIssuedCountry}
               options={countryOptions}
               onChange={updateField}
+              required
             />
-            <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} />
-            <SelectField label="External / Address Process" name="externalProcess" value={form.externalProcess} options={externalProcessOptions} onChange={updateField} />
-            <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} />
+            <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} required />
+            <SelectField label="External / Address Process" name="externalProcess" value={form.externalProcess} options={externalProcessOptions} onChange={updateField} required />
+            <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} required />
             <Input
               label="Committed Duration / SLA"
               value={form.committedDuration}
               onChange={(event) => updateField("committedDuration", event.target.value)}
+              required
             />
             <Input
               label="Delivery Location"
               value={form.deliveryLocation}
               onChange={(event) => updateField("deliveryLocation", event.target.value)}
+              required
             />
             <Input
               label="Document Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
+              required={needsDocumentFile}
             />
           </Section>
 
@@ -532,19 +569,21 @@ export function RegistrationManager({
               required
             />
             <Input label="Balance Amount" value={balanceAmount.toFixed(2)} readOnly />
-            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} />
-            <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} />
+            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
+            <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} required />
             <Input
               label="Invoice Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setInvoiceFile(event.target.files?.[0] ?? null)}
+              required={needsInvoiceFile}
             />
             <Input
               label="Supporting Documents Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setSupportingFile(event.target.files?.[0] ?? null)}
+              required={needsSupportingFile}
             />
           </Section>
 

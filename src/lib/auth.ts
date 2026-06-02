@@ -97,49 +97,57 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        const denyGoogleLogin = () => "/login?error=AccessDenied";
+
         if (!user.email) {
           authDebugLog("Google login failed: no email provided.");
-          return false;
+          console.log("Google email:", user.email);
+          console.log("DB user:", undefined);
+          console.log("DB role:", undefined);
+          console.log("Active:", undefined);
+          return denyGoogleLogin();
         }
 
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email },
+          include: {
+            role: true,
+          },
         });
 
-        if (existingUser) {
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: {
-              name: user.name ?? existingUser.name,
-              image: user.image ?? existingUser.image,
-              lastLoginAt: new Date(),
-              provider: "google",
-              // Existing Google admin keeps their ownerAdminId = id
-              ownerAdminId: existingUser.ownerAdminId || existingUser.id,
-            },
-          });
-          authDebugLog("Updated existing Google user as ADMIN", { email: user.email });
-        } else {
-          // Create new user, then update ownerAdminId to be their own ID
-          const newUser = await prisma.user.create({
-            data: {
-              email: user.email,
-              name: user.name,
-              image: user.image,
-              provider: "google",
-              isActive: true,
-              lastLoginAt: new Date(),
-            },
-          });
-          
-          await prisma.user.update({
-            where: { id: newUser.id },
-            data: { ownerAdminId: newUser.id },
-          });
-          
-          authDebugLog("Created new Google user as ADMIN", { email: user.email });
+        console.log("Google email:", user.email);
+        console.log("DB user:", existingUser?.email);
+        console.log("DB role:", existingUser?.role?.name);
+        console.log("Active:", existingUser?.isActive);
+
+        if (!existingUser) {
+          authDebugLog("Google login denied: user not registered.", { email: user.email });
+          return denyGoogleLogin();
         }
 
+        if (!existingUser.isActive) {
+          authDebugLog("Google login denied: user is inactive.", { email: user.email });
+          return denyGoogleLogin();
+        }
+
+        if (existingUser.role?.name !== "Super Admin") {
+          authDebugLog("Google login denied: user is not a Super Admin.", {
+            email: user.email,
+            role: existingUser.role?.name ?? null,
+          });
+          return denyGoogleLogin();
+        }
+
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: user.name ?? existingUser.name,
+            image: user.image ?? existingUser.image,
+            lastLoginAt: new Date(),
+          },
+        });
+
+        authDebugLog("Google admin login authorized.", { email: user.email });
         return true;
       }
 
