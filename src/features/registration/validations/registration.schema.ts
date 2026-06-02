@@ -17,13 +17,22 @@ export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as con
 export const approvalStatusOptions = ["Pending", "Approved", "Rejected"] as const;
 
 const optionalText = z.string().trim().optional().default("");
+const requiredText = (label: string) => z.string().trim().min(1, `${label} is required.`);
 
 const numericField = (label: string) =>
   z.union([
     z.number(),
     z.string().transform((value, ctx) => {
       const normalized = value.replace(/,/g, "").trim();
-      const parsed = normalized ? Number(normalized) : 0;
+      const parsed = Number(normalized);
+
+      if (!normalized) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${label} is required.`,
+        });
+        return z.NEVER;
+      }
 
       if (Number.isNaN(parsed)) {
         ctx.addIssue({
@@ -35,28 +44,28 @@ const numericField = (label: string) =>
 
       return parsed;
     }),
-  ]);
+  ]).refine((value) => value >= 0, `${label} cannot be negative.`);
 
 export const registrationInputSchema = z.object({
   trackingNumber: z.string().trim().min(1, "Tracking number is required."),
   customerName: z.string().trim().min(1, "Customer name is required."),
   mobile: z.string().trim().min(1, "Mobile number is required."),
-  email: optionalText,
-  address: optionalText,
-  country: optionalText,
-  state: optionalText,
-  city: optionalText,
-  customerType: optionalText,
-  documentType: optionalText,
-  documentIssuedCountry: optionalText,
-  processType: optionalText,
-  externalProcess: optionalText,
-  priority: optionalText,
-  committedDuration: optionalText,
-  deliveryLocation: optionalText,
+  email: requiredText("Email").email("Enter a valid email address."),
+  address: requiredText("Address"),
+  country: requiredText("Country"),
+  state: requiredText("State"),
+  city: requiredText("City"),
+  customerType: requiredText("Customer type"),
+  documentType: requiredText("Document type"),
+  documentIssuedCountry: requiredText("Document issued country"),
+  processType: requiredText("Process type"),
+  externalProcess: requiredText("External / address process"),
+  priority: requiredText("Special processing priority"),
+  committedDuration: requiredText("Committed duration / SLA"),
+  deliveryLocation: requiredText("Delivery location"),
   totalCharges: numericField("Total charges"),
   advancePaid: numericField("Advance paid"),
-  paymentMode: optionalText,
+  paymentMode: requiredText("Payment mode"),
   paymentStatus: z.enum(paymentStatusOptions).optional().default("Pending"),
   approvalStatus: z.enum(approvalStatusOptions).optional().default("Pending"),
   trackingStatus: optionalText,
