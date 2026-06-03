@@ -18,8 +18,12 @@ export const approvalStatusOptions = ["Pending", "Approved", "Rejected"] as cons
 
 const optionalText = z.string().trim().optional().default("");
 const requiredText = (label: string) => z.string().trim().min(1, `${label} is required.`);
+const mobileNumber = z
+  .string()
+  .transform((value) => value.replace(/\D/g, "").slice(0, 10))
+  .refine((value) => value.length === 10, "Mobile number must be 10 digits");
 
-const numericField = (label: string) =>
+const numericField = (label: string, required = true) =>
   z.union([
     z.number(),
     z.string().transform((value, ctx) => {
@@ -27,11 +31,15 @@ const numericField = (label: string) =>
       const parsed = Number(normalized);
 
       if (!normalized) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `${label} is required.`,
-        });
-        return z.NEVER;
+        if (required) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${label} is required.`,
+          });
+          return z.NEVER;
+        }
+
+        return 0;
       }
 
       if (Number.isNaN(parsed)) {
@@ -49,7 +57,7 @@ const numericField = (label: string) =>
 export const registrationInputSchema = z.object({
   trackingNumber: z.string().trim().min(1, "Tracking number is required."),
   customerName: z.string().trim().min(1, "Customer name is required."),
-  mobile: z.string().trim().min(1, "Mobile number is required."),
+  mobile: mobileNumber,
   email: requiredText("Email").email("Enter a valid email address."),
   address: requiredText("Address"),
   country: requiredText("Country"),
@@ -59,14 +67,17 @@ export const registrationInputSchema = z.object({
   documentType: requiredText("Document type"),
   documentIssuedCountry: requiredText("Document issued country"),
   processType: requiredText("Process type"),
-  externalProcess: requiredText("External / address process"),
+  externalProcess: requiredText("Address process"),
   priority: requiredText("Special processing priority"),
   committedDuration: requiredText("Committed duration / SLA"),
   deliveryLocation: requiredText("Delivery location"),
-  totalCharges: numericField("Total charges"),
-  advancePaid: numericField("Advance paid"),
+  totalCharges: numericField("Total charges", false),
+  advancePaid: numericField("Advance paid", false),
   paymentMode: requiredText("Payment mode"),
   paymentStatus: z.enum(paymentStatusOptions).optional().default("Pending"),
+  collectedPerson: optionalText,
+  registeredPerson: optionalText,
+  regionOfRegistration: optionalText,
   approvalStatus: z.enum(approvalStatusOptions).optional().default("Pending"),
   trackingStatus: optionalText,
 });
