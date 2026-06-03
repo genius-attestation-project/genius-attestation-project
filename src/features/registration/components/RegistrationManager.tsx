@@ -13,6 +13,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { PhoneInput } from "react-international-phone";
+import "react-international-phone/style.css";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -156,6 +158,133 @@ type OfficeLocationOption = {
   location?: string;
 };
 
+function normalizePhoneValue(value: string) {
+  const hasPrefix = value.trim().startsWith("+");
+  const digits = value.replace(/\D/g, "");
+  return digits ? `${hasPrefix ? "+" : ""}${digits}` : "";
+}
+
+function PhoneField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-2">
+      <span className="text-sm font-bold">Mobile Number</span>
+      <PhoneInput
+        defaultCountry="in"
+        value={value}
+        onChange={(phone) => onChange(normalizePhoneValue(phone))}
+        forceDialCode
+        preferredCountries={["in", "ae", "sa", "qa", "om", "kw", "bh", "us", "gb"]}
+        className="registration-phone-input flex h-14 w-full items-center rounded-xl border border-gray-200 bg-white px-3 text-slate-700 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100"
+        inputClassName="registration-phone-input__field flex-1 border-0 bg-transparent px-3 outline-none focus:ring-0"
+        countrySelectorStyleProps={{
+          className: "registration-phone-input__country",
+          buttonClassName: "registration-phone-input__country-button flex items-center gap-2 border-r border-gray-200 pr-3",
+          buttonContentWrapperClassName: "registration-phone-input__country-content flex items-center gap-2",
+          dropdownStyleProps: {
+            className: "registration-phone-input__dropdown",
+            listItemClassName: "registration-phone-input__dropdown-item",
+            listItemSelectedClassName: "registration-phone-input__dropdown-item--selected",
+            listItemFocusedClassName: "registration-phone-input__dropdown-item--focused",
+          },
+        }}
+        inputProps={{
+          required: true,
+          inputMode: "tel",
+          "aria-label": "Mobile Number",
+        }}
+      />
+      <style jsx global>{`
+        .registration-phone-input.react-international-phone-input-container {
+          display: flex;
+          height: 3.5rem;
+          width: 100%;
+          align-items: center;
+          border-radius: 0.75rem;
+          border: 1px solid rgb(229 231 235);
+          background: #fff;
+          padding: 0 0.75rem;
+          color: rgb(51 65 85);
+          transition:
+            border-color 150ms ease,
+            box-shadow 150ms ease;
+        }
+
+        .registration-phone-input.react-international-phone-input-container:focus-within {
+          border-color: rgb(59 130 246);
+          box-shadow: 0 0 0 2px rgb(219 234 254);
+        }
+
+        .registration-phone-input__country {
+          height: 100%;
+        }
+
+        .registration-phone-input__country-button.react-international-phone-country-selector-button {
+          display: flex;
+          height: 100%;
+          align-items: center;
+          gap: 0.5rem;
+          border: 0;
+          border-right: 1px solid rgb(229 231 235);
+          background: transparent;
+          padding: 0 0.75rem 0 0;
+        }
+
+        .registration-phone-input__country-content {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .registration-phone-input__field.react-international-phone-input {
+          height: 100%;
+          min-width: 0;
+          flex: 1;
+          border: 0;
+          background: transparent;
+          padding: 0 0.75rem;
+          color: rgb(51 65 85);
+          outline: none;
+          box-shadow: none;
+        }
+
+        .registration-phone-input__field.react-international-phone-input:focus {
+          outline: none;
+          box-shadow: none;
+        }
+
+        .registration-phone-input__dropdown {
+          z-index: 80;
+          margin-top: 0.5rem;
+          max-height: 16rem;
+          min-width: 18rem;
+          overflow-y: auto;
+          border-radius: 0.75rem;
+          border: 1px solid rgb(229 231 235);
+          background: #fff;
+          box-shadow: 0 18px 45px rgb(15 23 42 / 0.16);
+        }
+
+        .registration-phone-input__dropdown-item {
+          padding: 0.625rem 0.75rem;
+          color: rgb(51 65 85);
+        }
+
+        .registration-phone-input__dropdown-item--selected,
+        .registration-phone-input__dropdown-item--focused {
+          background: rgb(239 246 255);
+          color: rgb(37 99 235);
+        }
+      `}</style>
+    </label>
+  );
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="grid min-w-0 gap-4 rounded-2xl border border-(--border) bg-white/60 p-4 sm:rounded-3xl dark:bg-white/5">
@@ -265,8 +394,7 @@ export function RegistrationManager({
   }, []);
 
   function updateField(name: keyof RegistrationFormState, value: string) {
-    const nextValue = name === "mobile" ? value.replace(/\D/g, "").slice(0, 10) : value;
-    setForm((current) => ({ ...current, [name]: nextValue }));
+    setForm((current) => ({ ...current, [name]: value }));
   }
 
   function openCreate() {
@@ -530,14 +658,7 @@ export function RegistrationManager({
               onChange={(event) => updateField("customerName", event.target.value)}
               required
             />
-            <Input
-              label="Mobile Number"
-              type="tel"
-              maxLength={10}
-              value={form.mobile}
-              onChange={(event) => updateField("mobile", event.target.value)}
-              required
-            />
+            <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} />
             <Input
               label="Email"
               type="email"

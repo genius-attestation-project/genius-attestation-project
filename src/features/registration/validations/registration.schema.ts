@@ -20,8 +20,17 @@ const optionalText = z.string().trim().optional().default("");
 const requiredText = (label: string) => z.string().trim().min(1, `${label} is required.`);
 const mobileNumber = z
   .string()
-  .transform((value) => value.replace(/\D/g, "").slice(0, 10))
-  .refine((value) => value.length === 10, "Mobile number must be 10 digits");
+  .transform((value) => {
+    const hasPrefix = value.trim().startsWith("+");
+    const digits = value.replace(/\D/g, "");
+    return digits ? `${hasPrefix ? "+" : ""}${digits}` : "";
+  })
+  .refine((value) => {
+    const digits = value.replace(/\D/g, "");
+    if (!value.startsWith("+") || digits.length < 7 || digits.length > 15) return false;
+    if (value.startsWith("+91")) return digits.slice(2).length === 10;
+    return true;
+  }, "Enter a valid mobile number");
 
 const numericField = (label: string, required = true) =>
   z.union([
