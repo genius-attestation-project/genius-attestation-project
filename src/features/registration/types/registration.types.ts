@@ -40,6 +40,9 @@ export type Registration = {
   balanceAmount: number;
   paymentMode: string | null;
   paymentStatus: string;
+  collectedPerson: string | null;
+  registeredPerson: string | null;
+  regionOfRegistration: string | null;
   approvalStatus: string;
   trackingStatus: string;
   createdAt: string;
@@ -70,6 +73,9 @@ export type RegistrationFormState = {
   advancePaid: string;
   paymentMode: string;
   paymentStatus: string;
+  collectedPerson: string;
+  registeredPerson: string;
+  regionOfRegistration: string;
   approvalStatus: string;
   trackingStatus: string;
 };

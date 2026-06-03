@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
@@ -27,6 +28,7 @@ import {
   paymentStatusOptions,
   priorityOptions,
   processTypeOptions,
+  registrationInputSchema,
 } from "@/features/registration/validations/registration.schema";
 
 type RegistrationManagerProps = {
@@ -51,10 +53,13 @@ const blankForm: RegistrationFormState = {
   priority: "",
   committedDuration: "",
   deliveryLocation: "",
-  totalCharges: "0",
-  advancePaid: "0",
+  totalCharges: "",
+  advancePaid: "",
   paymentMode: "",
   paymentStatus: "Pending",
+  collectedPerson: "",
+  registeredPerson: "",
+  regionOfRegistration: "",
   approvalStatus: "Pending",
   trackingStatus: "Registered",
 };
@@ -96,9 +101,16 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     advancePaid: String(registration.advancePaid),
     paymentMode: registration.paymentMode ?? "",
     paymentStatus: registration.paymentStatus,
+    collectedPerson: registration.collectedPerson ?? "",
+    registeredPerson: registration.registeredPerson ?? "",
+    regionOfRegistration: registration.regionOfRegistration ?? "",
     approvalStatus: registration.approvalStatus,
     trackingStatus: registration.trackingStatus,
   };
+}
+
+function toSelectOptions(options: readonly string[]) {
+  return options.map((option) => ({ label: option, value: option }));
 }
 
 function SelectField({
@@ -107,31 +119,42 @@ function SelectField({
   value,
   options,
   onChange,
+  required = false,
 }: {
   label: string;
   name: keyof RegistrationFormState;
   value: string;
   options: readonly string[];
   onChange: (name: keyof RegistrationFormState, value: string) => void;
+  required?: boolean;
 }) {
+  const normalizedOptions = value && !options.includes(value) ? [value, ...options] : options;
+
   return (
     <label className="grid gap-2">
       <span className="text-sm font-bold">{label}</span>
-      <select
+      <SearchableSelect
         value={value}
-        onChange={(event) => onChange(name, event.target.value)}
-        className="h-12 w-full rounded-2xl border border-(--border) bg-white/80 px-4 text-(--text) outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
-      >
-        <option value="">Select</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+        options={toSelectOptions(normalizedOptions)}
+        onChange={(nextValue) => onChange(name, nextValue)}
+        placeholder={required ? "Select" : "Select"}
+        name={name}
+      />
     </label>
   );
 }
+
+type UserOption = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+};
+
+type OfficeLocationOption = {
+  id: string;
+  officeName: string;
+  location?: string;
+};
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -150,6 +173,10 @@ async function parseResponse(response: Response) {
   }
 
   return data;
+}
+
+function hasUploadedFile(registration: Registration | null, category: string) {
+  return Boolean(registration?.files.some((file) => file.fileCategory === category));
 }
 
 export function RegistrationManager({
@@ -173,12 +200,19 @@ export function RegistrationManager({
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [supportingFile, setSupportingFile] = useState<File | null>(null);
+  const [personOptions, setPersonOptions] = useState<string[]>([]);
+  const [regionOptions, setRegionOptions] = useState<string[]>([]);
 
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
     const advance = Number(form.advancePaid || 0);
     return Number.isNaN(total - advance) ? 0 : total - advance;
   }, [form.advancePaid, form.totalCharges]);
+  const hasPaymentEntry = form.totalCharges.trim() !== "" || form.advancePaid.trim() !== "";
+
+  const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
+  const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
+  const needsSupportingFile = !hasUploadedFile(selected, "SUPPORTING_DOCUMENT");
 
   async function fetchRegistrations(search = query) {
     setLoading(true);
@@ -203,8 +237,36 @@ export function RegistrationManager({
     }
   }, []);
 
+  useEffect(() => {
+    async function fetchDropdownOptions() {
+      const [usersResponse, officeLocationsResponse] = await Promise.allSettled([
+        fetch("/api/users", { cache: "no-store" }),
+        fetch("/api/office-locations", { cache: "no-store" }),
+      ]);
+
+      if (usersResponse.status === "fulfilled" && usersResponse.value.ok) {
+        const payload = await usersResponse.value.json().catch(() => ({}));
+        const names = ((payload.users ?? []) as UserOption[])
+          .map((user) => user.name || user.email || "")
+          .filter(Boolean);
+        setPersonOptions(Array.from(new Set(names)));
+      }
+
+      if (officeLocationsResponse.status === "fulfilled" && officeLocationsResponse.value.ok) {
+        const payload = await officeLocationsResponse.value.json().catch(() => ({}));
+        const regions = ((payload.officeLocations ?? []) as OfficeLocationOption[])
+          .map((officeLocation) => officeLocation.location || officeLocation.officeName)
+          .filter(Boolean);
+        setRegionOptions(Array.from(new Set(regions)));
+      }
+    }
+
+    void fetchDropdownOptions();
+  }, []);
+
   function updateField(name: keyof RegistrationFormState, value: string) {
-    setForm((current) => ({ ...current, [name]: value }));
+    const nextValue = name === "mobile" ? value.replace(/\D/g, "").slice(0, 10) : value;
+    setForm((current) => ({ ...current, [name]: nextValue }));
   }
 
   function openCreate() {
@@ -259,15 +321,27 @@ export function RegistrationManager({
     setSuccess("");
 
     try {
-      const payload = {
-        ...form,
-        totalCharges: Number(form.totalCharges || 0),
-        advancePaid: Number(form.advancePaid || 0),
-      };
+      const payload = { ...form };
+      const parsed = registrationInputSchema.safeParse(payload);
+
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? "Please complete all required fields.");
+        return;
+      }
+
+      if (
+        (needsDocumentFile && !documentFile) ||
+        (needsInvoiceFile && !invoiceFile) ||
+        (needsSupportingFile && !supportingFile)
+      ) {
+        setError("Document, invoice, and supporting document uploads are required.");
+        return;
+      }
+
       const response = await fetch(selected ? `/api/registrations/${selected.id}` : "/api/registrations", {
         method: selected ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(parsed.data),
       });
       const data = await parseResponse(response);
       await uploadSelectedFiles(data.registration.id);
@@ -458,57 +532,72 @@ export function RegistrationManager({
             />
             <Input
               label="Mobile Number"
+              type="tel"
+              maxLength={10}
               value={form.mobile}
               onChange={(event) => updateField("mobile", event.target.value)}
               required
             />
-            <Input label="Email" value={form.email} onChange={(event) => updateField("email", event.target.value)} />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+              required
+            />
             <Input
               label="Address"
               value={form.address}
               onChange={(event) => updateField("address", event.target.value)}
+              required
             />
             <Input
               label="Country"
               value={form.country}
               onChange={(event) => updateField("country", event.target.value)}
+              required
             />
-            <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} />
-            <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} />
+            <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} required />
+            <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} required />
             <Input
               label="Customer Type"
               value={form.customerType}
               onChange={(event) => updateField("customerType", event.target.value)}
+              required
             />
           </Section>
 
           <Section title="Section 2: Document Upload">
-            <SelectField label="Document Type" name="documentType" value={form.documentType} options={documentTypeOptions} onChange={updateField} />
+            <SelectField label="Document Type" name="documentType" value={form.documentType} options={documentTypeOptions} onChange={updateField} required />
             <SelectField
               label="Document Issued Country"
               name="documentIssuedCountry"
               value={form.documentIssuedCountry}
               options={countryOptions}
               onChange={updateField}
+              required
             />
-            <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} />
-            <SelectField label="External / Address Process" name="externalProcess" value={form.externalProcess} options={externalProcessOptions} onChange={updateField} />
-            <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} />
+            <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} required />
+            <SelectField label="Address Process" name="externalProcess" value={form.externalProcess} options={externalProcessOptions} onChange={updateField} required />
+            <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} required />
             <Input
               label="Committed Duration / SLA"
               value={form.committedDuration}
               onChange={(event) => updateField("committedDuration", event.target.value)}
+              required
             />
             <Input
               label="Delivery Location"
               value={form.deliveryLocation}
               onChange={(event) => updateField("deliveryLocation", event.target.value)}
+              required
             />
             <Input
-              label="Document Upload"
+              label="Customer Document Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
+              required={needsDocumentFile}
             />
           </Section>
 
@@ -519,8 +608,8 @@ export function RegistrationManager({
               min="0"
               step="0.01"
               value={form.totalCharges}
+              placeholder="Enter amount"
               onChange={(event) => updateField("totalCharges", event.target.value)}
-              required
             />
             <Input
               label="Advance Paid"
@@ -528,23 +617,28 @@ export function RegistrationManager({
               min="0"
               step="0.01"
               value={form.advancePaid}
+              placeholder="Enter amount"
               onChange={(event) => updateField("advancePaid", event.target.value)}
-              required
             />
-            <Input label="Balance Amount" value={balanceAmount.toFixed(2)} readOnly />
-            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} />
-            <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} />
+            <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
+            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
+            <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} required />
+            <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
+            <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personOptions} onChange={updateField} />
+            <SelectField label="Region of Registration" name="regionOfRegistration" value={form.regionOfRegistration} options={regionOptions} onChange={updateField} />
             <Input
-              label="Invoice Upload"
+              label="Bill Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setInvoiceFile(event.target.files?.[0] ?? null)}
+              required={needsInvoiceFile}
             />
             <Input
               label="Supporting Documents Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               onChange={(event) => setSupportingFile(event.target.files?.[0] ?? null)}
+              required={needsSupportingFile}
             />
           </Section>
 

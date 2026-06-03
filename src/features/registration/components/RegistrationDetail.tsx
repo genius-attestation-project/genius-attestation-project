@@ -95,7 +95,7 @@ export function RegistrationDetail({
           <Field label="Document Type" value={registration.documentType} />
           <Field label="Issued Country" value={registration.documentIssuedCountry} />
           <Field label="Process Type" value={registration.processType} />
-          <Field label="External Process" value={registration.externalProcess} />
+          <Field label="Address Process" value={registration.externalProcess} />
           <Field label="Priority" value={registration.priority} />
           <Field label="Committed SLA" value={registration.committedDuration} />
           <Field label="Delivery Location" value={registration.deliveryLocation} />
@@ -112,6 +112,9 @@ export function RegistrationDetail({
           <Field label="Advance Paid" value={registration.advancePaid.toFixed(2)} />
           <Field label="Balance Amount" value={registration.balanceAmount.toFixed(2)} />
           <Field label="Payment Mode" value={registration.paymentMode} />
+          <Field label="Collected Person" value={registration.collectedPerson} />
+          <Field label="Registered Person" value={registration.registeredPerson} />
+          <Field label="Region of Registration" value={registration.regionOfRegistration} />
         </div>
       </section>
 
