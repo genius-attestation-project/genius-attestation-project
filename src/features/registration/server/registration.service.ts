@@ -78,6 +78,9 @@ function buildRegistrationData(input: RegistrationInput) {
     balanceAmount,
     paymentMode: input.paymentMode || null,
     paymentStatus: input.paymentStatus,
+    collectedPerson: input.collectedPerson || null,
+    registeredPerson: input.registeredPerson || null,
+    regionOfRegistration: input.regionOfRegistration || null,
     approvalStatus: input.approvalStatus,
     trackingStatus: input.trackingStatus || "Registered",
   };
