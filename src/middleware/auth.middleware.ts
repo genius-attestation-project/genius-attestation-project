@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 
 function isDynamicUsageError(error: unknown) {
@@ -37,13 +38,16 @@ export async function requireAuth(callbackUrl = "/dashboard") {
 }
 
 export async function requirePermission(permission: string, callbackUrl = "/dashboard") {
-  void permission;
   const session = await requireAuth(callbackUrl);
+
+  if (!hasPermission(session.user, permission)) {
+    return null;
+  }
+
   return session;
 }
 
 export async function requireApiPermission(permission: string) {
-  void permission;
   let session;
 
   try {
@@ -63,6 +67,14 @@ export async function requireApiPermission(permission: string) {
   if (!session?.user) {
     console.warn("[auth] API access denied because no session user was found.", { permission });
     return Response.json({ message: "Authentication required." }, { status: 401 });
+  }
+
+  if (!hasPermission(session.user, permission)) {
+    console.warn("[auth] API access denied because the permission was missing.", {
+      permission,
+      userId: session.user.id,
+    });
+    return Response.json({ message: "You do not have permission to perform this action." }, { status: 403 });
   }
 
   return null;

@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
+import { getSessionAccess } from "@/features/admin/server/rbac.service";
 import { env } from "@/config/env";
 import { loginSchema } from "@/features/auth/validations/auth.schema";
 import { prisma } from "@/lib/prisma";
@@ -35,10 +36,12 @@ const providers = [
         where: { email: parsed.data.email },
       });
 
-      if (!user?.password || !user.isActive) {
+      const passwordHash = user?.passwordHash ?? user?.legacyPasswordHash;
+
+      if (!passwordHash || !user?.isActive) {
         authDebugLog("Login blocked because user is missing password or inactive.", {
           email: parsed.data.email,
-          hasPassword: Boolean(user?.password),
+          hasPassword: Boolean(passwordHash),
           isActive: user?.isActive ?? null,
         });
         return null;
@@ -46,7 +49,7 @@ const providers = [
 
       const passwordMatches = await bcrypt.compare(
         parsed.data.password,
-        user.password,
+        passwordHash,
       );
 
       if (!passwordMatches) {
@@ -95,7 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers,
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === "google") {
         const denyGoogleLogin = () => "/login?error=AccessDenied";
 
@@ -153,44 +156,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return true; // allow credentials login
     },
-    async jwt({ token, user, account }) {
-      if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          include: {
-            role: true,
-          }
-        });
-
-        if (dbUser) {
-          token.id = dbUser.id;
-          
-          // Compute role
-          let computedRole = "User";
-          let computedLegacyRole = "USER";
-          let isSuperAdmin = false;
-          let permissions: string[] = [];
-          
-          if (dbUser.provider === "google" && dbUser.ownerAdminId === dbUser.id) {
-            computedRole = "Super Admin";
-            computedLegacyRole = "ADMIN";
-            isSuperAdmin = true;
-          } else if (dbUser.role) {
-            computedRole = dbUser.role.name;
-          }
-          
-          token.role = computedRole;
-          token.legacyRole = computedLegacyRole;
-          token.name = dbUser.name;
-          token.email = dbUser.email;
-          token.picture = dbUser.image;
-          token.ownerAdminId = dbUser.ownerAdminId || undefined;
-          
-          token.roles = [computedRole];
-          token.permissions = [];
-          token.isSuperAdmin = isSuperAdmin;
-        }
+    async jwt({ token }) {
+      if (!token.email) {
+        return token;
       }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { email: token.email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          ownerAdminId: true,
+        },
+      });
+
+      if (!dbUser) {
+        return token;
+      }
+
+      const access = await getSessionAccess(dbUser.id);
+
+      token.id = dbUser.id;
+      token.name = dbUser.name;
+      token.email = dbUser.email;
+      token.picture = dbUser.image;
+      token.ownerAdminId = dbUser.ownerAdminId || undefined;
+      token.role = access?.role ?? "User";
+      token.legacyRole = access?.legacyRole ?? "USER";
+      token.roles = access?.roles ?? [token.role];
+      token.permissions = access?.permissions ?? [];
+      token.isSuperAdmin = access?.isSuperAdmin ?? false;
 
       return token;
     },

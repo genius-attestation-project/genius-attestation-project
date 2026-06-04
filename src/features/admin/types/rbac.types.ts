@@ -22,13 +22,18 @@ export type UserAccessRow = {
   id: string;
   name: string;
   email: string;
+  phone: string;
+  image: string;
   role: string;
   roleId: string | null;
+  departmentId: string | null;
   department: string;
+  officeLocationId: string | null;
   officeLocation: string;
   status: "Active" | "Inactive";
   lastLogin: string;
   createdDate: string;
+  createdBy: string;
 };
 
 export type SessionAccess = {
@@ -55,10 +60,17 @@ export type RolePermissionPayload = {
 export type UserPayload = {
   name: string;
   email: string;
-  department?: string;
-  officeLocation?: string;
+  password?: string;
+  phone?: string;
+  image?: string;
+  departmentId?: string | null;
+  officeLocationId?: string | null;
   isActive?: boolean;
   roleId?: string | null;
+};
+
+export type UserPasswordResetPayload = {
+  password: string;
 };
 
 export type RoleOption = {

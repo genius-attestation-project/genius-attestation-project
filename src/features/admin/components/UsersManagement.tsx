@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Plus, Trash2, UserCog, Users } from "lucide-react";
+import { Edit3, KeyRound, Plus, Trash2, UserCog, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -24,8 +24,11 @@ import { getInitials } from "@/utils/format";
 type UserFormState = {
   name: string;
   email: string;
-  department: string;
-  officeLocation: string;
+  password: string;
+  phone: string;
+  image: string;
+  departmentId: string;
+  officeLocationId: string;
   roleId: string;
   isActive: boolean;
 };
@@ -33,8 +36,11 @@ type UserFormState = {
 const defaultFormState: UserFormState = {
   name: "",
   email: "",
-  department: "",
-  officeLocation: "",
+  password: "",
+  phone: "",
+  image: "",
+  departmentId: "",
+  officeLocationId: "",
   roleId: "",
   isActive: true,
 };
@@ -134,8 +140,11 @@ export function UsersManagement() {
     setFormState({
       name: user.name,
       email: user.email,
-      department: user.department === "-" ? "" : user.department,
-      officeLocation: user.officeLocation === "-" ? "" : user.officeLocation,
+      password: "",
+      phone: user.phone === "-" ? "" : user.phone,
+      image: user.image,
+      departmentId: user.departmentId ?? "",
+      officeLocationId: user.officeLocationId ?? "",
       roleId: user.roleId ?? "",
       isActive: user.status === "Active",
     });
@@ -161,14 +170,6 @@ export function UsersManagement() {
         throw new Error(payload.message ?? "Unable to save user.");
       }
 
-      if (formState.roleId && editingUser) {
-        await fetch(`/api/users/${editingUser.id}/role`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roleId: formState.roleId }),
-        });
-      }
-
       await loadUsers();
       setIsDrawerOpen(false);
       setMessage(editingUser ? "User updated successfully." : "User created successfully.");
@@ -178,6 +179,36 @@ export function UsersManagement() {
       setError(message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResetPassword(user: UserAccessRow) {
+    const password = window.prompt(`Enter a new password for ${user.name}`);
+
+    if (!password) {
+      return;
+    }
+
+    try {
+      setError("");
+      setMessage("");
+      const response = await fetch(`/api/users/${user.id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Unable to reset user password.");
+      }
+
+      setMessage("Password reset successfully.");
+    } catch (resetError) {
+      const message =
+        resetError instanceof Error ? resetError.message : "Unable to reset user password.";
+      console.error("Failed to reset password:", message);
+      setError(message);
     }
   }
 
@@ -282,9 +313,18 @@ export function UsersManagement() {
                   label: "User",
                   render: (row) => (
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 text-sm font-extrabold text-white">
-                        {getInitials(String(row.name), String(row.email))}
-                      </span>
+                      {row.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={String(row.image)}
+                          alt={String(row.name)}
+                          className="h-11 w-11 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 text-sm font-extrabold text-white">
+                          {getInitials(String(row.name), String(row.email))}
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <p className="font-extrabold">{String(row.name)}</p>
                         <p className="text-sm text-soft">{String(row.email)}</p>
@@ -293,6 +333,7 @@ export function UsersManagement() {
                   ),
                 },
                 { key: "role", label: "Role" },
+                { key: "phone", label: "Phone" },
                 { key: "department", label: "Department" },
                 { key: "officeLocation", label: "Office" },
                 {
@@ -327,6 +368,13 @@ export function UsersManagement() {
                         <Button variant="secondary" size="icon" onClick={() => openEditDrawer(user)}>
                           <UserCog size={16} />
                         </Button>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={() => void handleResetPassword(user)}
+                        >
+                          <KeyRound size={16} />
+                        </Button>
                         <Button variant="danger" size="icon" onClick={() => void handleDelete(user)}>
                           <Trash2 size={16} />
                         </Button>
@@ -355,7 +403,7 @@ export function UsersManagement() {
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         title={editingUser ? "Edit User" : "Add User"}
-        description="Manage user profile details and assign an RBAC role."
+        description="Manage user profile details, password authentication, and RBAC role assignment."
       >
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <Input
@@ -372,6 +420,32 @@ export function UsersManagement() {
             value={formState.email}
             onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
             placeholder="name@company.com"
+          />
+          <Input
+            label={editingUser ? "Password" : "Password *"}
+            name="password"
+            type="password"
+            value={formState.password}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, password: event.target.value }))
+            }
+            placeholder={
+              editingUser ? "Leave blank to keep the current password" : "Create a strong password"
+            }
+          />
+          <Input
+            label="Phone"
+            name="phone"
+            value={formState.phone}
+            onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
+            placeholder="+91 98765 43210"
+          />
+          <Input
+            label="Profile Image"
+            name="image"
+            value={formState.image}
+            onChange={(event) => setFormState((current) => ({ ...current, image: event.target.value }))}
+            placeholder="https://example.com/avatar.jpg"
           />
           <label className="grid gap-2">
             <span className="text-sm font-bold">Role</span>
@@ -391,15 +465,15 @@ export function UsersManagement() {
           <label className="grid gap-2">
             <span className="text-sm font-bold">Department</span>
             <select
-              value={formState.department}
+              value={formState.departmentId}
               onChange={(event) =>
-                setFormState((current) => ({ ...current, department: event.target.value }))
+                setFormState((current) => ({ ...current, departmentId: event.target.value }))
               }
               className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
             >
               <option value="">Select department</option>
               {departments.map((department) => (
-                <option key={department.id} value={department.name}>
+                <option key={department.id} value={department.id}>
                   {department.name}
                 </option>
               ))}
@@ -408,15 +482,15 @@ export function UsersManagement() {
           <label className="grid gap-2">
             <span className="text-sm font-bold">Office Location</span>
             <select
-              value={formState.officeLocation}
+              value={formState.officeLocationId}
               onChange={(event) =>
-                setFormState((current) => ({ ...current, officeLocation: event.target.value }))
+                setFormState((current) => ({ ...current, officeLocationId: event.target.value }))
               }
               className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
             >
               <option value="">Select office location</option>
               {officeLocations.map((officeLocation) => (
-                <option key={officeLocation.id} value={officeLocation.officeName}>
+                <option key={officeLocation.id} value={officeLocation.id}>
                   {officeLocation.officeName} - {officeLocation.location}
                 </option>
               ))}

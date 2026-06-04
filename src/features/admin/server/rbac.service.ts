@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import bcrypt from "bcrypt";
+
 import {
   buildPermissionCatalog,
   defaultRoleDefinitions,
@@ -391,18 +393,26 @@ export async function setRolePermissions(ownerAdminId: string, roleId: string, p
 function mapUser(user: Awaited<ReturnType<typeof fetchUsersFromDb>>[number]): UserAccessRow {
   const isOwner = user.ownerAdminId === user.id;
   const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "Staff");
+  const departmentName = user.departmentRef?.name ?? user.departmentName ?? "-";
+  const officeLocationName =
+    user.officeLocationRef?.officeName ?? user.officeLocationName ?? "-";
 
   return {
     id: user.id,
     name: user.name ?? "Workspace User",
     email: user.email,
+    phone: user.phone ?? "-",
+    image: user.image ?? "",
     role: roleName,
     roleId: user.roleId,
-    department: user.department ?? "-",
-    officeLocation: user.officeLocation ?? "-",
+    departmentId: user.departmentId ?? null,
+    department: departmentName,
+    officeLocationId: user.officeLocationId ?? null,
+    officeLocation: officeLocationName,
     status: user.isActive ? "Active" : "Inactive",
     lastLogin: formatRelativeTime(user.lastLoginAt),
     createdDate: formatDate(user.createdAt),
+    createdBy: user.createdBy ?? user.ownerAdminId ?? "-",
   };
 }
 
@@ -417,6 +427,8 @@ async function fetchUsersFromDb(ownerAdminId: string) {
     orderBy: { createdAt: "desc" },
     include: {
       role: { select: { id: true, name: true } },
+      departmentRef: { select: { id: true, name: true } },
+      officeLocationRef: { select: { id: true, officeName: true } },
     },
   });
 }
@@ -437,15 +449,65 @@ export async function getUserById(ownerAdminId: string, userId: string) {
     },
     include: {
       role: { select: { id: true, name: true } },
+      departmentRef: { select: { id: true, name: true } },
+      officeLocationRef: { select: { id: true, officeName: true } },
     },
   });
 
   return user ? mapUser(user) : null;
 }
 
+async function findDepartmentById(ownerAdminId: string, departmentId?: string | null) {
+  if (!departmentId) {
+    return null;
+  }
+
+  return prisma.department.findFirst({
+    where: { id: departmentId, ownerAdminId },
+    select: { id: true, name: true },
+  });
+}
+
+async function findOfficeLocationById(ownerAdminId: string, officeLocationId?: string | null) {
+  if (!officeLocationId) {
+    return null;
+  }
+
+  return prisma.officeLocation.findFirst({
+    where: { id: officeLocationId, ownerAdminId },
+    select: { id: true, officeName: true },
+  });
+}
+
+function assertScopedLookup<T>(record: T | null, label: string, requestedId?: string | null) {
+  if (requestedId && !record) {
+    throw new Error(`${label} not found.`);
+  }
+}
+
+async function ensureEmailAvailable(email: string, userId?: string) {
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (existingUser && existingUser.id !== userId) {
+    throw new Error("A user with this email already exists.");
+  }
+}
+
+async function hashPassword(password: string) {
+  return bcrypt.hash(password, 12);
+}
+
 export async function createUser(ownerAdminId: string, payload: UserPayload) {
   await ensureAdminRoles(ownerAdminId);
-  
+  await ensureEmailAvailable(payload.email);
+
+  if (!payload.password) {
+    throw new Error("Password is required.");
+  }
+
   let roleId = payload.roleId;
 
   if (!roleId) {
@@ -456,12 +518,27 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
     if (staffRole) roleId = staffRole.id;
   }
 
+  const [department, officeLocation, passwordHash] = await Promise.all([
+    findDepartmentById(ownerAdminId, payload.departmentId),
+    findOfficeLocationById(ownerAdminId, payload.officeLocationId),
+    hashPassword(payload.password),
+  ]);
+
+  assertScopedLookup(department, "Department", payload.departmentId);
+  assertScopedLookup(officeLocation, "Office location", payload.officeLocationId);
+
   const user = await prisma.user.create({
     data: {
       name: payload.name,
       email: payload.email,
-      department: payload.department || null,
-      officeLocation: payload.officeLocation || null,
+      phone: payload.phone || null,
+      image: payload.image || null,
+      passwordHash,
+      legacyPasswordHash: null,
+      departmentId: department?.id ?? null,
+      departmentName: department?.name ?? null,
+      officeLocationId: officeLocation?.id ?? null,
+      officeLocationName: officeLocation?.officeName ?? null,
       isActive: payload.isActive ?? true,
       ownerAdminId,
       createdBy: ownerAdminId,
@@ -469,6 +546,8 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
     },
     include: {
       role: { select: { id: true, name: true } },
+      departmentRef: { select: { id: true, name: true } },
+      officeLocationRef: { select: { id: true, officeName: true } },
     },
   });
 
@@ -476,12 +555,18 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
 }
 
 export async function setUserRole(ownerAdminId: string, userId: string, roleId: string) {
-  const user = await prisma.user.findFirst({
-    where: { id: userId, ownerAdminId },
-    select: { id: true },
-  });
+  const [user, role] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: userId, ownerAdminId },
+      select: { id: true },
+    }),
+    prisma.accessRole.findFirst({
+      where: { id: roleId, ownerAdminId },
+      select: { id: true },
+    }),
+  ]);
 
-  if (!user) return null;
+  if (!user || !role) return null;
 
   await prisma.user.update({
     where: { id: userId },
@@ -499,15 +584,53 @@ export async function updateUser(ownerAdminId: string, userId: string, payload: 
 
   if (!user) return null;
 
+  await ensureEmailAvailable(payload.email, userId);
+
+  const [department, officeLocation, passwordHash] = await Promise.all([
+    findDepartmentById(ownerAdminId, payload.departmentId),
+    findOfficeLocationById(ownerAdminId, payload.officeLocationId),
+    payload.password ? hashPassword(payload.password) : Promise.resolve<string | null>(null),
+  ]);
+
+  assertScopedLookup(department, "Department", payload.departmentId);
+  assertScopedLookup(officeLocation, "Office location", payload.officeLocationId);
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       name: payload.name,
       email: payload.email,
-      department: payload.department || null,
-      officeLocation: payload.officeLocation || null,
+      phone: payload.phone || null,
+      image: payload.image || null,
+      passwordHash: passwordHash ?? undefined,
+      legacyPasswordHash: passwordHash ? null : undefined,
+      departmentId: department?.id ?? null,
+      departmentName: department?.name ?? null,
+      officeLocationId: officeLocation?.id ?? null,
+      officeLocationName: officeLocation?.officeName ?? null,
       isActive: payload.isActive ?? true,
       roleId: payload.roleId,
+    },
+  });
+
+  return getUserById(ownerAdminId, userId);
+}
+
+export async function resetUserPassword(ownerAdminId: string, userId: string, password: string) {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ownerAdminId },
+    select: { id: true },
+  });
+
+  if (!user) return null;
+
+  const passwordHash = await hashPassword(password);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash,
+      legacyPasswordHash: null,
     },
   });
 
@@ -582,14 +705,29 @@ export async function updateDepartment(
 
   if (!department) return null;
 
+  await prisma.user.updateMany({
+    where: { ownerAdminId, departmentId },
+    data: { departmentName: payload.name },
+  });
+
   return mapDepartment(department);
 }
 
 export async function deleteDepartment(ownerAdminId: string, departmentId: string) {
-  const deletedCount = await prisma.$executeRaw`
-    DELETE FROM departments
-    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
-  `;
+  const deletedCount = await prisma.$transaction(async (tx) => {
+    await tx.user.updateMany({
+      where: { ownerAdminId, departmentId },
+      data: {
+        departmentId: null,
+        departmentName: null,
+      },
+    });
+
+    return tx.$executeRaw`
+      DELETE FROM departments
+      WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
+    `;
+  });
 
   return deletedCount > 0;
 }
@@ -709,12 +847,10 @@ export async function updateOfficeLocation(
   `;
 
   if (existingOfficeLocation.officeName !== payload.officeName) {
-    await prisma.$executeRaw`
-      UPDATE users
-      SET "officeLocation" = ${payload.officeName}, updated_at = CURRENT_TIMESTAMP
-      WHERE owner_admin_id = ${ownerAdminId}
-        AND "officeLocation" = ${existingOfficeLocation.officeName}
-    `;
+    await prisma.user.updateMany({
+      where: { ownerAdminId, officeLocationId },
+      data: { officeLocationName: payload.officeName },
+    });
   }
 
   return mapOfficeLocation(officeLocation);
@@ -734,12 +870,13 @@ export async function deleteOfficeLocation(ownerAdminId: string, officeLocationI
   if (!officeLocation) return false;
 
   await prisma.$transaction([
-    prisma.$executeRaw`
-      UPDATE users
-      SET "officeLocation" = NULL, updated_at = CURRENT_TIMESTAMP
-      WHERE owner_admin_id = ${ownerAdminId}
-        AND "officeLocation" = ${officeLocation.officeName}
-    `,
+    prisma.user.updateMany({
+      where: { ownerAdminId, officeLocationId },
+      data: {
+        officeLocationId: null,
+        officeLocationName: null,
+      },
+    }),
     prisma.$executeRaw`
       DELETE FROM office_locations
       WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
@@ -771,10 +908,10 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
 
   if (!user) return null;
 
-  const isOwner = user.ownerAdminId === user.id && user.provider === "google";
-  
+  const isOwner = user.ownerAdminId === user.id;
+
   // Super Admin always has access to everything
-  const isSuperAdmin = isOwner;
+  const isSuperAdmin = isOwner || user.role?.name === "Super Admin";
   const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "User");
   
   const permissions = isSuperAdmin 

@@ -12,7 +12,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
       <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
-        <Sidebar userName={userName} userEmail={userEmail} />
+        <Sidebar
+          userName={userName}
+          userEmail={userEmail}
+          permissions={session.user.permissions}
+          isSuperAdmin={session.user.isSuperAdmin}
+        />
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
           <Navbar userName={session.user.name} userEmail={session.user.email} />
           <main className="grid min-h-0 min-w-0 content-start gap-4 overflow-y-auto pb-8 pr-1 sm:gap-6 sm:pr-2">

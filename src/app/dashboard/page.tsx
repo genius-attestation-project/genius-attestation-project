@@ -1,10 +1,16 @@
 import { PageHeader } from "@/components/ui/PageHeader";
+import { AccessDenied } from "@/components/shared/AccessDenied";
 import { DashboardOverview } from "@/features/dashboard/components/DashboardOverview";
 import { getGreeting } from "@/features/dashboard/data/dashboard.data";
-import { requireAuth } from "@/middleware/auth.middleware";
+import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function DashboardPage() {
-  const session = await requireAuth("/dashboard");
+  const session = await requirePermission("dashboard.view", "/dashboard");
+
+  if (!session) {
+    return <AccessDenied description="Your role cannot access the dashboard." />;
+  }
+
   const greeting = getGreeting();
   const userName = session.user.name ?? session.user.email ?? "Workspace User";
 
@@ -15,7 +21,11 @@ export default async function DashboardPage() {
         title={`${greeting}, ${userName}`}
         description="A simplified overview of the current workspace modules with clearer hierarchy, lighter spacing, and fewer competing panels."
       />
-      <DashboardOverview />
+      <DashboardOverview
+        permissions={session.user.permissions}
+        isSuperAdmin={session.user.isSuperAdmin}
+        role={session.user.role}
+      />
     </div>
   );
 }
