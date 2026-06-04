@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
@@ -60,6 +60,9 @@ const blankForm: RegistrationFormState = {
   paymentMode: "",
   paymentStatus: "Pending",
   collectedPerson: "",
+  commissionToUserId: "",
+  commissionToName: "",
+  commissionToEmail: "",
   registeredPerson: "",
   regionOfRegistration: "",
   approvalStatus: "Pending",
@@ -104,6 +107,9 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     paymentMode: registration.paymentMode ?? "",
     paymentStatus: registration.paymentStatus,
     collectedPerson: registration.collectedPerson ?? "",
+    commissionToUserId: registration.commissionToUserId ?? "",
+    commissionToName: registration.commissionToName ?? "",
+    commissionToEmail: registration.commissionToEmail ?? "",
     registeredPerson: registration.registeredPerson ?? "",
     regionOfRegistration: registration.regionOfRegistration ?? "",
     approvalStatus: registration.approvalStatus,
@@ -330,7 +336,13 @@ export function RegistrationManager({
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [supportingFile, setSupportingFile] = useState<File | null>(null);
   const [personOptions, setPersonOptions] = useState<string[]>([]);
+  const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [regionOptions, setRegionOptions] = useState<string[]>([]);
+  const [officeLocationOptions, setOfficeLocationOptions] = useState<string[]>([]);
+  const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
+  const [officeLocationsError, setOfficeLocationsError] = useState("");
 
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
@@ -342,6 +354,27 @@ export function RegistrationManager({
   const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
   const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
   const needsSupportingFile = !hasUploadedFile(selected, "SUPPORTING_DOCUMENT");
+  const deliveryLocationOptions = useMemo(() => {
+    if (form.deliveryLocation && !officeLocationOptions.includes(form.deliveryLocation)) {
+      return [form.deliveryLocation, ...officeLocationOptions];
+    }
+
+    return officeLocationOptions;
+  }, [form.deliveryLocation, officeLocationOptions]);
+  const commissionToOptions = useMemo(() => {
+    if (form.commissionToUserId && !commissionUserOptions.some((option) => option.value === form.commissionToUserId)) {
+      return [
+        {
+          label: form.commissionToName || form.commissionToUserId,
+          value: form.commissionToUserId,
+          description: form.commissionToEmail,
+        },
+        ...commissionUserOptions,
+      ];
+    }
+
+    return commissionUserOptions;
+  }, [commissionUserOptions, form.commissionToEmail, form.commissionToName, form.commissionToUserId]);
 
   async function fetchRegistrations(search = query) {
     setLoading(true);
@@ -368,6 +401,11 @@ export function RegistrationManager({
 
   useEffect(() => {
     async function fetchDropdownOptions() {
+      setUsersLoading(true);
+      setUsersError("");
+      setOfficeLocationsLoading(true);
+      setOfficeLocationsError("");
+
       const [usersResponse, officeLocationsResponse] = await Promise.allSettled([
         fetch("/api/users", { cache: "no-store" }),
         fetch("/api/office-locations", { cache: "no-store" }),
@@ -375,19 +413,51 @@ export function RegistrationManager({
 
       if (usersResponse.status === "fulfilled" && usersResponse.value.ok) {
         const payload = await usersResponse.value.json().catch(() => ({}));
-        const names = ((payload.users ?? []) as UserOption[])
+        const users = (payload.users ?? []) as UserOption[];
+        const names = users
           .map((user) => user.name || user.email || "")
           .filter(Boolean);
         setPersonOptions(Array.from(new Set(names)));
+        setCommissionUserOptions(
+          users.map((user) => ({
+            label: user.name || user.email || "Workspace User",
+            value: user.id,
+            description: user.email || undefined,
+          })),
+        );
+      } else {
+        const message =
+          usersResponse.status === "fulfilled"
+            ? ((await usersResponse.value.json().catch(() => ({}))) as { message?: string }).message
+            : undefined;
+        setPersonOptions([]);
+        setCommissionUserOptions([]);
+        setUsersError(message ?? "Unable to load users.");
       }
 
       if (officeLocationsResponse.status === "fulfilled" && officeLocationsResponse.value.ok) {
         const payload = await officeLocationsResponse.value.json().catch(() => ({}));
-        const regions = ((payload.officeLocations ?? []) as OfficeLocationOption[])
+        const officeLocations = (payload.officeLocations ?? []) as OfficeLocationOption[];
+        const names = officeLocations
+          .map((officeLocation) => officeLocation.officeName)
+          .filter(Boolean);
+        const regions = officeLocations
           .map((officeLocation) => officeLocation.location || officeLocation.officeName)
           .filter(Boolean);
+        setOfficeLocationOptions(Array.from(new Set(names)));
         setRegionOptions(Array.from(new Set(regions)));
+      } else {
+        const message =
+          officeLocationsResponse.status === "fulfilled"
+            ? ((await officeLocationsResponse.value.json().catch(() => ({}))) as { message?: string }).message
+            : undefined;
+        setOfficeLocationOptions([]);
+        setRegionOptions([]);
+        setOfficeLocationsError(message ?? "Unable to load office locations.");
       }
+
+      setOfficeLocationsLoading(false);
+      setUsersLoading(false);
     }
 
     void fetchDropdownOptions();
@@ -395,6 +465,17 @@ export function RegistrationManager({
 
   function updateField(name: keyof RegistrationFormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateCommissionTo(userId: string) {
+    const selectedUser = commissionToOptions.find((option) => option.value === userId);
+
+    setForm((current) => ({
+      ...current,
+      commissionToUserId: userId,
+      commissionToName: selectedUser?.label ?? "",
+      commissionToEmail: selectedUser?.description ?? "",
+    }));
   }
 
   function openCreate() {
@@ -707,12 +788,20 @@ export function RegistrationManager({
               onChange={(event) => updateField("committedDuration", event.target.value)}
               required
             />
-            <Input
-              label="Delivery Location"
-              value={form.deliveryLocation}
-              onChange={(event) => updateField("deliveryLocation", event.target.value)}
-              required
-            />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Delivery Location</span>
+              <SearchableSelect
+                value={form.deliveryLocation}
+                options={toSelectOptions(deliveryLocationOptions)}
+                onChange={(nextValue) => updateField("deliveryLocation", nextValue)}
+                placeholder={officeLocationsLoading ? "Loading office locations..." : "Select delivery location"}
+                name="deliveryLocation"
+                loading={officeLocationsLoading}
+                loadingMessage="Loading office locations..."
+                emptyMessage="No office locations found"
+                errorMessage={officeLocationsError}
+              />
+            </label>
             <Input
               label="Customer Document Upload"
               type="file"
@@ -745,6 +834,20 @@ export function RegistrationManager({
             <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
             <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} required />
             <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Commission To</span>
+              <SearchableSelect
+                value={form.commissionToUserId}
+                options={commissionToOptions}
+                onChange={updateCommissionTo}
+                placeholder={usersLoading ? "Loading users..." : "Select user"}
+                name="commissionToUserId"
+                loading={usersLoading}
+                loadingMessage="Loading users..."
+                emptyMessage="No users found"
+                errorMessage={usersError}
+              />
+            </label>
             <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personOptions} onChange={updateField} />
             <SelectField label="Region of Registration" name="regionOfRegistration" value={form.regionOfRegistration} options={regionOptions} onChange={updateField} />
             <Input
