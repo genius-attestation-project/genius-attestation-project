@@ -47,6 +47,9 @@ export function RegistrationDetail({
   onReject,
   approving = false,
 }: RegistrationDetailProps) {
+  const commissionTo = registration.commissionToName && registration.commissionToEmail
+    ? `${registration.commissionToName} (${registration.commissionToEmail})`
+    : registration.commissionToName || registration.commissionToEmail;
   const approvalTone =
     registration.approvalStatus === "Approved"
       ? "green"
@@ -113,6 +116,7 @@ export function RegistrationDetail({
           <Field label="Balance Amount" value={registration.balanceAmount.toFixed(2)} />
           <Field label="Payment Mode" value={registration.paymentMode} />
           <Field label="Collected Person" value={registration.collectedPerson} />
+          <Field label="Commission To" value={commissionTo} />
           <Field label="Registered Person" value={registration.registeredPerson} />
           <Field label="Region of Registration" value={registration.regionOfRegistration} />
         </div>
