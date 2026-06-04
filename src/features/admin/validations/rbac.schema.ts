@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+import { passwordSchema } from "@/features/auth/validations/auth.schema";
+
+const nullableTrimmedString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value : null));
+
 export const roleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required."),
   description: z.string().trim().default(""),
@@ -13,14 +21,21 @@ export const rolePermissionSchema = z.object({
 export const userSchema = z.object({
   name: z.string().trim().min(1, "Name is required."),
   email: z.string().trim().email("Email is required."),
-  department: z.string().trim().optional().default(""),
-  officeLocation: z.string().trim().optional().default(""),
+  password: passwordSchema.optional(),
+  phone: z.string().trim().optional().default(""),
+  image: z.string().trim().optional().default(""),
+  departmentId: nullableTrimmedString,
+  officeLocationId: nullableTrimmedString,
   isActive: z.boolean().default(true),
-  roleId: z.string().trim().nullable().optional(),
+  roleId: nullableTrimmedString,
 });
 
 export const userRoleSchema = z.object({
   roleId: z.string().trim().min(1, "Role is required."),
+});
+
+export const resetUserPasswordSchema = z.object({
+  password: passwordSchema,
 });
 
 export const departmentSchema = z.object({

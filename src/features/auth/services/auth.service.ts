@@ -10,7 +10,8 @@ export async function createUserWithPassword(payload: RegisterPayload) {
     data: {
       name: payload.name,
       email: payload.email,
-      password,
+      passwordHash: password,
+      legacyPasswordHash: null,
     },
     select: {
       id: true,

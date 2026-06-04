@@ -23,31 +23,39 @@ enum LeadStatus {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  name           String?
-  email          String    @unique
-  emailVerified  DateTime?
-  image          String?
-  password       String?
-  provider       String?   @default("credentials")
-  roleId         String?   @map("role_id")
-  role           AccessRole? @relation(fields: [roleId], references: [id])
-  ownerAdminId   String?   @map("owner_admin_id")
-  ownerAdmin     User?     @relation("UserOwner", fields: [ownerAdminId], references: [id])
-  ownedUsers     User[]    @relation("UserOwner")
-  createdBy      String?   @map("created_by")
-  department     String?
-  officeLocation String?
-  isActive       Boolean   @default(true) @map("is_active")
-  lastLoginAt    DateTime?
+  id                 String           @id @default(cuid())
+  name               String?
+  email              String           @unique
+  emailVerified      DateTime?
+  image              String?
+  phone              String?
+  passwordHash       String?          @map("password_hash")
+  legacyPasswordHash String?          @map("password")
+  provider           String?          @default("credentials")
+  roleId             String?          @map("role_id")
+  role               AccessRole?      @relation(fields: [roleId], references: [id])
+  ownerAdminId       String?          @map("owner_admin_id")
+  ownerAdmin         User?            @relation("UserOwner", fields: [ownerAdminId], references: [id])
+  ownedUsers         User[]           @relation("UserOwner")
+  createdBy          String?          @map("created_by")
+  departmentId       String?          @map("department_id")
+  departmentRef      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentName     String?          @map("department")
+  officeLocationId   String?          @map("office_location_id")
+  officeLocationRef  OfficeLocation?  @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
+  officeLocationName String?          @map("officeLocation")
+  isActive           Boolean          @default(true) @map("is_active")
+  lastLoginAt        DateTime?
 
-  accounts       Account[]
-  sessions       Session[]
-  userRoles      UserRole[]
+  accounts           Account[]
+  sessions           Session[]
+  userRoles          UserRole[]
 
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
 
+  @@index([departmentId])
+  @@index([officeLocationId])
   @@index([ownerAdminId])
   @@map("users")
 }
@@ -58,6 +66,7 @@ model Department {
   ownerAdminId String   @map("owner_admin_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  users        User[]
 
   @@unique([name, ownerAdminId])
   @@index([ownerAdminId])
@@ -73,6 +82,7 @@ model OfficeLocation {
   ownerAdminId String   @map("owner_admin_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  users        User[]
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])

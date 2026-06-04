@@ -33,6 +33,17 @@ export async function PUT(request: Request, context: RouteContext) {
 
     return jsonOk({ user });
   } catch (error) {
+    if (error instanceof Error && error.message === "A user with this email already exists.") {
+      return jsonError(error.message, 409);
+    }
+
+    if (
+      error instanceof Error &&
+      (error.message === "Department not found." || error.message === "Office location not found.")
+    ) {
+      return jsonError(error.message, 400);
+    }
+
     console.error("Failed to update user", error);
     return jsonError("Unable to update user.", 500);
   }

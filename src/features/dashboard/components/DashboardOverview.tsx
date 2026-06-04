@@ -10,7 +10,14 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { DashboardCharts } from "@/features/dashboard/components/DashboardCharts";
 import { DashboardRightRail } from "@/features/dashboard/components/DashboardRightRail";
 import { DashboardTables } from "@/features/dashboard/components/DashboardTables";
+import type { DashboardStat } from "@/features/dashboard/data/dashboard.data";
 import type { DashboardStatsResponse } from "@/features/lead/types/lead.types";
+
+type DashboardOverviewProps = {
+  permissions: string[];
+  isSuperAdmin: boolean;
+  role: string;
+};
 
 const defaultStats: DashboardStatsResponse = {
   totalLeads: 0,
@@ -29,7 +36,19 @@ const defaultStats: DashboardStatsResponse = {
   },
 };
 
-export function DashboardOverview() {
+function canAccess(
+  permissions: string[],
+  isSuperAdmin: boolean,
+  required: string[],
+) {
+  return isSuperAdmin || required.some((permission) => permissions.includes(permission));
+}
+
+export function DashboardOverview({
+  permissions,
+  isSuperAdmin,
+  role,
+}: DashboardOverviewProps) {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStatsResponse>(defaultStats);
   const [loading, setLoading] = useState(true);
@@ -83,58 +102,85 @@ export function DashboardOverview() {
   }, [router]);
 
   const cards = useMemo(
-    () => [
-      {
-        label: "Total Leads",
-        value: stats.totalLeads.toLocaleString(),
-        delta: "Live",
-        description: "All leads in PostgreSQL",
-        icon: Users,
-        tone: "blue" as const,
-      },
-      {
-        label: "Active Leads",
-        value: stats.activeLeads.toLocaleString(),
-        delta: "Live",
-        description: "Open and active pipeline",
-        icon: UserCheck,
-        tone: "slate" as const,
-      },
-      {
-        label: "Revenue",
-        value: `$${Math.round(stats.totalRevenue).toLocaleString()}`,
-        delta: "Live",
-        description: "Total booked lead value",
-        icon: BadgeDollarSign,
-        tone: "blue" as const,
-      },
-      {
-        label: "Followups",
-        value: stats.followups.toLocaleString(),
-        delta: "Live",
-        description: "Leads requiring followup",
-        icon: LoaderCircle,
-        tone: "amber" as const,
-      },
-      {
-        label: "Closed Leads",
-        value: stats.closedLeads.toLocaleString(),
-        delta: "Live",
-        description: "Successfully closed leads",
-        icon: BadgeCheck,
-        tone: "slate" as const,
-      },
-      {
-        label: "Pending Approval",
-        value: stats.pendingLeads.toLocaleString(),
-        delta: "Live",
-        description: "Awaiting approval action",
-        icon: ClipboardList,
-        tone: "amber" as const,
-      },
-    ],
-    [stats],
+    (): DashboardStat[] => {
+      const visibleCards: DashboardStat[] = [];
+
+      if (canAccess(permissions, isSuperAdmin, ["leads.view", "dashboard.view"])) {
+        visibleCards.push({
+          label: "Total Leads",
+          value: stats.totalLeads.toLocaleString(),
+          delta: "Live",
+          description: "All leads in PostgreSQL",
+          icon: Users,
+          tone: "blue",
+        });
+        visibleCards.push({
+          label: "Active Leads",
+          value: stats.activeLeads.toLocaleString(),
+          delta: "Live",
+          description: "Open and active pipeline",
+          icon: UserCheck,
+          tone: "slate",
+        });
+      }
+
+      if (canAccess(permissions, isSuperAdmin, ["revenue_registration.view", "account_update.view"])) {
+        visibleCards.push({
+          label: "Revenue",
+          value: `$${Math.round(stats.totalRevenue).toLocaleString()}`,
+          delta: "Live",
+          description: "Total booked lead value",
+          icon: BadgeDollarSign,
+          tone: "blue",
+        });
+      }
+
+      if (canAccess(permissions, isSuperAdmin, ["followups.view"])) {
+        visibleCards.push({
+          label: "Followups",
+          value: stats.followups.toLocaleString(),
+          delta: "Live",
+          description: "Leads requiring followup",
+          icon: LoaderCircle,
+          tone: "amber",
+        });
+      }
+
+      if (canAccess(permissions, isSuperAdmin, ["closed_leads.view"])) {
+        visibleCards.push({
+          label: "Closed Leads",
+          value: stats.closedLeads.toLocaleString(),
+          delta: "Live",
+          description: "Successfully closed leads",
+          icon: BadgeCheck,
+          tone: "slate",
+        });
+      }
+
+      if (canAccess(permissions, isSuperAdmin, ["pending_approval.view"])) {
+        visibleCards.push({
+          label: "Pending Approval",
+          value: stats.pendingLeads.toLocaleString(),
+          delta: "Live",
+          description: "Awaiting approval action",
+          icon: ClipboardList,
+          tone: "amber",
+        });
+      }
+
+      return visibleCards;
+    },
+    [isSuperAdmin, permissions, stats],
   );
+
+  const showCharts = canAccess(permissions, isSuperAdmin, [
+    "leads.view",
+    "followups.view",
+    "closed_leads.view",
+    "revenue_registration.view",
+  ]);
+  const showRecentActivity = canAccess(permissions, isSuperAdmin, ["dashboard.view", "leads.view"]);
+  const showRecentLeads = canAccess(permissions, isSuperAdmin, ["leads.view"]);
 
   if (loading) {
     return (
@@ -163,6 +209,16 @@ export function DashboardOverview() {
     );
   }
 
+  if (cards.length === 0 && !showCharts && !showRecentLeads) {
+    return (
+      <EmptyState
+        icon={LoaderCircle}
+        title={`Dashboard access ready for ${role}`}
+        description="This dashboard is active, but no widgets are assigned to the current permission set yet."
+      />
+    );
+  }
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -171,17 +227,35 @@ export function DashboardOverview() {
         ))}
       </section>
 
-      <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
-        <DashboardCharts
-          monthlyLeads={stats.charts.monthlyLeads}
-          revenueTrends={stats.charts.revenueTrends}
-          leadsByStatus={stats.charts.leadsByStatus}
-          followupCounts={stats.charts.followupCounts}
-        />
-        <DashboardRightRail activities={stats.recentActivities} />
-      </section>
+      {showCharts || showRecentActivity ? (
+        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
+          {showCharts ? (
+            <DashboardCharts
+              monthlyLeads={stats.charts.monthlyLeads}
+              revenueTrends={stats.charts.revenueTrends}
+              leadsByStatus={stats.charts.leadsByStatus}
+              followupCounts={stats.charts.followupCounts}
+            />
+          ) : (
+            <EmptyState
+              icon={LoaderCircle}
+              title="Charts hidden"
+              description="This role does not currently include analytics widgets."
+            />
+          )}
+          {showRecentActivity ? (
+            <DashboardRightRail activities={stats.recentActivities} />
+          ) : (
+            <EmptyState
+              icon={LoaderCircle}
+              title="Activity hidden"
+              description="Recent activity becomes visible when dashboard or lead permissions are granted."
+            />
+          )}
+        </section>
+      ) : null}
 
-      <DashboardTables rows={stats.recentLeads} />
+      {showRecentLeads ? <DashboardTables rows={stats.recentLeads} /> : null}
     </div>
   );
 }

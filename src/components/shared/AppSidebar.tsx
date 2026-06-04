@@ -9,23 +9,67 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
-  adminManagementLinks,
-  leadManagementLinks,
-  sidebarItems,
-} from "@/features/dashboard/data/dashboard.data";
+  sidebarNavigation,
+  type NavigationItemDefinition,
+} from "@/features/admin/data/rbac.data";
 import { cn } from "@/utils/cn";
 
 type AppSidebarProps = {
   userName: string;
   userEmail: string;
+  permissions: string[];
+  isSuperAdmin: boolean;
 };
 
-export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
+function filterNavigation(
+  items: NavigationItemDefinition[],
+  permissions: string[],
+  isSuperAdmin: boolean,
+): NavigationItemDefinition[] {
+  return items.flatMap((item) => {
+    const children = item.children
+      ? filterNavigation(item.children, permissions, isSuperAdmin)
+      : undefined;
+    const visible =
+      isSuperAdmin ||
+      permissions.includes(item.menuPermission) ||
+      permissions.includes(item.pagePermission) ||
+      Boolean(children?.length);
+
+    if (!visible) {
+      return [];
+    }
+
+    return [{ ...item, children }];
+  });
+}
+
+function flattenNavigation(items: NavigationItemDefinition[]): NavigationItemDefinition[] {
+  return items.flatMap((item) => [item, ...(item.children ? flattenNavigation(item.children) : [])]);
+}
+
+export function AppSidebar({
+  userName,
+  userEmail,
+  permissions,
+  isSuperAdmin,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(pathname.startsWith("/dashboard/admin-management"));
   const [leadOpen, setLeadOpen] = useState(pathname.startsWith("/dashboard/lead-management"));
+
+  const visibleNavigation = useMemo(
+    () => filterNavigation(sidebarNavigation, permissions, isSuperAdmin),
+    [permissions, isSuperAdmin],
+  );
+  const activeLink = useMemo(() => {
+    const items = flattenNavigation(visibleNavigation);
+    return items.find((link) =>
+      link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href),
+    );
+  }, [pathname, visibleNavigation]);
 
   useEffect(() => {
     if (pathname.startsWith("/dashboard/admin-management")) {
@@ -37,17 +81,8 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
     }
   }, [pathname]);
 
-  const activeAdminLink = useMemo(
-    () => adminManagementLinks.find((link) => pathname.startsWith(link.href)),
-    [pathname],
-  );
-  const activeLeadLink = useMemo(
-    () => leadManagementLinks.find((link) => pathname.startsWith(link.href)),
-    [pathname],
-  );
-
   function renderNavItems(showLabels: boolean) {
-    return sidebarItems.map((item) => {
+    return visibleNavigation.map((item) => {
       const isAdmin = item.href === "/dashboard/admin-management";
       const isLead = item.href === "/dashboard/lead-management";
       const isActive =
@@ -55,10 +90,9 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
-      if (isAdmin || isLead) {
+      if ((isAdmin || isLead) && item.children?.length) {
         const accordionOpen = isAdmin ? adminOpen : leadOpen;
         const setAccordionOpen = isAdmin ? setAdminOpen : setLeadOpen;
-        const nestedLinks = isAdmin ? adminManagementLinks : leadManagementLinks;
 
         return (
           <div key={item.href} className="grid gap-2">
@@ -102,7 +136,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
                     className="overflow-hidden"
                   >
                     <div className="ml-4 grid gap-1 border-l border-blue-200 pl-4 dark:border-blue-500/25">
-                      {nestedLinks.map((link) => {
+                      {item.children.map((link) => {
                         const isSubActive = pathname.startsWith(link.href);
 
                         return (
@@ -180,7 +214,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
                 collapsed={false}
                 userName={userName}
                 userEmail={userEmail}
-                activeLabel={activeAdminLink?.label ?? activeLeadLink?.label}
+                activeLabel={activeLink?.label}
               >
                 {renderNavItems(true)}
               </SidebarPanel>
@@ -197,7 +231,7 @@ export function AppSidebar({ userName, userEmail }: AppSidebarProps) {
           collapsed={collapsed}
           userName={userName}
           userEmail={userEmail}
-          activeLabel={activeAdminLink?.label ?? activeLeadLink?.label}
+          activeLabel={activeLink?.label}
           toggle={
             <Button
               variant="ghost"
@@ -244,7 +278,7 @@ function SidebarPanel({
             <>
               <h2 className="mt-3 text-lg font-semibold tracking-tight">Workspace</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/60">
-                Minimal CRM and ERP navigation
+                Navigation scoped to your role and permissions
               </p>
             </>
           ) : null}

@@ -27,7 +27,8 @@ export async function POST(request: Request) {
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
-      password,
+      passwordHash: password,
+      legacyPasswordHash: null,
       ownerAdminId: null,
     },
     select: {
@@ -45,16 +46,16 @@ export async function POST(request: Request) {
   await ensureRbacBootstrap();
   await ensureAdminRoles(user.id);
 
-  const staffRole = await prisma.accessRole.findFirst({
+  const superAdminRole = await prisma.accessRole.findFirst({
     where: {
-      name: "Staff",
+      name: "Super Admin",
       ownerAdminId: user.id,
     },
     select: { id: true },
   });
 
-  if (staffRole) {
-    await setUserRole(user.id, user.id, staffRole.id);
+  if (superAdminRole) {
+    await setUserRole(user.id, user.id, superAdminRole.id);
   }
 
   return jsonOk({ user }, 201);
