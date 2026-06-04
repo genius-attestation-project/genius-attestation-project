@@ -41,6 +41,9 @@ export type Registration = {
   paymentMode: string | null;
   paymentStatus: string;
   collectedPerson: string | null;
+  commissionToUserId: string | null;
+  commissionToName: string | null;
+  commissionToEmail: string | null;
   registeredPerson: string | null;
   regionOfRegistration: string | null;
   approvalStatus: string;
@@ -74,6 +77,9 @@ export type RegistrationFormState = {
   paymentMode: string;
   paymentStatus: string;
   collectedPerson: string;
+  commissionToUserId: string;
+  commissionToName: string;
+  commissionToEmail: string;
   registeredPerson: string;
   regionOfRegistration: string;
   approvalStatus: string;

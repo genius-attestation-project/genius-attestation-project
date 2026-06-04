@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export type SelectOption = {
   label: string;
   value: string;
+  description?: string;
 };
 
 interface SearchableSelectProps {
@@ -18,6 +19,10 @@ interface SearchableSelectProps {
   name?: string;
   error?: string;
   disabled?: boolean;
+  loading?: boolean;
+  loadingMessage?: string;
+  emptyMessage?: string;
+  errorMessage?: string;
 }
 
 export function SearchableSelect({
@@ -29,13 +34,17 @@ export function SearchableSelect({
   name,
   error,
   disabled = false,
+  loading = false,
+  loadingMessage = "Loading...",
+  emptyMessage = "No results found.",
+  errorMessage = "",
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const selectedOption = options.find((opt) => opt.value === value) ?? (value ? { label: value, value } : undefined);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -56,7 +65,7 @@ export function SearchableSelect({
   }, [isOpen]);
 
   const filteredOptions = options.filter((opt) =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    `${opt.label} ${opt.description ?? ""}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -117,8 +126,12 @@ export function SearchableSelect({
               />
             </div>
             <div className="max-h-48 overflow-y-auto py-1">
-              {filteredOptions.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-slate-500">No results found.</div>
+              {loading ? (
+                <div className="px-3 py-2 text-sm text-slate-500">{loadingMessage}</div>
+              ) : errorMessage ? (
+                <div className="px-3 py-2 text-sm font-medium text-rose-600">{errorMessage}</div>
+              ) : filteredOptions.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-slate-500">{emptyMessage}</div>
               ) : (
                 filteredOptions.map((option) => (
                   <button
@@ -132,7 +145,14 @@ export function SearchableSelect({
                       setIsOpen(false);
                     }}
                   >
-                    <span className="truncate">{option.label}</span>
+                    <span className="grid min-w-0 gap-0.5">
+                      <span className="truncate">{option.label}</span>
+                      {option.description ? (
+                        <span className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {option.description}
+                        </span>
+                      ) : null}
+                    </span>
                     {value === option.value && <Check size={16} />}
                   </button>
                 ))
