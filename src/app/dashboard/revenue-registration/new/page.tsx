@@ -24,6 +24,7 @@ export default async function RevenueRegistrationNewPage({
 
   return (
     <RegistrationManager
+      currentOfficeLocationName={session.user.officeLocationName ?? ""}
       initialOpen
       initialTrackingNumber={params.trackingNumber ? decodeURIComponent(params.trackingNumber) : ""}
     />

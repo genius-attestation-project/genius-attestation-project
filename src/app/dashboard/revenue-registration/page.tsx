@@ -12,5 +12,5 @@ export default async function RevenueRegistrationPage() {
     return <AccessDenied description="Your role cannot access revenue registration." />;
   }
 
-  return <RegistrationManager />;
+  return <RegistrationManager currentOfficeLocationName={session.user.officeLocationName ?? ""} />;
 }

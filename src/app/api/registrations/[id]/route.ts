@@ -45,8 +45,13 @@ export async function PUT(request: Request, context: RouteContext) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
     }
 
+    const sourceOfficeName = session.user?.officeLocationName?.trim();
+    if (!sourceOfficeName) {
+      return jsonError("Assign an office location to the current user before updating registrations.", 400);
+    }
+
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const registration = await updateRegistration(ownerAdminId, id, parsed.data, performedBy);
+    const registration = await updateRegistration(ownerAdminId, id, parsed.data, sourceOfficeName, performedBy);
 
     if (!registration) return jsonError("Registration not found.", 404);
 

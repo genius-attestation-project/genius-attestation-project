@@ -207,6 +207,9 @@ model Registration {
   commissionToEmail     String?            @map("commission_to_email")
   registeredPerson      String?            @map("registered_person")
   regionOfRegistration  String?            @map("region_of_registration")
+  bmStatus              String             @default("Pending") @map("bm_status")
+  acceptedBy            String?            @map("accepted_by")
+  acceptedAt            DateTime?          @map("accepted_at")
   approvalStatus        String             @default("Pending") @map("approval_status")
   trackingStatus        String             @default("Registered") @map("tracking_status")
   ownerAdminId          String?            @map("owner_admin_id")
@@ -221,6 +224,7 @@ model Registration {
   @@index([createdAt])
   @@index([paymentStatus])
   @@index([approvalStatus])
+  @@index([bmStatus])
   @@map("registrations")
 }
 

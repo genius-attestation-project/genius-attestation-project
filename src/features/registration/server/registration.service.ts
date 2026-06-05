@@ -155,11 +155,19 @@ export async function getRegistrationByTrackingNumber(ownerAdminId: string, trac
 export async function createRegistration(
   ownerAdminId: string,
   input: RegistrationInput,
+  sourceOfficeName: string,
   performedBy?: string,
 ) {
+  if (!sourceOfficeName.trim()) {
+    throw new Error("Office location is required to create a registration.");
+  }
+
   const registration = await prisma.registration.create({
     data: {
-      ...buildRegistrationData(input),
+      ...buildRegistrationData({
+        ...input,
+        regionOfRegistration: sourceOfficeName,
+      }),
       ownerAdminId,
       createdBy: performedBy ?? null,
       auditTrail: {
@@ -180,11 +188,18 @@ export async function updateRegistration(
   ownerAdminId: string,
   id: string,
   input: RegistrationInput,
+  sourceOfficeName: string,
   performedBy?: string,
 ) {
   const existing = await prisma.registration.findFirst({
     where: { ownerAdminId, id },
-    select: { id: true, paymentStatus: true, totalCharges: true, advancePaid: true },
+    select: {
+      id: true,
+      paymentStatus: true,
+      totalCharges: true,
+      advancePaid: true,
+      regionOfRegistration: true,
+    },
   });
 
   if (!existing) return null;
@@ -197,7 +212,10 @@ export async function updateRegistration(
   const registration = await prisma.registration.update({
     where: { id: existing.id },
     data: {
-      ...buildRegistrationData(input),
+      ...buildRegistrationData({
+        ...input,
+        regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName,
+      }),
       auditTrail: {
         create: {
           action: paymentChanged ? "Payment updated" : "Registration updated",

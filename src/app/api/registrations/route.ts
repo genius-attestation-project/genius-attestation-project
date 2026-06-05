@@ -38,10 +38,19 @@ export async function POST(request: Request) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
     }
 
+    const sourceOfficeName = session.user?.officeLocationName?.trim();
+    if (!sourceOfficeName) {
+      return jsonError("Assign an office location to the current user before creating registrations.", 400);
+    }
+
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const registration = await createRegistration(ownerAdminId, parsed.data, performedBy);
+    const registration = await createRegistration(ownerAdminId, parsed.data, sourceOfficeName, performedBy);
     return jsonOk({ registration }, 201);
   } catch (error) {
+    if (error instanceof Error && error.message === "Office location is required to create a registration.") {
+      return jsonError(error.message, 400);
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return jsonError("Tracking number already exists.", 409);
     }

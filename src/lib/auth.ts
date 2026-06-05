@@ -169,6 +169,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: true,
           image: true,
           ownerAdminId: true,
+          officeLocationId: true,
+          officeLocationName: true,
         },
       });
 
@@ -183,6 +185,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       token.email = dbUser.email;
       token.picture = dbUser.image;
       token.ownerAdminId = dbUser.ownerAdminId || undefined;
+      token.officeLocationId = dbUser.officeLocationId || undefined;
+      token.officeLocationName = dbUser.officeLocationName || undefined;
       token.role = access?.role ?? "User";
       token.legacyRole = access?.legacyRole ?? "USER";
       token.roles = access?.roles ?? [token.role];
@@ -203,6 +207,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.email = typeof token.email === "string" ? token.email : session.user.email;
         session.user.image = typeof token.picture === "string" ? token.picture : session.user.image;
         session.user.ownerAdminId = typeof token.ownerAdminId === "string" ? token.ownerAdminId : undefined;
+        session.user.officeLocationId =
+          typeof token.officeLocationId === "string" ? token.officeLocationId : undefined;
+        session.user.officeLocationName =
+          typeof token.officeLocationName === "string" ? token.officeLocationName : undefined;
         
         session.user.roles = Array.isArray(token.roles) ? token.roles : [];
         session.user.permissions = Array.isArray(token.permissions) ? token.permissions : [];

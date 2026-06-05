@@ -34,6 +34,7 @@ import {
 } from "@/features/registration/validations/registration.schema";
 
 type RegistrationManagerProps = {
+  currentOfficeLocationName?: string;
   initialTrackingNumber?: string;
   initialOpen?: boolean;
 };
@@ -325,6 +326,7 @@ function isJpgFile(file: File) {
 }
 
 export function RegistrationManager({
+  currentOfficeLocationName = "",
   initialTrackingNumber = "",
   initialOpen = false,
 }: RegistrationManagerProps) {
@@ -354,7 +356,6 @@ export function RegistrationManager({
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
-  const [regionOptions, setRegionOptions] = useState<string[]>([]);
   const [officeLocationOptions, setOfficeLocationOptions] = useState<string[]>([]);
   const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
   const [officeLocationsError, setOfficeLocationsError] = useState("");
@@ -415,6 +416,15 @@ export function RegistrationManager({
   }, []);
 
   useEffect(() => {
+    if (!selected) {
+      setForm((current) => ({
+        ...current,
+        regionOfRegistration: current.regionOfRegistration || currentOfficeLocationName,
+      }));
+    }
+  }, [currentOfficeLocationName, selected]);
+
+  useEffect(() => {
     async function fetchDropdownOptions() {
       setUsersLoading(true);
       setUsersError("");
@@ -456,18 +466,13 @@ export function RegistrationManager({
         const names = officeLocations
           .map((officeLocation) => officeLocation.officeName)
           .filter(Boolean);
-        const regions = officeLocations
-          .map((officeLocation) => officeLocation.location || officeLocation.officeName)
-          .filter(Boolean);
         setOfficeLocationOptions(Array.from(new Set(names)));
-        setRegionOptions(Array.from(new Set(regions)));
       } else {
         const message =
           officeLocationsResponse.status === "fulfilled"
             ? ((await officeLocationsResponse.value.json().catch(() => ({}))) as { message?: string }).message
             : undefined;
         setOfficeLocationOptions([]);
-        setRegionOptions([]);
         setOfficeLocationsError(message ?? "Unable to load office locations.");
       }
 
@@ -495,7 +500,11 @@ export function RegistrationManager({
 
   function openCreate() {
     setSelected(null);
-    setForm({ ...blankForm, trackingNumber: initialTrackingNumber });
+    setForm({
+      ...blankForm,
+      trackingNumber: initialTrackingNumber,
+      regionOfRegistration: currentOfficeLocationName,
+    });
     setDocumentFile(null);
     setInvoiceFile(null);
     setSupportingFile(null);
@@ -564,6 +573,11 @@ export function RegistrationManager({
     setSuccess("");
 
     try {
+      if (!currentOfficeLocationName) {
+        setError("Assign an office location to this user before saving a registration.");
+        return;
+      }
+
       const payload = { ...form };
       const parsed = registrationInputSchema.safeParse(payload);
 
@@ -656,12 +670,27 @@ export function RegistrationManager({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
               Create, search, approve, and track registrations with manual tracking numbers.
             </p>
+            {currentOfficeLocationName ? (
+              <p className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                Region auto-routes from your office: {currentOfficeLocationName}
+              </p>
+            ) : (
+              <p className="mt-3 text-xs font-semibold text-amber-700">
+                No office location is assigned to this user yet, so new registrations cannot be saved.
+              </p>
+            )}
           </div>
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
             <Plus size={18} /> Add Registration
           </Button>
         </div>
       </section>
+
+      {!currentOfficeLocationName ? (
+        <p className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700">
+          Assign an office location to this user before creating revenue registrations. Region of registration is sourced from that office automatically.
+        </p>
+      ) : null}
 
       <section className="grid min-w-0 gap-4 rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-5 dark:bg-white/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -755,7 +784,7 @@ export function RegistrationManager({
             title="No registrations found"
             description="Create a registration with a manual tracking number to start tracking documents and payments."
             action={
-              <Button onClick={openCreate}>
+              <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
                 <Plus size={18} /> Add Registration
               </Button>
             }
@@ -893,7 +922,12 @@ export function RegistrationManager({
               />
             </label>
             <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personOptions} onChange={updateField} />
-            <SelectField label="Region of Registration" name="regionOfRegistration" value={form.regionOfRegistration} options={regionOptions} onChange={updateField} />
+            <Input
+              label="Region of Registration"
+              value={form.regionOfRegistration}
+              readOnly
+              description="Auto-filled from the logged-in user's office location"
+            />
             <Input
               label="Bill Upload"
               type="file"
@@ -915,7 +949,7 @@ export function RegistrationManager({
             <Button type="button" variant="secondary" onClick={() => setDrawerMode(null)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || !currentOfficeLocationName}>
               <Save size={16} /> {saving ? "Saving..." : "Save Registration"}
             </Button>
           </div>

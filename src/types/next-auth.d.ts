@@ -10,6 +10,8 @@ declare module "next-auth" {
       isSuperAdmin: boolean;
       legacyRole: string;
       ownerAdminId?: string;
+      officeLocationId?: string;
+      officeLocationName?: string;
     } & DefaultSession["user"];
   }
 }
@@ -23,5 +25,7 @@ declare module "next-auth/jwt" {
     legacyRole?: string;
     role?: string;
     ownerAdminId?: string;
+    officeLocationId?: string;
+    officeLocationName?: string;
   }
 }
