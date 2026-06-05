@@ -1,5 +1,6 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { ReadyForDeliveryDashboard } from "@/features/ready-for-delivery/components/ReadyForDeliveryDashboard";
+import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function ReadyForDeliveryPage() {
@@ -12,11 +13,11 @@ export default async function ReadyForDeliveryPage() {
     return <AccessDenied description="Your role cannot access ready for delivery." />;
   }
 
-  return (
-    <ModulePlaceholder
-      eyebrow="Ready For Delivery"
-      title="Delivery readiness board"
-      description="Use this premium delivery surface for queue visibility, dispatch readiness, and customer handoff monitoring."
-    />
-  );
+  const currentOfficeLocationName = await resolveOfficeLocationName({
+    ownerAdminId: session.user.ownerAdminId ?? "",
+    officeLocationId: session.user.officeLocationId,
+    officeLocationName: session.user.officeLocationName,
+  });
+
+  return <ReadyForDeliveryDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
 }

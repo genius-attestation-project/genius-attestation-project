@@ -37,6 +37,7 @@ function mapRegistration(registration: RegistrationRecord) {
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
+    acceptedAt: registration.acceptedAt?.toISOString() ?? null,
     createdAt: registration.createdAt.toISOString(),
     updatedAt: registration.updatedAt.toISOString(),
     createdDate: formatDate(registration.createdAt),
