@@ -55,6 +55,9 @@ function buildRegistrationData(input: RegistrationInput) {
   const totalCharges = new Prisma.Decimal(input.totalCharges ?? 0);
   const advancePaid = new Prisma.Decimal(input.advancePaid ?? 0);
   const balanceAmount = totalCharges.minus(advancePaid);
+  const hasCommissionTarget = Boolean(
+    input.commissionToUserId || input.commissionToName || input.commissionToEmail,
+  );
 
   return {
     trackingNumber: input.trackingNumber,
@@ -79,9 +82,13 @@ function buildRegistrationData(input: RegistrationInput) {
     paymentMode: input.paymentMode || null,
     paymentStatus: input.paymentStatus,
     collectedPerson: input.collectedPerson || null,
-    commissionToUserId: input.commissionToUserId || null,
-    commissionToName: input.commissionToName || null,
-    commissionToEmail: input.commissionToEmail || null,
+    ...(hasCommissionTarget
+      ? {
+          commissionToUserId: input.commissionToUserId || null,
+          commissionToName: input.commissionToName || null,
+          commissionToEmail: input.commissionToEmail || null,
+        }
+      : {}),
     registeredPerson: input.registeredPerson || null,
     regionOfRegistration: input.regionOfRegistration || null,
     approvalStatus: input.approvalStatus,

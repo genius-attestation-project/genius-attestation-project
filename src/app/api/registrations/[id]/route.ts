@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 import {
   deleteRegistration,
@@ -12,6 +13,30 @@ import { registrationInputSchema } from "@/features/registration/validations/reg
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+async function resolveSourceOfficeName(params: {
+  ownerAdminId: string;
+  officeLocationId?: string;
+  officeLocationName?: string;
+}) {
+  if (params.officeLocationName?.trim()) {
+    return params.officeLocationName.trim();
+  }
+
+  if (!params.officeLocationId) {
+    return null;
+  }
+
+  const office = await prisma.officeLocation.findFirst({
+    where: {
+      id: params.officeLocationId,
+      ownerAdminId: params.ownerAdminId,
+    },
+    select: { officeName: true },
+  });
+
+  return office?.officeName?.trim() || null;
+}
 
 export async function GET(_: Request, context: RouteContext) {
   try {
@@ -32,22 +57,27 @@ export async function GET(_: Request, context: RouteContext) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
+  const body = await request.json().catch(() => null);
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;
-    const body = await request.json().catch(() => null);
     const parsed = registrationInputSchema.safeParse(body);
 
     if (!parsed.success) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
     }
 
-    const sourceOfficeName = session.user?.officeLocationName?.trim();
+    const sourceOfficeName = await resolveSourceOfficeName({
+      ownerAdminId,
+      officeLocationId: session.user?.officeLocationId,
+      officeLocationName: session.user?.officeLocationName,
+    });
     if (!sourceOfficeName) {
-      return jsonError("Assign an office location to the current user before updating registrations.", 400);
+      return jsonError("Assign a valid office location to the current user before updating registrations.", 400);
     }
 
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
@@ -61,8 +91,12 @@ export async function PUT(request: Request, context: RouteContext) {
       return jsonError("Tracking number already exists.", 409);
     }
 
-    console.error("Failed to update registration", error);
-    return jsonError("Unable to update registration.", 500);
+    const message = error instanceof Error ? error.message : "Unable to update registration.";
+    console.error("Failed to update registration", {
+      error,
+      payload: body,
+    });
+    return jsonError(message, 500);
   }
 }
 
