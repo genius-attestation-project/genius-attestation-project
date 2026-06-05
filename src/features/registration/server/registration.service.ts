@@ -96,6 +96,13 @@ function buildRegistrationData(input: RegistrationInput) {
   };
 }
 
+function logRegistrationWorkflow(
+  message: string,
+  payload: Record<string, unknown>,
+) {
+  console.info(`[registration] ${message}`, payload);
+}
+
 export async function listRegistrations(
   ownerAdminId: string,
   params: { query?: string; page?: number; pageSize?: number },
@@ -188,6 +195,15 @@ export async function createRegistration(
     include: registrationInclude,
   });
 
+  logRegistrationWorkflow("Created registration.", {
+    trackingNumber: registration.trackingNumber,
+    currentUserOffice: sourceOfficeName,
+    regionOfRegistration: registration.regionOfRegistration,
+    deliveryLocation: registration.deliveryLocation,
+    approvalStatus: registration.approvalStatus,
+    bmStatus: registration.bmStatus,
+  });
+
   return mapRegistration(registration);
 }
 
@@ -234,6 +250,15 @@ export async function updateRegistration(
       },
     },
     include: registrationInclude,
+  });
+
+  logRegistrationWorkflow("Updated registration.", {
+    trackingNumber: registration.trackingNumber,
+    currentUserOffice: sourceOfficeName,
+    regionOfRegistration: registration.regionOfRegistration,
+    deliveryLocation: registration.deliveryLocation,
+    approvalStatus: registration.approvalStatus,
+    bmStatus: registration.bmStatus,
   });
 
   return mapRegistration(registration);

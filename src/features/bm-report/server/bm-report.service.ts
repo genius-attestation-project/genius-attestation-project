@@ -13,9 +13,17 @@ type BmReportRow = {
   createdBy: string | null;
   createdAt: Date;
   status: string;
+  approvalStatus: string;
   acceptedAt: Date | null;
   acceptedBy: string | null;
 };
+
+function logBmWorkflow(
+  message: string,
+  payload: Record<string, unknown>,
+) {
+  console.info(`[bm-report] ${message}`, payload);
+}
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -65,6 +73,7 @@ async function listBmRows(
       r.created_by AS "createdBy",
       r.created_at AS "createdAt",
       r.bm_status AS "status",
+      r.approval_status AS "approvalStatus",
       r.accepted_at AS "acceptedAt",
       COALESCE(accepted_user.name, accepted_user.email) AS "acceptedBy"
     FROM registrations r
@@ -77,15 +86,17 @@ async function listBmRows(
 
 export async function getBmReportStats(ownerAdminId: string, officeLocationName: string): Promise<BmReportStats> {
   const rows = await prisma.$queryRaw<Array<{
-    deliveryLocation: string | null;
-    sourceOffice: string | null;
-    status: string;
-    acceptedAt: Date | null;
+      deliveryLocation: string | null;
+      sourceOffice: string | null;
+      status: string;
+      approvalStatus: string;
+      acceptedAt: Date | null;
   }>>(Prisma.sql`
     SELECT
       delivery_location AS "deliveryLocation",
       region_of_registration AS "sourceOffice",
       bm_status AS "status",
+      approval_status AS "approvalStatus",
       accepted_at AS "acceptedAt"
     FROM registrations
     WHERE owner_admin_id = ${ownerAdminId}
@@ -139,6 +150,18 @@ export async function listBmInward(ownerAdminId: string, officeLocationName: str
     `,
   );
 
+  logBmWorkflow("Loaded inward queue.", {
+    currentUserOffice: officeLocationName,
+    totalRows: rows.length,
+    records: rows.map((row) => ({
+      trackingNumber: row.registrationNumber,
+      regionOfRegistration: row.sourceOffice,
+      deliveryLocation: row.deliveryLocation,
+      approvalStatus: row.approvalStatus,
+      bmStatus: row.status,
+    })),
+  });
+
   return rows.map(mapBmReportItem);
 }
 
@@ -151,6 +174,18 @@ export async function listBmHome(ownerAdminId: string, officeLocationName: strin
     `,
   );
 
+  logBmWorkflow("Loaded home queue.", {
+    currentUserOffice: officeLocationName,
+    totalRows: rows.length,
+    records: rows.map((row) => ({
+      trackingNumber: row.registrationNumber,
+      regionOfRegistration: row.sourceOffice,
+      deliveryLocation: row.deliveryLocation,
+      approvalStatus: row.approvalStatus,
+      bmStatus: row.status,
+    })),
+  });
+
   return rows.map(mapBmReportItem);
 }
 
@@ -162,6 +197,18 @@ export async function listBmOutward(ownerAdminId: string, officeLocationName: st
       AND LOWER(COALESCE(r.delivery_location, '')) <> LOWER(${officeLocationName})
     `,
   );
+
+  logBmWorkflow("Loaded outward queue.", {
+    currentUserOffice: officeLocationName,
+    totalRows: rows.length,
+    records: rows.map((row) => ({
+      trackingNumber: row.registrationNumber,
+      regionOfRegistration: row.sourceOffice,
+      deliveryLocation: row.deliveryLocation,
+      approvalStatus: row.approvalStatus,
+      bmStatus: row.status,
+    })),
+  });
 
   return rows.map(mapBmReportItem);
 }
@@ -191,15 +238,36 @@ export async function acceptBmRegistration(params: {
       return null;
     }
 
-    await tx.$executeRaw(Prisma.sql`
+    const updatedRows = await tx.$queryRaw<
+      Array<{
+        trackingNumber: string;
+        sourceOffice: string | null;
+        deliveryLocation: string | null;
+        bmStatus: string;
+        approvalStatus: string;
+        acceptedBy: string | null;
+        acceptedAt: Date | null;
+      }>
+    >(Prisma.sql`
       UPDATE registrations
       SET
         bm_status = 'Accepted',
+        approval_status = 'Accepted',
         accepted_by = ${params.acceptedByUserId},
         accepted_at = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${record.id}
+      RETURNING
+        tracking_number AS "trackingNumber",
+        region_of_registration AS "sourceOffice",
+        delivery_location AS "deliveryLocation",
+        bm_status AS "bmStatus",
+        approval_status AS "approvalStatus",
+        accepted_by AS "acceptedBy",
+        accepted_at AS "acceptedAt"
     `);
+
+    const updatedRecord = updatedRows[0];
 
     await tx.auditTrail.create({
       data: {
@@ -209,6 +277,19 @@ export async function acceptBmRegistration(params: {
         performedBy: params.acceptedByName ?? params.acceptedByUserId,
       },
     });
+
+    if (updatedRecord) {
+      logBmWorkflow("Accepted inward document.", {
+        currentUserOffice: params.officeLocationName,
+        trackingNumber: updatedRecord.trackingNumber,
+        regionOfRegistration: updatedRecord.sourceOffice,
+        deliveryLocation: updatedRecord.deliveryLocation,
+        approvalStatus: updatedRecord.approvalStatus,
+        bmStatus: updatedRecord.bmStatus,
+        acceptedBy: updatedRecord.acceptedBy,
+        acceptedAt: updatedRecord.acceptedAt?.toISOString() ?? null,
+      });
+    }
 
     return record;
   });

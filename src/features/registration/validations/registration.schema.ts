@@ -14,7 +14,7 @@ export const externalProcessOptions = ["MOFA", "Home Department", "Embassy", "Ot
 export const priorityOptions = ["Normal", "Express", "Super Fast"] as const;
 export const paymentModeOptions = ["Cash", "UPI", "Bank Transfer", "Card", "Corporate"] as const;
 export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as const;
-export const approvalStatusOptions = ["Pending", "Approved", "Rejected"] as const;
+export const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
 
 const optionalText = z.string().trim().optional().default("");
 const requiredText = (label: string) => z.string().trim().min(1, `${label} is required.`);

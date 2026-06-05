@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
 import {
   deleteRegistration,
@@ -13,30 +13,6 @@ import { registrationInputSchema } from "@/features/registration/validations/reg
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
-
-async function resolveSourceOfficeName(params: {
-  ownerAdminId: string;
-  officeLocationId?: string;
-  officeLocationName?: string;
-}) {
-  if (params.officeLocationName?.trim()) {
-    return params.officeLocationName.trim();
-  }
-
-  if (!params.officeLocationId) {
-    return null;
-  }
-
-  const office = await prisma.officeLocation.findFirst({
-    where: {
-      id: params.officeLocationId,
-      ownerAdminId: params.ownerAdminId,
-    },
-    select: { officeName: true },
-  });
-
-  return office?.officeName?.trim() || null;
-}
 
 export async function GET(_: Request, context: RouteContext) {
   try {
@@ -71,7 +47,7 @@ export async function PUT(request: Request, context: RouteContext) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
     }
 
-    const sourceOfficeName = await resolveSourceOfficeName({
+    const sourceOfficeName = await resolveOfficeLocationName({
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,

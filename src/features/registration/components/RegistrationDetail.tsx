@@ -51,7 +51,7 @@ export function RegistrationDetail({
     ? `${registration.commissionToName} (${registration.commissionToEmail})`
     : registration.commissionToName || registration.commissionToEmail;
   const approvalTone =
-    registration.approvalStatus === "Approved"
+    registration.approvalStatus === "Approved" || registration.approvalStatus === "Accepted"
       ? "green"
       : registration.approvalStatus === "Rejected"
         ? "red"

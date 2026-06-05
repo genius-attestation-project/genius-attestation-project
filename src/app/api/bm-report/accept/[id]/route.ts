@@ -1,5 +1,6 @@
 import { acceptBmRegistration } from "@/features/bm-report/server/bm-report.service";
 import { auth } from "@/lib/auth";
+import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -14,7 +15,13 @@ export async function POST(_: Request, context: RouteContext) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    const officeLocationName = session?.user?.officeLocationName?.trim();
+    const officeLocationName = ownerAdminId
+      ? await resolveOfficeLocationName({
+          ownerAdminId,
+          officeLocationId: session.user?.officeLocationId,
+          officeLocationName: session.user?.officeLocationName,
+        })
+      : null;
     const acceptedByUserId = session?.user?.id;
     const acceptedByName = session?.user?.name ?? session?.user?.email ?? undefined;
 
