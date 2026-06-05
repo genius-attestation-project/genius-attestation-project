@@ -314,6 +314,16 @@ function hasUploadedFile(registration: Registration | null, category: string) {
   return Boolean(registration?.files.some((file) => file.fileCategory === category));
 }
 
+const jpgAccept = ".jpg,.jpeg,image/jpeg";
+const jpgMimeTypes = new Set(["image/jpeg"]);
+const jpgExtensions = new Set([".jpg", ".jpeg"]);
+const jpgFileError = "Only JPG files are allowed.";
+
+function isJpgFile(file: File) {
+  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
+  return jpgMimeTypes.has(file.type) && jpgExtensions.has(extension);
+}
+
 export function RegistrationManager({
   initialTrackingNumber = "",
   initialOpen = false,
@@ -335,6 +345,11 @@ export function RegistrationManager({
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [supportingFile, setSupportingFile] = useState<File | null>(null);
+  const [invalidUploadFields, setInvalidUploadFields] = useState({
+    document: false,
+    invoice: false,
+    supporting: false,
+  });
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -484,6 +499,7 @@ export function RegistrationManager({
     setDocumentFile(null);
     setInvoiceFile(null);
     setSupportingFile(null);
+    setInvalidUploadFields({ document: false, invoice: false, supporting: false });
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -495,6 +511,7 @@ export function RegistrationManager({
     setDocumentFile(null);
     setInvoiceFile(null);
     setSupportingFile(null);
+    setInvalidUploadFields({ document: false, invoice: false, supporting: false });
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -503,6 +520,23 @@ export function RegistrationManager({
   function openView(registration: Registration) {
     setSelected(registration);
     setDrawerMode("view");
+  }
+
+  function updateUploadFile(
+    field: keyof typeof invalidUploadFields,
+    file: File | null,
+    setter: (file: File | null) => void,
+  ) {
+    if (file && !isJpgFile(file)) {
+      setter(null);
+      setInvalidUploadFields((current) => ({ ...current, [field]: true }));
+      setError(jpgFileError);
+      return;
+    }
+
+    setter(file);
+    setInvalidUploadFields((current) => ({ ...current, [field]: false }));
+    setError("");
   }
 
   async function uploadSelectedFiles(registrationId: string) {
@@ -544,6 +578,16 @@ export function RegistrationManager({
         (needsSupportingFile && !supportingFile)
       ) {
         setError("Document, invoice, and supporting document uploads are required.");
+        return;
+      }
+
+      if (Object.values(invalidUploadFields).some(Boolean)) {
+        setError(jpgFileError);
+        return;
+      }
+
+      if ([documentFile, invoiceFile, supportingFile].some((file) => file && !isJpgFile(file))) {
+        setError(jpgFileError);
         return;
       }
 
@@ -805,8 +849,8 @@ export function RegistrationManager({
             <Input
               label="Customer Document Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-              onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
+              accept={jpgAccept}
+              onChange={(event) => updateUploadFile("document", event.target.files?.[0] ?? null, setDocumentFile)}
               required={needsDocumentFile}
             />
           </Section>
@@ -853,15 +897,15 @@ export function RegistrationManager({
             <Input
               label="Bill Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-              onChange={(event) => setInvoiceFile(event.target.files?.[0] ?? null)}
+              accept={jpgAccept}
+              onChange={(event) => updateUploadFile("invoice", event.target.files?.[0] ?? null, setInvoiceFile)}
               required={needsInvoiceFile}
             />
             <Input
               label="Supporting Documents Upload"
               type="file"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-              onChange={(event) => setSupportingFile(event.target.files?.[0] ?? null)}
+              accept={jpgAccept}
+              onChange={(event) => updateUploadFile("supporting", event.target.files?.[0] ?? null, setSupportingFile)}
               required={needsSupportingFile}
             />
           </Section>

@@ -6,18 +6,6 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-const allowedTypes = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-]);
-
 const fileCategories = new Set(["DOCUMENT", "INVOICE", "SUPPORTING_DOCUMENT"]);
 
 export async function POST(request: Request, context: RouteContext) {
@@ -39,8 +27,8 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("Invalid file category.");
     }
 
-    if (file.type && !allowedTypes.has(file.type)) {
-      return jsonError("Unsupported file type.");
+    if (file.type !== "image/jpeg") {
+      return jsonError("Only JPG files are allowed.", 400);
     }
 
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
