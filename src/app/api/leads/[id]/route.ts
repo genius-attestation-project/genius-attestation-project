@@ -44,15 +44,25 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const changedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const lead = await updateLead(ownerAdminId, id, parsed.data, changedBy);
+    const changedByUserId = session.user?.id;
+    const result = await updateLead(ownerAdminId, id, parsed.data, changedBy, changedByUserId);
 
-    if (!lead) {
+    if (!result) {
       return jsonError("Lead not found.", 404);
     }
 
-    return jsonOk({ lead });
+    return jsonOk(result);
   } catch (error) {
     if (error instanceof Error && error.message === "Assigned user not found.") {
+      return jsonError(error.message, 400);
+    }
+    if (
+      error instanceof Error &&
+      (error.message === "Authenticated user is required to request approval." ||
+        error.message === "Assign a supervisor to this user before requesting approval." ||
+        error.message === "Supervisor not found." ||
+        error.message === "Requesting user not found.")
+    ) {
       return jsonError(error.message, 400);
     }
 

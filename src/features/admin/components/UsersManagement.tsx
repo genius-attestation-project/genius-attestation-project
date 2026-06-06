@@ -29,6 +29,7 @@ type UserFormState = {
   image: string;
   departmentId: string;
   officeLocationId: string;
+  supervisorUserId: string;
   roleId: string;
   isActive: boolean;
 };
@@ -41,6 +42,7 @@ const defaultFormState: UserFormState = {
   image: "",
   departmentId: "",
   officeLocationId: "",
+  supervisorUserId: "",
   roleId: "",
   isActive: true,
 };
@@ -145,6 +147,7 @@ export function UsersManagement() {
       image: user.image,
       departmentId: user.departmentId ?? "",
       officeLocationId: user.officeLocationId ?? "",
+      supervisorUserId: user.supervisorUserId ?? "",
       roleId: user.roleId ?? "",
       isActive: user.status === "Active",
     });
@@ -336,6 +339,7 @@ export function UsersManagement() {
                 { key: "phone", label: "Phone" },
                 { key: "department", label: "Department" },
                 { key: "officeLocation", label: "Office" },
+                { key: "supervisorName", label: "Supervisor" },
                 {
                   key: "status",
                   label: "Status",
@@ -494,6 +498,25 @@ export function UsersManagement() {
                   {officeLocation.officeName} - {officeLocation.location}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-sm font-bold">Supervisor</span>
+            <select
+              value={formState.supervisorUserId}
+              onChange={(event) =>
+                setFormState((current) => ({ ...current, supervisorUserId: event.target.value }))
+              }
+              className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+            >
+              <option value="">Select supervisor</option>
+              {users
+                .filter((user) => user.status === "Active" && user.id !== editingUser?.id)
+                .map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} - {user.email}
+                  </option>
+                ))}
             </select>
           </label>
           <label className="inline-flex items-center gap-3 text-sm font-bold">

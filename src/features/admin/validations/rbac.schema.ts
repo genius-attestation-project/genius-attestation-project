@@ -26,6 +26,7 @@ export const userSchema = z.object({
   image: z.string().trim().optional().default(""),
   departmentId: nullableTrimmedString,
   officeLocationId: nullableTrimmedString,
+  supervisorUserId: nullableTrimmedString,
   isActive: z.boolean().default(true),
   roleId: nullableTrimmedString,
 });

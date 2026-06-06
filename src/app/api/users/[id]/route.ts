@@ -39,7 +39,12 @@ export async function PUT(request: Request, context: RouteContext) {
 
     if (
       error instanceof Error &&
-      (error.message === "Department not found." || error.message === "Office location not found.")
+      (
+        error.message === "Department not found." ||
+        error.message === "Office location not found." ||
+        error.message === "Supervisor not found." ||
+        error.message === "A user cannot be their own supervisor."
+      )
     ) {
       return jsonError(error.message, 400);
     }

@@ -217,7 +217,7 @@ export function LeadForm({
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { message?: string }
+        | { message?: string; approvalRequested?: boolean }
         | null;
 
       if (!response.ok) {
@@ -225,7 +225,9 @@ export function LeadForm({
         return;
       }
 
-      setMessage(leadId ? "Lead updated successfully." : "Lead created successfully.");
+      setMessage(
+        payload?.message ?? (leadId ? "Lead updated successfully." : "Lead created successfully."),
+      );
       setValues(leadId ? values : defaultLeadValues);
       await onSuccess?.();
     } catch (error) {

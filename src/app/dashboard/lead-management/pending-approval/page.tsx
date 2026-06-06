@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { AllLeadsManagement } from "@/features/lead/components/AllLeadsManagement";
+import { PendingApprovalDashboard } from "@/features/lead/components/PendingApprovalDashboard";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function PendingApprovalLeadsPage() {
@@ -12,13 +12,5 @@ export default async function PendingApprovalLeadsPage() {
     return <AccessDenied description="Your role cannot access pending approvals." />;
   }
 
-  return (
-    <AllLeadsManagement
-      title="Pending Approval"
-      description="Approval queue powered by real lead records from PostgreSQL."
-      endpoint="/api/leads/pending"
-      showAddLead={false}
-      allowStatusFilter={false}
-    />
-  );
+  return <PendingApprovalDashboard />;
 }

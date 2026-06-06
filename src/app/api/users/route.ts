@@ -53,7 +53,11 @@ export async function POST(request: Request) {
 
     if (
       error instanceof Error &&
-      (error.message === "Department not found." || error.message === "Office location not found.")
+      (
+        error.message === "Department not found." ||
+        error.message === "Office location not found." ||
+        error.message === "Supervisor not found."
+      )
     ) {
       return jsonError(error.message, 400);
     }

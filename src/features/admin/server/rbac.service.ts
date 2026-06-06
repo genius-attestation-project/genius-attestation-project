@@ -180,15 +180,14 @@ export async function ensureAdminRoles(ownerAdminId: string) {
 
   for (const definition of defaultRoleDefinitions) {
     const roleName = definition.name;
-    const existing = await prisma.accessRole.findFirst({
+    let role = await prisma.accessRole.findFirst({
       where: {
         name: roleName,
         ownerAdminId,
       },
     });
 
-    if (!existing) {
-      let role;
+    if (!role) {
       try {
         role = await prisma.accessRole.create({
           data: {
@@ -208,25 +207,25 @@ export async function ensureAdminRoles(ownerAdminId: string) {
           throw error;
         }
       }
+    }
 
-      if (role) {
-        const permissions =
-          definition.permissions === "*"
-            ? await prisma.permission.findMany({ select: { id: true } })
-            : await prisma.permission.findMany({
-                where: { code: { in: [...definition.permissions] } },
-                select: { id: true },
-              });
+    if (role) {
+      const permissions =
+        definition.permissions === "*"
+          ? await prisma.permission.findMany({ select: { id: true } })
+          : await prisma.permission.findMany({
+              where: { code: { in: [...definition.permissions] } },
+              select: { id: true },
+            });
 
-        if (permissions.length > 0) {
-          await prisma.rolePermission.createMany({
-            data: permissions.map((permission: { id: string }) => ({
-              roleId: role!.id,
-              permissionId: permission.id,
-            })),
-            skipDuplicates: true,
-          });
-        }
+      if (permissions.length > 0) {
+        await prisma.rolePermission.createMany({
+          data: permissions.map((permission: { id: string }) => ({
+            roleId: role.id,
+            permissionId: permission.id,
+          })),
+          skipDuplicates: true,
+        });
       }
     }
   }
@@ -396,6 +395,7 @@ function mapUser(user: Awaited<ReturnType<typeof fetchUsersFromDb>>[number]): Us
   const departmentName = user.departmentRef?.name ?? user.departmentName ?? "-";
   const officeLocationName =
     user.officeLocationRef?.officeName ?? user.officeLocationName ?? "-";
+  const supervisorName = user.supervisorRef?.name ?? user.supervisorRef?.email ?? "-";
 
   return {
     id: user.id,
@@ -409,6 +409,8 @@ function mapUser(user: Awaited<ReturnType<typeof fetchUsersFromDb>>[number]): Us
     department: departmentName,
     officeLocationId: user.officeLocationId ?? null,
     officeLocation: officeLocationName,
+    supervisorUserId: user.supervisorUserId ?? null,
+    supervisorName,
     status: user.isActive ? "Active" : "Inactive",
     lastLogin: formatRelativeTime(user.lastLoginAt),
     createdDate: formatDate(user.createdAt),
@@ -429,6 +431,7 @@ async function fetchUsersFromDb(ownerAdminId: string) {
       role: { select: { id: true, name: true } },
       departmentRef: { select: { id: true, name: true } },
       officeLocationRef: { select: { id: true, officeName: true } },
+      supervisorRef: { select: { id: true, name: true, email: true } },
     },
   });
 }
@@ -451,6 +454,7 @@ export async function getUserById(ownerAdminId: string, userId: string) {
       role: { select: { id: true, name: true } },
       departmentRef: { select: { id: true, name: true } },
       officeLocationRef: { select: { id: true, officeName: true } },
+      supervisorRef: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -476,6 +480,21 @@ async function findOfficeLocationById(ownerAdminId: string, officeLocationId?: s
   return prisma.officeLocation.findFirst({
     where: { id: officeLocationId, ownerAdminId },
     select: { id: true, officeName: true },
+  });
+}
+
+async function findSupervisorById(ownerAdminId: string, supervisorUserId?: string | null) {
+  if (!supervisorUserId) {
+    return null;
+  }
+
+  return prisma.user.findFirst({
+    where: {
+      id: supervisorUserId,
+      isActive: true,
+      OR: [{ ownerAdminId }, { id: ownerAdminId }],
+    },
+    select: { id: true, name: true, email: true },
   });
 }
 
@@ -518,14 +537,16 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
     if (staffRole) roleId = staffRole.id;
   }
 
-  const [department, officeLocation, passwordHash] = await Promise.all([
+  const [department, officeLocation, supervisor, passwordHash] = await Promise.all([
     findDepartmentById(ownerAdminId, payload.departmentId),
     findOfficeLocationById(ownerAdminId, payload.officeLocationId),
+    findSupervisorById(ownerAdminId, payload.supervisorUserId),
     hashPassword(payload.password),
   ]);
 
   assertScopedLookup(department, "Department", payload.departmentId);
   assertScopedLookup(officeLocation, "Office location", payload.officeLocationId);
+  assertScopedLookup(supervisor, "Supervisor", payload.supervisorUserId);
 
   const user = await prisma.user.create({
     data: {
@@ -539,6 +560,7 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
       departmentName: department?.name ?? null,
       officeLocationId: officeLocation?.id ?? null,
       officeLocationName: officeLocation?.officeName ?? null,
+      supervisorUserId: supervisor?.id ?? null,
       isActive: payload.isActive ?? true,
       ownerAdminId,
       createdBy: ownerAdminId,
@@ -548,6 +570,7 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
       role: { select: { id: true, name: true } },
       departmentRef: { select: { id: true, name: true } },
       officeLocationRef: { select: { id: true, officeName: true } },
+      supervisorRef: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -586,14 +609,20 @@ export async function updateUser(ownerAdminId: string, userId: string, payload: 
 
   await ensureEmailAvailable(payload.email, userId);
 
-  const [department, officeLocation, passwordHash] = await Promise.all([
+  const [department, officeLocation, supervisor, passwordHash] = await Promise.all([
     findDepartmentById(ownerAdminId, payload.departmentId),
     findOfficeLocationById(ownerAdminId, payload.officeLocationId),
+    findSupervisorById(ownerAdminId, payload.supervisorUserId),
     payload.password ? hashPassword(payload.password) : Promise.resolve<string | null>(null),
   ]);
 
   assertScopedLookup(department, "Department", payload.departmentId);
   assertScopedLookup(officeLocation, "Office location", payload.officeLocationId);
+  assertScopedLookup(supervisor, "Supervisor", payload.supervisorUserId);
+
+  if (payload.supervisorUserId && payload.supervisorUserId === userId) {
+    throw new Error("A user cannot be their own supervisor.");
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -608,6 +637,7 @@ export async function updateUser(ownerAdminId: string, userId: string, payload: 
       departmentName: department?.name ?? null,
       officeLocationId: officeLocation?.id ?? null,
       officeLocationName: officeLocation?.officeName ?? null,
+      supervisorUserId: supervisor?.id ?? null,
       isActive: payload.isActive ?? true,
       roleId: payload.roleId,
     },

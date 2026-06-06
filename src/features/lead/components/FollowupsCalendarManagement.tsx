@@ -220,7 +220,7 @@ export function FollowupsCalendarManagement() {
         throw new Error(payload?.message ?? "Unable to update followup.");
       }
 
-      setFeedbackMessage(message);
+      setFeedbackMessage(payload?.message ?? message);
       await refreshCalendarData(activeFilter);
 
       if (isDateDrawerOpen && selectedDate.date) {

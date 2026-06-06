@@ -37,6 +37,9 @@ model User {
   ownerAdminId       String?          @map("owner_admin_id")
   ownerAdmin         User?            @relation("UserOwner", fields: [ownerAdminId], references: [id])
   ownedUsers         User[]           @relation("UserOwner")
+  supervisorUserId   String?          @map("supervisor_user_id")
+  supervisorRef      User?            @relation("UserSupervisor", fields: [supervisorUserId], references: [id])
+  supervisedUsers    User[]           @relation("UserSupervisor")
   createdBy          String?          @map("created_by")
   departmentId       String?          @map("department_id")
   departmentRef      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -56,6 +59,7 @@ model User {
 
   @@index([departmentId])
   @@index([officeLocationId])
+  @@index([supervisorUserId])
   @@index([ownerAdminId])
   @@map("users")
 }
@@ -155,6 +159,7 @@ model Lead {
 
   statusHistory         LeadStatusHistory[]
   assignmentHistory     LeadAssignmentHistory[]
+  approvalRequests      LeadStatusApproval[]
 
   @@index([leadStatus])
   @@index([createdAt])
@@ -197,6 +202,31 @@ model LeadAssignmentHistory {
   @@index([ownerAdminId])
   @@index([changedAt])
   @@map("lead_assignment_history")
+}
+
+model LeadStatusApproval {
+  id               String     @id @default(cuid())
+  leadId           String     @map("lead_id")
+  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  currentStatus    LeadStatus @map("current_status")
+  requestedStatus  LeadStatus @map("requested_status")
+  requestedBy      String     @map("requested_by")
+  supervisorId     String     @map("supervisor_id")
+  approvalStatus   String     @default("Pending") @map("approval_status")
+  approvalReason   String?    @map("approval_reason")
+  rejectionReason  String?    @map("rejection_reason")
+  approvedBy       String?    @map("approved_by")
+  approvedAt       DateTime?  @map("approved_at")
+  ownerAdminId     String?    @map("owner_admin_id")
+  createdAt        DateTime   @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([supervisorId])
+  @@index([requestedBy])
+  @@index([approvalStatus])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("lead_status_approvals")
 }
 
 model Registration {

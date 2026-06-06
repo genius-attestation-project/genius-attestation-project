@@ -1,6 +1,11 @@
 import { LeadStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import {
+  createLeadApprovalRequest,
+  getOwnerApprovalRequestCount,
+  requiresLeadApproval,
+} from "@/features/lead/server/lead-approval.service";
 import type {
   DashboardStatsResponse,
   LeadListResponse,
@@ -524,7 +529,13 @@ export async function createLead(ownerAdminId: string, input: LeadInput) {
   return mapLeadRow(lead);
 }
 
-export async function updateLead(ownerAdminId: string, id: string, input: LeadInput, changedBy?: string) {
+export async function updateLead(
+  ownerAdminId: string,
+  id: string,
+  input: LeadInput,
+  changedBy?: string,
+  changedByUserId?: string,
+) {
   const existingLead = await prisma.lead.findFirst({
     where: {
       ownerAdminId,
@@ -546,6 +557,10 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
 
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
   const statusChanged = existingLead.leadStatus !== newLeadStatus;
+  const needsApproval = statusChanged && requiresLeadApproval(newLeadStatus);
+  if (needsApproval && !changedByUserId) {
+    throw new Error("Authenticated user is required to request approval.");
+  }
   const assignedUser =
     input.assignedUserId
       ? await prisma.user.findFirst({
@@ -575,13 +590,16 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
         ...buildLeadData(
           {
             ...input,
+            leadStatus: needsApproval
+              ? (formatLeadStatus(existingLead.leadStatus) as LeadInput["leadStatus"])
+              : input.leadStatus,
             assignedUserId: nextAssignedUserId ?? "",
             assignedUser: nextAssignedUserName ?? "",
           },
           existingLead.leadCode,
           {
             closedAt: existingLead.closedAt,
-            leadStatus: existingLead.leadStatus,
+            leadStatus: needsApproval ? existingLead.leadStatus : newLeadStatus,
           },
         ),
         ...(assignmentChanged
@@ -599,7 +617,7 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
       },
       select: leadSelect,
     }),
-    ...(statusChanged
+    ...(!needsApproval && statusChanged
       ? [
           prisma.leadStatusHistory.create({
             data: {
@@ -614,7 +632,31 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
       : []),
   ]);
 
-  return mapLeadRow(lead);
+  if (needsApproval) {
+    if (!changedByUserId) {
+      throw new Error("Authenticated user is required to request approval.");
+    }
+
+    const approval = await createLeadApprovalRequest({
+      ownerAdminId,
+      leadId: existingLead.id,
+      currentStatus: existingLead.leadStatus,
+      requestedStatus: newLeadStatus,
+      requestedBy: changedByUserId,
+    });
+
+    return {
+      lead: mapLeadRow(lead),
+      approvalRequested: true,
+      message: approval.notificationMessage,
+    };
+  }
+
+  return {
+    lead: mapLeadRow(lead),
+    approvalRequested: false,
+    message: "Lead updated successfully.",
+  };
 }
 
 export async function bulkAssignLeads(args: {
@@ -875,7 +917,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
       },
     }),
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Closed } }),
-    prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Pending_Approval } }),
+    getOwnerApprovalRequestCount(ownerAdminId),
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Followup } }),
     prisma.lead.aggregate({ where: { ownerAdminId }, _sum: { amount: true } }),
     prisma.lead.findMany({

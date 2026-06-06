@@ -30,6 +30,8 @@ export type UserAccessRow = {
   department: string;
   officeLocationId: string | null;
   officeLocation: string;
+  supervisorUserId: string | null;
+  supervisorName: string;
   status: "Active" | "Inactive";
   lastLogin: string;
   createdDate: string;
@@ -65,6 +67,7 @@ export type UserPayload = {
   image?: string;
   departmentId?: string | null;
   officeLocationId?: string | null;
+  supervisorUserId?: string | null;
   isActive?: boolean;
   roleId?: string | null;
 };
