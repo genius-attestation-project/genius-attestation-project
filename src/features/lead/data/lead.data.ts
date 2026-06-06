@@ -32,6 +32,14 @@ export const leadStatuses = [
   "LOB",
 ];
 
+export const leadFormStatuses = [
+  "New",
+  "Qualified",
+  "Potential Qualified",
+  "Closed",
+  "LOB",
+] as const;
+
 export const countryCodes = ["+91", "+971", "+968", "+974", "+965", "+973", "+966", "+1", "+44", "+61"];
 export const services = [
   "Degree Attestation",

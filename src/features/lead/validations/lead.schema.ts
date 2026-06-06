@@ -2,12 +2,9 @@ import { z } from "zod";
 
 export const leadStatusOptions = [
   "New",
-  "Followup",
-  "Assigned",
-  "Pending Approval",
-  "Closed",
   "Qualified",
   "Potential Qualified",
+  "Closed",
   "LOB",
 ] as const;
 

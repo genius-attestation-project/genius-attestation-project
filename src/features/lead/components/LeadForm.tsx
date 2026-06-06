@@ -16,8 +16,8 @@ import {
   countryCodes,
   defaultLeadValues,
   docTypes,
+  leadFormStatuses,
   type LeadFormValues,
-  leadStatuses,
   services,
   sources,
 } from "@/features/lead/data/lead.data";
@@ -394,7 +394,7 @@ export function LeadForm({
             name="leadStatus"
             value={values.leadStatus}
             onChange={(value) => updateField("leadStatus", value)}
-            options={mapToOptions(leadStatuses)}
+            options={mapToOptions(leadFormStatuses)}
             placeholder="Select lead status"
           />
         </FieldWrapper>
