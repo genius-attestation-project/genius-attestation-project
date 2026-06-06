@@ -319,6 +319,10 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+function isClosedLeadStatus(status: LeadStatus) {
+  return status === LeadStatus.Closed;
+}
+
 function buildLeadData(
   input: LeadInput,
   leadCode?: string,
@@ -880,10 +884,10 @@ export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> 
     };
 
     current.leadCount += item._count._all;
-    current.totalRevenue += Number(item._sum.amount ?? 0);
 
-    if (item.leadStatus === LeadStatus.Closed) {
+    if (isClosedLeadStatus(item.leadStatus)) {
       current.closedLeads += item._count._all;
+      current.totalRevenue += Number(item._sum.amount ?? 0);
     } else {
       current.activeLeads += item._count._all;
     }
@@ -897,6 +901,7 @@ export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> 
 }
 
 export async function getDashboardStats(ownerAdminId: string): Promise<DashboardStatsResponse> {
+  const revenueWindowStart = new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1);
   const [
     totalLeads,
     activeLeads,
@@ -908,6 +913,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     recentFollowupRecords,
     statusCounts,
     monthlyLeadRecords,
+    closedRevenueRecords,
   ] = await Promise.all([
     prisma.lead.count({ where: { ownerAdminId } }),
     prisma.lead.count({
@@ -919,7 +925,10 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Closed } }),
     getOwnerApprovalRequestCount(ownerAdminId),
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Followup } }),
-    prisma.lead.aggregate({ where: { ownerAdminId }, _sum: { amount: true } }),
+    prisma.lead.aggregate({
+      where: { ownerAdminId, leadStatus: LeadStatus.Closed },
+      _sum: { amount: true },
+    }),
     prisma.lead.findMany({
       where: { ownerAdminId },
       orderBy: { createdAt: "desc" },
@@ -944,7 +953,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
       where: {
         ownerAdminId,
         createdAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1),
+          gte: revenueWindowStart,
         },
       },
       orderBy: { createdAt: "asc" },
@@ -953,6 +962,27 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         amount: true,
         leadStatus: true,
         nextFollowupAt: true,
+      },
+    }),
+    prisma.lead.findMany({
+      where: {
+        ownerAdminId,
+        leadStatus: LeadStatus.Closed,
+        OR: [
+          { closedAt: { gte: revenueWindowStart } },
+          {
+            AND: [
+              { closedAt: null },
+              { createdAt: { gte: revenueWindowStart } },
+            ],
+          },
+        ],
+      },
+      orderBy: [{ closedAt: "asc" }, { createdAt: "asc" }],
+      select: {
+        createdAt: true,
+        closedAt: true,
+        amount: true,
       },
     }),
   ]);
@@ -977,7 +1007,6 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
 
     if (monthlyLeadsMap.has(monthKey)) {
       monthlyLeadsMap.set(monthKey, (monthlyLeadsMap.get(monthKey) ?? 0) + 1);
-      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(lead.amount));
     }
 
     if (lead.nextFollowupAt) {
@@ -986,6 +1015,15 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
       if (followupMap.has(followupKey)) {
         followupMap.set(followupKey, (followupMap.get(followupKey) ?? 0) + 1);
       }
+    }
+  }
+
+  for (const lead of closedRevenueRecords) {
+    const revenueDate = lead.closedAt ?? lead.createdAt;
+    const monthKey = startOfMonth(revenueDate).toISOString();
+
+    if (revenueMap.has(monthKey)) {
+      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(lead.amount));
     }
   }
 

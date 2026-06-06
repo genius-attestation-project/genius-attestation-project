@@ -10,7 +10,6 @@ import {
   Handshake,
   Home,
   Layers3,
-  MessageSquareQuote,
   PencilLine,
   RefreshCw,
   ShieldCheck,
@@ -77,11 +76,6 @@ export const sidebarItems: SidebarItem[] = [
     label: "Welcome Call",
     href: "/dashboard/welcome-call",
     icon: Handshake,
-  },
-  {
-    label: "Quote Of The Day",
-    href: "/dashboard/quote-of-the-day",
-    icon: MessageSquareQuote,
   },
 ];
 

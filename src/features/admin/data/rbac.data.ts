@@ -8,7 +8,6 @@ import {
   Handshake,
   Home,
   Layers3,
-  MessageSquareQuote,
   PencilLine,
   RefreshCw,
   ShieldCheck,
@@ -177,13 +176,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     menuPermission: "menu.welcome-call",
     pagePermission: "welcome_call.view",
   },
-  {
-    label: "Quote Of The Day",
-    href: "/dashboard/quote-of-the-day",
-    icon: MessageSquareQuote,
-    menuPermission: "menu.quote-of-the-day",
-    pagePermission: "quote_of_the_day.view",
-  },
 ];
 
 export const permissionModules: PermissionModuleDefinition[] = [
@@ -206,7 +198,6 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "account_update", label: "Account Update", description: "Account update access." },
   { key: "ready_for_delivery", label: "Ready For Delivery", description: "Delivery queue access." },
   { key: "welcome_call", label: "Welcome Call", description: "Welcome call access." },
-  { key: "quote_of_the_day", label: "Quote Of The Day", description: "Quote of the day access." },
 ];
 
 export const defaultRoleDefinitions = [
