@@ -15,6 +15,10 @@ export async function GET(request: Request) {
       pageSize: Number(searchParams.get("pageSize") ?? "10"),
       query: searchParams.get("query") ?? undefined,
       status: searchParams.get("status") ?? undefined,
+      service: searchParams.get("service") ?? undefined,
+      assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+      fromDate: searchParams.get("fromDate") ?? undefined,
+      toDate: searchParams.get("toDate") ?? undefined,
     });
 
     return jsonOk(data);
@@ -40,6 +44,10 @@ export async function POST(request: Request) {
     const lead = await createLead(ownerAdminId, parsed.data);
     return jsonOk({ lead }, 201);
   } catch (error) {
+    if (error instanceof Error && error.message === "Assigned user not found.") {
+      return jsonError(error.message, 400);
+    }
+
     console.error("Failed to create lead", error);
     return jsonError("Unable to create lead.", 500);
   }

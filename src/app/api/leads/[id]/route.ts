@@ -52,6 +52,10 @@ export async function PUT(request: Request, context: RouteContext) {
 
     return jsonOk({ lead });
   } catch (error) {
+    if (error instanceof Error && error.message === "Assigned user not found.") {
+      return jsonError(error.message, 400);
+    }
+
     console.error("Failed to update lead", error);
     return jsonError("Unable to update lead.", 500);
   }

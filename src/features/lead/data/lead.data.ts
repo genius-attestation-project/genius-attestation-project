@@ -16,6 +16,7 @@ export type LeadFormValues = {
   amount: string;
   workingDays: string;
   remark: string;
+  assignedUserId: string;
   assignedUser: string;
   nextFollowupAt: string;
 };
@@ -49,8 +50,6 @@ export const docTypes = [
   "Commercial Document",
   "Police Clearance",
 ];
-export const assignedUsers = ["Ananya Das", "Rohan James", "Meera S", "Faizal P"];
-
 export const defaultLeadValues: LeadFormValues = {
   firstName: "",
   lastName: "",
@@ -69,6 +68,7 @@ export const defaultLeadValues: LeadFormValues = {
   amount: "",
   workingDays: "",
   remark: "",
+  assignedUserId: "",
   assignedUser: "",
   nextFollowupAt: "",
 };

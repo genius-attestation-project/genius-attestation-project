@@ -209,6 +209,7 @@ export function AllLeadsManagement({
       amount: lead.rawAmount ? String(lead.rawAmount) : "",
       workingDays: lead.workingDays,
       remark: lead.remark,
+      assignedUserId: lead.assignedUserId,
       assignedUser: lead.assignedUser,
       nextFollowupAt: followupDate,
     };

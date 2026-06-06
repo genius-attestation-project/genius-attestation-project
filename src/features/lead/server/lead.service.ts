@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type {
   DashboardStatsResponse,
   LeadListResponse,
+  LeadAssignableUser,
   LeadRow,
   LobResponse,
 } from "@/features/lead/types/lead.types";
@@ -30,6 +31,7 @@ const leadSelect = {
   leadStatus: true,
   country: true,
   amount: true,
+  assignedUserId: true,
   assignedUser: true,
   createdAt: true,
   remark: true,
@@ -133,8 +135,10 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     clientType: lead.clientType ?? "",
     amount: formatCurrency(lead.amount),
     workingDays: lead.workingDays ? String(lead.workingDays) : "",
+    assignedUserId: lead.assignedUserId ?? "",
     assignedUser: lead.assignedUser ?? "",
     createdDate: formatDate(lead.createdAt),
+    createdAt: lead.createdAt.toISOString(),
     remark: lead.remark ?? "",
     rawAmount: Number(lead.amount),
     nextFollowupAt: lead.nextFollowupAt ? lead.nextFollowupAt.toISOString() : null,
@@ -349,10 +353,32 @@ function buildLeadData(
     workingDays:
       typeof input.workingDays === "number" && input.workingDays > 0 ? input.workingDays : null,
     remark: input.remark || null,
+    assignedUserId: input.assignedUserId || null,
     assignedUser: input.assignedUser || null,
     nextFollowupAt: input.nextFollowupAt ?? null,
     closedAt,
   };
+}
+
+export async function listAssignableLeadUsers(ownerAdminId: string): Promise<LeadAssignableUser[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      OR: [{ ownerAdminId }, { id: ownerAdminId }],
+    },
+    orderBy: [{ name: "asc" }, { email: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name?.trim() || user.email,
+    email: user.email,
+  }));
 }
 
 async function generateLeadCode() {
@@ -372,15 +398,46 @@ export async function listLeads(ownerAdminId: string, params: {
   pageSize?: number;
   query?: string;
   status?: string;
+  service?: string;
+  assignedUserId?: string;
+  fromDate?: string;
+  toDate?: string;
 }): Promise<LeadListResponse> {
   const page = Math.max(1, params.page ?? 1);
-  const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 100));
+  const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 5000));
   const status = parseLeadStatus(params.status);
   const query = params.query?.trim();
+  const service = params.service?.trim();
+  const assignedUserId = params.assignedUserId?.trim();
+  const fromDate = params.fromDate?.trim();
+  const toDate = params.toDate?.trim();
+  const createdAt: Prisma.DateTimeFilter = {};
+
+  if (fromDate) {
+    const parsed = new Date(`${fromDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      createdAt.gte = parsed;
+    }
+  }
+
+  if (toDate) {
+    const parsed = new Date(`${toDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      parsed.setDate(parsed.getDate() + 1);
+      createdAt.lt = parsed;
+    }
+  }
 
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
     ...(status ? { leadStatus: status } : {}),
+    ...(service ? { service: { contains: service, mode: "insensitive" } } : {}),
+    ...(assignedUserId
+      ? assignedUserId === "unassigned"
+        ? { assignedUserId: null }
+        : { assignedUserId }
+      : {}),
+    ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
     ...(query
       ? {
           OR: [
@@ -432,9 +489,35 @@ export async function getLeadById(ownerAdminId: string, id: string) {
 }
 
 export async function createLead(ownerAdminId: string, input: LeadInput) {
+  const assignedUser =
+    input.assignedUserId
+      ? await prisma.user.findFirst({
+          where: {
+            id: input.assignedUserId,
+            isActive: true,
+            OR: [{ ownerAdminId }, { id: ownerAdminId }],
+          },
+          select: { id: true, name: true, email: true },
+        })
+      : null;
+
+  if (input.assignedUserId && !assignedUser) {
+    throw new Error("Assigned user not found.");
+  }
+
   const leadCode = await generateLeadCode();
   const lead = await prisma.lead.create({
-    data: { ...buildLeadData(input, leadCode), ownerAdminId },
+    data: {
+      ...buildLeadData(
+        {
+          ...input,
+          assignedUserId: assignedUser?.id ?? "",
+          assignedUser: assignedUser?.name?.trim() || assignedUser?.email || "",
+        },
+        leadCode,
+      ),
+      ownerAdminId,
+    },
     select: leadSelect,
   });
 
@@ -447,7 +530,14 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
       ownerAdminId,
       OR: [{ id }, { leadCode: id }],
     },
-    select: { id: true, leadCode: true, leadStatus: true, closedAt: true },
+    select: {
+      id: true,
+      leadCode: true,
+      leadStatus: true,
+      closedAt: true,
+      assignedUserId: true,
+      assignedUser: true,
+    },
   });
 
   if (!existingLead) {
@@ -456,14 +546,57 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
 
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
   const statusChanged = existingLead.leadStatus !== newLeadStatus;
+  const assignedUser =
+    input.assignedUserId
+      ? await prisma.user.findFirst({
+          where: {
+            id: input.assignedUserId,
+            isActive: true,
+            OR: [{ ownerAdminId }, { id: ownerAdminId }],
+          },
+          select: { id: true, name: true, email: true },
+        })
+      : null;
+
+  if (input.assignedUserId && !assignedUser) {
+    throw new Error("Assigned user not found.");
+  }
+
+  const nextAssignedUserId = assignedUser?.id ?? null;
+  const nextAssignedUserName = assignedUser?.name?.trim() || assignedUser?.email || null;
+  const assignmentChanged =
+    (existingLead.assignedUserId ?? null) !== nextAssignedUserId ||
+    (existingLead.assignedUser ?? null) !== nextAssignedUserName;
 
   const [lead] = await prisma.$transaction([
     prisma.lead.update({
       where: { id: existingLead.id },
-      data: buildLeadData(input, existingLead.leadCode, {
-        closedAt: existingLead.closedAt,
-        leadStatus: existingLead.leadStatus,
-      }),
+      data: {
+        ...buildLeadData(
+          {
+            ...input,
+            assignedUserId: nextAssignedUserId ?? "",
+            assignedUser: nextAssignedUserName ?? "",
+          },
+          existingLead.leadCode,
+          {
+            closedAt: existingLead.closedAt,
+            leadStatus: existingLead.leadStatus,
+          },
+        ),
+        ...(assignmentChanged
+          ? {
+              assignmentHistory: {
+                create: {
+                  oldUserId: existingLead.assignedUserId ?? null,
+                  newUserId: nextAssignedUserId,
+                  changedBy: changedBy ?? null,
+                  ownerAdminId,
+                },
+              },
+            }
+          : {}),
+      },
       select: leadSelect,
     }),
     ...(statusChanged
@@ -482,6 +615,84 @@ export async function updateLead(ownerAdminId: string, id: string, input: LeadIn
   ]);
 
   return mapLeadRow(lead);
+}
+
+export async function bulkAssignLeads(args: {
+  ownerAdminId: string;
+  leadIds: string[];
+  assignedUserId: string;
+  changedBy?: string;
+}) {
+  const leadIds = Array.from(new Set(args.leadIds.map((id) => id.trim()).filter(Boolean)));
+
+  if (leadIds.length === 0) {
+    return { count: 0, assignedUserName: "" };
+  }
+
+  const assignedUser = await prisma.user.findFirst({
+    where: {
+      id: args.assignedUserId,
+      isActive: true,
+      OR: [{ ownerAdminId: args.ownerAdminId }, { id: args.ownerAdminId }],
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  if (!assignedUser) {
+    throw new Error("Assigned user not found.");
+  }
+
+  const assignedUserName = assignedUser.name?.trim() || assignedUser.email;
+  const leads = await prisma.lead.findMany({
+    where: {
+      ownerAdminId: args.ownerAdminId,
+      id: { in: leadIds },
+    },
+    select: {
+      id: true,
+      assignedUserId: true,
+      assignedUser: true,
+    },
+  });
+
+  const changedLeads = leads.filter(
+    (lead) => lead.assignedUserId !== assignedUser.id || (lead.assignedUser ?? "") !== assignedUserName,
+  );
+
+  if (changedLeads.length === 0) {
+    return { count: 0, assignedUserName };
+  }
+
+  await prisma.$transaction([
+    prisma.lead.updateMany({
+      where: {
+        ownerAdminId: args.ownerAdminId,
+        id: { in: changedLeads.map((lead) => lead.id) },
+      },
+      data: {
+        assignedUserId: assignedUser.id,
+        assignedUser: assignedUserName,
+      },
+    }),
+    prisma.leadAssignmentHistory.createMany({
+      data: changedLeads.map((lead) => ({
+        leadId: lead.id,
+        oldUserId: lead.assignedUserId ?? null,
+        newUserId: assignedUser.id,
+        changedBy: args.changedBy ?? null,
+        ownerAdminId: args.ownerAdminId,
+      })),
+    }),
+  ]);
+
+  return {
+    count: changedLeads.length,
+    assignedUserName,
+  };
 }
 
 export async function deleteLead(ownerAdminId: string, id: string) {

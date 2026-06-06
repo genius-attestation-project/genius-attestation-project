@@ -88,6 +88,7 @@ export const leadInputSchema = z.object({
   amount: numericString,
   workingDays: integerString,
   remark: z.string().trim().optional().default(""),
+  assignedUserId: z.string().trim().optional().default(""),
   assignedUser: z.string().trim().optional().default(""),
   nextFollowupAt: emptyToUndefined(
     z.union([

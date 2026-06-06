@@ -23,11 +23,24 @@ export type LeadRow = {
   clientType: string;
   amount: string;
   workingDays: string;
+  assignedUserId: string;
   assignedUser: string;
   createdDate: string;
+  createdAt: string;
   remark: string;
   rawAmount: number;
   nextFollowupAt: string | null;
+};
+
+export type LeadAssignableUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type AssignLeadsResponse = {
+  items: LeadRow[];
+  totalLeads: number;
 };
 
 export type LeadListResponse = {

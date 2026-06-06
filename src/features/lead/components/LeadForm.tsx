@@ -12,7 +12,6 @@ import { Loader } from "@/components/ui/Loader";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
-  assignedUsers,
   clientTypes,
   countryCodes,
   defaultLeadValues,
@@ -22,6 +21,7 @@ import {
   services,
   sources,
 } from "@/features/lead/data/lead.data";
+import type { LeadAssignableUser } from "@/features/lead/types/lead.types";
 
 type LeadFormProps = {
   initialValues?: LeadFormValues;
@@ -47,6 +47,9 @@ export function LeadForm({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [assignableUsers, setAssignableUsers] = useState<LeadAssignableUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
 
   const allCountries = useMemo(() => 
     Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
@@ -67,6 +70,48 @@ export function LeadForm({
     setErrors({});
     setMessage("");
   }, [initialValues]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAssignableUsers() {
+      setUsersLoading(true);
+      setUsersError("");
+
+      try {
+        const response = await fetch("/api/leads/assignable-users", { cache: "no-store" });
+        const payload = (await response.json().catch(() => ({}))) as {
+          users?: LeadAssignableUser[];
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.message ?? "Unable to load assignable users.");
+        }
+
+        if (!ignore) {
+          setAssignableUsers(payload.users ?? []);
+        }
+      } catch (fetchError) {
+        if (!ignore) {
+          setAssignableUsers([]);
+          setUsersError(
+            fetchError instanceof Error ? fetchError.message : "Unable to load assignable users.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setUsersLoading(false);
+        }
+      }
+    }
+
+    void loadAssignableUsers();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Handle edit mode: Sync selectedCountry when values.country changes externally
   useEffect(() => {
@@ -105,6 +150,18 @@ export function LeadForm({
     }
     
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setMessage("");
+  }
+
+  function updateAssignedUser(userId: string) {
+    const selectedUser = assignableUsers.find((user) => user.id === userId);
+
+    setValues((current) => ({
+      ...current,
+      assignedUserId: userId,
+      assignedUser: selectedUser?.name ?? "",
+    }));
+    setErrors((current) => ({ ...current, assignedUserId: undefined, assignedUser: undefined }));
     setMessage("");
   }
 
@@ -184,6 +241,16 @@ export function LeadForm({
     setErrors({});
     setMessage("");
   }
+
+  const assignableUserOptions = useMemo(
+    () =>
+      assignableUsers.map((user) => ({
+        label: user.name,
+        value: user.id,
+        description: user.email,
+      })),
+    [assignableUsers],
+  );
 
   return (
     <form className="grid min-w-0 gap-4 sm:gap-6" onSubmit={onSubmit}>
@@ -332,11 +399,14 @@ export function LeadForm({
         <FieldWrapper>
           <SearchableSelect
             label="Assigned User"
-            name="assignedUser"
-            value={values.assignedUser}
-            onChange={(value) => updateField("assignedUser", value)}
-            options={mapToOptions(assignedUsers)}
-            placeholder="Select assigned user"
+            name="assignedUserId"
+            value={values.assignedUserId}
+            onChange={updateAssignedUser}
+            options={assignableUserOptions}
+            placeholder={usersLoading ? "Loading users..." : "Select assigned user"}
+            loading={usersLoading}
+            errorMessage={usersError}
+            emptyMessage="No active users found"
           />
         </FieldWrapper>
         <FieldWrapper>
