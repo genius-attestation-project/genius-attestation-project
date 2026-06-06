@@ -51,6 +51,9 @@ export type Registration = {
   acceptedAt: string | null;
   approvalStatus: string;
   trackingStatus: string;
+  welcomeCallStatus: string;
+  welcomeCalledBy: string | null;
+  welcomeCalledAt: string | null;
   ownerAdminId?: string | null;
   createdBy?: string | null;
   createdAt: string;

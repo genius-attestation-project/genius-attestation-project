@@ -32,12 +32,21 @@ function formatDate(date: Date) {
 }
 
 function mapRegistration(registration: RegistrationRecord) {
+  const welcomeRegistration = registration as RegistrationRecord & {
+    welcomeCallStatus?: string;
+    welcomeCalledBy?: string | null;
+    welcomeCalledAt?: Date | null;
+  };
+
   return {
     ...registration,
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
     acceptedAt: registration.acceptedAt?.toISOString() ?? null,
+    welcomeCallStatus: welcomeRegistration.welcomeCallStatus ?? "Pending",
+    welcomeCalledBy: welcomeRegistration.welcomeCalledBy ?? null,
+    welcomeCalledAt: welcomeRegistration.welcomeCalledAt?.toISOString() ?? null,
     createdAt: registration.createdAt.toISOString(),
     updatedAt: registration.updatedAt.toISOString(),
     createdDate: formatDate(registration.createdAt),
@@ -183,6 +192,7 @@ export async function createRegistration(
         ...input,
         regionOfRegistration: sourceOfficeName,
       }),
+      welcomeCallStatus: "Pending",
       ownerAdminId,
       createdBy: performedBy ?? null,
       auditTrail: {

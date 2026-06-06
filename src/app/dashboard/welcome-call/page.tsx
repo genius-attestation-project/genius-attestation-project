@@ -1,5 +1,6 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { WelcomeCallDashboard } from "@/features/welcome-call/components/WelcomeCallDashboard";
+import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function WelcomeCallPage() {
@@ -9,11 +10,11 @@ export default async function WelcomeCallPage() {
     return <AccessDenied description="Your role cannot access welcome calls." />;
   }
 
-  return (
-    <ModulePlaceholder
-      eyebrow="Welcome Call"
-      title="Welcome call command desk"
-      description="This area now matches the rest of the ERP shell and can be extended with followup queues, scripts, and call statuses."
-    />
-  );
+  const currentOfficeLocationName = await resolveOfficeLocationName({
+    ownerAdminId: session.user.ownerAdminId ?? "",
+    officeLocationId: session.user.officeLocationId,
+    officeLocationName: session.user.officeLocationName,
+  });
+
+  return <WelcomeCallDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
 }

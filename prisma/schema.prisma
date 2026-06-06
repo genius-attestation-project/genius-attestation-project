@@ -212,6 +212,9 @@ model Registration {
   acceptedAt            DateTime?          @map("accepted_at")
   approvalStatus        String             @default("Pending") @map("approval_status")
   trackingStatus        String             @default("Registered") @map("tracking_status")
+  welcomeCallStatus     String             @default("Pending") @map("welcome_call_status")
+  welcomeCalledBy       String?            @map("welcome_called_by")
+  welcomeCalledAt       DateTime?          @map("welcome_called_at")
   ownerAdminId          String?            @map("owner_admin_id")
   createdBy             String?            @map("created_by")
   createdAt             DateTime           @default(now()) @map("created_at")
@@ -225,6 +228,7 @@ model Registration {
   @@index([paymentStatus])
   @@index([approvalStatus])
   @@index([bmStatus])
+  @@index([welcomeCallStatus])
   @@map("registrations")
 }
 
