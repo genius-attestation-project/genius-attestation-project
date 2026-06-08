@@ -15,7 +15,7 @@ export async function GET() {
     const reminders = await listDueFollowupReminders({
       ownerAdminId,
       userId,
-      markNotified: true,
+      markNotified: false,
     });
 
     return jsonOk({ reminders });

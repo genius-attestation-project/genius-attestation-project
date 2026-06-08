@@ -179,6 +179,7 @@ function formatDateTime(date: Date) {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   }).format(date);
 }
 
@@ -186,6 +187,7 @@ function formatTime(date: Date) {
   return new Intl.DateTimeFormat("en-IN", {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   }).format(date);
 }
 
@@ -340,6 +342,8 @@ function buildLeadData(
     leadStatus === LeadStatus.Closed
       ? existing?.closedAt ?? new Date()
       : null;
+
+  console.log("Saved nextFollowupAt:", input.nextFollowupAt ?? null);
 
   return {
     leadCode: leadCode ?? "",
@@ -920,6 +924,7 @@ export async function listDueFollowupReminders(args: {
   markNotified?: boolean;
 }): Promise<FollowupReminderPayload[]> {
   const now = new Date();
+  console.log("Current time:", now);
   const leads = await prisma.lead.findMany({
     where: {
       ...userCanReceiveFollowup(args),
@@ -951,7 +956,9 @@ export async function listDueFollowupReminders(args: {
     });
   }
 
-  return leads.map(mapFollowupReminder);
+  const reminders = leads.map(mapFollowupReminder);
+  console.log("Due reminders:", reminders);
+  return reminders;
 }
 
 export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
@@ -978,13 +985,6 @@ export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
       nextFollowupAt: true,
     },
   });
-
-  if (leads.length > 0) {
-    await prisma.lead.updateMany({
-      where: { id: { in: leads.map((lead) => lead.id) }, ownerAdminId },
-      data: { followupNotified: true },
-    });
-  }
 
   return leads.map((lead) => ({
     ownerAdminId: lead.ownerAdminId,

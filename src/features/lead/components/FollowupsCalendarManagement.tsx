@@ -66,6 +66,35 @@ const filterOptions: Array<{
   { value: "completed", label: "Completed", helper: "Closed items" },
 ];
 
+function toLocalDateTimeInputValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toIsoFromLocalDateTime(value: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 export function FollowupsCalendarManagement() {
   const [activeFilter, setActiveFilter] = useState<FollowupFilter>("all");
   const [calendarData, setCalendarData] = useState<FollowupCalendarResponse>(emptyCalendarData);
@@ -166,9 +195,7 @@ export function FollowupsCalendarManagement() {
   }
 
   function toFormValues(lead: FollowupItem): LeadFormValues {
-    const followupDate = lead.nextFollowupAt
-      ? new Date(lead.nextFollowupAt).toISOString().slice(0, 16)
-      : "";
+    const followupDate = toLocalDateTimeInputValue(lead.nextFollowupAt);
 
     return {
       firstName: lead.firstName,
@@ -206,12 +233,17 @@ export function FollowupsCalendarManagement() {
     setFeedbackMessage("");
 
     try {
+      const leadPayload = buildLeadPayload(lead, overrides);
+
       const response = await fetch(`/api/leads/${lead.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(buildLeadPayload(lead, overrides)),
+        body: JSON.stringify({
+          ...leadPayload,
+          nextFollowupAt: toIsoFromLocalDateTime(leadPayload.nextFollowupAt),
+        }),
       });
 
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -266,7 +298,7 @@ export function FollowupsCalendarManagement() {
 
   function openReschedule(lead: FollowupItem) {
     setReschedulingLead(lead);
-    setRescheduleValue(lead.nextFollowupAt ? new Date(lead.nextFollowupAt).toISOString().slice(0, 16) : "");
+    setRescheduleValue(toLocalDateTimeInputValue(lead.nextFollowupAt));
     setFeedbackMessage("");
   }
 

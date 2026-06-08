@@ -43,6 +43,7 @@ function formatReminderDate(value: string) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   }).format(date);
 }
 
@@ -107,6 +108,9 @@ export function FollowupReminderProvider({
 
         const dueReminders = payload?.reminders ?? [];
 
+        console.log("Current time:", new Date());
+        console.log("Due reminders:", dueReminders);
+
         if (response.ok && dueReminders.length) {
           setReminders((current) => {
             const existingIds = new Set(current.map((item) => item.leadId));
@@ -123,7 +127,7 @@ export function FollowupReminderProvider({
 
     void connectSocket();
     void loadDueFollowups();
-    const interval = window.setInterval(() => void loadDueFollowups(), 60_000);
+    const interval = window.setInterval(() => void loadDueFollowups(), 30_000);
 
     return () => {
       ignore = true;
