@@ -37,13 +37,21 @@ function mapRegistration(registration: RegistrationRecord) {
     welcomeCalledBy?: string | null;
     welcomeCalledAt?: Date | null;
   };
+  const financeRegistration = registration as RegistrationRecord & {
+    balanceReceivedAmount?: Prisma.Decimal | number;
+    submittedAt?: Date | null;
+    approvedAt?: Date | null;
+  };
 
   return {
     ...registration,
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
+    balanceReceivedAmount: Number(financeRegistration.balanceReceivedAmount ?? 0),
     acceptedAt: registration.acceptedAt?.toISOString() ?? null,
+    submittedAt: financeRegistration.submittedAt?.toISOString() ?? null,
+    approvedAt: financeRegistration.approvedAt?.toISOString() ?? null,
     welcomeCallStatus: welcomeRegistration.welcomeCallStatus ?? "Pending",
     welcomeCalledBy: welcomeRegistration.welcomeCalledBy ?? null,
     welcomeCalledAt: welcomeRegistration.welcomeCalledAt?.toISOString() ?? null,

@@ -1,5 +1,6 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { ModulePlaceholder } from "@/features/dashboard/components/ModulePlaceholder";
+import { AccountUpdateDashboard } from "@/features/account-update/components/AccountUpdateDashboard";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function AccountUpdatePage() {
@@ -10,10 +11,10 @@ export default async function AccountUpdatePage() {
   }
 
   return (
-    <ModulePlaceholder
-      eyebrow="Account Update"
-      title="Account update workspace"
-      description="Account upkeep, verification, and data correction tasks can now plug into the redesigned shell without structural rewrites."
+    <AccountUpdateDashboard
+      canApprove={session.user.isSuperAdmin || hasPermission(session.user, "account_approval.view")}
+      canApproveAction={session.user.isSuperAdmin || hasPermission(session.user, "account_approval.edit")}
+      canSubmitPayment={session.user.isSuperAdmin || hasPermission(session.user, "account_update.edit")}
     />
   );
 }

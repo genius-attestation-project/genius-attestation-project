@@ -196,6 +196,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
   { key: "account_update", label: "Account Update", description: "Account update access." },
+  { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
   { key: "ready_for_delivery", label: "Ready For Delivery", description: "Delivery queue access." },
   { key: "welcome_call", label: "Welcome Call", description: "Welcome call access." },
 ];

@@ -129,7 +129,7 @@ export function DashboardOverview({
           label: "Revenue",
           value: `$${Math.round(stats.totalRevenue).toLocaleString()}`,
           delta: "Live",
-          description: "Total booked lead value",
+          description: "Finance-approved registration revenue",
           icon: BadgeDollarSign,
           tone: "blue",
         });

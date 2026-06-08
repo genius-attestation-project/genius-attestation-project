@@ -908,12 +908,12 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     closedLeads,
     pendingLeads,
     followups,
-    revenueAggregate,
+    approvedRevenueAggregate,
     recentLeadRecords,
     recentFollowupRecords,
     statusCounts,
     monthlyLeadRecords,
-    closedRevenueRecords,
+    approvedRevenueRecords,
   ] = await Promise.all([
     prisma.lead.count({ where: { ownerAdminId } }),
     prisma.lead.count({
@@ -925,9 +925,12 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Closed } }),
     getOwnerApprovalRequestCount(ownerAdminId),
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Followup } }),
-    prisma.lead.aggregate({
-      where: { ownerAdminId, leadStatus: LeadStatus.Closed },
-      _sum: { amount: true },
+    prisma.registration.aggregate({
+      where: {
+        ownerAdminId,
+        financeApprovalStatus: "Approved",
+      },
+      _sum: { totalCharges: true },
     }),
     prisma.lead.findMany({
       where: { ownerAdminId },
@@ -964,25 +967,17 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         nextFollowupAt: true,
       },
     }),
-    prisma.lead.findMany({
+    prisma.registration.findMany({
       where: {
         ownerAdminId,
-        leadStatus: LeadStatus.Closed,
-        OR: [
-          { closedAt: { gte: revenueWindowStart } },
-          {
-            AND: [
-              { closedAt: null },
-              { createdAt: { gte: revenueWindowStart } },
-            ],
-          },
-        ],
+        financeApprovalStatus: "Approved",
+        approvedAt: { gte: revenueWindowStart },
       },
-      orderBy: [{ closedAt: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
       select: {
         createdAt: true,
-        closedAt: true,
-        amount: true,
+        approvedAt: true,
+        totalCharges: true,
       },
     }),
   ]);
@@ -1018,12 +1013,12 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }
   }
 
-  for (const lead of closedRevenueRecords) {
-    const revenueDate = lead.closedAt ?? lead.createdAt;
+  for (const registration of approvedRevenueRecords) {
+    const revenueDate = registration.approvedAt ?? registration.createdAt;
     const monthKey = startOfMonth(revenueDate).toISOString();
 
     if (revenueMap.has(monthKey)) {
-      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(lead.amount));
+      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.totalCharges));
     }
   }
 
@@ -1032,7 +1027,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     activeLeads,
     closedLeads,
     pendingLeads,
-    totalRevenue: Number(revenueAggregate._sum.amount ?? 0),
+    totalRevenue: Number(approvedRevenueAggregate._sum.totalCharges ?? 0),
     followups,
     recentLeads,
     recentActivities: recentFollowupRecords.map((lead) => ({
