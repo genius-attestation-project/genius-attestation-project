@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronLeft, Menu } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronLeft, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -269,18 +269,15 @@ function SidebarPanel({
 }: SidebarPanelProps) {
   return (
     <div className="flex h-full flex-col gap-6 border-r border-slate-100 bg-white px-4 py-5 text-slate-900 dark:border-white/8 dark:bg-[var(--bg-sidebar)] dark:text-white">
-      <div className="flex items-start justify-between gap-3">
-        <div className="overflow-hidden">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-200/85">
-            Genius ERP
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+            <BadgeCheck size={22} />
+          </span>
           {!collapsed ? (
-            <>
-              <h2 className="mt-3 text-lg font-semibold tracking-tight">Workspace</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/60">
-                Navigation scoped to your role and permissions
-              </p>
-            </>
+            <p className="truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+              Genius Attestation
+            </p>
           ) : null}
         </div>
         {toggle}

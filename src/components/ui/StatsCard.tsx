@@ -27,7 +27,7 @@ export function StatsCard({
   tone = "blue",
 }: StatsCardProps) {
   return (
-    <article className="group relative min-w-0 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 dark:bg-white/5">
+    <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 dark:bg-white/5">
       <div
         className={cn(
           "absolute inset-0 bg-linear-to-br opacity-100 transition group-hover:opacity-80",

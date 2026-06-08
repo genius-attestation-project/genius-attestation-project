@@ -110,7 +110,7 @@ export function DashboardOverview({
           label: "Total Leads",
           value: stats.totalLeads.toLocaleString(),
           delta: "Live",
-          description: "All leads in PostgreSQL",
+          description: "All leads",
           icon: Users,
           tone: "blue",
         });
@@ -118,7 +118,7 @@ export function DashboardOverview({
           label: "Active Leads",
           value: stats.activeLeads.toLocaleString(),
           delta: "Live",
-          description: "Open and active pipeline",
+          description: "Open pipeline",
           icon: UserCheck,
           tone: "slate",
         });
@@ -129,7 +129,7 @@ export function DashboardOverview({
           label: "Revenue",
           value: `$${Math.round(stats.totalRevenue).toLocaleString()}`,
           delta: "Live",
-          description: "Finance-approved registration revenue",
+          description: "Approved revenue",
           icon: BadgeDollarSign,
           tone: "blue",
         });
@@ -140,7 +140,7 @@ export function DashboardOverview({
           label: "Followups",
           value: stats.followups.toLocaleString(),
           delta: "Live",
-          description: "Leads requiring followup",
+          description: "Due followups",
           icon: LoaderCircle,
           tone: "amber",
         });
@@ -151,7 +151,7 @@ export function DashboardOverview({
           label: "Closed Leads",
           value: stats.closedLeads.toLocaleString(),
           delta: "Live",
-          description: "Successfully closed leads",
+          description: "Completed leads",
           icon: BadgeCheck,
           tone: "slate",
         });
@@ -162,7 +162,7 @@ export function DashboardOverview({
           label: "Pending Approval",
           value: stats.pendingLeads.toLocaleString(),
           delta: "Live",
-          description: "Awaiting approval action",
+          description: "Awaiting review",
           icon: ClipboardList,
           tone: "amber",
         });
@@ -173,6 +173,7 @@ export function DashboardOverview({
     [isSuperAdmin, permissions, stats],
   );
 
+  const showRecentLeads = canAccess(permissions, isSuperAdmin, ["leads.view"]);
   const showCharts = canAccess(permissions, isSuperAdmin, [
     "leads.view",
     "followups.view",
@@ -180,21 +181,20 @@ export function DashboardOverview({
     "revenue_registration.view",
   ]);
   const showRecentActivity = canAccess(permissions, isSuperAdmin, ["dashboard.view", "leads.view"]);
-  const showRecentLeads = canAccess(permissions, isSuperAdmin, ["leads.view"]);
 
   if (loading) {
     return (
       <div className="grid min-w-0 gap-4 sm:gap-6">
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => (
-            <StatsCard key={card.label} {...card} />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <LoadingSkeleton key={index} className="h-[156px] w-full" />
           ))}
         </section>
-        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
-          <LoadingSkeleton className="h-[540px] w-full" />
-          <LoadingSkeleton className="h-[540px] w-full" />
+        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <LoadingSkeleton className="h-[420px] w-full" />
+          <LoadingSkeleton className="h-[420px] w-full" />
         </section>
-        <LoadingSkeleton className="h-[420px] w-full" />
+        <LoadingSkeleton className="h-[360px] w-full" />
       </div>
     );
   }
@@ -209,7 +209,7 @@ export function DashboardOverview({
     );
   }
 
-  if (cards.length === 0 && !showCharts && !showRecentLeads) {
+  if (cards.length === 0 && !showCharts && !showRecentActivity && !showRecentLeads) {
     return (
       <EmptyState
         icon={LoaderCircle}
@@ -228,7 +228,7 @@ export function DashboardOverview({
       </section>
 
       {showCharts || showRecentActivity ? (
-        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
+        <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           {showCharts ? (
             <DashboardCharts
               monthlyLeads={stats.charts.monthlyLeads}
@@ -239,7 +239,7 @@ export function DashboardOverview({
           ) : (
             <EmptyState
               icon={LoaderCircle}
-              title="Charts hidden"
+              title="Analytics hidden"
               description="This role does not currently include analytics widgets."
             />
           )}

@@ -19,7 +19,7 @@ export default async function DashboardPage() {
       <PageHeader
         eyebrow="Home Dashboard"
         title={`${greeting}, ${userName}`}
-        description="A simplified overview of the current workspace modules with clearer hierarchy, lighter spacing, and fewer competing panels."
+        description="A quick view of today's lead activity and approvals."
       />
       <DashboardOverview
         permissions={session.user.permissions}
