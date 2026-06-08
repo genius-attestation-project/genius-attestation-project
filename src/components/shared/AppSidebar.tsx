@@ -54,7 +54,7 @@ export function AppSidebar({
   permissions,
   isSuperAdmin,
 }: AppSidebarProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(pathname.startsWith("/dashboard/admin-management"));

@@ -41,6 +41,8 @@ const leadSelect = {
   createdAt: true,
   remark: true,
   nextFollowupAt: true,
+  followupNotified: true,
+  followupCompleted: true,
   docType: true,
   noOfDocuments: true,
   state: true,
@@ -365,6 +367,12 @@ function buildLeadData(
     assignedUserId: input.assignedUserId || null,
     assignedUser: input.assignedUser || null,
     nextFollowupAt: input.nextFollowupAt ?? null,
+    ...(input.nextFollowupAt
+      ? {
+          followupNotified: false,
+          followupCompleted: false,
+        }
+      : {}),
     closedAt,
   };
 }
@@ -859,6 +867,182 @@ export async function getFollowupsByDate(
     count: items.length,
     items,
   };
+}
+
+export type FollowupReminderPayload = {
+  leadId: string;
+  leadName: string;
+  mobile: string;
+  whatsappNumber: string;
+  followupType: string;
+  followupNote: string;
+  nextFollowupAt: string;
+};
+
+function mapFollowupReminder(lead: Prisma.LeadGetPayload<{
+  select: {
+    id: true;
+    firstName: true;
+    lastName: true;
+    countryCode: true;
+    mobileNumber: true;
+    service: true;
+    remark: true;
+    nextFollowupAt: true;
+  };
+}>): FollowupReminderPayload {
+  const mobile = `${lead.countryCode} ${lead.mobileNumber}`.trim();
+
+  return {
+    leadId: lead.id,
+    leadName: `${lead.firstName} ${lead.lastName ?? ""}`.trim(),
+    mobile,
+    whatsappNumber: `${lead.countryCode}${lead.mobileNumber}`.replace(/[^\d]/g, ""),
+    followupType: "Call",
+    followupNote: lead.remark || `${lead.service} follow-up is due.`,
+    nextFollowupAt: lead.nextFollowupAt?.toISOString() ?? new Date().toISOString(),
+  };
+}
+
+function userCanReceiveFollowup(args: {
+  ownerAdminId: string;
+  userId: string;
+}): Prisma.LeadWhereInput {
+  return {
+    ownerAdminId: args.ownerAdminId,
+    OR: [{ assignedUserId: args.userId }, { ownerAdminId: args.userId }],
+  };
+}
+
+export async function listDueFollowupReminders(args: {
+  ownerAdminId: string;
+  userId: string;
+  markNotified?: boolean;
+}): Promise<FollowupReminderPayload[]> {
+  const now = new Date();
+  const leads = await prisma.lead.findMany({
+    where: {
+      ...userCanReceiveFollowup(args),
+      nextFollowupAt: { lte: now },
+      followupCompleted: false,
+      followupNotified: false,
+    },
+    orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
+    take: 10,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      countryCode: true,
+      mobileNumber: true,
+      service: true,
+      remark: true,
+      nextFollowupAt: true,
+    },
+  });
+
+  if (args.markNotified && leads.length > 0) {
+    await prisma.lead.updateMany({
+      where: {
+        id: { in: leads.map((lead) => lead.id) },
+        ownerAdminId: args.ownerAdminId,
+      },
+      data: { followupNotified: true },
+    });
+  }
+
+  return leads.map(mapFollowupReminder);
+}
+
+export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
+  const now = new Date();
+  const leads = await prisma.lead.findMany({
+    where: {
+      ownerAdminId,
+      nextFollowupAt: { lte: now },
+      followupCompleted: false,
+      followupNotified: false,
+    },
+    orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
+    take: 25,
+    select: {
+      id: true,
+      ownerAdminId: true,
+      assignedUserId: true,
+      firstName: true,
+      lastName: true,
+      countryCode: true,
+      mobileNumber: true,
+      service: true,
+      remark: true,
+      nextFollowupAt: true,
+    },
+  });
+
+  if (leads.length > 0) {
+    await prisma.lead.updateMany({
+      where: { id: { in: leads.map((lead) => lead.id) }, ownerAdminId },
+      data: { followupNotified: true },
+    });
+  }
+
+  return leads.map((lead) => ({
+    ownerAdminId: lead.ownerAdminId,
+    assignedUserId: lead.assignedUserId,
+    payload: mapFollowupReminder(lead),
+  }));
+}
+
+export async function completeFollowup(ownerAdminId: string, userId: string, leadId: string) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      id: leadId,
+      ...userCanReceiveFollowup({ ownerAdminId, userId }),
+    },
+    select: { id: true },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  return prisma.lead.update({
+    where: { id: lead.id },
+    data: {
+      followupCompleted: true,
+      followupNotified: true,
+    },
+    select: leadSelect,
+  });
+}
+
+export async function snoozeFollowup(args: {
+  ownerAdminId: string;
+  userId: string;
+  leadId: string;
+  nextFollowupAt: Date;
+}) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      id: args.leadId,
+      ...userCanReceiveFollowup(args),
+    },
+    select: { id: true },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  return prisma.lead.update({
+    where: { id: lead.id },
+    data: {
+      nextFollowupAt: args.nextFollowupAt,
+      followupCompleted: false,
+      followupNotified: false,
+    },
+    select: leadSelect,
+  });
 }
 
 export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> {

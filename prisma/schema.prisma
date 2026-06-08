@@ -153,6 +153,8 @@ model Lead {
   assignedUserId        String?    @map("assigned_user_id")
   ownerAdminId          String?    @map("owner_admin_id")
   nextFollowupAt        DateTime?
+  followupNotified      Boolean    @default(false) @map("followup_notified")
+  followupCompleted     Boolean    @default(false) @map("followup_completed")
   closedAt              DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt

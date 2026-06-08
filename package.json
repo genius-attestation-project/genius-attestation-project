@@ -33,6 +33,8 @@
     "react-international-phone": "^4.8.0",
     "react-select": "^5.10.2",
     "recharts": "^3.8.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "timezones-list": "^3.1.0",
     "zod": "latest"
   },
