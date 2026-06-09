@@ -1,9 +1,10 @@
 import { completeFollowup } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -16,15 +17,48 @@ export async function POST(
     }
 
     const { id } = await params;
-    const lead = await completeFollowup(ownerAdminId, userId, id);
+    const body = (await request.json().catch(() => ({}))) as {
+      description?: unknown;
+      completionDescription?: unknown;
+    };
+    const description =
+      typeof body.description === "string"
+        ? body.description.trim()
+        : typeof body.completionDescription === "string"
+          ? body.completionDescription.trim()
+          : "";
+
+    console.log("Lead ID:", id);
+    console.log("Body:", body);
+
+    if (!description) {
+      return jsonError("Completion description is required.", 400);
+    }
+
+    const existingLead = await prisma.lead.findUnique({
+      where: { id },
+      select: { id: true, ownerAdminId: true, assignedUserId: true },
+    });
+
+    if (!existingLead) {
+      return jsonError("Follow-up lead not found.", 404);
+    }
+
+    const lead = await completeFollowup({
+      ownerAdminId,
+      userId,
+      leadId: id,
+      completionDescription: description,
+      changedBy: session?.user?.name ?? session?.user?.email ?? undefined,
+    });
 
     if (!lead) {
       return jsonError("Follow-up lead not found.", 404);
     }
 
-    return jsonOk({ message: "Follow-up marked as completed." });
+    return jsonOk({ success: true });
   } catch (error) {
-    console.error("Failed to complete followup", error);
-    return jsonError("Unable to complete follow-up.", 500);
+    console.error(error);
+    return jsonError(error instanceof Error ? error.message : "Unable to complete follow-up.", 500);
   }
 }

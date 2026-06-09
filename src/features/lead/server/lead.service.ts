@@ -1151,6 +1151,8 @@ export async function snoozeFollowupWithHistory(args: {
       completionDescription: null,
       completedAt: null,
       completedBy: null,
+      snoozedAt: new Date(),
+      snoozedBy: args.changedBy ?? args.changedByUserId ?? null,
       followupHistory: {
         create: {
           actionType: FollowupActionType.Snoozed,
@@ -1540,11 +1542,17 @@ export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
   }));
 }
 
-export async function completeFollowup(ownerAdminId: string, userId: string, leadId: string) {
+export async function completeFollowup(args: {
+  ownerAdminId: string;
+  userId: string;
+  leadId: string;
+  completionDescription: string;
+  changedBy?: string;
+}) {
   const lead = await prisma.lead.findFirst({
     where: {
-      id: leadId,
-      ...userCanReceiveFollowup({ ownerAdminId, userId }),
+      id: args.leadId,
+      ...userCanReceiveFollowup(args),
     },
     select: { id: true },
   });
@@ -1554,10 +1562,11 @@ export async function completeFollowup(ownerAdminId: string, userId: string, lea
   }
 
   return completeFollowupWithDescription({
-    ownerAdminId,
+    ownerAdminId: args.ownerAdminId,
     leadId: lead.id,
-    completionDescription: "Follow-up marked as completed.",
-    changedByUserId: userId,
+    completionDescription: args.completionDescription,
+    changedByUserId: args.userId,
+    changedBy: args.changedBy,
   });
 }
 
@@ -1566,6 +1575,7 @@ export async function snoozeFollowup(args: {
   userId: string;
   leadId: string;
   nextFollowupAt: Date;
+  changedBy?: string;
 }) {
   const lead = await prisma.lead.findFirst({
     where: {
@@ -1585,6 +1595,7 @@ export async function snoozeFollowup(args: {
     nextFollowupAt: args.nextFollowupAt,
     description: "Follow-up reminder snoozed.",
     changedByUserId: args.userId,
+    changedBy: args.changedBy,
   });
 }
 

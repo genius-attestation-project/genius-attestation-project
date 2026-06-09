@@ -45,6 +45,30 @@ function formatReminderDate(value: string) {
   }).format(date);
 }
 
+function getSnoozeDateTime(value: string) {
+  const now = new Date();
+
+  if (value === "10m") {
+    return new Date(now.getTime() + 10 * 60 * 1000);
+  }
+
+  if (value === "30m") {
+    return new Date(now.getTime() + 30 * 60 * 1000);
+  }
+
+  if (value === "1h") {
+    return new Date(now.getTime() + 60 * 60 * 1000);
+  }
+
+  if (value === "tomorrow") {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  }
+
+  return null;
+}
+
 export function FollowupReminderProvider({
   userId,
   ownerAdminId,
@@ -116,10 +140,15 @@ export function FollowupReminderProvider({
     try {
       const response = await fetch(`/api/leads/${activeReminder.leadId}/followup-complete`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: activeReminder.followupNote || "Follow-up marked as completed.",
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Unable to complete follow-up.");
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Unable to complete follow-up.");
       }
 
       closeActiveReminder();
@@ -138,14 +167,21 @@ export function FollowupReminderProvider({
     setSubmitting(true);
 
     try {
+      const nextFollowupDateTime = getSnoozeDateTime(snoozeFor);
+
+      if (!nextFollowupDateTime) {
+        throw new Error("Select a valid snooze option.");
+      }
+
       const response = await fetch(`/api/leads/${activeReminder.leadId}/followup-snooze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ snoozeFor }),
+        body: JSON.stringify({ nextFollowupDateTime: nextFollowupDateTime.toISOString() }),
       });
 
       if (!response.ok) {
-        throw new Error("Unable to snooze follow-up.");
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Unable to snooze follow-up.");
       }
 
       closeActiveReminder();

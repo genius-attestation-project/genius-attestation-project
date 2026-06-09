@@ -172,6 +172,8 @@ model Lead {
   completionDescription String?    @map("completion_description")
   completedAt           DateTime?  @map("completed_at")
   completedBy           String?    @map("completed_by")
+  snoozedAt             DateTime?  @map("snoozed_at")
+  snoozedBy             String?    @map("snoozed_by")
   closedAt              DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt

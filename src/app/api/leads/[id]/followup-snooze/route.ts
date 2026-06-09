@@ -1,5 +1,6 @@
 import { snoozeFollowup } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 
 function getSnoozeDate(value: unknown) {
@@ -26,6 +27,15 @@ function getSnoozeDate(value: unknown) {
   return null;
 }
 
+function parseFollowupDateTime(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -39,31 +49,48 @@ export async function POST(
       return jsonError("Authentication required.", 401);
     }
 
-    const body = (await request.json().catch(() => null)) as { snoozeFor?: string } | null;
-    const nextFollowupAt = getSnoozeDate(body?.snoozeFor);
+    const { id } = await params;
+    const body = (await request.json().catch(() => ({}))) as {
+      nextFollowupDateTime?: unknown;
+      nextFollowupAt?: unknown;
+      snoozeFor?: unknown;
+    };
+    const nextFollowupAt =
+      parseFollowupDateTime(body.nextFollowupDateTime) ??
+      parseFollowupDateTime(body.nextFollowupAt) ??
+      getSnoozeDate(body.snoozeFor);
+
+    console.log("Lead ID:", id);
+    console.log("Body:", body);
 
     if (!nextFollowupAt) {
-      return jsonError("Select a valid snooze option.");
+      return jsonError("Next follow-up date and time is required.", 400);
     }
 
-    const { id } = await params;
+    const existingLead = await prisma.lead.findUnique({
+      where: { id },
+      select: { id: true, ownerAdminId: true, assignedUserId: true },
+    });
+
+    if (!existingLead) {
+      return jsonError("Follow-up lead not found.", 404);
+    }
+
     const lead = await snoozeFollowup({
       ownerAdminId,
       userId,
       leadId: id,
       nextFollowupAt,
+      changedBy: session?.user?.name ?? session?.user?.email ?? undefined,
     });
 
     if (!lead) {
       return jsonError("Follow-up lead not found.", 404);
     }
 
-    return jsonOk({
-      message: "Follow-up reminder snoozed.",
-      nextFollowupAt: nextFollowupAt.toISOString(),
-    });
+    return jsonOk({ success: true });
   } catch (error) {
-    console.error("Failed to snooze followup", error);
-    return jsonError("Unable to snooze follow-up.", 500);
+    console.error(error);
+    return jsonError(error instanceof Error ? error.message : "Unable to snooze follow-up.", 500);
   }
 }
