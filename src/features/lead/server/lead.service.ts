@@ -1191,27 +1191,54 @@ export async function completeFollowupWithDescription(args: {
 
   const completedAt = new Date();
 
-  await prisma.lead.update({
-    where: { id: lead.id },
-    data: {
-      followupCompleted: true,
-      followupNotified: true,
-      followupStatus: FollowupStatus.Completed,
-      completionDescription: args.completionDescription.trim(),
-      completedAt,
-      completedBy: args.changedBy ?? "",
-      followupHistory: {
-        create: {
-          actionType: FollowupActionType.Completed,
-          oldDate: lead.nextFollowupAt,
-          newDate: lead.nextFollowupAt,
-          description: args.completionDescription.trim(),
-          userId: args.changedByUserId ?? args.changedBy ?? null,
-          ownerAdminId: args.ownerAdminId,
+  try {
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        followupCompleted: true,
+        followupNotified: true,
+        followupStatus: FollowupStatus.Completed,
+        completionDescription: args.completionDescription.trim(),
+        completedAt,
+        completedBy: args.changedBy ?? "",
+        followupHistory: {
+          create: {
+            actionType: FollowupActionType.Completed,
+            oldDate: lead.nextFollowupAt,
+            newDate: lead.nextFollowupAt,
+            description: args.completionDescription.trim(),
+            userId: args.changedByUserId ?? args.changedBy ?? null,
+            ownerAdminId: args.ownerAdminId,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (!isMissingFollowupSchemaError(error)) {
+      throw error;
+    }
+
+    try {
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          followupCompleted: true,
+          followupNotified: true,
+        },
+      });
+    } catch (legacyError) {
+      if (!isMissingFollowupSchemaError(legacyError)) {
+        throw legacyError;
+      }
+
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          nextFollowupAt: null,
+        },
+      });
+    }
+  }
 
   return getLeadById(args.ownerAdminId, args.leadId);
 }

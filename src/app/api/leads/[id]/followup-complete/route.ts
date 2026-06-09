@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     const userId = session?.user?.id;
 
     if (!ownerAdminId || !userId) {
