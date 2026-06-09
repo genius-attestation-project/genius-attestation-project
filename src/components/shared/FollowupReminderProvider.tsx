@@ -3,8 +3,6 @@
 import { CheckCircle2, Clock3, MessageCircle, PhoneCall, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
-import type { Socket } from "socket.io-client";
 
 import { Button } from "@/components/ui/Button";
 
@@ -70,35 +68,6 @@ export function FollowupReminderProvider({
       return;
     }
 
-    let socket: Socket | null = null;
-    let ignore = false;
-
-    async function connectSocket() {
-      await fetch("/api/socket", { cache: "no-store" }).catch((error) => {
-        console.error("Unable to initialize follow-up socket", error);
-      });
-
-      if (ignore) {
-        return;
-      }
-
-      socket = io({
-        path: "/api/socket_io",
-        addTrailingSlash: false,
-        query: { userId, ownerAdminId },
-      });
-
-      socket.on("followup-reminder", (data: FollowupReminder) => {
-        setReminders((current) => {
-          if (current.some((item) => item.leadId === data.leadId)) {
-            return current;
-          }
-
-          return [...current, data];
-        });
-      });
-    }
-
     async function loadDueFollowups() {
       try {
         const response = await fetch("/api/followups/due", { cache: "no-store" });
@@ -125,14 +94,11 @@ export function FollowupReminderProvider({
       }
     }
 
-    void connectSocket();
     void loadDueFollowups();
     const interval = window.setInterval(() => void loadDueFollowups(), 30_000);
 
     return () => {
-      ignore = true;
       window.clearInterval(interval);
-      socket?.disconnect();
     };
   }, [ownerAdminId, userId]);
 

@@ -5,7 +5,7 @@ import { jsonError, jsonOk } from "@/utils/response";
 export async function GET() {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     const userId = session?.user?.id;
 
     if (!ownerAdminId || !userId) {

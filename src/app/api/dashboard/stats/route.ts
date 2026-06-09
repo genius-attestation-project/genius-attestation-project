@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const stats = await getDashboardStats(ownerAdminId);
