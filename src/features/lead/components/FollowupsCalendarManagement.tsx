@@ -1,48 +1,46 @@
 "use client";
 
-import FullCalendar from "@fullcalendar/react";
+import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
+import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import {
   AlertCircle,
+  BellRing,
   CalendarClock,
   CheckCircle2,
   Clock3,
-  Phone,
+  History,
   Pencil,
+  Phone,
   RefreshCw,
   UserRound,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
-import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Textarea } from "@/components/ui/Textarea";
+import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
 import { LeadForm } from "@/features/lead/components/LeadForm";
+import type { LeadFormValues } from "@/features/lead/data/lead.data";
 import type {
   FollowupCalendarResponse,
   FollowupFilter,
+  FollowupHistoryResponse,
   FollowupItem,
   FollowupsByDateResponse,
 } from "@/features/lead/types/followup.types";
-import type { LeadFormValues } from "@/features/lead/data/lead.data";
 
 const emptyCalendarData: FollowupCalendarResponse = {
   filter: "all",
   today: "",
-  counts: {
-    all: 0,
-    today: 0,
-    upcoming: 0,
-    missed: 0,
-    completed: 0,
-  },
+  counts: { all: 0, today: 0, upcoming: 0, missed: 0, completed: 0 },
   items: [],
   events: [],
 };
@@ -54,19 +52,15 @@ const emptyDateData: FollowupsByDateResponse = {
   items: [],
 };
 
-const filterOptions: Array<{
-  value: FollowupFilter;
-  label: string;
-  helper: string;
-}> = [
+const filterOptions: Array<{ value: FollowupFilter; label: string; helper: string }> = [
   { value: "today", label: "Today's Followups", helper: "Due today" },
   { value: "all", label: "All Followups", helper: "Full calendar" },
   { value: "upcoming", label: "Upcoming", helper: "Future reminders" },
-  { value: "missed", label: "Missed", helper: "Needs attention" },
-  { value: "completed", label: "Completed", helper: "Closed items" },
+  { value: "missed", label: "Overdue", helper: "Needs action" },
+  { value: "completed", label: "Completed", helper: "Closed followups" },
 ];
 
-function toLocalDateTimeInputValue(value: string | null) {
+function toLocalDateTimeInput(value: string | null) {
   if (!value) {
     return "";
   }
@@ -86,34 +80,64 @@ function toLocalDateTimeInputValue(value: string | null) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function toIsoFromLocalDateTime(value: string) {
-  if (!value) {
-    return undefined;
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
-}
-
 export function FollowupsCalendarManagement() {
   const [activeFilter, setActiveFilter] = useState<FollowupFilter>("all");
   const [calendarData, setCalendarData] = useState<FollowupCalendarResponse>(emptyCalendarData);
   const [todayData, setTodayData] = useState<FollowupCalendarResponse>(emptyCalendarData);
   const [upcomingData, setUpcomingData] = useState<FollowupCalendarResponse>(emptyCalendarData);
+  const [selectedDate, setSelectedDate] = useState<FollowupsByDateResponse>(emptyDateData);
+  const [selectedFollowup, setSelectedFollowup] = useState<FollowupItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedDate, setSelectedDate] = useState<FollowupsByDateResponse>(emptyDateData);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const [isDateDrawerOpen, setIsDateDrawerOpen] = useState(false);
   const [isDateDrawerLoading, setIsDateDrawerLoading] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [editingLead, setEditingLead] = useState<FollowupItem | null>(null);
-  const [reschedulingLead, setReschedulingLead] = useState<FollowupItem | null>(null);
-  const [rescheduleValue, setRescheduleValue] = useState("");
+  const [snoozingLead, setSnoozingLead] = useState<FollowupItem | null>(null);
+  const [snoozeValue, setSnoozeValue] = useState("");
+  const [completionLead, setCompletionLead] = useState<FollowupItem | null>(null);
+  const [completionDescription, setCompletionDescription] = useState("");
   const [submittingLeadId, setSubmittingLeadId] = useState<string | null>(null);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [notificationItem, setNotificationItem] = useState<FollowupItem | null>(null);
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     void refreshCalendarData(activeFilter);
   }, [activeFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      const dueItem = todayData.items.find((item) => {
+        if (item.isCompleted || notifiedIdsRef.current.has(item.id)) {
+          return false;
+        }
+
+        const diff = Math.abs(new Date(item.followupDate).getTime() - now);
+        return diff <= 60_000;
+      });
+
+      if (!dueItem) {
+        return;
+      }
+
+      notifiedIdsRef.current.add(dueItem.id);
+      setNotificationItem(dueItem);
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Followup reminder", {
+          body: `${dueItem.clientName} - ${dueItem.mobile} - ${dueItem.followupTimeLabel}`,
+        });
+      }
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, [todayData]);
 
   async function refreshCalendarData(filter: FollowupFilter) {
     setLoading(true);
@@ -121,7 +145,7 @@ export function FollowupsCalendarManagement() {
 
     try {
       const [calendarResponse, todayResponse, upcomingResponse] = await Promise.all([
-        fetch(`/api/followups/calendar?filter=${filter}`, { cache: "no-store" }),
+        fetch(`/api/followups?filter=${filter}`, { cache: "no-store" }),
         fetch("/api/followups/today", { cache: "no-store" }),
         fetch("/api/followups/upcoming", { cache: "no-store" }),
       ]);
@@ -133,7 +157,7 @@ export function FollowupsCalendarManagement() {
       ])) as Array<FollowupCalendarResponse & { message?: string }>;
 
       if (!calendarResponse.ok) {
-        throw new Error(calendarPayload.message ?? "Unable to load followup calendar.");
+        throw new Error(calendarPayload.message ?? "Unable to load followups.");
       }
 
       if (!todayResponse.ok) {
@@ -148,10 +172,8 @@ export function FollowupsCalendarManagement() {
       setTodayData(todayPayload);
       setUpcomingData(upcomingPayload);
     } catch (fetchError) {
-      console.error("Failed to load followup calendar", fetchError);
-      setError(
-        fetchError instanceof Error ? fetchError.message : "Unable to load followup calendar.",
-      );
+      console.error("Failed to load followups", fetchError);
+      setError(fetchError instanceof Error ? fetchError.message : "Unable to load followups.");
       setCalendarData(emptyCalendarData);
       setTodayData(emptyCalendarData);
       setUpcomingData(emptyCalendarData);
@@ -160,15 +182,11 @@ export function FollowupsCalendarManagement() {
     }
   }
 
-  async function openDateDrawer(dateKey: string) {
-    setIsDateDrawerOpen(true);
+  async function refreshDateDrawer(dateKey: string) {
     setIsDateDrawerLoading(true);
-    setFeedbackMessage("");
 
     try {
-      const response = await fetch(`/api/followups/date/${dateKey}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(`/api/followups/date/${dateKey}`, { cache: "no-store" });
       const payload = (await response.json()) as FollowupsByDateResponse & { message?: string };
 
       if (!response.ok) {
@@ -178,25 +196,49 @@ export function FollowupsCalendarManagement() {
       setSelectedDate(payload);
     } catch (drawerError) {
       console.error("Failed to load followups by date", drawerError);
-      setSelectedDate({
-        date: dateKey,
-        label: dateKey,
-        count: 0,
-        items: [],
-      });
       setFeedbackMessage(
-        drawerError instanceof Error
-          ? drawerError.message
-          : "Unable to load followups for this date.",
+        drawerError instanceof Error ? drawerError.message : "Unable to load followups for this date.",
       );
+      setSelectedDate(emptyDateData);
     } finally {
       setIsDateDrawerLoading(false);
     }
   }
 
-  function toFormValues(lead: FollowupItem): LeadFormValues {
-    const followupDate = toLocalDateTimeInputValue(lead.nextFollowupAt);
+  async function openDateDrawer(dateKey: string) {
+    setIsDateDrawerOpen(true);
+    setFeedbackMessage("");
+    await refreshDateDrawer(dateKey);
+  }
 
+  async function openFollowupDetails(item: FollowupItem) {
+    setSelectedFollowup(item);
+    setIsHistoryLoading(true);
+    setFeedbackMessage("");
+
+    try {
+      const response = await fetch(`/api/followups/history/${item.id}`, { cache: "no-store" });
+      const payload = (await response.json()) as FollowupHistoryResponse & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.message ?? "Unable to load followup history.");
+      }
+
+      setSelectedFollowup({
+        ...item,
+        history: payload.items,
+      });
+    } catch (historyError) {
+      console.error("Failed to load followup history", historyError);
+      setFeedbackMessage(
+        historyError instanceof Error ? historyError.message : "Unable to load followup history.",
+      );
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  function toFormValues(lead: FollowupItem): LeadFormValues {
     return {
       firstName: lead.firstName,
       lastName: lead.lastName,
@@ -217,93 +259,110 @@ export function FollowupsCalendarManagement() {
       remark: lead.remark,
       assignedUserId: lead.assignedUserId,
       assignedUser: lead.assignedUser,
-      nextFollowupAt: followupDate,
+      nextFollowupAt: toLocalDateTimeInput(lead.nextFollowupAt),
     };
   }
 
-  function buildLeadPayload(lead: FollowupItem, overrides?: Partial<LeadFormValues>): LeadFormValues {
-    return {
-      ...toFormValues(lead),
-      ...overrides,
-    };
+  async function syncAfterMutation(leadId?: string, dateKey?: string) {
+    await refreshCalendarData(activeFilter);
+
+    if (isDateDrawerOpen && (dateKey || selectedDate.date)) {
+      await refreshDateDrawer(dateKey || selectedDate.date);
+    }
+
+    if (leadId) {
+      const nextSelected =
+        calendarData.items.find((item) => item.id === leadId) ||
+        todayData.items.find((item) => item.id === leadId) ||
+        upcomingData.items.find((item) => item.id === leadId) ||
+        selectedDate.items.find((item) => item.id === leadId) ||
+        null;
+
+      if (nextSelected) {
+        await openFollowupDetails(nextSelected);
+      }
+    }
   }
 
-  async function saveLeadUpdate(lead: FollowupItem, overrides: Partial<LeadFormValues>, message: string) {
-    setSubmittingLeadId(lead.id);
+  async function submitSnooze() {
+    if (!snoozingLead || !snoozeValue) {
+      return;
+    }
+
+    setSubmittingLeadId(snoozingLead.id);
     setFeedbackMessage("");
 
     try {
-      const leadPayload = buildLeadPayload(lead, overrides);
-
-      const response = await fetch(`/api/leads/${lead.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const response = await fetch("/api/followups/snooze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...leadPayload,
-          nextFollowupAt: toIsoFromLocalDateTime(leadPayload.nextFollowupAt),
+          leadId: snoozingLead.id,
+          nextFollowupAt: snoozeValue,
         }),
       });
 
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
       if (!response.ok) {
-        throw new Error(payload?.message ?? "Unable to update followup.");
+        throw new Error(payload?.message ?? "Unable to snooze followup.");
       }
 
-      setFeedbackMessage(payload?.message ?? message);
-      await refreshCalendarData(activeFilter);
-
-      if (isDateDrawerOpen && selectedDate.date) {
-        await openDateDrawer(selectedDate.date);
-      }
-    } catch (updateError) {
-      console.error("Failed to update followup", updateError);
+      setFeedbackMessage(payload?.message ?? "Followup snoozed successfully.");
+      await syncAfterMutation(snoozingLead.id, snoozingLead.dateKey);
+      setSnoozingLead(null);
+      setSnoozeValue("");
+    } catch (submitError) {
+      console.error("Failed to snooze followup", submitError);
       setFeedbackMessage(
-        updateError instanceof Error ? updateError.message : "Unable to update followup.",
+        submitError instanceof Error ? submitError.message : "Unable to snooze followup.",
       );
     } finally {
       setSubmittingLeadId(null);
     }
   }
 
-  async function markCompleted(lead: FollowupItem) {
-    const shouldComplete = window.confirm(`Mark followup for ${lead.clientName} as completed?`);
-
-    if (!shouldComplete) {
+  async function submitCompletion() {
+    if (!completionLead || !completionDescription.trim()) {
       return;
     }
 
-    await saveLeadUpdate(lead, { leadStatus: "Closed" }, "Followup marked as completed.");
-  }
-
-  async function submitReschedule() {
-    if (!reschedulingLead || !rescheduleValue) {
-      return;
-    }
-
-    await saveLeadUpdate(
-      reschedulingLead,
-      {
-        nextFollowupAt: rescheduleValue,
-        leadStatus: reschedulingLead.status === "Closed" ? "Followup" : reschedulingLead.status,
-      },
-      "Followup rescheduled successfully.",
-    );
-
-    setReschedulingLead(null);
-    setRescheduleValue("");
-  }
-
-  function openReschedule(lead: FollowupItem) {
-    setReschedulingLead(lead);
-    setRescheduleValue(toLocalDateTimeInputValue(lead.nextFollowupAt));
+    setSubmittingLeadId(completionLead.id);
     setFeedbackMessage("");
+
+    try {
+      const response = await fetch("/api/followups/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: completionLead.id,
+          completionDescription,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Unable to complete followup.");
+      }
+
+      setFeedbackMessage(payload?.message ?? "Followup marked as completed.");
+      await syncAfterMutation(completionLead.id, completionLead.dateKey);
+      setCompletionLead(null);
+      setCompletionDescription("");
+    } catch (submitError) {
+      console.error("Failed to complete followup", submitError);
+      setFeedbackMessage(
+        submitError instanceof Error ? submitError.message : "Unable to complete followup.",
+      );
+    } finally {
+      setSubmittingLeadId(null);
+    }
   }
 
   function handleEventClick(info: EventClickArg) {
-    void openDateDrawer(info.event.startStr.slice(0, 10));
+    const followup = info.event.extendedProps.followup as FollowupItem;
+    void openFollowupDetails(followup);
   }
 
   function handleDateClick(info: DateClickArg) {
@@ -314,46 +373,26 @@ export function FollowupsCalendarManagement() {
     const followup = eventInfo.event.extendedProps.followup as FollowupItem;
 
     return (
-      <div className="flex flex-col gap-0.5 overflow-hidden rounded-lg px-1 py-0.5">
+      <div className="flex flex-col gap-0.5 overflow-hidden rounded-xl px-2 py-1">
         <span className="truncate text-[11px] font-semibold">{followup.clientName}</span>
-        <span className="truncate text-[10px] opacity-90">{followup.service}</span>
+        <span className="truncate text-[10px] opacity-90">{followup.followupTimeLabel}</span>
       </div>
     );
   }
 
   const summaryCards = [
-    {
-      label: "All Followups",
-      value: calendarData.counts.all,
-      icon: CalendarClock,
-      tone: "from-sky-500/15 to-blue-500/5 text-sky-700",
-    },
-    {
-      label: "Today",
-      value: calendarData.counts.today,
-      icon: Clock3,
-      tone: "from-blue-500/15 to-cyan-500/5 text-blue-700",
-    },
-    {
-      label: "Missed",
-      value: calendarData.counts.missed,
-      icon: AlertCircle,
-      tone: "from-rose-500/15 to-orange-500/5 text-rose-700",
-    },
-    {
-      label: "Completed",
-      value: calendarData.counts.completed,
-      icon: CheckCircle2,
-      tone: "from-emerald-500/15 to-green-500/5 text-emerald-700",
-    },
+    { label: "All Followups", value: calendarData.counts.all, icon: CalendarClock, tone: "from-sky-500/15 to-blue-500/5 text-sky-700" },
+    { label: "Today", value: calendarData.counts.today, icon: Clock3, tone: "from-blue-500/15 to-cyan-500/5 text-blue-700" },
+    { label: "Overdue", value: calendarData.counts.missed, icon: AlertCircle, tone: "from-rose-500/15 to-orange-500/5 text-rose-700" },
+    { label: "Completed", value: calendarData.counts.completed, icon: CheckCircle2, tone: "from-emerald-500/15 to-green-500/5 text-emerald-700" },
   ];
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
         eyebrow="Lead Management"
-        title="Followup Calendar"
-        description="A real CRM followup workspace driven by live lead followup dates, with calendar scheduling, date drawers, and quick action reminders."
+        title="Followups"
+        description="Modern CRM scheduling for live lead followups with reminders, snooze controls, completion notes, and timeline history."
         actions={
           <Button variant="secondary" onClick={() => void refreshCalendarData(activeFilter)}>
             <RefreshCw size={16} />
@@ -361,6 +400,30 @@ export function FollowupsCalendarManagement() {
           </Button>
         }
       />
+
+      {notificationItem ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-blue-200 bg-linear-to-r from-blue-50 to-cyan-50 px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">
+              <BellRing size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Followup reminder</p>
+              <p className="text-sm text-slate-600">
+                {notificationItem.clientName} - {notificationItem.mobile} - {notificationItem.followupTimeLabel}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => void openFollowupDetails(notificationItem)}>
+              Open
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setNotificationItem(null)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => {
@@ -390,8 +453,6 @@ export function FollowupsCalendarManagement() {
           <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
             {filterOptions.map((option) => {
               const isActive = activeFilter === option.value;
-              const count = calendarData.counts[option.value];
-
               return (
                 <button
                   key={option.value}
@@ -406,7 +467,7 @@ export function FollowupsCalendarManagement() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-semibold">{option.label}</span>
                     <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                      {count}
+                      {calendarData.counts[option.value]}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-soft">{option.helper}</p>
@@ -423,17 +484,12 @@ export function FollowupsCalendarManagement() {
       <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <DashboardCard
           title="Calendar View"
-          description="Month, week, and day views powered by live followup schedules from the leads database."
+          description="Month, week, and day scheduling powered by real followup timestamps."
         >
           {loading ? (
             <div className="grid gap-4">
               <LoadingSkeleton className="h-14 w-full rounded-2xl" />
               <LoadingSkeleton className="hidden h-[620px] w-full rounded-[28px] md:block" />
-              <div className="grid gap-3 md:hidden">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <LoadingSkeleton key={index} className="h-24 w-full rounded-2xl" />
-                ))}
-              </div>
             </div>
           ) : error ? (
             <EmptyState
@@ -446,7 +502,7 @@ export function FollowupsCalendarManagement() {
             <EmptyState
               icon={CalendarClock}
               title="No followups in this queue"
-              description="There are no live lead followups matching the selected filter."
+              description="There are no followups matching the selected filter."
             />
           ) : (
             <>
@@ -461,17 +517,14 @@ export function FollowupsCalendarManagement() {
                     eventClick={handleEventClick}
                     dateClick={handleDateClick}
                     dayMaxEventRows={3}
+                    nowIndicator
+                    eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
                     headerToolbar={{
                       left: "prev,next today",
                       center: "title",
                       right: "dayGridMonth,timeGridWeek,timeGridDay",
                     }}
-                    buttonText={{
-                      today: "Today",
-                      month: "Month",
-                      week: "Week",
-                      day: "Day",
-                    }}
+                    buttonText={{ today: "Today", month: "Month", week: "Week", day: "Day" }}
                   />
                 </div>
               </div>
@@ -482,7 +535,7 @@ export function FollowupsCalendarManagement() {
                     key={item.id}
                     type="button"
                     className="rounded-[24px] border border-[color:var(--border)] bg-white/80 p-4 text-left shadow-sm transition hover:border-blue-500/25 hover:shadow-md"
-                    onClick={() => void openDateDrawer(item.dateKey)}
+                    onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -503,10 +556,7 @@ export function FollowupsCalendarManagement() {
         </DashboardCard>
 
         <div className="grid gap-6 self-start xl:sticky xl:top-6">
-          <DashboardCard
-            title="Today's Followups"
-            description="Quick cards for everything due today."
-          >
+          <DashboardCard title="Today's Followups" description="Everything due today for this admin.">
             <div className="grid gap-3">
               {todayData.items.length === 0 ? (
                 <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
@@ -514,20 +564,13 @@ export function FollowupsCalendarManagement() {
                 </p>
               ) : (
                 todayData.items.slice(0, 5).map((item) => (
-                  <QuickFollowupCard
-                    key={item.id}
-                    item={item}
-                    onOpen={() => void openDateDrawer(item.dateKey)}
-                  />
+                  <QuickFollowupCard key={item.id} item={item} onOpen={() => void openFollowupDetails(item)} />
                 ))
               )}
             </div>
           </DashboardCard>
 
-          <DashboardCard
-            title="Upcoming Reminders"
-            description="Next followups in the queue for this admin."
-          >
+          <DashboardCard title="Upcoming Reminders" description="Upcoming followups in time order.">
             <div className="grid gap-3">
               {upcomingData.items.length === 0 ? (
                 <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
@@ -539,16 +582,14 @@ export function FollowupsCalendarManagement() {
                     key={item.id}
                     type="button"
                     className="rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
-                    onClick={() => void openDateDrawer(item.dateKey)}
+                    onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{item.clientName}</p>
                         <p className="mt-1 text-xs text-soft">{item.service}</p>
                       </div>
-                      <span className="text-xs font-semibold text-blue-600">
-                        {item.followupDateLabel}
-                      </span>
+                      <span className="text-xs font-semibold text-blue-600">{item.followupTimeLabel}</span>
                     </div>
                   </button>
                 ))
@@ -560,12 +601,9 @@ export function FollowupsCalendarManagement() {
 
       <FormDrawer
         open={isDateDrawerOpen}
-        onClose={() => {
-          setIsDateDrawerOpen(false);
-          setFeedbackMessage("");
-        }}
+        onClose={() => setIsDateDrawerOpen(false)}
         title={selectedDate.label || "Followups"}
-        description="Review every followup scheduled on the selected date and take action without leaving the calendar."
+        description="Browse all followups scheduled for the selected date."
       >
         {feedbackMessage ? (
           <p className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
@@ -583,14 +621,16 @@ export function FollowupsCalendarManagement() {
           <EmptyState
             icon={CalendarClock}
             title="No followups on this date"
-            description="This date does not have any scheduled followup records for the current admin."
+            description="This date does not have any followup records for the current admin."
           />
         ) : (
           <div className="grid gap-4">
             {selectedDate.items.map((item) => (
-              <div
+              <button
                 key={item.id}
-                className="min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/90 p-4 shadow-sm sm:rounded-[26px] sm:p-5"
+                type="button"
+                className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 text-left shadow-sm transition hover:border-blue-500/25"
+                onClick={() => void openFollowupDetails(item)}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -599,75 +639,148 @@ export function FollowupsCalendarManagement() {
                   </div>
                   <FollowupToneBadge item={item} />
                 </div>
-
-                <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50/80 p-4 text-sm text-slate-700">
-                  <InfoRow label="Followup Time" value={item.followupDateTimeLabel} />
-                  <InfoRow label="Mobile" value={item.mobile} />
-                  <InfoRow label="Status" value={item.status} />
-                  <InfoRow label="Assigned User" value={item.assignedUser || "Unassigned"} />
-                  <InfoRow label="Remark" value={item.remark || "No remarks added"} />
+                <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                  <p>{item.followupDateTimeLabel}</p>
+                  <p>{item.mobile}</p>
+                  <p>{item.assignedUser || "Unassigned"}</p>
                 </div>
-
-                <div className="mt-4 grid gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => void markCompleted(item)}
-                      disabled={submittingLeadId === item.id || item.isCompleted}
-                    >
-                      <CheckCircle2 size={16} />
-                      {item.isCompleted ? "Completed" : "Mark Completed"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openReschedule(item)}
-                      disabled={submittingLeadId === item.id}
-                    >
-                      <Clock3 size={16} />
-                      Reschedule
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setEditingLead(item)}
-                      disabled={submittingLeadId === item.id}
-                    >
-                      <Pencil size={16} />
-                      Edit Lead
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href={item.callLink}
-                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500/35 hover:bg-blue-50"
-                    >
-                      <Phone size={16} />
-                      Call
-                    </a>
-                    <a
-                      href={item.whatsappLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15"
-                    >
-                      <UserRound size={16} />
-                      WhatsApp
-                    </a>
-                  </div>
-                </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
       </FormDrawer>
 
       <FormDrawer
+        open={Boolean(selectedFollowup)}
+        onClose={() => setSelectedFollowup(null)}
+        title={selectedFollowup ? `${selectedFollowup.clientName} Followup` : "Followup Details"}
+        description="Lead details, status, completion notes, and followup timeline."
+      >
+        {selectedFollowup ? (
+          <div className="grid gap-5">
+            {feedbackMessage ? (
+              <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                {feedbackMessage}
+              </p>
+            ) : null}
+
+            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xl font-semibold text-slate-900">{selectedFollowup.clientName}</p>
+                  <p className="mt-1 text-sm text-soft">{selectedFollowup.service}</p>
+                </div>
+                <FollowupToneBadge item={selectedFollowup} />
+              </div>
+
+              <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50/80 p-4 text-sm text-slate-700">
+                <InfoRow label="Lead Name" value={selectedFollowup.clientName} />
+                <InfoRow label="Client Name" value={selectedFollowup.clientName} />
+                <InfoRow label="Mobile" value={selectedFollowup.mobile} />
+                <InfoRow label="Current Followup" value={selectedFollowup.followupDateTimeLabel} />
+                <InfoRow label="Status" value={selectedFollowup.followupStatusLabel} />
+                <InfoRow label="Assigned User" value={selectedFollowup.assignedUser || "Unassigned"} />
+                <InfoRow label="Remark" value={selectedFollowup.remark || "No remarks added"} />
+                <InfoRow
+                  label="Completion Note"
+                  value={selectedFollowup.completionDescription || "Not completed yet"}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={submittingLeadId === selectedFollowup.id || selectedFollowup.isCompleted}
+                  onClick={() => {
+                    setCompletionLead(selectedFollowup);
+                    setCompletionDescription(selectedFollowup.completionDescription || "");
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  {selectedFollowup.isCompleted ? "Completed" : "Mark As Completed"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={submittingLeadId === selectedFollowup.id}
+                  onClick={() => {
+                    setSnoozingLead(selectedFollowup);
+                    setSnoozeValue(toLocalDateTimeInput(selectedFollowup.nextFollowupAt));
+                  }}
+                >
+                  <Clock3 size={16} />
+                  Snooze
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setEditingLead(selectedFollowup)}
+                >
+                  <Pencil size={16} />
+                  Edit Lead
+                </Button>
+                <a
+                  href={selectedFollowup.callLink}
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500/35 hover:bg-blue-50"
+                >
+                  <Phone size={16} />
+                  Call
+                </a>
+                <a
+                  href={selectedFollowup.whatsappLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15"
+                >
+                  <UserRound size={16} />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <History size={16} className="text-blue-600" />
+                <p className="text-sm font-semibold text-slate-900">Followup History</p>
+              </div>
+
+              {isHistoryLoading ? (
+                <div className="grid gap-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <LoadingSkeleton key={index} className="h-20 w-full rounded-2xl" />
+                  ))}
+                </div>
+              ) : selectedFollowup.history.length === 0 ? (
+                <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
+                  No followup history yet.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {selectedFollowup.history.map((entry) => (
+                    <div key={entry.id} className="rounded-2xl border border-slate-100 bg-slate-50/90 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{entry.actionType}</p>
+                        <p className="text-xs font-medium text-slate-500">{entry.createdAtLabel}</p>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600">
+                        {entry.oldDateLabel ? <p>From: {entry.oldDateLabel}</p> : null}
+                        {entry.newDateLabel ? <p>To: {entry.newDateLabel}</p> : null}
+                        <p>{entry.description || "No description provided."}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </FormDrawer>
+
+      <FormDrawer
         open={Boolean(editingLead)}
         onClose={() => setEditingLead(null)}
         title="Edit Lead"
-        description="Update the lead record and keep the followup calendar in sync."
+        description="Update the lead record and keep the followup workspace in sync."
       >
         {editingLead ? (
           <LeadForm
@@ -676,10 +789,7 @@ export function FollowupsCalendarManagement() {
             submitLabel="Update Lead"
             onCancel={() => setEditingLead(null)}
             onSuccess={async () => {
-              await refreshCalendarData(activeFilter);
-              if (isDateDrawerOpen && selectedDate.date) {
-                await openDateDrawer(selectedDate.date);
-              }
+              await syncAfterMutation(editingLead.id, editingLead.dateKey);
               setEditingLead(null);
             }}
           />
@@ -687,40 +797,74 @@ export function FollowupsCalendarManagement() {
       </FormDrawer>
 
       <FormDrawer
-        open={Boolean(reschedulingLead)}
+        open={Boolean(snoozingLead)}
         onClose={() => {
-          setReschedulingLead(null);
-          setRescheduleValue("");
+          setSnoozingLead(null);
+          setSnoozeValue("");
         }}
-        title="Reschedule Followup"
-        description="Move this followup to a new date and time while keeping the same lead record."
+        title="Snooze Followup"
+        description="Move this followup to another date and time using the same mini calendar scheduler."
       >
-        {reschedulingLead ? (
+        {snoozingLead ? (
           <div className="grid gap-6">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50/80 p-4">
-              <p className="text-base font-semibold text-slate-900">{reschedulingLead.clientName}</p>
-              <p className="mt-1 text-sm text-soft">{reschedulingLead.service}</p>
+            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+              <p className="text-base font-semibold text-slate-900">{snoozingLead.clientName}</p>
+              <p className="mt-1 text-sm text-soft">Current: {snoozingLead.followupDateTimeLabel}</p>
             </div>
 
-            <Input
-              label="Next Followup"
-              type="datetime-local"
-              value={rescheduleValue}
-              onChange={(event) => setRescheduleValue(event.target.value)}
+            <FollowupDateTimePicker
+              label="Snooze To"
+              value={snoozeValue}
+              onChange={setSnoozeValue}
+              description="Pick the next followup slot."
+              required
             />
 
             <div className="flex flex-wrap justify-end gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setReschedulingLead(null);
-                  setRescheduleValue("");
-                }}
-              >
+              <Button variant="ghost" onClick={() => setSnoozingLead(null)}>
                 Cancel
               </Button>
-              <Button onClick={() => void submitReschedule()} disabled={!rescheduleValue}>
-                Save Schedule
+              <Button onClick={() => void submitSnooze()} disabled={!snoozeValue || submittingLeadId === snoozingLead.id}>
+                Save Snooze
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </FormDrawer>
+
+      <FormDrawer
+        open={Boolean(completionLead)}
+        onClose={() => {
+          setCompletionLead(null);
+          setCompletionDescription("");
+        }}
+        title="Mark Followup As Completed"
+        description="Completion notes are required before the followup can be closed."
+        placement="center"
+      >
+        {completionLead ? (
+          <div className="grid gap-5">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50/90 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">{completionLead.clientName}</p>
+              <p className="mt-1">{completionLead.followupDateTimeLabel}</p>
+            </div>
+
+            <Textarea
+              label="Completion Description"
+              value={completionDescription}
+              onChange={(event) => setCompletionDescription(event.target.value)}
+              placeholder="Customer confirmed documents submitted."
+            />
+
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setCompletionLead(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void submitCompletion()}
+                disabled={!completionDescription.trim() || submittingLeadId === completionLead.id}
+              >
+                Complete Followup
               </Button>
             </div>
           </div>
@@ -787,13 +931,7 @@ export function FollowupsCalendarManagement() {
   );
 }
 
-function QuickFollowupCard({
-  item,
-  onOpen,
-}: {
-  item: FollowupItem;
-  onOpen: () => void;
-}) {
+function QuickFollowupCard({ item, onOpen }: { item: FollowupItem; onOpen: () => void }) {
   return (
     <button
       type="button"
@@ -814,11 +952,10 @@ function QuickFollowupCard({
 
 function FollowupToneBadge({ item }: { item: FollowupItem }) {
   const styles: Record<FollowupItem["statusTone"], string> = {
-    new: "bg-blue-50 text-blue-700",
+    pending: "bg-blue-50 text-blue-700",
     completed: "bg-emerald-50 text-emerald-700",
-    upcoming: "bg-orange-50 text-orange-700",
+    rescheduled: "bg-orange-50 text-orange-700",
     missed: "bg-rose-50 text-rose-700",
-    qualified: "bg-violet-50 text-violet-700",
   };
 
   return (
@@ -834,7 +971,9 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </span>
-      <span className="max-w-full break-words text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">{value}</span>
+      <span className="max-w-full break-words text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">
+        {value}
+      </span>
     </div>
   );
 }

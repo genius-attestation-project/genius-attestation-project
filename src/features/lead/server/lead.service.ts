@@ -1,4 +1,4 @@
-import { LeadStatus, Prisma } from "@prisma/client";
+import { FollowupActionType, FollowupStatus, LeadStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -43,6 +43,10 @@ const leadSelect = {
   nextFollowupAt: true,
   followupNotified: true,
   followupCompleted: true,
+  followupStatus: true,
+  completionDescription: true,
+  completedAt: true,
+  completedBy: true,
   docType: true,
   noOfDocuments: true,
   state: true,
@@ -50,6 +54,19 @@ const leadSelect = {
   source: true,
   clientType: true,
   workingDays: true,
+  followupHistory: {
+    orderBy: [{ createdAt: "desc" }],
+    select: {
+      id: true,
+      leadId: true,
+      actionType: true,
+      oldDate: true,
+      newDate: true,
+      description: true,
+      userId: true,
+      createdAt: true,
+    },
+  },
 } satisfies Prisma.LeadSelect;
 
 type LeadRecord = Prisma.LeadGetPayload<{
@@ -149,6 +166,28 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     remark: lead.remark ?? "",
     rawAmount: Number(lead.amount),
     nextFollowupAt: lead.nextFollowupAt ? lead.nextFollowupAt.toISOString() : null,
+    followupStatus: lead.followupStatus,
+    completionDescription: lead.completionDescription ?? "",
+    completedAt: lead.completedAt ? lead.completedAt.toISOString() : null,
+    completedBy: lead.completedBy ?? "",
+  };
+}
+
+function mapFollowupHistoryItem(
+  item: LeadRecord["followupHistory"][number],
+): FollowupItem["history"][number] {
+  return {
+    id: item.id,
+    leadId: item.leadId,
+    actionType: item.actionType,
+    oldDate: item.oldDate ? item.oldDate.toISOString() : null,
+    newDate: item.newDate ? item.newDate.toISOString() : null,
+    description: item.description ?? "",
+    userId: item.userId ?? "",
+    createdAt: item.createdAt.toISOString(),
+    createdAtLabel: formatDateTimeLong(item.createdAt),
+    oldDateLabel: item.oldDate ? formatDateTimeLong(item.oldDate) : "",
+    newDateLabel: item.newDate ? formatDateTimeLong(item.newDate) : "",
   };
 }
 
@@ -183,6 +222,17 @@ function formatDateTime(date: Date) {
   }).format(date);
 }
 
+function formatDateTimeLong(date: Date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function formatTime(date: Date) {
   return new Intl.DateTimeFormat("en-IN", {
     hour: "numeric",
@@ -191,11 +241,15 @@ function formatTime(date: Date) {
   }).format(date);
 }
 
-function getFollowupTone(status: LeadStatus, followupAt: Date, today: Date): FollowupTone {
+function getFollowupTone(
+  followupStatus: FollowupStatus,
+  followupAt: Date,
+  today: Date,
+): FollowupTone {
   const todayStart = startOfDay(today);
   const followupStart = startOfDay(followupAt);
 
-  if (status === LeadStatus.Closed) {
+  if (followupStatus === FollowupStatus.Completed) {
     return "completed";
   }
 
@@ -203,24 +257,19 @@ function getFollowupTone(status: LeadStatus, followupAt: Date, today: Date): Fol
     return "missed";
   }
 
-  if (status === LeadStatus.Qualified || status === LeadStatus.Potential_Qualified) {
-    return "qualified";
+  if (followupStatus === FollowupStatus.Rescheduled) {
+    return "rescheduled";
   }
 
-  if (status === LeadStatus.New) {
-    return "new";
-  }
-
-  return "upcoming";
+  return "pending";
 }
 
 function getFollowupColor(tone: FollowupTone) {
   const palette: Record<FollowupTone, string> = {
-    new: "#2563eb",
+    pending: "#2563eb",
     completed: "#16a34a",
-    upcoming: "#ea580c",
+    rescheduled: "#ea580c",
     missed: "#dc2626",
-    qualified: "#9333ea",
   };
 
   return palette[tone];
@@ -228,11 +277,10 @@ function getFollowupColor(tone: FollowupTone) {
 
 function getFollowupStatusLabel(tone: FollowupTone) {
   const labels: Record<FollowupTone, string> = {
-    new: "New",
+    pending: "Pending",
     completed: "Completed",
-    upcoming: "Upcoming",
+    rescheduled: "Rescheduled",
     missed: "Missed",
-    qualified: "Qualified",
   };
 
   return labels[tone];
@@ -252,7 +300,7 @@ function mapFollowupItem(lead: LeadRecord, today: Date): FollowupItem {
   const followupAt = lead.nextFollowupAt ?? lead.createdAt;
   const dateKey = toDateKey(followupAt);
   const todayKey = toDateKey(today);
-  const tone = getFollowupTone(lead.leadStatus, followupAt, today);
+  const tone = getFollowupTone(lead.followupStatus, followupAt, today);
   const color = getFollowupColor(tone);
   const phoneNumber = `${lead.countryCode}${lead.mobileNumber}`.replace(/[^\d+]/g, "");
 
@@ -269,9 +317,10 @@ function mapFollowupItem(lead: LeadRecord, today: Date): FollowupItem {
     calendarColor: color,
     isToday: dateKey === todayKey,
     isOverdue: startOfDay(followupAt) < startOfDay(today),
-    isCompleted: lead.leadStatus === LeadStatus.Closed,
+    isCompleted: lead.followupStatus === FollowupStatus.Completed,
     whatsappLink: `https://wa.me/${phoneNumber.replace(/[^\d]/g, "")}`,
     callLink: `tel:${phoneNumber}`,
+    history: lead.followupHistory.map(mapFollowupHistoryItem),
   };
 }
 
@@ -293,8 +342,8 @@ function buildCalendarEvents(items: FollowupItem[]): FollowupCalendarEvent[] {
   return items.map((item) => ({
     id: item.id,
     title: item.title,
-    start: item.dateKey,
-    allDay: true,
+    start: item.followupDate,
+    allDay: false,
     backgroundColor: item.calendarColor,
     borderColor: item.calendarColor,
     textColor: "#ffffff",
@@ -333,6 +382,12 @@ function buildLeadData(
   existing?: {
     closedAt: Date | null;
     leadStatus: LeadStatus;
+    followupNotified?: boolean;
+    followupCompleted?: boolean;
+    followupStatus?: FollowupStatus;
+    completedAt?: Date | null;
+    completedBy?: string | null;
+    completionDescription?: string | null;
   },
 ): Prisma.LeadUncheckedCreateInput {
   const amount =
@@ -342,8 +397,10 @@ function buildLeadData(
     leadStatus === LeadStatus.Closed
       ? existing?.closedAt ?? new Date()
       : null;
-
-  console.log("Saved nextFollowupAt:", input.nextFollowupAt ?? null);
+  const nextFollowupAt = input.nextFollowupAt ?? null;
+  const followupStatus =
+    existing?.followupStatus ??
+    (nextFollowupAt ? FollowupStatus.Pending : FollowupStatus.Pending);
 
   return {
     leadCode: leadCode ?? "",
@@ -370,15 +427,30 @@ function buildLeadData(
     remark: input.remark || null,
     assignedUserId: input.assignedUserId || null,
     assignedUser: input.assignedUser || null,
-    nextFollowupAt: input.nextFollowupAt ?? null,
-    ...(input.nextFollowupAt
-      ? {
-          followupNotified: false,
-          followupCompleted: false,
-        }
-      : {}),
+    nextFollowupAt,
+    followupNotified: existing?.followupNotified ?? false,
+    followupCompleted: existing?.followupCompleted ?? false,
+    followupStatus,
+    completionDescription: existing?.completionDescription ?? null,
+    completedAt: existing?.completedAt ?? null,
+    completedBy: existing?.completedBy ?? null,
     closedAt,
   };
+}
+
+function getHistoryActionType(
+  previousDate: Date | null,
+  nextDate: Date | null,
+): FollowupActionType | null {
+  if (!nextDate) {
+    return null;
+  }
+
+  if (!previousDate) {
+    return FollowupActionType.Created;
+  }
+
+  return FollowupActionType.Rescheduled;
 }
 
 export async function listAssignableLeadUsers(ownerAdminId: string): Promise<LeadAssignableUser[]> {
@@ -538,6 +610,20 @@ export async function createLead(ownerAdminId: string, input: LeadInput) {
         leadCode,
       ),
       ownerAdminId,
+      ...(input.nextFollowupAt
+        ? {
+            followupHistory: {
+              create: {
+                actionType: FollowupActionType.Created,
+                oldDate: null,
+                newDate: input.nextFollowupAt,
+                description: "Initial followup scheduled.",
+                userId: assignedUser?.id ?? null,
+                ownerAdminId,
+              },
+            },
+          }
+        : {}),
     },
     select: leadSelect,
   });
@@ -564,6 +650,13 @@ export async function updateLead(
       closedAt: true,
       assignedUserId: true,
       assignedUser: true,
+      nextFollowupAt: true,
+      followupNotified: true,
+      followupCompleted: true,
+      followupStatus: true,
+      completionDescription: true,
+      completedAt: true,
+      completedBy: true,
     },
   });
 
@@ -595,6 +688,10 @@ export async function updateLead(
 
   const nextAssignedUserId = assignedUser?.id ?? null;
   const nextAssignedUserName = assignedUser?.name?.trim() || assignedUser?.email || null;
+  const nextFollowupAt = input.nextFollowupAt ?? null;
+  const followupChanged =
+    (existingLead.nextFollowupAt?.getTime() ?? null) !== (nextFollowupAt?.getTime() ?? null);
+  const followupActionType = getHistoryActionType(existingLead.nextFollowupAt, nextFollowupAt);
   const assignmentChanged =
     (existingLead.assignedUserId ?? null) !== nextAssignedUserId ||
     (existingLead.assignedUser ?? null) !== nextAssignedUserName;
@@ -615,7 +712,25 @@ export async function updateLead(
           existingLead.leadCode,
           {
             closedAt: existingLead.closedAt,
+            followupNotified: nextFollowupAt
+              ? followupChanged
+                ? false
+                : existingLead.followupNotified
+              : false,
+            followupCompleted: nextFollowupAt
+              ? followupChanged
+                ? false
+                : existingLead.followupCompleted
+              : false,
             leadStatus: needsApproval ? existingLead.leadStatus : newLeadStatus,
+            followupStatus: nextFollowupAt
+              ? followupChanged
+                ? FollowupStatus.Rescheduled
+                : existingLead.followupStatus
+              : existingLead.followupStatus,
+            completionDescription: nextFollowupAt ? null : existingLead.completionDescription,
+            completedAt: nextFollowupAt ? null : existingLead.completedAt,
+            completedBy: nextFollowupAt ? null : existingLead.completedBy,
           },
         ),
         ...(assignmentChanged
@@ -625,6 +740,23 @@ export async function updateLead(
                   oldUserId: existingLead.assignedUserId ?? null,
                   newUserId: nextAssignedUserId,
                   changedBy: changedBy ?? null,
+                  ownerAdminId,
+                },
+              },
+            }
+          : {}),
+        ...(followupChanged && followupActionType
+          ? {
+              followupHistory: {
+                create: {
+                  actionType: followupActionType,
+                  oldDate: existingLead.nextFollowupAt,
+                  newDate: nextFollowupAt,
+                  description:
+                    followupActionType === FollowupActionType.Created
+                      ? "Followup scheduled from lead form."
+                      : "Followup schedule updated from lead form.",
+                  userId: changedByUserId ?? null,
                   ownerAdminId,
                 },
               },
@@ -785,10 +917,9 @@ export async function listFollowups(ownerAdminId: string) {
   const items = await prisma.lead.findMany({
     where: {
       ownerAdminId,
-      OR: [{ leadStatus: LeadStatus.Followup }, { nextFollowupAt: { not: null } }],
+      nextFollowupAt: { not: null },
     },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
-    take: 50,
     select: leadSelect,
   });
 
@@ -800,6 +931,138 @@ export async function listFollowups(ownerAdminId: string) {
       totalItems: items.length,
       totalPages: 1,
     },
+  };
+}
+
+export async function snoozeFollowupWithHistory(args: {
+  ownerAdminId: string;
+  leadId: string;
+  nextFollowupAt: Date;
+  description?: string;
+  changedByUserId?: string;
+  changedBy?: string;
+}) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      ownerAdminId: args.ownerAdminId,
+      id: args.leadId,
+    },
+    select: {
+      id: true,
+      nextFollowupAt: true,
+    },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  await prisma.lead.update({
+    where: { id: lead.id },
+    data: {
+      nextFollowupAt: args.nextFollowupAt,
+      followupNotified: false,
+      followupCompleted: false,
+      followupStatus: lead.nextFollowupAt ? FollowupStatus.Rescheduled : FollowupStatus.Pending,
+      completionDescription: null,
+      completedAt: null,
+      completedBy: null,
+      followupHistory: {
+        create: {
+          actionType: FollowupActionType.Snoozed,
+          oldDate: lead.nextFollowupAt,
+          newDate: args.nextFollowupAt,
+          description: args.description?.trim() || "Followup snoozed to a new date and time.",
+          userId: args.changedByUserId ?? args.changedBy ?? null,
+          ownerAdminId: args.ownerAdminId,
+        },
+      },
+    },
+  });
+
+  return getLeadById(args.ownerAdminId, args.leadId);
+}
+
+export async function completeFollowupWithDescription(args: {
+  ownerAdminId: string;
+  leadId: string;
+  completionDescription: string;
+  changedByUserId?: string;
+  changedBy?: string;
+}) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      ownerAdminId: args.ownerAdminId,
+      id: args.leadId,
+    },
+    select: {
+      id: true,
+      nextFollowupAt: true,
+    },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  const completedAt = new Date();
+
+  await prisma.lead.update({
+    where: { id: lead.id },
+    data: {
+      followupCompleted: true,
+      followupNotified: true,
+      followupStatus: FollowupStatus.Completed,
+      completionDescription: args.completionDescription.trim(),
+      completedAt,
+      completedBy: args.changedBy ?? "",
+      followupHistory: {
+        create: {
+          actionType: FollowupActionType.Completed,
+          oldDate: lead.nextFollowupAt,
+          newDate: lead.nextFollowupAt,
+          description: args.completionDescription.trim(),
+          userId: args.changedByUserId ?? args.changedBy ?? null,
+          ownerAdminId: args.ownerAdminId,
+        },
+      },
+    },
+  });
+
+  return getLeadById(args.ownerAdminId, args.leadId);
+}
+
+export async function getFollowupHistory(ownerAdminId: string, leadId: string) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      ownerAdminId,
+      id: leadId,
+    },
+    select: {
+      id: true,
+      followupHistory: {
+        orderBy: [{ createdAt: "desc" }],
+        select: {
+          id: true,
+          leadId: true,
+          actionType: true,
+          oldDate: true,
+          newDate: true,
+          description: true,
+          userId: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  return {
+    leadId: lead.id,
+    items: lead.followupHistory.map(mapFollowupHistoryItem),
   };
 }
 
@@ -924,7 +1187,6 @@ export async function listDueFollowupReminders(args: {
   markNotified?: boolean;
 }): Promise<FollowupReminderPayload[]> {
   const now = new Date();
-  console.log("Current time:", now);
   const leads = await prisma.lead.findMany({
     where: {
       ...userCanReceiveFollowup(args),
@@ -956,9 +1218,7 @@ export async function listDueFollowupReminders(args: {
     });
   }
 
-  const reminders = leads.map(mapFollowupReminder);
-  console.log("Due reminders:", reminders);
-  return reminders;
+  return leads.map(mapFollowupReminder);
 }
 
 export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
@@ -1006,13 +1266,11 @@ export async function completeFollowup(ownerAdminId: string, userId: string, lea
     return null;
   }
 
-  return prisma.lead.update({
-    where: { id: lead.id },
-    data: {
-      followupCompleted: true,
-      followupNotified: true,
-    },
-    select: leadSelect,
+  return completeFollowupWithDescription({
+    ownerAdminId,
+    leadId: lead.id,
+    completionDescription: "Follow-up marked as completed.",
+    changedByUserId: userId,
   });
 }
 
@@ -1034,14 +1292,12 @@ export async function snoozeFollowup(args: {
     return null;
   }
 
-  return prisma.lead.update({
-    where: { id: lead.id },
-    data: {
-      nextFollowupAt: args.nextFollowupAt,
-      followupCompleted: false,
-      followupNotified: false,
-    },
-    select: leadSelect,
+  return snoozeFollowupWithHistory({
+    ownerAdminId: args.ownerAdminId,
+    leadId: lead.id,
+    nextFollowupAt: args.nextFollowupAt,
+    description: "Follow-up reminder snoozed.",
+    changedByUserId: args.userId,
   });
 }
 
@@ -1092,12 +1348,10 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     closedLeads,
     pendingLeads,
     followups,
-    approvedRevenueAggregate,
     recentLeadRecords,
     recentFollowupRecords,
     statusCounts,
     monthlyLeadRecords,
-    approvedRevenueRecords,
   ] = await Promise.all([
     prisma.lead.count({ where: { ownerAdminId } }),
     prisma.lead.count({
@@ -1108,13 +1362,12 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }),
     prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Closed } }),
     getOwnerApprovalRequestCount(ownerAdminId),
-    prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Followup } }),
-    prisma.registration.aggregate({
+    prisma.lead.count({
       where: {
         ownerAdminId,
-        financeApprovalStatus: "Approved",
+        nextFollowupAt: { not: null },
+        NOT: { followupStatus: FollowupStatus.Completed },
       },
-      _sum: { totalCharges: true },
     }),
     prisma.lead.findMany({
       where: { ownerAdminId },
@@ -1125,7 +1378,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     prisma.lead.findMany({
       where: {
         ownerAdminId,
-        OR: [{ leadStatus: LeadStatus.Followup }, { nextFollowupAt: { not: null } }],
+        nextFollowupAt: { not: null },
       },
       orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
       take: 5,
@@ -1151,19 +1404,29 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         nextFollowupAt: true,
       },
     }),
-    prisma.registration.findMany({
-      where: {
-        ownerAdminId,
-        financeApprovalStatus: "Approved",
-        approvedAt: { gte: revenueWindowStart },
-      },
-      orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
-      select: {
-        createdAt: true,
-        approvedAt: true,
-        totalCharges: true,
-      },
-    }),
+  ]);
+
+  const [approvedRevenueAggregate, approvedRevenueRecords] = await Promise.all([
+    prisma.$queryRaw<Array<{ total_revenue: Prisma.Decimal | number | null }>>(Prisma.sql`
+      SELECT COALESCE(SUM(total_charges), 0) AS total_revenue
+      FROM registrations
+      WHERE owner_admin_id = ${ownerAdminId}
+        AND finance_approval_status = 'Approved'
+    `),
+    prisma.$queryRaw<
+      Array<{
+        created_at: Date;
+        approved_at: Date | null;
+        total_charges: Prisma.Decimal | number;
+      }>
+    >(Prisma.sql`
+      SELECT created_at, approved_at, total_charges
+      FROM registrations
+      WHERE owner_admin_id = ${ownerAdminId}
+        AND finance_approval_status = 'Approved'
+        AND approved_at >= ${revenueWindowStart}
+      ORDER BY approved_at ASC, created_at ASC
+    `),
   ]);
 
   const recentLeads = recentLeadRecords.map(mapLeadRow);
@@ -1198,11 +1461,11 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
   }
 
   for (const registration of approvedRevenueRecords) {
-    const revenueDate = registration.approvedAt ?? registration.createdAt;
+    const revenueDate = registration.approved_at ?? registration.created_at;
     const monthKey = startOfMonth(revenueDate).toISOString();
 
     if (revenueMap.has(monthKey)) {
-      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.totalCharges));
+      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.total_charges));
     }
   }
 
@@ -1211,7 +1474,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     activeLeads,
     closedLeads,
     pendingLeads,
-    totalRevenue: Number(approvedRevenueAggregate._sum.totalCharges ?? 0),
+    totalRevenue: Number(approvedRevenueAggregate[0]?.total_revenue ?? 0),
     followups,
     recentLeads,
     recentActivities: recentFollowupRecords.map((lead) => ({

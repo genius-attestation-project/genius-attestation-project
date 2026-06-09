@@ -2,7 +2,21 @@ import type { LeadRow } from "@/features/lead/types/lead.types";
 
 export type FollowupFilter = "all" | "today" | "upcoming" | "missed" | "completed";
 
-export type FollowupTone = "new" | "completed" | "upcoming" | "missed" | "qualified";
+export type FollowupTone = "pending" | "completed" | "rescheduled" | "missed";
+
+export type FollowupHistoryItem = {
+  id: string;
+  leadId: string;
+  actionType: "Created" | "Snoozed" | "Completed" | "Rescheduled";
+  oldDate: string | null;
+  newDate: string | null;
+  description: string;
+  userId: string;
+  createdAt: string;
+  createdAtLabel: string;
+  oldDateLabel: string;
+  newDateLabel: string;
+};
 
 export type FollowupItem = LeadRow & {
   title: string;
@@ -19,6 +33,7 @@ export type FollowupItem = LeadRow & {
   isCompleted: boolean;
   whatsappLink: string;
   callLink: string;
+  history: FollowupHistoryItem[];
 };
 
 export type FollowupCalendarEvent = {
@@ -59,4 +74,9 @@ export type FollowupsByDateResponse = {
   label: string;
   count: number;
   items: FollowupItem[];
+};
+
+export type FollowupHistoryResponse = {
+  leadId: string;
+  items: FollowupHistoryItem[];
 };

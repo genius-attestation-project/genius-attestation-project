@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Loader } from "@/components/ui/Loader";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
 import {
   clientTypes,
   countryCodes,
@@ -43,69 +44,6 @@ function toIsoFromLocalDateTime(value: string) {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-}
-
-function splitLocalDateTime(value: string) {
-  if (!value) {
-    return {
-      date: "",
-      hour: "08",
-      minute: "00",
-      period: "AM",
-    };
-  }
-
-  const [date = "", time = "08:00"] = value.split("T");
-  const [hourValue = "08", minute = "00"] = time.split(":");
-  const hour24 = Number(hourValue);
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-
-  return {
-    date,
-    hour: String(hour12).padStart(2, "0"),
-    minute,
-    period,
-  };
-}
-
-function buildLocalDateTime(date: string, hour: string, minute: string, period: string) {
-  if (!date) {
-    return "";
-  }
-
-  let hour24 = Number(hour);
-
-  if (period === "PM" && hour24 < 12) {
-    hour24 += 12;
-  }
-
-  if (period === "AM" && hour24 === 12) {
-    hour24 = 0;
-  }
-
-  return `${date}T${String(hour24).padStart(2, "0")}:${minute || "00"}`;
-}
-
-function formatFollowupDisplay(value: string) {
-  if (!value) {
-    return "No follow-up scheduled";
-  }
-
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(parsed);
 }
 
 export function LeadForm({
@@ -290,8 +228,6 @@ export function LeadForm({
           nextFollowupAt: toIsoFromLocalDateTime(values.nextFollowupAt),
         }),
       });
-
-      console.log("Saved nextFollowupAt:", toIsoFromLocalDateTime(values.nextFollowupAt));
 
       const payload = (await response.json().catch(() => null)) as
         | { message?: string; approvalRequested?: boolean }
@@ -519,10 +455,12 @@ export function LeadForm({
             placeholder="Enter working days"
           />
         </FieldWrapper>
-        <FieldWrapper>
+        <FieldWrapper className="md:col-span-2">
           <FollowupDateTimePicker
+            label="Next Followup"
             value={values.nextFollowupAt}
-            onChange={(value) => updateField("nextFollowupAt", value)}
+            onChange={(nextValue) => updateField("nextFollowupAt", nextValue)}
+            description="Pick the next followup date and time with quick Today/Tomorrow shortcuts."
           />
         </FieldWrapper>
       </LeadSection>
@@ -559,72 +497,6 @@ export function LeadForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function FollowupDateTimePicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const parts = splitLocalDateTime(value);
-  const hours = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"));
-  const minutes = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
-
-  function update(next: Partial<typeof parts>) {
-    const merged = { ...parts, ...next };
-    onChange(buildLocalDateTime(merged.date, merged.hour, merged.minute, merged.period));
-  }
-
-  return (
-    <div className="grid min-w-0 gap-2">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <span className="text-sm font-bold">Next Follow-up</span>
-        <span className="text-xs font-medium text-blue-600">
-          {formatFollowupDisplay(value)}
-        </span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_76px_76px_76px]">
-        <input
-          type="date"
-          value={parts.date}
-          onChange={(event) => update({ date: event.target.value })}
-          className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-[color:var(--text)] outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
-        />
-        <select
-          value={parts.hour}
-          onChange={(event) => update({ hour: event.target.value })}
-          className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-3 text-sm font-semibold outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
-        >
-          {hours.map((hour) => (
-            <option key={hour} value={hour}>
-              {hour}
-            </option>
-          ))}
-        </select>
-        <select
-          value={parts.minute}
-          onChange={(event) => update({ minute: event.target.value })}
-          className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-3 text-sm font-semibold outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
-        >
-          {minutes.map((minute) => (
-            <option key={minute} value={minute}>
-              {minute}
-            </option>
-          ))}
-        </select>
-        <select
-          value={parts.period}
-          onChange={(event) => update({ period: event.target.value })}
-          className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-3 text-sm font-semibold outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
-        >
-          <option value="AM">AM</option>
-          <option value="PM">PM</option>
-        </select>
-      </div>
-    </div>
   );
 }
 

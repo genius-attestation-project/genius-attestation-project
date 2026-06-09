@@ -1,14 +1,21 @@
-import { listFollowups } from "@/features/lead/server/lead.service";
+import { getFollowupCalendar } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const data = await listFollowups(ownerAdminId);
+    const { searchParams } = new URL(request.url);
+    const filter = searchParams.get("filter");
+    const data = await getFollowupCalendar(
+      ownerAdminId,
+      filter === "today" || filter === "upcoming" || filter === "missed" || filter === "completed"
+        ? filter
+        : "all",
+    );
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch followups", error);

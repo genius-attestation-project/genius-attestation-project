@@ -22,6 +22,19 @@ enum LeadStatus {
   LOB
 }
 
+enum FollowupStatus {
+  Pending
+  Completed
+  Rescheduled
+}
+
+enum FollowupActionType {
+  Created
+  Snoozed
+  Completed
+  Rescheduled
+}
+
 model User {
   id                 String           @id @default(cuid())
   name               String?
@@ -155,6 +168,10 @@ model Lead {
   nextFollowupAt        DateTime?
   followupNotified      Boolean    @default(false) @map("followup_notified")
   followupCompleted     Boolean    @default(false) @map("followup_completed")
+  followupStatus        FollowupStatus @default(Pending) @map("followup_status")
+  completionDescription String?    @map("completion_description")
+  completedAt           DateTime?  @map("completed_at")
+  completedBy           String?    @map("completed_by")
   closedAt              DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
@@ -162,6 +179,7 @@ model Lead {
   statusHistory         LeadStatusHistory[]
   assignmentHistory     LeadAssignmentHistory[]
   approvalRequests      LeadStatusApproval[]
+  followupHistory       LeadFollowupHistory[]
 
   @@index([leadStatus])
   @@index([createdAt])
@@ -169,6 +187,27 @@ model Lead {
   @@index([email])
   @@index([ownerAdminId])
   @@index([assignedUserId])
+  @@index([followupStatus])
+}
+
+model LeadFollowupHistory {
+  id          String             @id @default(cuid())
+  leadId       String            @map("lead_id")
+  lead         Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actionType   FollowupActionType @map("action_type")
+  oldDate      DateTime?         @map("old_date")
+  newDate      DateTime?         @map("new_date")
+  description  String?
+  userId       String?           @map("user_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  ownerAdminId String?           @map("owner_admin_id")
+
+  @@index([leadId])
+  @@index([actionType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([ownerAdminId])
+  @@map("lead_followup_history")
 }
 
 model LeadStatusHistory {

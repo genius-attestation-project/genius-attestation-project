@@ -12,7 +12,7 @@ type RouteContext = {
 export async function GET(_: Request, context: RouteContext) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;
@@ -32,7 +32,7 @@ export async function GET(_: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;
@@ -43,8 +43,8 @@ export async function PUT(request: Request, context: RouteContext) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid lead payload.");
     }
 
-    const changedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const changedByUserId = session.user?.id;
+    const changedBy = session?.user?.name ?? session?.user?.email ?? undefined;
+    const changedByUserId = session?.user?.id;
     const result = await updateLead(ownerAdminId, id, parsed.data, changedBy, changedByUserId);
 
     if (!result) {
@@ -74,7 +74,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(_: Request, context: RouteContext) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;

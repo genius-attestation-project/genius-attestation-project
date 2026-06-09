@@ -30,6 +30,10 @@ export type LeadRow = {
   remark: string;
   rawAmount: number;
   nextFollowupAt: string | null;
+  followupStatus: "Pending" | "Completed" | "Rescheduled";
+  completionDescription: string;
+  completedAt: string | null;
+  completedBy: string;
 };
 
 export type LeadAssignableUser = {

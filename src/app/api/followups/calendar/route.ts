@@ -8,7 +8,7 @@ const validFilters: FollowupFilter[] = ["all", "today", "upcoming", "missed", "c
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
