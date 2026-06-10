@@ -1840,7 +1840,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         AND EXISTS (
           SELECT 1
           FROM "Lead" leads
-          WHERE leads."ownerAdminId" = registrations.owner_admin_id
+          WHERE leads.owner_admin_id = registrations.owner_admin_id
             AND leads."leadStatus" = 'Closed'::"LeadStatus"
             AND (
               leads."leadCode" = registrations.tracking_number
@@ -1864,7 +1864,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         AND EXISTS (
           SELECT 1
           FROM "Lead" leads
-          WHERE leads."ownerAdminId" = registrations.owner_admin_id
+          WHERE leads.owner_admin_id = registrations.owner_admin_id
             AND leads."leadStatus" = 'Closed'::"LeadStatus"
             AND (
               leads."leadCode" = registrations.tracking_number
