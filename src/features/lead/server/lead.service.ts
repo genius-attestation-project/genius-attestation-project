@@ -45,6 +45,9 @@ const leadSelect = {
   followupCompleted: true,
   followupStatus: true,
   completionDescription: true,
+  followupCompletionNote: true,
+  followupCompletedAt: true,
+  snoozeNote: true,
   completedAt: true,
   completedBy: true,
   docType: true,
@@ -115,6 +118,9 @@ function isMissingFollowupSchemaError(error: unknown) {
     "completion_description",
     "completed_at",
     "completed_by",
+    "followup_completed_at",
+    "followup_completion_note",
+    "snooze_note",
     "lead_followup_history",
     "followuphistory",
     "column does not exist",
@@ -1123,6 +1129,7 @@ export async function snoozeFollowupWithHistory(args: {
   leadId: string;
   nextFollowupAt: Date;
   description?: string;
+  snoozeNote?: string;
   changedByUserId?: string;
   changedBy?: string;
 }) {
@@ -1149,6 +1156,7 @@ export async function snoozeFollowupWithHistory(args: {
       followupCompleted: false,
       followupStatus: lead.nextFollowupAt ? FollowupStatus.Rescheduled : FollowupStatus.Pending,
       completionDescription: null,
+      snoozeNote: args.snoozeNote?.trim() || null,
       completedAt: null,
       completedBy: null,
       snoozedAt: new Date(),
@@ -1173,6 +1181,7 @@ export async function completeFollowupWithDescription(args: {
   ownerAdminId: string;
   leadId: string;
   completionDescription: string;
+  completionNote?: string;
   changedByUserId?: string;
   changedBy?: string;
 }) {
@@ -1201,6 +1210,8 @@ export async function completeFollowupWithDescription(args: {
         followupNotified: true,
         followupStatus: FollowupStatus.Completed,
         completionDescription: args.completionDescription.trim(),
+        followupCompletionNote: args.completionNote?.trim() || args.completionDescription.trim(),
+        followupCompletedAt: completedAt,
         completedAt,
         completedBy: args.changedBy ?? "",
         followupHistory: {
@@ -1547,6 +1558,7 @@ export async function completeFollowup(args: {
   userId: string;
   leadId: string;
   completionDescription: string;
+  completionNote?: string;
   changedBy?: string;
 }) {
   const lead = await prisma.lead.findFirst({
@@ -1565,6 +1577,7 @@ export async function completeFollowup(args: {
     ownerAdminId: args.ownerAdminId,
     leadId: lead.id,
     completionDescription: args.completionDescription,
+    completionNote: args.completionNote,
     changedByUserId: args.userId,
     changedBy: args.changedBy,
   });
@@ -1575,6 +1588,7 @@ export async function snoozeFollowup(args: {
   userId: string;
   leadId: string;
   nextFollowupAt: Date;
+  snoozeNote?: string;
   changedBy?: string;
 }) {
   const lead = await prisma.lead.findFirst({
@@ -1593,7 +1607,8 @@ export async function snoozeFollowup(args: {
     ownerAdminId: args.ownerAdminId,
     leadId: lead.id,
     nextFollowupAt: args.nextFollowupAt,
-    description: "Follow-up reminder snoozed.",
+    description: args.snoozeNote?.trim() || "Follow-up reminder snoozed.",
+    snoozeNote: args.snoozeNote,
     changedByUserId: args.userId,
     changedBy: args.changedBy,
   });

@@ -1,6 +1,5 @@
 import { snoozeFollowup } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 
 function getSnoozeDate(value: unknown) {
@@ -50,30 +49,24 @@ export async function POST(
     }
 
     const { id } = await params;
+    if (!id?.trim()) {
+      return jsonError("Lead id is required.", 400);
+    }
+
     const body = (await request.json().catch(() => ({}))) as {
       nextFollowupDateTime?: unknown;
       nextFollowupAt?: unknown;
+      snoozeNote?: unknown;
       snoozeFor?: unknown;
     };
     const nextFollowupAt =
       parseFollowupDateTime(body.nextFollowupDateTime) ??
       parseFollowupDateTime(body.nextFollowupAt) ??
       getSnoozeDate(body.snoozeFor);
-
-    console.log("Lead ID:", id);
-    console.log("Body:", body);
+    const snoozeNote = typeof body.snoozeNote === "string" ? body.snoozeNote.trim() : "";
 
     if (!nextFollowupAt) {
       return jsonError("Next follow-up date and time is required.", 400);
-    }
-
-    const existingLead = await prisma.lead.findUnique({
-      where: { id },
-      select: { id: true, ownerAdminId: true, assignedUserId: true },
-    });
-
-    if (!existingLead) {
-      return jsonError("Follow-up lead not found.", 404);
     }
 
     const lead = await snoozeFollowup({
@@ -81,6 +74,7 @@ export async function POST(
       userId,
       leadId: id,
       nextFollowupAt,
+      snoozeNote,
       changedBy: session?.user?.name ?? session?.user?.email ?? undefined,
     });
 

@@ -1,6 +1,5 @@
 import { completeFollowup } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function POST(
@@ -17,38 +16,30 @@ export async function POST(
     }
 
     const { id } = await params;
+    if (!id?.trim()) {
+      return jsonError("Lead id is required.", 400);
+    }
+
     const body = (await request.json().catch(() => ({}))) as {
       description?: unknown;
       completionDescription?: unknown;
+      completionNote?: unknown;
     };
     const description =
-      typeof body.description === "string"
-        ? body.description.trim()
-        : typeof body.completionDescription === "string"
+      typeof body.completionNote === "string"
+        ? body.completionNote.trim()
+        : typeof body.description === "string"
+          ? body.description.trim()
+          : typeof body.completionDescription === "string"
           ? body.completionDescription.trim()
           : "";
-
-    console.log("Lead ID:", id);
-    console.log("Body:", body);
-
-    if (!description) {
-      return jsonError("Completion description is required.", 400);
-    }
-
-    const existingLead = await prisma.lead.findUnique({
-      where: { id },
-      select: { id: true, ownerAdminId: true, assignedUserId: true },
-    });
-
-    if (!existingLead) {
-      return jsonError("Follow-up lead not found.", 404);
-    }
 
     const lead = await completeFollowup({
       ownerAdminId,
       userId,
       leadId: id,
       completionDescription: description,
+      completionNote: description,
       changedBy: session?.user?.name ?? session?.user?.email ?? undefined,
     });
 
