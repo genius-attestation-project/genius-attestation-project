@@ -1833,10 +1833,21 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
 
   const [approvedRevenueAggregate, approvedRevenueRecords] = await Promise.all([
     prisma.$queryRaw<Array<{ total_revenue: Prisma.Decimal | number | null }>>(Prisma.sql`
-      SELECT COALESCE(SUM(total_charges), 0) AS total_revenue
+      SELECT COALESCE(SUM(registrations.total_charges), 0) AS total_revenue
       FROM registrations
-      WHERE owner_admin_id = ${ownerAdminId}
-        AND finance_approval_status = 'Approved'
+      WHERE registrations.owner_admin_id = ${ownerAdminId}
+        AND registrations.finance_approval_status = 'Approved'
+        AND EXISTS (
+          SELECT 1
+          FROM "Lead" leads
+          WHERE leads."ownerAdminId" = registrations.owner_admin_id
+            AND leads."leadStatus" = 'Closed'::"LeadStatus"
+            AND (
+              leads."leadCode" = registrations.tracking_number
+              OR leads.email = registrations.email
+              OR leads."mobileNumber" = registrations.mobile
+            )
+        )
     `),
     prisma.$queryRaw<
       Array<{
@@ -1845,12 +1856,23 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         total_charges: Prisma.Decimal | number;
       }>
     >(Prisma.sql`
-      SELECT created_at, approved_at, total_charges
+      SELECT registrations.created_at, registrations.approved_at, registrations.total_charges
       FROM registrations
-      WHERE owner_admin_id = ${ownerAdminId}
-        AND finance_approval_status = 'Approved'
-        AND approved_at >= ${revenueWindowStart}
-      ORDER BY approved_at ASC, created_at ASC
+      WHERE registrations.owner_admin_id = ${ownerAdminId}
+        AND registrations.finance_approval_status = 'Approved'
+        AND registrations.approved_at >= ${revenueWindowStart}
+        AND EXISTS (
+          SELECT 1
+          FROM "Lead" leads
+          WHERE leads."ownerAdminId" = registrations.owner_admin_id
+            AND leads."leadStatus" = 'Closed'::"LeadStatus"
+            AND (
+              leads."leadCode" = registrations.tracking_number
+              OR leads.email = registrations.email
+              OR leads."mobileNumber" = registrations.mobile
+            )
+        )
+      ORDER BY registrations.approved_at ASC, registrations.created_at ASC
     `),
   ]);
   const statusTotal = totalLeads || 1;

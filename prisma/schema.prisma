@@ -327,6 +327,8 @@ model Registration {
 
   files                 RegistrationFile[]
   auditTrail            AuditTrail[]
+  paymentUpdates        PaymentUpdate[]
+  accountStatementEntries AccountStatementEntry[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -337,6 +339,103 @@ model Registration {
   @@index([bmStatus])
   @@index([welcomeCallStatus])
   @@map("registrations")
+}
+
+model PaymentUpdate {
+  id               String   @id @default(cuid())
+  registrationId   String   @map("registration_id")
+  registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber   String   @map("tracking_number")
+  customerName     String   @map("customer_name")
+  processType      String?  @map("process_type")
+  totalCharges     Decimal  @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid      Decimal  @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount    Decimal  @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  paymentMode      String   @map("payment_mode")
+  amountPaid       Decimal  @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  invoiceNumber    String   @map("invoice_number")
+  paymentDate      DateTime @map("payment_date")
+  receiptFileName  String?  @map("receipt_file_name")
+  receiptMimeType  String?  @map("receipt_mime_type")
+  receiptFileSize  Int?     @map("receipt_file_size")
+  receiptFileData  Bytes?   @map("receipt_file_data")
+  submittedBy      String?  @map("submitted_by")
+  submittedAt      DateTime @default(now()) @map("submitted_at")
+  approvalStatus   String   @default("Pending") @map("approval_status")
+  approvedBy       String?  @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  resetBy          String?  @map("reset_by")
+  resetAt          DateTime? @map("reset_at")
+  resetReason      String?  @map("reset_reason")
+  ownerAdminId     String   @map("owner_admin_id")
+  statementEntries AccountStatementEntry[]
+
+  @@index([ownerAdminId])
+  @@index([trackingNumber])
+  @@index([invoiceNumber])
+  @@index([approvalStatus])
+  @@index([submittedAt])
+  @@map("payment_update")
+}
+
+model AccountTransaction {
+  id              String   @id @default(cuid())
+  transactionType String   @map("transaction_type")
+  category        String
+  amount          Decimal  @default(0) @db.Decimal(12, 2)
+  creditOrDebit   String   @map("credit_or_debit")
+  date            DateTime
+  description     String?  @map("description")
+  voucherNumber   String   @unique @map("voucher_number")
+  billFileName    String?  @map("bill_file_name")
+  billMimeType    String?  @map("bill_mime_type")
+  billFileSize    Int?     @map("bill_file_size")
+  billFileData    Bytes?   @map("bill_file_data")
+  createdBy       String?  @map("created_by")
+  ownerAdminId    String   @map("owner_admin_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  statementEntries AccountStatementEntry[]
+
+  @@index([ownerAdminId])
+  @@index([creditOrDebit])
+  @@index([category])
+  @@index([date])
+  @@map("account_transactions")
+}
+
+model AccountStatementEntry {
+  id                   String   @id @default(cuid())
+  date                 DateTime
+  trackingNumber       String?  @map("tracking_number")
+  invoiceNumber        String?  @map("invoice_number")
+  voucherNumber        String?  @map("voucher_number")
+  particulars          String
+  entryType            String   @map("entry_type")
+  credit               Decimal  @default(0) @db.Decimal(12, 2)
+  debit                Decimal  @default(0) @db.Decimal(12, 2)
+  runningBalance       Decimal  @default(0) @map("running_balance") @db.Decimal(12, 2)
+  sourceType           String   @map("source_type")
+  sourceId             String?  @map("source_id")
+  paymentUpdateId      String?  @map("payment_update_id")
+  paymentUpdate        PaymentUpdate? @relation(fields: [paymentUpdateId], references: [id], onDelete: SetNull)
+  accountTransactionId String?  @map("account_transaction_id")
+  accountTransaction   AccountTransaction? @relation(fields: [accountTransactionId], references: [id], onDelete: SetNull)
+  registrationId       String?  @map("registration_id")
+  registration         Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  ownerAdminId         String   @map("owner_admin_id")
+  createdBy            String?  @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  reversedAt           DateTime? @map("reversed_at")
+  reversedBy           String?  @map("reversed_by")
+  reversalReason       String?  @map("reversal_reason")
+
+  @@index([ownerAdminId])
+  @@index([date])
+  @@index([trackingNumber])
+  @@index([invoiceNumber])
+  @@index([voucherNumber])
+  @@index([sourceType, sourceId])
+  @@map("account_statement_entries")
 }
 
 model RegistrationFile {

@@ -11,7 +11,11 @@ export async function GET() {
       return jsonError("Authentication required.", 401);
     }
 
-    if (!session.user.isSuperAdmin && !hasPermission(session.user, "account_approval.view")) {
+    if (
+      !session.user.isSuperAdmin &&
+      !hasPermission(session.user, "account_admin_approval.view") &&
+      !hasPermission(session.user, "account_approval.view")
+    ) {
       return jsonError("You do not have permission to view finance approvals.", 403);
     }
 

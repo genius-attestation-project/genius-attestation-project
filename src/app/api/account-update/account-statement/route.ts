@@ -3,7 +3,7 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { getAccountStatement } from "@/features/account-update/server/account-update.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
-export async function GET() {
+export async function GET(request: Request) {
   const denied = await requireApiPermission("account_update.view");
   if (denied) return denied;
 
@@ -15,7 +15,8 @@ export async function GET() {
       return jsonError("No owner admin ID found.", 401);
     }
 
-    const data = await getAccountStatement(ownerAdminId);
+    const { searchParams } = new URL(request.url);
+    const data = await getAccountStatement(ownerAdminId, searchParams.get("search") ?? undefined);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch account statement", error);

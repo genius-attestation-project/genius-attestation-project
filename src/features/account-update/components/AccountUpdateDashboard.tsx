@@ -2,29 +2,35 @@
 
 import {
   BadgeCheck,
-  BadgeDollarSign,
-  Calculator,
-  CircleX,
+  Banknote,
   ClipboardCheck,
+  FileSearch,
+  ReceiptText,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Search,
   ShieldCheck,
+  WalletCards,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FormDrawer } from "@/components/ui/FormDrawer";
+import { Input } from "@/components/ui/Input";
 import { StatsCard } from "@/components/ui/StatsCard";
 import { Textarea } from "@/components/ui/Textarea";
 import type {
-  AccountTallyItem,
-  AccountTallyResponse,
+  AccountStatementResponse,
+  AccountTransactionResponse,
   AdminApprovalItem,
   AdminApprovalResponse,
-  PaymentUpdateItem,
   PaymentUpdateResponse,
+  RegistrationPaymentLookup,
 } from "@/features/account-update/types/account-update.types";
 
-type TabKey = "payment-update" | "account-tally" | "admin-approval";
+type TabKey = "payment-update" | "account-transaction" | "account-statement" | "admin-approval";
 
 type AccountUpdateDashboardProps = {
   canApprove: boolean;
@@ -32,33 +38,42 @@ type AccountUpdateDashboardProps = {
   canSubmitPayment: boolean;
 };
 
-type ApprovalAction = "approve" | "reject";
-
 const emptyPaymentData: PaymentUpdateResponse = {
   items: [],
-  stats: {
-    pendingCollections: 0,
-    totalBalanceDue: 0,
-  },
+  stats: { pendingPayments: 0, totalCollectionsToday: 0 },
 };
 
-const emptyTallyData: AccountTallyResponse = {
+const emptyTransactionData: AccountTransactionResponse = {
   items: [],
-  stats: {
-    totalCredit: 0,
-    totalDebit: 0,
-    totalPending: 0,
-  },
+  stats: { totalCredits: 0, totalDebits: 0 },
+};
+
+const emptyStatementData: AccountStatementResponse = {
+  creditSummary: [],
+  debitSummary: [],
+  summary: { totalCredit: 0, totalDebit: 0, openingBalance: 0, closingBalance: 0, netProfitLoss: 0 },
+  items: [],
 };
 
 const emptyApprovalData: AdminApprovalResponse = {
   items: [],
-  stats: {
-    pendingApprovals: 0,
-    approvedToday: 0,
-    rejectedToday: 0,
-  },
+  stats: { pendingApprovals: 0, approvedToday: 0, resetRequests: 0 },
 };
+
+const paymentModes = ["Cash", "Online", "Cheque"];
+const transactionTypes = ["Cash", "UPI", "Cheque"];
+const debitCategories = [
+  "Refreshment Expenses",
+  "Travel Expenses",
+  "Office Cleaning Expenses",
+  "Maid Expenses",
+  "Corporate Expenses",
+];
+const creditCategories = ["Cash From Account Team", "Petty Cash", "Direct Customer Transaction"];
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -70,34 +85,44 @@ function formatCurrency(value: number) {
 
 async function parseResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as T & { message?: string };
-
-  if (!response.ok) {
-    throw new Error(payload.message ?? "Request failed.");
-  }
-
+  if (!response.ok) throw new Error(payload.message ?? "Request failed.");
   return payload;
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="grid min-w-0 gap-2">
+      <span className="text-sm font-bold">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
+      >
+        {children}
+      </select>
+    </label>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const tone =
     status === "Approved"
       ? "bg-emerald-50 text-emerald-700"
-      : status === "Rejected"
-        ? "bg-rose-50 text-rose-700"
-        : status === "Submitted"
-          ? "bg-blue-50 text-blue-700"
-          : "bg-amber-50 text-amber-700";
+      : status === "Pending"
+        ? "bg-amber-50 text-amber-700"
+        : "bg-slate-100 text-slate-700";
 
   return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
-}
-
-function DetailBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-(--border) bg-white/70 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-soft">{label}</p>
-      <p className="mt-2 break-words text-sm font-semibold text-slate-800">{value}</p>
-    </div>
-  );
 }
 
 export function AccountUpdateDashboard({
@@ -105,47 +130,65 @@ export function AccountUpdateDashboard({
   canApproveAction,
   canSubmitPayment,
 }: AccountUpdateDashboardProps) {
-  const [paymentData, setPaymentData] = useState<PaymentUpdateResponse>(emptyPaymentData);
-  const [tallyData, setTallyData] = useState<AccountTallyResponse>(emptyTallyData);
-  const [approvalData, setApprovalData] = useState<AdminApprovalResponse>(emptyApprovalData);
   const [activeTab, setActiveTab] = useState<TabKey>("payment-update");
-  const [loading, setLoading] = useState(true);
+  const [paymentData, setPaymentData] = useState<PaymentUpdateResponse>(emptyPaymentData);
+  const [transactionData, setTransactionData] = useState<AccountTransactionResponse>(emptyTransactionData);
+  const [statementData, setStatementData] = useState<AccountStatementResponse>(emptyStatementData);
+  const [approvalData, setApprovalData] = useState<AdminApprovalResponse>(emptyApprovalData);
+  const [registration, setRegistration] = useState<RegistrationPaymentLookup | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [statementSearch, setStatementSearch] = useState("");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [selectedPayment, setSelectedPayment] = useState<PaymentUpdateItem | null>(null);
-  const [submittingPayment, setSubmittingPayment] = useState(false);
-  const [approvalModal, setApprovalModal] = useState<{ action: ApprovalAction; item: AdminApprovalItem } | null>(null);
-  const [approvalReason, setApprovalReason] = useState("");
-  const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [resetTarget, setResetTarget] = useState<AdminApprovalItem | null>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [paymentForm, setPaymentForm] = useState({
+    paymentMode: "Cash",
+    amountPaid: "",
+    invoiceNumber: "",
+    paymentDate: todayKey(),
+    receiptFile: null as File | null,
+  });
+  const [transactionForm, setTransactionForm] = useState({
+    transactionType: "Cash",
+    creditOrDebit: "Debit",
+    category: debitCategories[0],
+    amount: "",
+    date: todayKey(),
+    description: "",
+    billFile: null as File | null,
+  });
 
-  async function loadData() {
+  async function loadData(search = statementSearch) {
     setLoading(true);
     setError("");
 
     try {
-      const requests: Array<Promise<unknown>> = [
+      const [payments, transactions, statement, approvals] = await Promise.all([
         parseResponse<PaymentUpdateResponse>(await fetch("/api/account-update/payment-update", { cache: "no-store" })),
-        parseResponse<AccountTallyResponse>(await fetch("/api/account-update/account-tally", { cache: "no-store" })),
-      ];
+        parseResponse<AccountTransactionResponse>(
+          await fetch("/api/account-update/account-transaction", { cache: "no-store" }),
+        ),
+        parseResponse<AccountStatementResponse>(
+          await fetch(`/api/account-update/account-statement?search=${encodeURIComponent(search)}`, {
+            cache: "no-store",
+          }),
+        ),
+        canApprove
+          ? parseResponse<AdminApprovalResponse>(
+              await fetch("/api/account-update/admin-approval", { cache: "no-store" }),
+            )
+          : Promise.resolve(emptyApprovalData),
+      ]);
 
-      if (canApprove) {
-        requests.push(
-          parseResponse<AdminApprovalResponse>(
-            await fetch("/api/account-update/admin-approval", { cache: "no-store" }),
-          ),
-        );
-      }
-
-      const [paymentResponse, tallyResponse, approvalResponse] = await Promise.all(requests);
-
-      setPaymentData(paymentResponse as PaymentUpdateResponse);
-      setTallyData(tallyResponse as AccountTallyResponse);
-      setApprovalData((approvalResponse as AdminApprovalResponse) ?? emptyApprovalData);
+      setPaymentData(payments);
+      setTransactionData(transactions);
+      setStatementData(statement);
+      setApprovalData(approvals);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load account update data.");
-      setPaymentData(emptyPaymentData);
-      setTallyData(emptyTallyData);
-      setApprovalData(emptyApprovalData);
     } finally {
       setLoading(false);
     }
@@ -156,464 +199,386 @@ export function AccountUpdateDashboard({
   }, [canApprove]);
 
   const visibleTabs = useMemo(
-    () =>
-      [
-        { key: "payment-update" as const, label: "Payment Update" },
-        { key: "account-tally" as const, label: "Account Tally" },
-        ...(canApprove ? [{ key: "admin-approval" as const, label: "Admin Approval" }] : []),
-      ],
+    () => [
+      { key: "payment-update" as const, label: "Payment Update", icon: WalletCards },
+      { key: "account-transaction" as const, label: "Account Transaction", icon: ReceiptText },
+      { key: "account-statement" as const, label: "Account Statement", icon: FileSearch },
+      ...(canApprove ? [{ key: "admin-approval" as const, label: "Admin Approval", icon: ShieldCheck }] : []),
+    ],
     [canApprove],
   );
 
   const cards = useMemo(() => {
-    if (activeTab === "account-tally") {
+    if (activeTab === "account-transaction") {
       return [
-        {
-          label: "Total Credit",
-          value: formatCurrency(tallyData.stats.totalCredit),
-          delta: "Advance",
-          description: "Advance paid collected so far",
-          icon: BadgeDollarSign,
-          tone: "blue" as const,
-        },
-        {
-          label: "Total Debit",
-          value: formatCurrency(tallyData.stats.totalDebit),
-          delta: "Collected",
-          description: "Balance payments submitted into finance tally",
-          icon: Calculator,
-          tone: "blue" as const,
-        },
-        {
-          label: "Total Pending",
-          value: formatCurrency(tallyData.stats.totalPending),
-          delta: "Open",
-          description: "Collections still pending after tally",
-          icon: ClipboardCheck,
-          tone: "amber" as const,
-        },
+        { label: "Total Credits", value: formatCurrency(transactionData.stats.totalCredits), delta: "Income", description: "All saved credit transactions", icon: Banknote, tone: "blue" as const },
+        { label: "Total Debits", value: formatCurrency(transactionData.stats.totalDebits), delta: "Expense", description: "All saved debit transactions", icon: ReceiptText, tone: "amber" as const },
       ];
     }
-
+    if (activeTab === "account-statement") {
+      return [
+        { label: "Opening Balance", value: formatCurrency(statementData.summary.openingBalance), delta: "Today", description: "Balance carried from previous day", icon: ClipboardCheck, tone: "slate" as const },
+        { label: "Closing Balance", value: formatCurrency(statementData.summary.closingBalance), delta: "Live", description: "Current ledger balance", icon: Banknote, tone: "blue" as const },
+        { label: "Net Profit/Loss", value: formatCurrency(statementData.summary.netProfitLoss), delta: "Net", description: "Credits minus debits", icon: BadgeCheck, tone: "amber" as const },
+      ];
+    }
     if (activeTab === "admin-approval") {
       return [
-        {
-          label: "Pending Approvals",
-          value: approvalData.stats.pendingApprovals.toLocaleString(),
-          delta: "Queue",
-          description: "Submitted collections awaiting finance action",
-          icon: ShieldCheck,
-          tone: "amber" as const,
-        },
-        {
-          label: "Approved Today",
-          value: approvalData.stats.approvedToday.toLocaleString(),
-          delta: "Today",
-          description: "Collections released into dashboard revenue today",
-          icon: BadgeCheck,
-          tone: "blue" as const,
-        },
-        {
-          label: "Rejected Today",
-          value: approvalData.stats.rejectedToday.toLocaleString(),
-          delta: "Today",
-          description: "Collections returned for correction today",
-          icon: CircleX,
-          tone: "slate" as const,
-        },
+        { label: "Pending Approvals", value: approvalData.stats.pendingApprovals.toLocaleString(), delta: "Queue", description: "Payment updates awaiting approval", icon: ShieldCheck, tone: "amber" as const },
+        { label: "Approved Today", value: approvalData.stats.approvedToday.toLocaleString(), delta: "Today", description: "Payments moved into statement", icon: BadgeCheck, tone: "blue" as const },
+        { label: "Reset Requests", value: approvalData.stats.resetRequests.toLocaleString(), delta: "Today", description: "Approvals reversed today", icon: RotateCcw, tone: "slate" as const },
       ];
     }
-
     return [
-      {
-        label: "Pending Collections",
-        value: paymentData.stats.pendingCollections.toLocaleString(),
-        delta: "Queue",
-        description: "Registrations still waiting for balance collection",
-        icon: ClipboardCheck,
-        tone: "amber" as const,
-      },
-      {
-        label: "Total Balance Due",
-        value: formatCurrency(paymentData.stats.totalBalanceDue),
-        delta: "Live",
-        description: "Outstanding balance currently visible in payment update",
-        icon: BadgeDollarSign,
-        tone: "blue" as const,
-      },
+      { label: "Pending Payments", value: paymentData.stats.pendingPayments.toLocaleString(), delta: "Queue", description: "Payment updates waiting for approval", icon: ClipboardCheck, tone: "amber" as const },
+      { label: "Total Collections Today", value: formatCurrency(paymentData.stats.totalCollectionsToday), delta: "Today", description: "Submitted payment update amount", icon: Banknote, tone: "blue" as const },
     ];
-  }, [activeTab, approvalData.stats, paymentData.stats, tallyData.stats]);
+  }, [activeTab, approvalData.stats, paymentData.stats, statementData.summary, transactionData.stats]);
 
-  async function handleSubmitPayment() {
-    if (!selectedPayment) {
+  async function lookupTrackingNumber() {
+    if (!trackingNumber.trim()) {
+      setError("Tracking number is required.");
       return;
     }
 
-    setSubmittingPayment(true);
+    setBusy(true);
     setError("");
-    setSuccess("");
+    setMessage("");
+
+    try {
+      const payload = await parseResponse<{ registration: RegistrationPaymentLookup }>(
+        await fetch(`/api/account-update/payment-lookup/${encodeURIComponent(trackingNumber.trim())}`),
+      );
+      setRegistration(payload.registration);
+      setPaymentForm((current) => ({
+        ...current,
+        amountPaid: String(payload.registration.advancePaid || payload.registration.balanceAmount),
+      }));
+    } catch (requestError) {
+      setRegistration(null);
+      setError(requestError instanceof Error ? requestError.message : "Tracking lookup failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitPayment() {
+    if (!registration) {
+      setError("Search and select a tracking number first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("trackingNumber", registration.trackingNumber);
+    formData.set("paymentMode", paymentForm.paymentMode);
+    formData.set("amountPaid", paymentForm.amountPaid);
+    formData.set("invoiceNumber", paymentForm.invoiceNumber);
+    formData.set("paymentDate", paymentForm.paymentDate);
+    if (paymentForm.receiptFile) formData.set("receiptFile", paymentForm.receiptFile);
+
+    setBusy(true);
+    setError("");
+    setMessage("");
 
     try {
       const payload = await parseResponse<{ message?: string }>(
-        await fetch(`/api/account-update/payment-submit/${selectedPayment.id}`, {
-          method: "POST",
-        }),
+        await fetch("/api/account-update/payment-update", { method: "POST", body: formData }),
       );
-
-      setSelectedPayment(null);
-      setSuccess(payload.message ?? "Payment submitted successfully.");
+      setMessage(payload.message ?? "Payment submitted.");
+      setRegistration(null);
+      setTrackingNumber("");
+      setPaymentForm({ paymentMode: "Cash", amountPaid: "", invoiceNumber: "", paymentDate: todayKey(), receiptFile: null });
       await loadData();
-      setActiveTab("account-tally");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to submit payment.");
     } finally {
-      setSubmittingPayment(false);
+      setBusy(false);
     }
   }
 
-  async function handleApprovalAction() {
-    if (!approvalModal) {
-      return;
-    }
+  async function saveTransaction() {
+    const formData = new FormData();
+    formData.set("transactionType", transactionForm.transactionType);
+    formData.set("category", transactionForm.category);
+    formData.set("amount", transactionForm.amount);
+    formData.set("date", transactionForm.date);
+    formData.set("description", transactionForm.description);
+    if (transactionForm.billFile) formData.set("billFile", transactionForm.billFile);
 
-    if (approvalModal.action === "reject" && !approvalReason.trim()) {
-      setError("Rejection reason is required.");
-      return;
-    }
-
-    setSubmittingApproval(true);
+    setBusy(true);
     setError("");
-    setSuccess("");
+    setMessage("");
 
     try {
       const payload = await parseResponse<{ message?: string }>(
-        await fetch(`/api/account-update/admin-approval/${approvalModal.item.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: approvalModal.action,
-            reason: approvalReason.trim(),
-          }),
-        }),
+        await fetch("/api/account-update/account-transaction", { method: "POST", body: formData }),
       );
-
-      setApprovalModal(null);
-      setApprovalReason("");
-      setSuccess(payload.message ?? "Approval updated successfully.");
+      setMessage(payload.message ?? "Transaction saved.");
+      setTransactionForm({
+        transactionType: "Cash",
+        creditOrDebit: "Debit",
+        category: debitCategories[0],
+        amount: "",
+        date: todayKey(),
+        description: "",
+        billFile: null,
+      });
       await loadData();
+      setActiveTab("account-statement");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to update finance approval.");
+      setError(requestError instanceof Error ? requestError.message : "Unable to save transaction.");
     } finally {
-      setSubmittingApproval(false);
+      setBusy(false);
     }
   }
 
-  const activeApprovalRows = approvalData.items;
+  async function updateApproval(item: AdminApprovalItem, action: "approve" | "reset", reason = "") {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const payload = await parseResponse<{ message?: string }>(
+        await fetch(`/api/account-update/admin-approval/${item.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, reason }),
+        }),
+      );
+      setMessage(payload.message ?? "Approval updated.");
+      setResetTarget(null);
+      setResetReason("");
+      await loadData();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to update approval.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const categories = transactionForm.creditOrDebit === "Credit" ? creditCategories : debitCategories;
 
   return (
-    <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_42%),linear-gradient(135deg,_#ffffff,_#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Account Update</p>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">Financial workflow control</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Move pending balance collections through payment submission, tally reconciliation, and finance approval without duplicating records or breaking the existing registration flow.
-        </p>
+    <div className="grid min-w-0 gap-5">
+      <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-(--shadow-card) sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Accounts Module</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Accounting control center</h1>
       </section>
 
-      <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
-        <div className="flex flex-wrap gap-3">
+      <section className="rounded-[28px] border border-(--border) bg-white p-3 shadow-(--shadow-card)">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {visibleTabs.map((tab) => {
+            const Icon = tab.icon;
             const active = tab.key === activeTab;
             return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "rounded-2xl border px-4 py-3 text-left transition",
-                  active
-                    ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-200"
-                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50",
-                ].join(" ")}
+                className={`flex min-h-12 items-center gap-3 rounded-2xl border px-4 text-left text-sm font-bold transition ${
+                  active ? "border-blue-500 bg-blue-600 text-white" : "border-(--border) bg-white text-slate-700 hover:bg-blue-50"
+                }`}
               >
-                <span className="block text-sm font-bold">{tab.label}</span>
+                <Icon size={18} />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
       </section>
 
-      <section className={`grid gap-4 ${cards.length >= 3 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2"}`}>
-        {cards.map((card) => (
-          <StatsCard key={card.label} {...card} />
-        ))}
+      <section className={`grid gap-4 ${cards.length > 2 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        {cards.map((card) => <StatsCard key={card.label} {...card} />)}
       </section>
 
-      {error ? (
-        <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
-          {error}
-        </p>
-      ) : null}
-
-      {success ? (
-        <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {success}
-        </p>
-      ) : null}
+      {error ? <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p> : null}
+      {message ? <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p> : null}
 
       {loading ? (
-        <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card)">
-          Loading account update workflow...
-        </div>
-      ) : activeTab === "payment-update" ? (
-        paymentData.items.length ? (
-          <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1240px] text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-                  <tr>
-                    <th className="px-5 py-4">Tracking Number</th>
-                    <th className="px-5 py-4">Customer Name</th>
-                    <th className="px-5 py-4">Process Type</th>
-                    <th className="px-5 py-4">Total Charges</th>
-                    <th className="px-5 py-4">Advance Paid</th>
-                    <th className="px-5 py-4">Balance Amount</th>
-                    <th className="px-5 py-4">Payment Mode</th>
-                    <th className="px-5 py-4">Registration Date</th>
-                    <th className="px-5 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white">
-                  {paymentData.items.map((item) => (
-                    <tr key={item.id} className="transition hover:bg-blue-50/70">
-                      <td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td>
-                      <td className="px-5 py-4">{item.customerName}</td>
-                      <td className="px-5 py-4">{item.processType}</td>
-                      <td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td>
-                      <td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td>
-                      <td className="px-5 py-4 font-semibold text-amber-700">{formatCurrency(item.balanceAmount)}</td>
-                      <td className="px-5 py-4">{item.paymentMode}</td>
-                      <td className="px-5 py-4">{item.registrationDate}</td>
-                      <td className="px-5 py-4">
-                        <Button
-                          size="sm"
-                          onClick={() => setSelectedPayment(item)}
-                          disabled={!canSubmitPayment}
-                        >
-                          Submit Payment
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <EmptyState
-            icon={ClipboardCheck}
-            title="No pending balance collections"
-            description="Registrations with outstanding balance will appear here automatically."
-          />
-        )
-      ) : activeTab === "account-tally" ? (
-        tallyData.items.length ? (
-          <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
-            <div className="overflow-x-auto">
-              <table className="min-w-[760px] text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-                  <tr>
-                    <th className="px-5 py-4">Tracking Number</th>
-                    <th className="px-5 py-4">Credit</th>
-                    <th className="px-5 py-4">Debit</th>
-                    <th className="px-5 py-4">Pending Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white">
-                  {tallyData.items.map((item: AccountTallyItem) => (
-                    <tr key={item.id} className="transition hover:bg-blue-50/70">
-                      <td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td>
-                      <td className="px-5 py-4">{formatCurrency(item.credit)}</td>
-                      <td className="px-5 py-4">{formatCurrency(item.debit)}</td>
-                      <td className="px-5 py-4 font-semibold">{formatCurrency(item.pendingAmount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="border-t border-(--border) bg-slate-50 text-sm font-bold text-slate-800">
-                  <tr>
-                    <td className="px-5 py-4">Totals</td>
-                    <td className="px-5 py-4">{formatCurrency(tallyData.stats.totalCredit)}</td>
-                    <td className="px-5 py-4">{formatCurrency(tallyData.stats.totalDebit)}</td>
-                    <td className="px-5 py-4">{formatCurrency(tallyData.stats.totalPending)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <EmptyState
-            icon={Calculator}
-            title="No account tally rows yet"
-            description="Financial credit and debit entries will appear once registrations carry payment values."
-          />
-        )
-      ) : activeApprovalRows.length ? (
-        <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
-          <div className="overflow-x-auto">
-            <table className="min-w-[1280px] text-left text-sm">
-              <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-                <tr>
-                  <th className="px-5 py-4">Tracking Number</th>
-                  <th className="px-5 py-4">Customer Name</th>
-                  <th className="px-5 py-4">Process Type</th>
-                  <th className="px-5 py-4">Total Charges</th>
-                  <th className="px-5 py-4">Advance Paid</th>
-                  <th className="px-5 py-4">Balance Amount</th>
-                  <th className="px-5 py-4">Submitted By</th>
-                  <th className="px-5 py-4">Submitted Date</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border) bg-white">
-                {activeApprovalRows.map((item) => (
-                  <tr key={item.id} className="transition hover:bg-blue-50/70">
-                    <td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td>
-                    <td className="px-5 py-4">{item.customerName}</td>
-                    <td className="px-5 py-4">{item.processType}</td>
-                    <td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td>
-                    <td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td>
-                    <td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td>
-                    <td className="px-5 py-4">{item.submittedBy}</td>
-                    <td className="px-5 py-4">{item.submittedDate}</td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={item.financeApprovalStatus} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setApprovalModal({ action: "approve", item });
-                            setApprovalReason("");
-                          }}
-                          disabled={!canApproveAction || item.financeApprovalStatus === "Approved"}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => {
-                            setApprovalModal({ action: "reject", item });
-                            setApprovalReason(item.rejectionReason ?? "");
-                          }}
-                          disabled={!canApproveAction}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <EmptyState
-          icon={ShieldCheck}
-          title="No finance approvals pending"
-          description="Submitted payment updates will appear here for finance review."
-        />
-      )}
+        <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card)">Loading accounts...</div>
+      ) : null}
 
-      <FormDrawer
-        open={Boolean(selectedPayment)}
-        onClose={() => {
-          if (!submittingPayment) {
-            setSelectedPayment(null);
-          }
-        }}
-        title="Submit balance payment"
-        description="Confirm that the pending balance was received successfully so the registration can move into account tally."
-        placement="center"
-      >
-        {selectedPayment ? (
-          <div className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <DetailBlock label="Tracking Number" value={selectedPayment.trackingNumber} />
-              <DetailBlock label="Customer Name" value={selectedPayment.customerName} />
-              <DetailBlock label="Balance Amount" value={formatCurrency(selectedPayment.balanceAmount)} />
-              <DetailBlock label="Payment Mode" value={selectedPayment.paymentMode} />
+      {!loading && activeTab === "payment-update" ? (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <div className="grid gap-4 rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+            <div className="flex gap-2">
+              <Input label="Tracking Number" value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} />
+              <Button size="icon" className="mt-7 shrink-0" onClick={() => void lookupTrackingNumber()} disabled={busy}><Search size={18} /></Button>
             </div>
-            <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
-              Balance received successfully.
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setSelectedPayment(null)} disabled={submittingPayment}>
-                Cancel
-              </Button>
-              <Button onClick={() => void handleSubmitPayment()} disabled={submittingPayment || !canSubmitPayment}>
-                {submittingPayment ? "Submitting..." : "Confirm Submit"}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </FormDrawer>
-
-      <FormDrawer
-        open={Boolean(approvalModal)}
-        onClose={() => {
-          if (!submittingApproval) {
-            setApprovalModal(null);
-          }
-        }}
-        title={approvalModal?.action === "approve" ? "Approve finance update" : "Reject finance update"}
-        description={
-          approvalModal?.action === "approve"
-            ? "Approve this submitted payment so the revenue is counted on the dashboard."
-            : "Provide the rejection reason before sending this collection back for correction."
-        }
-        placement="center"
-      >
-        {approvalModal ? (
-          <div className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <DetailBlock label="Tracking Number" value={approvalModal.item.trackingNumber} />
-              <DetailBlock label="Customer Name" value={approvalModal.item.customerName} />
-              <DetailBlock label="Balance Amount" value={formatCurrency(approvalModal.item.balanceAmount)} />
-              <DetailBlock label="Submitted By" value={approvalModal.item.submittedBy} />
-            </div>
-            {approvalModal.action === "reject" ? (
-              <Textarea
-                label="Rejection Reason"
-                value={approvalReason}
-                onChange={(event) => setApprovalReason(event.target.value)}
-                placeholder="Explain what must be corrected before approval."
-              />
+            {registration ? (
+              <div className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm">
+                <strong>{registration.customerName}</strong>
+                <span>{registration.processType}</span>
+                <span>Total: {formatCurrency(registration.totalCharges)}</span>
+                <span>Advance: {formatCurrency(registration.advancePaid)}</span>
+                <span>Balance: {formatCurrency(registration.balanceAmount)}</span>
+              </div>
             ) : null}
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setApprovalModal(null)} disabled={submittingApproval}>
-                Cancel
-              </Button>
-              <Button
-                variant={approvalModal.action === "approve" ? "primary" : "danger"}
-                onClick={() => void handleApprovalAction()}
-                disabled={submittingApproval || !canApproveAction}
-              >
-                {submittingApproval
-                  ? approvalModal.action === "approve"
-                    ? "Approving..."
-                    : "Rejecting..."
-                  : approvalModal.action === "approve"
-                    ? "Approve"
-                    : "Reject"}
-              </Button>
+            <SelectField label="Mode Of Payment" value={paymentForm.paymentMode} onChange={(value) => setPaymentForm((current) => ({ ...current, paymentMode: value }))}>
+              {paymentModes.map((mode) => <option key={mode}>{mode}</option>)}
+            </SelectField>
+            <Input label="Amount Paid" type="number" value={paymentForm.amountPaid} onChange={(event) => setPaymentForm((current) => ({ ...current, amountPaid: event.target.value }))} />
+            <Input label="Invoice Number" value={paymentForm.invoiceNumber} onChange={(event) => setPaymentForm((current) => ({ ...current, invoiceNumber: event.target.value }))} />
+            <Input label="Payment Date" type="date" value={paymentForm.paymentDate} onChange={(event) => setPaymentForm((current) => ({ ...current, paymentDate: event.target.value }))} />
+            <Input label="Transaction Receipt" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => setPaymentForm((current) => ({ ...current, receiptFile: event.target.files?.[0] ?? null }))} />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => { setRegistration(null); setTrackingNumber(""); }} disabled={busy}>Reset</Button>
+              <Button onClick={() => void submitPayment()} disabled={busy || !canSubmitPayment}><Save size={16} />Submit Payment</Button>
             </div>
           </div>
-        ) : null}
-      </FormDrawer>
+          <PaymentTable data={paymentData} />
+        </section>
+      ) : null}
+
+      {!loading && activeTab === "account-transaction" ? (
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <div className="grid gap-4 rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+            <SelectField label="Transaction Type" value={transactionForm.transactionType} onChange={(value) => setTransactionForm((current) => ({ ...current, transactionType: value }))}>
+              {transactionTypes.map((type) => <option key={type}>{type}</option>)}
+            </SelectField>
+            <SelectField label="Credit / Debit" value={transactionForm.creditOrDebit} onChange={(value) => setTransactionForm((current) => ({ ...current, creditOrDebit: value, category: value === "Credit" ? creditCategories[0] : debitCategories[0] }))}>
+              <option>Debit</option>
+              <option>Credit</option>
+            </SelectField>
+            <SelectField label="Category" value={transactionForm.category} onChange={(value) => setTransactionForm((current) => ({ ...current, category: value }))}>
+              {categories.map((category) => <option key={category}>{category}</option>)}
+            </SelectField>
+            <Input label="Amount" type="number" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} />
+            <Input label="Date" type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} />
+            <Textarea label="Reference / Description" value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} />
+            <Input label="Upload Bill / Voucher" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => setTransactionForm((current) => ({ ...current, billFile: event.target.files?.[0] ?? null }))} />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setTransactionForm((current) => ({ ...current, amount: "", description: "", billFile: null }))} disabled={busy}>Cancel</Button>
+              <Button onClick={() => void saveTransaction()} disabled={busy}><Save size={16} />Save Transaction</Button>
+            </div>
+          </div>
+          <TransactionTable data={transactionData} />
+        </section>
+      ) : null}
+
+      {!loading && activeTab === "account-statement" ? (
+        <section className="grid gap-5">
+          <div className="rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Input label="Global Tracking Search" placeholder="Tracking / Invoice / Voucher No." value={statementSearch} onChange={(event) => setStatementSearch(event.target.value)} />
+              <Button className="sm:mt-7" onClick={() => void loadData(statementSearch)}><Search size={16} />Search</Button>
+            </div>
+          </div>
+          <SummaryTables statementData={statementData} />
+          <StatementTable data={statementData} />
+        </section>
+      ) : null}
+
+      {!loading && activeTab === "admin-approval" ? (
+        <ApprovalTable
+          data={approvalData}
+          busy={busy}
+          canApproveAction={canApproveAction}
+          onApprove={(item) => void updateApproval(item, "approve")}
+          onReset={(item) => setResetTarget(item)}
+        />
+      ) : null}
+
+      {resetTarget ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+          <div className="grid w-full max-w-lg gap-4 rounded-[28px] border border-(--border) bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-extrabold">Reset approval</h2>
+            <p className="text-sm text-soft">{resetTarget.trackingNumber} will return to Pending and its ledger credit will be reversed.</p>
+            <Textarea label="Reset Reason" value={resetReason} onChange={(event) => setResetReason(event.target.value)} />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setResetTarget(null)} disabled={busy}>Cancel</Button>
+              <Button variant="danger" onClick={() => void updateApproval(resetTarget, "reset", resetReason)} disabled={busy}>Reset</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PaymentTable({ data }: { data: PaymentUpdateResponse }) {
+  if (!data.items.length) return <EmptyState icon={WalletCards} title="No payment updates" description="Submitted payments will appear here." />;
+  return (
+    <TableShell minWidth="980px">
+      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+        <tr><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Submitted</th><th className="px-5 py-4">Status</th></tr>
+      </thead>
+      <tbody className="divide-y divide-(--border)">
+        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{formatCurrency(item.amountPaid)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.submittedAt}</td><td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td></tr>)}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function TransactionTable({ data }: { data: AccountTransactionResponse }) {
+  if (!data.items.length) return <EmptyState icon={ReceiptText} title="No account transactions" description="Credits and expenses will appear here." />;
+  return (
+    <TableShell minWidth="920px">
+      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+        <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Voucher</th><th className="px-5 py-4">Type</th><th className="px-5 py-4">Category</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">By</th></tr>
+      </thead>
+      <tbody className="divide-y divide-(--border)">
+        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4">{item.date}</td><td className="px-5 py-4 font-bold text-blue-700">{item.voucherNumber}</td><td className="px-5 py-4">{item.creditOrDebit}</td><td className="px-5 py-4">{item.category}</td><td className="px-5 py-4">{formatCurrency(item.amount)}</td><td className="px-5 py-4">{item.createdBy}</td></tr>)}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function SummaryTables({ statementData }: { statementData: AccountStatementResponse }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <MiniSummary title="Credit (Income)" rows={statementData.creditSummary} total={statementData.summary.totalCredit} />
+      <MiniSummary title="Debit (Expenses)" rows={statementData.debitSummary} total={statementData.summary.totalDebit} />
+    </div>
+  );
+}
+
+function MiniSummary({ title, rows, total }: { title: string; rows: Array<{ particulars: string; amount: number }>; total: number }) {
+  return (
+    <div className="rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+      <h2 className="text-sm font-extrabold uppercase tracking-[0.14em] text-soft">{title}</h2>
+      <div className="mt-4 grid gap-2">
+        {rows.length ? rows.map((row) => <div key={row.particulars} className="flex justify-between gap-3 text-sm"><span>{row.particulars}</span><strong>{formatCurrency(row.amount)}</strong></div>) : <p className="text-sm text-soft">No entries yet.</p>}
+      </div>
+      <div className="mt-4 flex justify-between border-t border-(--border) pt-4 font-extrabold"><span>Total</span><span>{formatCurrency(total)}</span></div>
+    </div>
+  );
+}
+
+function StatementTable({ data }: { data: AccountStatementResponse }) {
+  if (!data.items.length) return <EmptyState icon={FileSearch} title="No statement entries" description="Approved payments and account transactions will appear here." />;
+  return (
+    <TableShell minWidth="1120px">
+      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+        <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Particulars</th><th className="px-5 py-4">Type</th><th className="px-5 py-4">Credit</th><th className="px-5 py-4">Debit</th><th className="px-5 py-4">Running Balance</th></tr>
+      </thead>
+      <tbody className="divide-y divide-(--border)">
+        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4">{item.date}</td><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.particulars}</td><td className="px-5 py-4">{item.type}</td><td className="px-5 py-4">{formatCurrency(item.credit)}</td><td className="px-5 py-4">{formatCurrency(item.debit)}</td><td className="px-5 py-4 font-bold">{formatCurrency(item.runningBalance)}</td></tr>)}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function ApprovalTable({ data, busy, canApproveAction, onApprove, onReset }: { data: AdminApprovalResponse; busy: boolean; canApproveAction: boolean; onApprove: (item: AdminApprovalItem) => void; onReset: (item: AdminApprovalItem) => void }) {
+  if (!data.items.length) return <EmptyState icon={ShieldCheck} title="No submitted payment updates" description="Payment updates will appear here for finance action." />;
+  return (
+    <TableShell minWidth="1280px">
+      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+        <tr><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Process</th><th className="px-5 py-4">Total</th><th className="px-5 py-4">Advance</th><th className="px-5 py-4">Balance</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Actions</th></tr>
+      </thead>
+      <tbody className="divide-y divide-(--border)">
+        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{item.processType}</td><td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td><td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td><td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.submittedBy}</td><td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td><td className="px-5 py-4"><div className="flex gap-2"><Button size="sm" onClick={() => onApprove(item)} disabled={busy || !canApproveAction || item.approvalStatus === "Approved"}>Approve</Button><Button size="sm" variant="danger" onClick={() => onReset(item)} disabled={busy || !canApproveAction || item.approvalStatus !== "Approved"}><RefreshCw size={14} />Reset</Button></div></td></tr>)}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function TableShell({ minWidth, children }: { minWidth: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm" style={{ minWidth }}>{children}</table>
+      </div>
     </div>
   );
 }

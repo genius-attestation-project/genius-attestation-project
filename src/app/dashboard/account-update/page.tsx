@@ -12,8 +12,16 @@ export default async function AccountUpdatePage() {
 
   return (
     <AccountUpdateDashboard
-      canApprove={session.user.isSuperAdmin || hasPermission(session.user, "account_approval.view")}
-      canApproveAction={session.user.isSuperAdmin || hasPermission(session.user, "account_approval.edit")}
+      canApprove={
+        session.user.isSuperAdmin ||
+        hasPermission(session.user, "account_admin_approval.view") ||
+        hasPermission(session.user, "account_approval.view")
+      }
+      canApproveAction={
+        session.user.isSuperAdmin ||
+        hasPermission(session.user, "account_admin_approval.edit") ||
+        hasPermission(session.user, "account_approval.edit")
+      }
       canSubmitPayment={session.user.isSuperAdmin || hasPermission(session.user, "account_update.edit")}
     />
   );

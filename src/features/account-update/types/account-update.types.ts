@@ -1,4 +1,8 @@
-export type PaymentUpdateItem = {
+export type PaymentMode = "Cash" | "Online" | "Cheque";
+export type TransactionType = "Cash" | "UPI" | "Cheque";
+export type CreditOrDebit = "Credit" | "Debit";
+
+export type RegistrationPaymentLookup = {
   id: string;
   trackingNumber: string;
   customerName: string;
@@ -6,34 +10,72 @@ export type PaymentUpdateItem = {
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
+};
+
+export type PaymentUpdateItem = RegistrationPaymentLookup & {
   paymentMode: string;
-  registrationDate: string;
-  paymentUpdateStatus: string;
+  amountPaid: number;
+  invoiceNumber: string;
+  paymentDate: string;
+  submittedBy: string;
+  submittedAt: string;
+  approvalStatus: string;
 };
 
 export type PaymentUpdateResponse = {
   items: PaymentUpdateItem[];
   stats: {
-    pendingCollections: number;
-    totalBalanceDue: number;
+    pendingPayments: number;
+    totalCollectionsToday: number;
   };
 };
 
-export type AccountTallyItem = {
+export type AccountTransactionItem = {
   id: string;
+  transactionType: string;
+  category: string;
+  amount: number;
+  creditOrDebit: CreditOrDebit;
+  date: string;
+  description: string;
+  voucherNumber: string;
+  createdBy: string;
+};
+
+export type AccountTransactionResponse = {
+  items: AccountTransactionItem[];
+  stats: {
+    totalCredits: number;
+    totalDebits: number;
+  };
+};
+
+export type AccountStatementSummary = {
+  totalCredit: number;
+  totalDebit: number;
+  openingBalance: number;
+  closingBalance: number;
+  netProfitLoss: number;
+};
+
+export type AccountStatementLine = {
+  id: string;
+  date: string;
   trackingNumber: string;
+  invoiceNumber: string;
+  voucherNumber: string;
+  particulars: string;
+  type: CreditOrDebit;
   credit: number;
   debit: number;
-  pendingAmount: number;
+  runningBalance: number;
 };
 
-export type AccountTallyResponse = {
-  items: AccountTallyItem[];
-  stats: {
-    totalCredit: number;
-    totalDebit: number;
-    totalPending: number;
-  };
+export type AccountStatementResponse = {
+  creditSummary: Array<{ particulars: string; amount: number }>;
+  debitSummary: Array<{ particulars: string; amount: number }>;
+  summary: AccountStatementSummary;
+  items: AccountStatementLine[];
 };
 
 export type AdminApprovalItem = {
@@ -44,11 +86,12 @@ export type AdminApprovalItem = {
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
+  paymentMode: string;
+  invoiceNumber: string;
   submittedBy: string;
   submittedDate: string;
   submittedAt: string | null;
-  financeApprovalStatus: string;
-  rejectionReason: string | null;
+  approvalStatus: string;
 };
 
 export type AdminApprovalResponse = {
@@ -56,6 +99,6 @@ export type AdminApprovalResponse = {
   stats: {
     pendingApprovals: number;
     approvedToday: number;
-    rejectedToday: number;
+    resetRequests: number;
   };
 };
