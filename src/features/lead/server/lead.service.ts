@@ -1653,6 +1653,60 @@ export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> 
   };
 }
 
+async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
+  const approvedRegistrations = await prisma.registration.findMany({
+    where: {
+      ownerAdminId,
+      financeApprovalStatus: "Approved",
+    },
+    orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
+    select: {
+      createdAt: true,
+      approvedAt: true,
+      totalCharges: true,
+      trackingNumber: true,
+      email: true,
+      mobile: true,
+    },
+  });
+
+  if (approvedRegistrations.length === 0) {
+    return [];
+  }
+
+  const leadCodes = approvedRegistrations.map((item) => item.trackingNumber).filter(Boolean);
+  const emails = approvedRegistrations.map((item) => item.email).filter((value): value is string => Boolean(value));
+  const mobiles = approvedRegistrations.map((item) => item.mobile).filter(Boolean);
+
+  const closedLeads = await prisma.lead.findMany({
+    where: {
+      ownerAdminId,
+      leadStatus: LeadStatus.Closed,
+      OR: [
+        ...(leadCodes.length ? [{ leadCode: { in: leadCodes } }] : []),
+        ...(emails.length ? [{ email: { in: emails } }] : []),
+        ...(mobiles.length ? [{ mobileNumber: { in: mobiles } }] : []),
+      ],
+    },
+    select: {
+      leadCode: true,
+      email: true,
+      mobileNumber: true,
+    },
+  });
+
+  const closedLeadCodes = new Set(closedLeads.map((lead) => lead.leadCode));
+  const closedEmails = new Set(closedLeads.map((lead) => lead.email));
+  const closedMobiles = new Set(closedLeads.map((lead) => lead.mobileNumber));
+
+  return approvedRegistrations.filter(
+    (registration) =>
+      closedLeadCodes.has(registration.trackingNumber) ||
+      Boolean(registration.email && closedEmails.has(registration.email)) ||
+      closedMobiles.has(registration.mobile),
+  );
+}
+
 export async function getDashboardStats(ownerAdminId: string): Promise<DashboardStatsResponse> {
   const revenueWindowStart = new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1);
   const [totalLeads, activeLeads, closedLeads, pendingLeads] = await Promise.all([
@@ -1831,59 +1885,21 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }
   }
 
-  const [approvedRevenueAggregate, approvedRevenueRecords] = await Promise.all([
-    prisma.$queryRaw<Array<{ total_revenue: Prisma.Decimal | number | null }>>(Prisma.sql`
-      SELECT COALESCE(SUM(registrations.total_charges), 0) AS total_revenue
-      FROM registrations
-      WHERE registrations.owner_admin_id = ${ownerAdminId}
-        AND registrations.finance_approval_status = 'Approved'
-        AND EXISTS (
-          SELECT 1
-          FROM "Lead" leads
-          WHERE leads.owner_admin_id = registrations.owner_admin_id
-            AND leads."leadStatus" = 'Closed'::"LeadStatus"
-            AND (
-              leads."leadCode" = registrations.tracking_number
-              OR leads.email = registrations.email
-              OR leads."mobileNumber" = registrations.mobile
-            )
-        )
-    `),
-    prisma.$queryRaw<
-      Array<{
-        created_at: Date;
-        approved_at: Date | null;
-        total_charges: Prisma.Decimal | number;
-      }>
-    >(Prisma.sql`
-      SELECT registrations.created_at, registrations.approved_at, registrations.total_charges
-      FROM registrations
-      WHERE registrations.owner_admin_id = ${ownerAdminId}
-        AND registrations.finance_approval_status = 'Approved'
-        AND registrations.approved_at >= ${revenueWindowStart}
-        AND EXISTS (
-          SELECT 1
-          FROM "Lead" leads
-          WHERE leads.owner_admin_id = registrations.owner_admin_id
-            AND leads."leadStatus" = 'Closed'::"LeadStatus"
-            AND (
-              leads."leadCode" = registrations.tracking_number
-              OR leads.email = registrations.email
-              OR leads."mobileNumber" = registrations.mobile
-            )
-        )
-      ORDER BY registrations.approved_at ASC, registrations.created_at ASC
-    `),
-  ]);
+  const approvedRevenueRecords = await listApprovedClosedRegistrationRevenue(ownerAdminId);
+  const totalRevenue = approvedRevenueRecords.reduce((sum, item) => sum + Number(item.totalCharges), 0);
   const statusTotal = totalLeads || 1;
   const revenueMap = new Map(monthLabels.map((item) => [item.key, 0]));
 
   for (const registration of approvedRevenueRecords) {
-    const revenueDate = registration.approved_at ?? registration.created_at;
+    const revenueDate = registration.approvedAt ?? registration.createdAt;
+    if (revenueDate < revenueWindowStart) {
+      continue;
+    }
+
     const monthKey = startOfMonth(revenueDate).toISOString();
 
     if (revenueMap.has(monthKey)) {
-      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.total_charges));
+      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.totalCharges));
     }
   }
 
@@ -1892,7 +1908,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     activeLeads,
     closedLeads,
     pendingLeads,
-    totalRevenue: Number(approvedRevenueAggregate[0]?.total_revenue ?? 0),
+    totalRevenue,
     followups,
     recentLeads,
     recentActivities,
