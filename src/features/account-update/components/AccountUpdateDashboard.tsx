@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Banknote,
   ClipboardCheck,
+  Eye,
   FileSearch,
   ReceiptText,
   RefreshCw,
@@ -12,6 +13,9 @@ import {
   Search,
   ShieldCheck,
   WalletCards,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -144,6 +148,8 @@ export function AccountUpdateDashboard({
   const [busy, setBusy] = useState(false);
   const [resetTarget, setResetTarget] = useState<AdminApprovalItem | null>(null);
   const [resetReason, setResetReason] = useState("");
+  const [receiptPreview, setReceiptPreview] = useState<AdminApprovalItem | null>(null);
+  const [receiptZoom, setReceiptZoom] = useState(1);
   const [paymentForm, setPaymentForm] = useState({
     paymentMode: "Cash",
     amountPaid: "",
@@ -356,6 +362,26 @@ export function AccountUpdateDashboard({
     }
   }
 
+  function viewReceipt(item: AdminApprovalItem) {
+    if (!item.receiptFileUrl) {
+      setError("Receipt is not available for this payment update.");
+      return;
+    }
+
+    if (item.receiptMimeType === "application/pdf") {
+      window.open(item.receiptFileUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (item.receiptMimeType?.startsWith("image/")) {
+      setReceiptZoom(1);
+      setReceiptPreview(item);
+      return;
+    }
+
+    window.open(item.receiptFileUrl, "_blank", "noopener,noreferrer");
+  }
+
   const categories = transactionForm.creditOrDebit === "Credit" ? creditCategories : debitCategories;
 
   return (
@@ -476,6 +502,7 @@ export function AccountUpdateDashboard({
           canApproveAction={canApproveAction}
           onApprove={(item) => void updateApproval(item, "approve")}
           onReset={(item) => setResetTarget(item)}
+          onViewReceipt={viewReceipt}
         />
       ) : null}
 
@@ -488,6 +515,41 @@ export function AccountUpdateDashboard({
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setResetTarget(null)} disabled={busy}>Cancel</Button>
               <Button variant="danger" onClick={() => void updateApproval(resetTarget, "reset", resetReason)} disabled={busy}>Reset</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {receiptPreview?.receiptFileUrl ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
+          <div className="grid max-h-[92vh] w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-4 rounded-[28px] border border-(--border) bg-white p-4 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="break-words text-base font-extrabold">{receiptPreview.receiptFileName ?? "Transaction Receipt"}</h2>
+                <p className="text-sm text-soft">
+                  {receiptPreview.trackingNumber} | {receiptPreview.invoiceNumber} | {receiptPreview.paymentDate}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="icon" variant="secondary" onClick={() => setReceiptZoom((value) => Math.max(0.5, value - 0.25))}>
+                  <ZoomOut size={17} />
+                </Button>
+                <span className="min-w-14 text-center text-sm font-bold">{Math.round(receiptZoom * 100)}%</span>
+                <Button size="icon" variant="secondary" onClick={() => setReceiptZoom((value) => Math.min(3, value + 0.25))}>
+                  <ZoomIn size={17} />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => setReceiptPreview(null)}>
+                  <X size={18} />
+                </Button>
+              </div>
+            </div>
+            <div className="min-h-0 overflow-auto rounded-2xl border border-(--border) bg-slate-100 p-4 text-center">
+              <img
+                src={receiptPreview.receiptFileUrl}
+                alt={receiptPreview.receiptFileName ?? "Transaction receipt"}
+                className="mx-auto max-w-none rounded-xl shadow-lg"
+                style={{ width: `${receiptZoom * 100}%` }}
+              />
             </div>
           </div>
         </div>
@@ -559,15 +621,29 @@ function StatementTable({ data }: { data: AccountStatementResponse }) {
   );
 }
 
-function ApprovalTable({ data, busy, canApproveAction, onApprove, onReset }: { data: AdminApprovalResponse; busy: boolean; canApproveAction: boolean; onApprove: (item: AdminApprovalItem) => void; onReset: (item: AdminApprovalItem) => void }) {
+function ApprovalTable({
+  data,
+  busy,
+  canApproveAction,
+  onApprove,
+  onReset,
+  onViewReceipt,
+}: {
+  data: AdminApprovalResponse;
+  busy: boolean;
+  canApproveAction: boolean;
+  onApprove: (item: AdminApprovalItem) => void;
+  onReset: (item: AdminApprovalItem) => void;
+  onViewReceipt: (item: AdminApprovalItem) => void;
+}) {
   if (!data.items.length) return <EmptyState icon={ShieldCheck} title="No submitted payment updates" description="Payment updates will appear here for finance action." />;
   return (
-    <TableShell minWidth="1280px">
+    <TableShell minWidth="1500px">
       <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-        <tr><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Process</th><th className="px-5 py-4">Total</th><th className="px-5 py-4">Advance</th><th className="px-5 py-4">Balance</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Actions</th></tr>
+        <tr><th className="px-5 py-4">Tracking Number</th><th className="px-5 py-4">Customer Name</th><th className="px-5 py-4">Process Type</th><th className="px-5 py-4">Total Charges</th><th className="px-5 py-4">Advance Paid</th><th className="px-5 py-4">Balance Amount</th><th className="px-5 py-4">Payment Mode</th><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Payment Date</th><th className="px-5 py-4">Transaction Receipt</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Submitted Date</th><th className="px-5 py-4">Actions</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
-        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{item.processType}</td><td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td><td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td><td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.submittedBy}</td><td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td><td className="px-5 py-4"><div className="flex gap-2"><Button size="sm" onClick={() => onApprove(item)} disabled={busy || !canApproveAction || item.approvalStatus === "Approved"}>Approve</Button><Button size="sm" variant="danger" onClick={() => onReset(item)} disabled={busy || !canApproveAction || item.approvalStatus !== "Approved"}><RefreshCw size={14} />Reset</Button></div></td></tr>)}
+        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{item.processType}</td><td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td><td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td><td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.paymentDate}</td><td className="px-5 py-4">{item.receiptFileUrl ? <Button size="sm" variant="secondary" onClick={() => onViewReceipt(item)}><Eye size={14} />View Receipt</Button> : <span className="text-sm text-soft">No receipt</span>}</td><td className="px-5 py-4">{item.submittedBy}</td><td className="px-5 py-4">{item.submittedDate}</td><td className="px-5 py-4"><div className="flex gap-2"><Button size="sm" onClick={() => onApprove(item)} disabled={busy || !canApproveAction || item.approvalStatus === "Approved"}>Approve</Button><Button size="sm" variant="danger" onClick={() => onReset(item)} disabled={busy || !canApproveAction || item.approvalStatus !== "Approved"}><RefreshCw size={14} />Reset</Button></div><div className="mt-2"><StatusBadge status={item.approvalStatus} /></div></td></tr>)}
       </tbody>
     </TableShell>
   );

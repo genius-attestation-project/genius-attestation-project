@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
+import {
+  readPaymentReceipt,
+  storePaymentReceipt,
+} from "@/features/account-update/server/receipt-storage.service";
 import type {
   AccountStatementResponse,
   AccountTransactionResponse,
@@ -75,6 +80,15 @@ function validateUpload(file: UploadFileInput, label: string) {
   if (!uploadMimeTypes.has(file.mimeType)) {
     throw new Error(`${label} must be PDF, JPG, JPEG, or PNG.`);
   }
+}
+
+function requireUpload(file: UploadFileInput, label: string): NonNullable<UploadFileInput> {
+  if (!file) {
+    throw new Error(`${label} is required.`);
+  }
+
+  validateUpload(file, label);
+  return file;
 }
 
 function getCreditOrDebit(category: string): CreditOrDebit {
@@ -165,6 +179,11 @@ export async function getPaymentUpdates(ownerAdminId: string): Promise<PaymentUp
       amountPaid: toNumber(item.amountPaid),
       invoiceNumber: item.invoiceNumber,
       paymentDate: item.paymentDate.toISOString().slice(0, 10),
+      receiptFileUrl: item.receiptFileUrl ?? null,
+      receiptFileName: item.receiptFileName ?? null,
+      receiptMimeType: item.receiptMimeType ?? null,
+      receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
+      receiptUploadedBy: item.receiptUploadedBy ?? null,
       submittedBy: item.submittedBy ?? "-",
       submittedAt: formatDate(item.submittedAt),
       approvalStatus: item.approvalStatus,
@@ -196,7 +215,7 @@ export async function createPaymentUpdate(args: {
     throw new Error("Invoice number is required.");
   }
 
-  validateUpload(args.receiptFile, "Transaction receipt");
+  const receiptFile = requireUpload(args.receiptFile, "Transaction receipt");
 
   const registration = await prisma.registration.findFirst({
     where: { ownerAdminId: args.ownerAdminId, trackingNumber: args.trackingNumber.trim() },
@@ -209,9 +228,18 @@ export async function createPaymentUpdate(args: {
   const amountPaid = parseAmount(args.amountPaid, "Amount paid");
   const paymentDate = parseDate(args.paymentDate, "Payment date");
 
+  const paymentUpdateId = randomUUID();
+  const receiptUploadedAt = new Date();
+  const storedReceipt = await storePaymentReceipt({
+    paymentUpdateId,
+    fileName: receiptFile.fileName,
+    fileData: receiptFile.fileData,
+  });
+
   return prisma.$transaction(async (tx) => {
     const payment = await tx.paymentUpdate.create({
       data: {
+        id: paymentUpdateId,
         registrationId: registration.id,
         trackingNumber: registration.trackingNumber,
         customerName: registration.customerName,
@@ -223,10 +251,12 @@ export async function createPaymentUpdate(args: {
         amountPaid,
         invoiceNumber: args.invoiceNumber.trim(),
         paymentDate,
-        receiptFileName: args.receiptFile?.fileName ?? null,
-        receiptMimeType: args.receiptFile?.mimeType ?? null,
-        receiptFileSize: args.receiptFile?.fileSize ?? null,
-        receiptFileData: args.receiptFile?.fileData ?? null,
+        receiptFileUrl: storedReceipt.receiptFileUrl,
+        receiptFileName: receiptFile.fileName,
+        receiptMimeType: receiptFile.mimeType,
+        receiptFileSize: receiptFile.fileSize,
+        receiptUploadedAt,
+        receiptUploadedBy: args.submittedBy ?? null,
         submittedBy: args.submittedBy ?? null,
         approvalStatus: "Pending",
         ownerAdminId: args.ownerAdminId,
@@ -435,6 +465,12 @@ export async function getAdminApprovalQueue(ownerAdminId: string): Promise<Admin
       balanceAmount: toNumber(item.balanceAmount),
       paymentMode: item.paymentMode,
       invoiceNumber: item.invoiceNumber,
+      receiptFileUrl: item.receiptFileUrl ?? null,
+      receiptFileName: item.receiptFileName ?? null,
+      receiptMimeType: item.receiptMimeType ?? null,
+      receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
+      receiptUploadedBy: item.receiptUploadedBy ?? null,
+      paymentDate: item.paymentDate.toISOString().slice(0, 10),
       submittedBy: item.submittedBy ?? "-",
       submittedDate: formatDate(item.submittedAt),
       submittedAt: item.submittedAt.toISOString(),
@@ -447,6 +483,36 @@ export async function getAdminApprovalQueue(ownerAdminId: string): Promise<Admin
       ).length,
       resetRequests: items.filter((item) => item.resetAt && item.resetAt >= todayStart && item.resetAt < todayEnd).length,
     },
+  };
+}
+
+export async function getPaymentReceiptForApproval(ownerAdminId: string, paymentUpdateId: string) {
+  const payment = await prisma.paymentUpdate.findFirst({
+    where: {
+      id: paymentUpdateId,
+      ownerAdminId,
+    },
+    select: {
+      id: true,
+      receiptFileName: true,
+      receiptMimeType: true,
+    },
+  });
+
+  if (!payment?.receiptFileName || !payment.receiptMimeType) {
+    return null;
+  }
+
+  const receipt = await readPaymentReceipt(payment.id, payment.receiptFileName).catch(() => null);
+  if (!receipt) {
+    return null;
+  }
+
+  return {
+    fileName: payment.receiptFileName,
+    mimeType: payment.receiptMimeType,
+    fileSize: receipt.fileSize,
+    fileData: receipt.fileData,
   };
 }
 

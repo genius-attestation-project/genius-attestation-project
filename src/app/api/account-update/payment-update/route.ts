@@ -33,9 +33,20 @@ async function readUpload(formData: FormData, fieldName: string) {
     return null;
   }
 
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const mimeType =
+    file.type ||
+    (extension === "pdf"
+      ? "application/pdf"
+      : extension === "png"
+        ? "image/png"
+        : extension === "jpg" || extension === "jpeg"
+          ? "image/jpeg"
+          : "application/octet-stream");
+
   return {
     fileName: file.name,
-    mimeType: file.type,
+    mimeType,
     fileSize: file.size,
     fileData: new Uint8Array(await file.arrayBuffer()),
   };

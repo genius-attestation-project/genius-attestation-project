@@ -17,6 +17,11 @@ export type PaymentUpdateItem = RegistrationPaymentLookup & {
   amountPaid: number;
   invoiceNumber: string;
   paymentDate: string;
+  receiptFileUrl: string | null;
+  receiptFileName: string | null;
+  receiptMimeType: string | null;
+  receiptUploadedAt: string | null;
+  receiptUploadedBy: string | null;
   submittedBy: string;
   submittedAt: string;
   approvalStatus: string;
@@ -88,6 +93,12 @@ export type AdminApprovalItem = {
   balanceAmount: number;
   paymentMode: string;
   invoiceNumber: string;
+  paymentDate: string;
+  receiptFileUrl: string | null;
+  receiptFileName: string | null;
+  receiptMimeType: string | null;
+  receiptUploadedAt: string | null;
+  receiptUploadedBy: string | null;
   submittedBy: string;
   submittedDate: string;
   submittedAt: string | null;
