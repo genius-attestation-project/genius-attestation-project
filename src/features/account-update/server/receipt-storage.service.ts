@@ -1,3 +1,4 @@
+import { put } from "@vercel/blob";
 import { mkdir, readFile, stat, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
@@ -13,6 +14,7 @@ function getReceiptStorageRoot() {
 export type StoredReceiptInput = {
   paymentUpdateId: string;
   fileName: string;
+  mimeType: string;
   fileData: Uint8Array<ArrayBuffer>;
 };
 
@@ -32,10 +34,28 @@ export function buildReceiptUrl(paymentUpdateId: string) {
 }
 
 export async function storePaymentReceipt(input: StoredReceiptInput) {
+  const storedFileName = `${input.paymentUpdateId}-${sanitizeFileName(input.fileName)}`;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`account-receipts/${storedFileName}`, Buffer.from(input.fileData), {
+      access: "public",
+      contentType: input.mimeType,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+
+    return {
+      receiptFileUrl: blob.url,
+      storedFileName,
+    };
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error("Receipt file storage is not configured. Connect Vercel Blob and set BLOB_READ_WRITE_TOKEN.");
+  }
+
   const receiptStorageRoot = getReceiptStorageRoot();
   await mkdir(receiptStorageRoot, { recursive: true });
 
-  const storedFileName = `${input.paymentUpdateId}-${sanitizeFileName(input.fileName)}`;
   const filePath = path.join(receiptStorageRoot, storedFileName);
   await writeFile(filePath, input.fileData);
 
@@ -45,7 +65,20 @@ export async function storePaymentReceipt(input: StoredReceiptInput) {
   };
 }
 
-export async function readPaymentReceipt(paymentUpdateId: string, receiptFileName: string) {
+export async function readPaymentReceipt(paymentUpdateId: string, receiptFileName: string, receiptFileUrl?: string | null) {
+  if (receiptFileUrl?.startsWith("http://") || receiptFileUrl?.startsWith("https://")) {
+    const response = await fetch(receiptFileUrl);
+    if (!response.ok) {
+      return null;
+    }
+
+    const fileData = Buffer.from(await response.arrayBuffer());
+    return {
+      fileData,
+      fileSize: fileData.byteLength,
+    };
+  }
+
   const receiptStorageRoot = getReceiptStorageRoot();
   const storedFileName = `${paymentUpdateId}-${sanitizeFileName(receiptFileName)}`;
   const filePath = path.join(receiptStorageRoot, storedFileName);

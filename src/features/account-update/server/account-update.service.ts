@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
 import {
+  buildReceiptUrl,
   readPaymentReceipt,
   storePaymentReceipt,
 } from "@/features/account-update/server/receipt-storage.service";
@@ -179,7 +180,7 @@ export async function getPaymentUpdates(ownerAdminId: string): Promise<PaymentUp
       amountPaid: toNumber(item.amountPaid),
       invoiceNumber: item.invoiceNumber,
       paymentDate: item.paymentDate.toISOString().slice(0, 10),
-      receiptFileUrl: item.receiptFileUrl ?? null,
+      receiptFileUrl: item.receiptFileName ? buildReceiptUrl(item.id) : null,
       receiptFileName: item.receiptFileName ?? null,
       receiptMimeType: item.receiptMimeType ?? null,
       receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
@@ -233,6 +234,7 @@ export async function createPaymentUpdate(args: {
   const storedReceipt = await storePaymentReceipt({
     paymentUpdateId,
     fileName: receiptFile.fileName,
+    mimeType: receiptFile.mimeType,
     fileData: receiptFile.fileData,
   });
 
@@ -465,7 +467,7 @@ export async function getAdminApprovalQueue(ownerAdminId: string): Promise<Admin
       balanceAmount: toNumber(item.balanceAmount),
       paymentMode: item.paymentMode,
       invoiceNumber: item.invoiceNumber,
-      receiptFileUrl: item.receiptFileUrl ?? null,
+      receiptFileUrl: item.receiptFileName ? buildReceiptUrl(item.id) : null,
       receiptFileName: item.receiptFileName ?? null,
       receiptMimeType: item.receiptMimeType ?? null,
       receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
@@ -496,6 +498,7 @@ export async function getPaymentReceiptForApproval(ownerAdminId: string, payment
       id: true,
       receiptFileName: true,
       receiptMimeType: true,
+      receiptFileUrl: true,
     },
   });
 
@@ -503,7 +506,7 @@ export async function getPaymentReceiptForApproval(ownerAdminId: string, payment
     return null;
   }
 
-  const receipt = await readPaymentReceipt(payment.id, payment.receiptFileName).catch(() => null);
+  const receipt = await readPaymentReceipt(payment.id, payment.receiptFileName, payment.receiptFileUrl).catch(() => null);
   if (!receipt) {
     return null;
   }

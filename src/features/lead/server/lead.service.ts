@@ -1654,39 +1654,62 @@ export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> 
 }
 
 async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
-  const approvedRegistrations = await prisma.registration.findMany({
+  const customerPaymentCredits = await prisma.accountStatementEntry.findMany({
     where: {
       ownerAdminId,
-      financeApprovalStatus: "Approved",
+      reversedAt: null,
+      sourceType: "PaymentUpdate",
+      entryType: "Credit",
+      credit: { gt: 0 },
+      paymentUpdate: {
+        approvalStatus: "Approved",
+      },
     },
-    orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     select: {
+      date: true,
       createdAt: true,
-      approvedAt: true,
-      totalCharges: true,
+      credit: true,
       trackingNumber: true,
-      email: true,
-      mobile: true,
+      registration: {
+        select: {
+          trackingNumber: true,
+          email: true,
+          mobile: true,
+        },
+      },
     },
   });
 
-  if (approvedRegistrations.length === 0) {
+  if (customerPaymentCredits.length === 0) {
     return [];
   }
 
-  const leadCodes = approvedRegistrations.map((item) => item.trackingNumber).filter(Boolean);
-  const emails = approvedRegistrations.map((item) => item.email).filter((value): value is string => Boolean(value));
-  const mobiles = approvedRegistrations.map((item) => item.mobile).filter(Boolean);
+  const leadCodes = customerPaymentCredits
+    .map((item) => item.trackingNumber ?? item.registration?.trackingNumber)
+    .filter((value): value is string => Boolean(value));
+  const emails = customerPaymentCredits
+    .map((item) => item.registration?.email)
+    .filter((value): value is string => Boolean(value));
+  const mobiles = customerPaymentCredits
+    .map((item) => item.registration?.mobile)
+    .filter((value): value is string => Boolean(value));
+
+  const closedLeadFilters: Prisma.LeadWhereInput[] = [
+    ...(leadCodes.length ? [{ leadCode: { in: leadCodes } }] : []),
+    ...(emails.length ? [{ email: { in: emails } }] : []),
+    ...(mobiles.length ? [{ mobileNumber: { in: mobiles } }] : []),
+  ];
+
+  if (closedLeadFilters.length === 0) {
+    return [];
+  }
 
   const closedLeads = await prisma.lead.findMany({
     where: {
       ownerAdminId,
       leadStatus: LeadStatus.Closed,
-      OR: [
-        ...(leadCodes.length ? [{ leadCode: { in: leadCodes } }] : []),
-        ...(emails.length ? [{ email: { in: emails } }] : []),
-        ...(mobiles.length ? [{ mobileNumber: { in: mobiles } }] : []),
-      ],
+      OR: closedLeadFilters,
     },
     select: {
       leadCode: true,
@@ -1699,11 +1722,12 @@ async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
   const closedEmails = new Set(closedLeads.map((lead) => lead.email));
   const closedMobiles = new Set(closedLeads.map((lead) => lead.mobileNumber));
 
-  return approvedRegistrations.filter(
-    (registration) =>
-      closedLeadCodes.has(registration.trackingNumber) ||
-      Boolean(registration.email && closedEmails.has(registration.email)) ||
-      closedMobiles.has(registration.mobile),
+  return customerPaymentCredits.filter(
+    (entry) =>
+      Boolean(entry.trackingNumber && closedLeadCodes.has(entry.trackingNumber)) ||
+      Boolean(entry.registration?.trackingNumber && closedLeadCodes.has(entry.registration.trackingNumber)) ||
+      Boolean(entry.registration?.email && closedEmails.has(entry.registration.email)) ||
+      Boolean(entry.registration?.mobile && closedMobiles.has(entry.registration.mobile)),
   );
 }
 
@@ -1886,12 +1910,12 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
   }
 
   const approvedRevenueRecords = await listApprovedClosedRegistrationRevenue(ownerAdminId);
-  const totalRevenue = approvedRevenueRecords.reduce((sum, item) => sum + Number(item.totalCharges), 0);
+  const totalRevenue = approvedRevenueRecords.reduce((sum, item) => sum + Number(item.credit), 0);
   const statusTotal = totalLeads || 1;
   const revenueMap = new Map(monthLabels.map((item) => [item.key, 0]));
 
   for (const registration of approvedRevenueRecords) {
-    const revenueDate = registration.approvedAt ?? registration.createdAt;
+    const revenueDate = registration.date ?? registration.createdAt;
     if (revenueDate < revenueWindowStart) {
       continue;
     }
@@ -1899,7 +1923,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     const monthKey = startOfMonth(revenueDate).toISOString();
 
     if (revenueMap.has(monthKey)) {
-      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.totalCharges));
+      revenueMap.set(monthKey, (revenueMap.get(monthKey) ?? 0) + Number(registration.credit));
     }
   }
 
