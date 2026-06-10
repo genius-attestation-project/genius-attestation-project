@@ -1,7 +1,14 @@
 import { mkdir, readFile, stat, writeFile } from "fs/promises";
+import os from "os";
 import path from "path";
 
-const receiptStorageRoot = path.join(process.cwd(), "storage", "account-receipts");
+function getReceiptStorageRoot() {
+  if (process.env.VERCEL) {
+    return path.join(/* turbopackIgnore: true */ os.tmpdir(), "genius-attestation", "account-receipts");
+  }
+
+  return path.join(/* turbopackIgnore: true */ process.cwd(), "storage", "account-receipts");
+}
 
 export type StoredReceiptInput = {
   paymentUpdateId: string;
@@ -25,6 +32,7 @@ export function buildReceiptUrl(paymentUpdateId: string) {
 }
 
 export async function storePaymentReceipt(input: StoredReceiptInput) {
+  const receiptStorageRoot = getReceiptStorageRoot();
   await mkdir(receiptStorageRoot, { recursive: true });
 
   const storedFileName = `${input.paymentUpdateId}-${sanitizeFileName(input.fileName)}`;
@@ -38,6 +46,7 @@ export async function storePaymentReceipt(input: StoredReceiptInput) {
 }
 
 export async function readPaymentReceipt(paymentUpdateId: string, receiptFileName: string) {
+  const receiptStorageRoot = getReceiptStorageRoot();
   const storedFileName = `${paymentUpdateId}-${sanitizeFileName(receiptFileName)}`;
   const filePath = path.join(receiptStorageRoot, storedFileName);
   const resolvedPath = path.resolve(filePath);
