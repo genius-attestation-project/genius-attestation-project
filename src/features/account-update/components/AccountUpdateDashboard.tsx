@@ -274,6 +274,11 @@ export function AccountUpdateDashboard({
       return;
     }
 
+    if (!paymentForm.receiptFile) {
+      setError("Receipt file is required");
+      return;
+    }
+
     const formData = new FormData();
     formData.set("trackingNumber", registration.trackingNumber);
     formData.set("paymentMode", paymentForm.paymentMode);

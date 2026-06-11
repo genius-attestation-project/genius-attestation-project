@@ -359,6 +359,7 @@ model PaymentUpdate {
   receiptFileName  String?  @map("receipt_file_name")
   receiptMimeType  String?  @map("receipt_mime_type")
   receiptFileSize  Int?     @map("receipt_file_size")
+  receiptFileData  Bytes?   @map("receipt_file_data")
   receiptUploadedAt DateTime? @map("receipt_uploaded_at")
   receiptUploadedBy String? @map("receipt_uploaded_by")
   submittedBy      String?  @map("submitted_by")

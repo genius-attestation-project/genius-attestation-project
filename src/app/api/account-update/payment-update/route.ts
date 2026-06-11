@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       submittedBy: session?.user?.name ?? session?.user?.email ?? undefined,
     });
 
-    return jsonOk({ message: "Payment submitted for admin approval." });
+    return jsonOk({ message: "Payment update saved successfully" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to submit payment update.";
     console.error("Failed to create payment update", error);

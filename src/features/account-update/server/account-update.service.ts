@@ -2,11 +2,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
-import {
-  buildReceiptUrl,
-  readPaymentReceipt,
-  storePaymentReceipt,
-} from "@/features/account-update/server/receipt-storage.service";
+import { buildReceiptUrl } from "@/features/account-update/server/receipt-storage.service";
 import type {
   AccountStatementResponse,
   AccountTransactionResponse,
@@ -81,15 +77,6 @@ function validateUpload(file: UploadFileInput, label: string) {
   if (!uploadMimeTypes.has(file.mimeType)) {
     throw new Error(`${label} must be PDF, JPG, JPEG, or PNG.`);
   }
-}
-
-function requireUpload(file: UploadFileInput, label: string): NonNullable<UploadFileInput> {
-  if (!file) {
-    throw new Error(`${label} is required.`);
-  }
-
-  validateUpload(file, label);
-  return file;
 }
 
 function getCreditOrDebit(category: string): CreditOrDebit {
@@ -216,7 +203,12 @@ export async function createPaymentUpdate(args: {
     throw new Error("Invoice number is required.");
   }
 
-  const receiptFile = requireUpload(args.receiptFile, "Transaction receipt");
+  if (!args.receiptFile) {
+    throw new Error("Receipt file is required");
+  }
+
+  validateUpload(args.receiptFile, "Receipt file");
+  const receiptFile = args.receiptFile;
 
   const registration = await prisma.registration.findFirst({
     where: { ownerAdminId: args.ownerAdminId, trackingNumber: args.trackingNumber.trim() },
@@ -231,12 +223,6 @@ export async function createPaymentUpdate(args: {
 
   const paymentUpdateId = randomUUID();
   const receiptUploadedAt = new Date();
-  const storedReceipt = await storePaymentReceipt({
-    paymentUpdateId,
-    fileName: receiptFile.fileName,
-    mimeType: receiptFile.mimeType,
-    fileData: receiptFile.fileData,
-  });
 
   return prisma.$transaction(async (tx) => {
     const payment = await tx.paymentUpdate.create({
@@ -253,10 +239,11 @@ export async function createPaymentUpdate(args: {
         amountPaid,
         invoiceNumber: args.invoiceNumber.trim(),
         paymentDate,
-        receiptFileUrl: storedReceipt.receiptFileUrl,
+        receiptFileUrl: buildReceiptUrl(paymentUpdateId),
         receiptFileName: receiptFile.fileName,
         receiptMimeType: receiptFile.mimeType,
         receiptFileSize: receiptFile.fileSize,
+        receiptFileData: receiptFile.fileData,
         receiptUploadedAt,
         receiptUploadedBy: args.submittedBy ?? null,
         submittedBy: args.submittedBy ?? null,
@@ -498,24 +485,20 @@ export async function getPaymentReceiptForApproval(ownerAdminId: string, payment
       id: true,
       receiptFileName: true,
       receiptMimeType: true,
-      receiptFileUrl: true,
+      receiptFileSize: true,
+      receiptFileData: true,
     },
   });
 
-  if (!payment?.receiptFileName || !payment.receiptMimeType) {
-    return null;
-  }
-
-  const receipt = await readPaymentReceipt(payment.id, payment.receiptFileName, payment.receiptFileUrl).catch(() => null);
-  if (!receipt) {
+  if (!payment?.receiptFileName || !payment.receiptMimeType || !payment.receiptFileData) {
     return null;
   }
 
   return {
     fileName: payment.receiptFileName,
     mimeType: payment.receiptMimeType,
-    fileSize: receipt.fileSize,
-    fileData: receipt.fileData,
+    fileSize: payment.receiptFileSize ?? payment.receiptFileData.byteLength,
+    fileData: payment.receiptFileData,
   };
 }
 
