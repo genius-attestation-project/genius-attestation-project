@@ -21,6 +21,7 @@ import {
   type LeadFormValues,
   sources,
 } from "@/features/lead/data/lead.data";
+import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import type { LeadAssignableUser } from "@/features/lead/types/lead.types";
 
 type LeadFormProps = {
@@ -43,6 +44,15 @@ function toIsoFromLocalDateTime(value: string) {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function isPastDateTime(value: string) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < Date.now();
 }
 
 export function LeadForm({
@@ -199,6 +209,10 @@ export function LeadForm({
 
     if (!values.country.trim()) {
       nextErrors.country = "Country is required.";
+    }
+
+    if (isPastDateTime(values.nextFollowupAt)) {
+      nextErrors.nextFollowupAt = FOLLOWUP_PAST_VALIDATION_MESSAGE;
     }
 
     return nextErrors;
@@ -454,7 +468,7 @@ export function LeadForm({
             placeholder="Enter working days"
           />
         </FieldWrapper>
-        <FieldWrapper className="md:col-span-2">
+        <FieldWrapper className="md:col-span-2" error={errors.nextFollowupAt}>
           <FollowupDateTimePicker
             label="Next Followup"
             value={values.nextFollowupAt}

@@ -66,6 +66,7 @@ model User {
   accounts           Account[]
   sessions           Session[]
   userRoles          UserRole[]
+  createdLeads       Lead[]           @relation("LeadCreator")
 
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
@@ -165,6 +166,8 @@ model Lead {
   assignedUser          String?
   assignedUserId        String?    @map("assigned_user_id")
   ownerAdminId          String?    @map("owner_admin_id")
+  createdById           String?    @map("created_by_id")
+  creator               User?      @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
   nextFollowupAt        DateTime?
   followupNotified      Boolean    @default(false) @map("followup_notified")
   followupCompleted     Boolean    @default(false) @map("followup_completed")
@@ -191,6 +194,7 @@ model Lead {
   @@index([service])
   @@index([email])
   @@index([ownerAdminId])
+  @@index([createdById])
   @@index([assignedUserId])
   @@index([followupStatus])
 }

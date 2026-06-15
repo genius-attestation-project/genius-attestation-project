@@ -8,6 +8,7 @@ import {
 } from "@/features/lead/server/lead-approval.service";
 import type {
   DashboardStatsResponse,
+  LeadFilterOptionsResponse,
   LeadListResponse,
   LeadAssignableUser,
   LeadRow,
@@ -38,6 +39,23 @@ const leadSelect = {
   amount: true,
   assignedUserId: true,
   assignedUser: true,
+  ownerAdminId: true,
+  createdById: true,
+  creator: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      officeLocationId: true,
+      officeLocationName: true,
+      officeLocationRef: {
+        select: {
+          officeName: true,
+          location: true,
+        },
+      },
+    },
+  },
   createdAt: true,
   remark: true,
   nextFollowupAt: true,
@@ -90,6 +108,8 @@ const legacyLeadSelect = {
   amount: true,
   assignedUserId: true,
   assignedUser: true,
+  ownerAdminId: true,
+  createdById: true,
   createdAt: true,
   remark: true,
   nextFollowupAt: true,
@@ -193,6 +213,13 @@ function formatRelativeTime(date: Date) {
 }
 
 function mapLeadRow(lead: LeadRecord): LeadRow {
+  const creatorName = lead.creator?.name?.trim() || lead.creator?.email || "";
+  const officeLocationName =
+    lead.creator?.officeLocationName?.trim() ||
+    [lead.creator?.officeLocationRef?.officeName, lead.creator?.officeLocationRef?.location]
+      .filter(Boolean)
+      .join(" - ");
+
   return {
     id: lead.id,
     leadCode: lead.leadCode,
@@ -216,6 +243,11 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     workingDays: lead.workingDays ? String(lead.workingDays) : "",
     assignedUserId: lead.assignedUserId ?? "",
     assignedUser: lead.assignedUser ?? "",
+    createdById: lead.createdById ?? "",
+    createdByName: creatorName,
+    createdByEmail: lead.creator?.email ?? "",
+    officeLocationId: lead.creator?.officeLocationId ?? "",
+    officeLocationName,
     createdDate: formatDate(lead.createdAt),
     createdAt: lead.createdAt.toISOString(),
     remark: lead.remark ?? "",
@@ -252,6 +284,11 @@ function mapLegacyLeadRow(lead: LegacyLeadRecord): LeadRow {
     workingDays: lead.workingDays ? String(lead.workingDays) : "",
     assignedUserId: lead.assignedUserId ?? "",
     assignedUser: lead.assignedUser ?? "",
+    createdById: lead.createdById ?? lead.ownerAdminId ?? "",
+    createdByName: "",
+    createdByEmail: "",
+    officeLocationId: "",
+    officeLocationName: "",
     createdDate: formatDate(lead.createdAt),
     createdAt: lead.createdAt.toISOString(),
     remark: lead.remark ?? "",
@@ -479,10 +516,24 @@ function buildCalendarEvents(items: FollowupItem[]): FollowupCalendarEvent[] {
   }));
 }
 
-async function listScheduledFollowupRecords(ownerAdminId: string) {
+function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhereInput {
+  if (!userId) {
+    return { ownerAdminId };
+  }
+
+  return {
+    ownerAdminId,
+    OR: [
+      { createdById: userId },
+      { createdById: null, ownerAdminId: userId },
+    ],
+  };
+}
+
+async function listScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
   return prisma.lead.findMany({
     where: {
-      ownerAdminId,
+      ...leadCreatorWhere(ownerAdminId, userId),
       nextFollowupAt: { not: null },
     },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
@@ -490,10 +541,10 @@ async function listScheduledFollowupRecords(ownerAdminId: string) {
   });
 }
 
-async function listLegacyScheduledFollowupRecords(ownerAdminId: string) {
+async function listLegacyScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
   return prisma.lead.findMany({
     where: {
-      ownerAdminId,
+      ...leadCreatorWhere(ownerAdminId, userId),
       nextFollowupAt: { not: null },
     },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
@@ -607,6 +658,96 @@ export async function listAssignableLeadUsers(ownerAdminId: string): Promise<Lea
   }));
 }
 
+function uniqueTextOptions(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))),
+  )
+    .sort((left, right) => left.localeCompare(right))
+    .map((value) => ({ label: value, value }));
+}
+
+export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFilterOptionsResponse> {
+  const [users, leads] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [{ ownerAdminId }, { id: ownerAdminId }],
+      },
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        officeLocationId: true,
+        officeLocationName: true,
+        officeLocationRef: {
+          select: {
+            officeName: true,
+            location: true,
+          },
+        },
+      },
+    }),
+    prisma.lead.findMany({
+      where: { ownerAdminId },
+      select: {
+        country: true,
+        state: true,
+        service: true,
+        source: true,
+        assignedUserId: true,
+        assignedUser: true,
+      },
+    }),
+  ]);
+
+  const officeLocations = new Map<string, { label: string; value: string }>();
+  const assignedUsers = new Map<string, { label: string; value: string; description?: string }>();
+
+  for (const user of users) {
+    const userName = user.name?.trim() || user.email;
+    assignedUsers.set(user.id, { label: userName, value: user.id, description: user.email });
+
+    if (user.officeLocationId) {
+      const label =
+        user.officeLocationName?.trim() ||
+        [user.officeLocationRef?.officeName, user.officeLocationRef?.location]
+          .filter(Boolean)
+          .join(" - ");
+
+      officeLocations.set(user.officeLocationId, {
+        label: label || user.officeLocationId,
+        value: user.officeLocationId,
+      });
+    }
+  }
+
+  for (const lead of leads) {
+    if (lead.assignedUserId && !assignedUsers.has(lead.assignedUserId)) {
+      assignedUsers.set(lead.assignedUserId, {
+        label: lead.assignedUser || lead.assignedUserId,
+        value: lead.assignedUserId,
+      });
+    }
+  }
+
+  return {
+    createdBy: users.map((user) => ({
+      label: user.name?.trim() || user.email,
+      value: user.id,
+      description: user.email,
+    })),
+    assignedTo: Array.from(assignedUsers.values()),
+    countries: uniqueTextOptions(leads.map((lead) => lead.country)),
+    states: uniqueTextOptions(leads.map((lead) => lead.state)),
+    services: uniqueTextOptions(leads.map((lead) => lead.service)),
+    sources: uniqueTextOptions(leads.map((lead) => lead.source)),
+    officeLocations: Array.from(officeLocations.values()).sort((left, right) =>
+      left.label.localeCompare(right.label),
+    ),
+  };
+}
+
 async function generateLeadCode() {
   const latestLead = await prisma.lead.findFirst({
     orderBy: { createdAt: "desc" },
@@ -626,6 +767,12 @@ export async function listLeads(ownerAdminId: string, params: {
   status?: string;
   service?: string;
   assignedUserId?: string;
+  createdById?: string;
+  country?: string;
+  state?: string;
+  source?: string;
+  followupDate?: string;
+  officeLocationId?: string;
   fromDate?: string;
   toDate?: string;
 }): Promise<LeadListResponse> {
@@ -635,9 +782,16 @@ export async function listLeads(ownerAdminId: string, params: {
   const query = params.query?.trim();
   const service = params.service?.trim();
   const assignedUserId = params.assignedUserId?.trim();
+  const createdById = params.createdById?.trim();
+  const country = params.country?.trim();
+  const state = params.state?.trim();
+  const source = params.source?.trim();
+  const followupDate = params.followupDate?.trim();
+  const officeLocationId = params.officeLocationId?.trim();
   const fromDate = params.fromDate?.trim();
   const toDate = params.toDate?.trim();
   const createdAt: Prisma.DateTimeFilter = {};
+  const nextFollowupAt: Prisma.DateTimeNullableFilter = {};
 
   if (fromDate) {
     const parsed = new Date(`${fromDate}T00:00:00`);
@@ -654,16 +808,32 @@ export async function listLeads(ownerAdminId: string, params: {
     }
   }
 
+  if (followupDate) {
+    const parsed = new Date(`${followupDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      const end = new Date(parsed);
+      end.setDate(end.getDate() + 1);
+      nextFollowupAt.gte = parsed;
+      nextFollowupAt.lt = end;
+    }
+  }
+
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
     ...(status ? { leadStatus: status } : {}),
     ...(service ? { service: { contains: service, mode: "insensitive" } } : {}),
+    ...(createdById ? { createdById } : {}),
+    ...(country ? { country: { equals: country, mode: "insensitive" } } : {}),
+    ...(state ? { state: { equals: state, mode: "insensitive" } } : {}),
+    ...(source ? { source: { equals: source, mode: "insensitive" } } : {}),
+    ...(officeLocationId ? { creator: { officeLocationId } } : {}),
     ...(assignedUserId
       ? assignedUserId === "unassigned"
         ? { assignedUserId: null }
         : { assignedUserId }
       : {}),
     ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    ...(Object.keys(nextFollowupAt).length > 0 ? { nextFollowupAt } : {}),
     ...(query
       ? {
           OR: [
@@ -753,7 +923,7 @@ export async function getLeadById(ownerAdminId: string, id: string) {
   }
 }
 
-export async function createLead(ownerAdminId: string, input: LeadInput) {
+export async function createLead(ownerAdminId: string, input: LeadInput, createdById?: string) {
   const assignedUser =
     input.assignedUserId
       ? await prisma.user.findFirst({
@@ -782,6 +952,7 @@ export async function createLead(ownerAdminId: string, input: LeadInput) {
         leadCode,
       ),
       ownerAdminId,
+      createdById: createdById ?? ownerAdminId,
       ...(input.nextFollowupAt
         ? {
             followupHistory: {
@@ -1126,6 +1297,7 @@ export async function listFollowups(ownerAdminId: string) {
 
 export async function snoozeFollowupWithHistory(args: {
   ownerAdminId: string;
+  userId?: string;
   leadId: string;
   nextFollowupAt: Date;
   description?: string;
@@ -1135,7 +1307,7 @@ export async function snoozeFollowupWithHistory(args: {
 }) {
   const lead = await prisma.lead.findFirst({
     where: {
-      ownerAdminId: args.ownerAdminId,
+      ...leadCreatorWhere(args.ownerAdminId, args.userId),
       id: args.leadId,
     },
     select: {
@@ -1179,6 +1351,7 @@ export async function snoozeFollowupWithHistory(args: {
 
 export async function completeFollowupWithDescription(args: {
   ownerAdminId: string;
+  userId?: string;
   leadId: string;
   completionDescription: string;
   completionNote?: string;
@@ -1187,7 +1360,7 @@ export async function completeFollowupWithDescription(args: {
 }) {
   const lead = await prisma.lead.findFirst({
     where: {
-      ownerAdminId: args.ownerAdminId,
+      ...leadCreatorWhere(args.ownerAdminId, args.userId),
       id: args.leadId,
     },
     select: {
@@ -1256,11 +1429,11 @@ export async function completeFollowupWithDescription(args: {
   return getLeadById(args.ownerAdminId, args.leadId);
 }
 
-export async function getFollowupHistory(ownerAdminId: string, leadId: string) {
+export async function getFollowupHistory(ownerAdminId: string, leadId: string, userId?: string) {
   try {
     const lead = await prisma.lead.findFirst({
       where: {
-        ownerAdminId,
+        ...leadCreatorWhere(ownerAdminId, userId),
         id: leadId,
       },
       select: {
@@ -1296,7 +1469,7 @@ export async function getFollowupHistory(ownerAdminId: string, leadId: string) {
 
     const lead = await prisma.lead.findFirst({
       where: {
-        ownerAdminId,
+        ...leadCreatorWhere(ownerAdminId, userId),
         id: leadId,
       },
       select: {
@@ -1318,10 +1491,11 @@ export async function getFollowupHistory(ownerAdminId: string, leadId: string) {
 export async function getFollowupCalendar(
   ownerAdminId: string,
   filter: FollowupFilter = "all",
+  userId?: string,
 ): Promise<FollowupCalendarResponse> {
   const today = new Date();
   try {
-    const records = await listScheduledFollowupRecords(ownerAdminId);
+    const records = await listScheduledFollowupRecords(ownerAdminId, userId);
     const items = records.map((lead) => mapFollowupItem(lead, today));
     const counts = buildFollowupCounts(items);
     const filteredItems = items.filter((item) => matchesFollowupFilter(item, filter));
@@ -1338,7 +1512,7 @@ export async function getFollowupCalendar(
       throw error;
     }
 
-    const records = await listLegacyScheduledFollowupRecords(ownerAdminId);
+    const records = await listLegacyScheduledFollowupRecords(ownerAdminId, userId);
     const items = records.map((lead) => mapLegacyFollowupItem(lead, today));
     const counts = buildFollowupCounts(items);
     const filteredItems = items.filter((item) => matchesFollowupFilter(item, filter));
@@ -1353,17 +1527,18 @@ export async function getFollowupCalendar(
   }
 }
 
-export async function getTodayFollowups(ownerAdminId: string): Promise<FollowupCalendarResponse> {
-  return getFollowupCalendar(ownerAdminId, "today");
+export async function getTodayFollowups(ownerAdminId: string, userId?: string): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "today", userId);
 }
 
-export async function getUpcomingFollowups(ownerAdminId: string): Promise<FollowupCalendarResponse> {
-  return getFollowupCalendar(ownerAdminId, "upcoming");
+export async function getUpcomingFollowups(ownerAdminId: string, userId?: string): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "upcoming", userId);
 }
 
 export async function getFollowupsByDate(
   ownerAdminId: string,
   date: string,
+  userId?: string,
 ): Promise<FollowupsByDateResponse> {
   const [year, month, day] = date.split("-").map((value) => Number.parseInt(value, 10));
 
@@ -1380,7 +1555,7 @@ export async function getFollowupsByDate(
   try {
     const records = await prisma.lead.findMany({
       where: {
-        ownerAdminId,
+        ...leadCreatorWhere(ownerAdminId, userId),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -1410,7 +1585,7 @@ export async function getFollowupsByDate(
 
     const records = await prisma.lead.findMany({
       where: {
-        ownerAdminId,
+        ...leadCreatorWhere(ownerAdminId, userId),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -1475,10 +1650,7 @@ function userCanReceiveFollowup(args: {
   ownerAdminId: string;
   userId: string;
 }): Prisma.LeadWhereInput {
-  return {
-    ownerAdminId: args.ownerAdminId,
-    OR: [{ assignedUserId: args.userId }, { ownerAdminId: args.userId }],
-  };
+  return leadCreatorWhere(args.ownerAdminId, args.userId);
 }
 
 export async function listDueFollowupReminders(args: {
@@ -1575,6 +1747,7 @@ export async function completeFollowup(args: {
 
   return completeFollowupWithDescription({
     ownerAdminId: args.ownerAdminId,
+    userId: args.userId,
     leadId: lead.id,
     completionDescription: args.completionDescription,
     completionNote: args.completionNote,
@@ -1605,6 +1778,7 @@ export async function snoozeFollowup(args: {
 
   return snoozeFollowupWithHistory({
     ownerAdminId: args.ownerAdminId,
+    userId: args.userId,
     leadId: lead.id,
     nextFollowupAt: args.nextFollowupAt,
     description: args.snoozeNote?.trim() || "Follow-up reminder snoozed.",

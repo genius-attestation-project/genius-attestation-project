@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const FOLLOWUP_PAST_VALIDATION_MESSAGE =
+  "Followup date and time cannot be earlier than the current date and time.";
+
 export const leadStatusOptions = [
   "New",
   "Qualified",
@@ -105,6 +108,14 @@ export const leadInputSchema = z.object({
       }),
     ]),
   ),
+}).superRefine((value, ctx) => {
+  if (value.nextFollowupAt && value.nextFollowupAt.getTime() < Date.now()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["nextFollowupAt"],
+      message: FOLLOWUP_PAST_VALIDATION_MESSAGE,
+    });
+  }
 });
 
 export type LeadInput = z.infer<typeof leadInputSchema>;

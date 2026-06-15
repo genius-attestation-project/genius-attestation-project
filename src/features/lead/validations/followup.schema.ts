@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
+
 export const snoozeFollowupSchema = z.object({
   leadId: z.string().trim().min(1, "Lead ID is required."),
   nextFollowupAt: z.union([
@@ -19,6 +21,14 @@ export const snoozeFollowupSchema = z.object({
     }),
   ]),
   description: z.string().trim().optional().default(""),
+}).superRefine((value, ctx) => {
+  if (value.nextFollowupAt.getTime() < Date.now()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["nextFollowupAt"],
+      message: FOLLOWUP_PAST_VALIDATION_MESSAGE,
+    });
+  }
 });
 
 export const completeFollowupSchema = z.object({

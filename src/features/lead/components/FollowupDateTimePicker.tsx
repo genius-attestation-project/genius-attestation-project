@@ -31,6 +31,10 @@ function toLocalDateTimeString(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function toLocalDateString(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function parseLocalDateTime(value: string) {
   if (!value) {
     return null;
@@ -78,6 +82,12 @@ export function FollowupDateTimePicker({
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
   const [use24Hour, setUse24Hour] = useState(true);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (selectedDate) {
@@ -92,14 +102,20 @@ export function FollowupDateTimePicker({
   const hour24Number = Number(selectedHour24);
   const hour12 = hour24Number % 12 === 0 ? 12 : hour24Number % 12;
   const meridiem = hour24Number >= 12 ? "PM" : "AM";
+  const todayKey = toLocalDateString(now);
+  const minimumDateTime = toLocalDateTimeString(now);
+  const selectedIsToday = selectedDateKey === todayKey;
+  const currentTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   function updateDate(isoDate: string) {
-    onChange(`${isoDate}T${selectedTime}`);
+    const nextValue = `${isoDate}T${selectedTime}`;
+    onChange(nextValue < minimumDateTime ? minimumDateTime : nextValue);
   }
 
   function updateTime(time: string) {
     const datePart = selectedDateKey || toLocalDateTimeString(new Date()).slice(0, 10);
-    onChange(`${datePart}T${time}`);
+    const nextValue = `${datePart}T${time}`;
+    onChange(nextValue < minimumDateTime ? minimumDateTime : nextValue);
   }
 
   function update12Hour(nextHour12: string, nextMinute: string, nextMeridiem: string) {
@@ -110,7 +126,7 @@ export function FollowupDateTimePicker({
   }
 
   function setShortcut(offsetDays: number) {
-    const next = selectedDate ?? new Date();
+    const next = selectedDate && selectedDate > now ? selectedDate : now;
     const shortcut = new Date(next.getFullYear(), next.getMonth(), next.getDate() + offsetDays, next.getHours(), next.getMinutes());
     onChange(toLocalDateTimeString(shortcut));
   }
@@ -205,13 +221,19 @@ export function FollowupDateTimePicker({
           ))}
           {calendarDays.map((day) => {
             const isSelected = day.isoDate === selectedDateKey;
+            const isPast = day.isoDate < todayKey;
             return (
               <button
                 key={day.key}
                 type="button"
+                disabled={isPast}
                 className={cn(
                   "aspect-square rounded-2xl text-sm font-semibold transition",
-                  day.isCurrentMonth ? "text-slate-800 hover:bg-blue-50" : "text-slate-300 hover:bg-slate-50",
+                  isPast
+                    ? "cursor-not-allowed text-slate-300 opacity-50"
+                    : day.isCurrentMonth
+                      ? "text-slate-800 hover:bg-blue-50"
+                      : "text-slate-300 hover:bg-slate-50",
                   isSelected ? "bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-600" : "",
                 )}
                 onClick={() => updateDate(day.isoDate)}
@@ -232,6 +254,7 @@ export function FollowupDateTimePicker({
               type="time"
               step={300}
               value={selectedTime}
+              min={selectedIsToday ? currentTime : undefined}
               onChange={(event) => updateTime(event.target.value)}
               className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
             />
@@ -254,7 +277,11 @@ export function FollowupDateTimePicker({
                 className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
               >
                 {MINUTE_OPTIONS.map((minute) => (
-                  <option key={minute} value={minute}>
+                  <option
+                    key={minute}
+                    value={minute}
+                    disabled={selectedIsToday && `${selectedHour24}:${minute}` < currentTime}
+                  >
                     {minute}
                   </option>
                 ))}
@@ -273,7 +300,11 @@ export function FollowupDateTimePicker({
           <input
             type="datetime-local"
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            min={minimumDateTime}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              onChange(nextValue < minimumDateTime ? minimumDateTime : nextValue);
+            }}
             className="h-12 rounded-2xl border border-dashed border-[color:var(--border)] bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500/35"
           />
         </div>

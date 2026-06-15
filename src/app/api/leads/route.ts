@@ -17,6 +17,12 @@ export async function GET(request: Request) {
       status: searchParams.get("status") ?? undefined,
       service: searchParams.get("service") ?? undefined,
       assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+      createdById: searchParams.get("createdById") ?? undefined,
+      country: searchParams.get("country") ?? undefined,
+      state: searchParams.get("state") ?? undefined,
+      source: searchParams.get("source") ?? undefined,
+      followupDate: searchParams.get("followupDate") ?? undefined,
+      officeLocationId: searchParams.get("officeLocationId") ?? undefined,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
     });
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid lead payload.");
     }
 
-    const lead = await createLead(ownerAdminId, parsed.data);
+    const lead = await createLead(ownerAdminId, parsed.data, session?.user?.id);
     return jsonOk({ lead }, 201);
   } catch (error) {
     if (error instanceof Error && error.message === "Assigned user not found.") {

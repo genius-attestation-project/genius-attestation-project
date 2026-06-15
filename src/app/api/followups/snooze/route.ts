@@ -7,7 +7,8 @@ export async function POST(request: Request) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const userId = session?.user?.id;
+    if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
     const body = await request.json().catch(() => null);
     const parsed = snoozeFollowupSchema.safeParse(body);
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
 
     const lead = await snoozeFollowupWithHistory({
       ownerAdminId,
+      userId,
       leadId: parsed.data.leadId,
       nextFollowupAt: parsed.data.nextFollowupAt,
       description: parsed.data.description,

@@ -25,6 +25,11 @@ export type LeadRow = {
   workingDays: string;
   assignedUserId: string;
   assignedUser: string;
+  createdById: string;
+  createdByName: string;
+  createdByEmail: string;
+  officeLocationId: string;
+  officeLocationName: string;
   createdDate: string;
   createdAt: string;
   remark: string;
@@ -55,6 +60,22 @@ export type LeadListResponse = {
     totalItems: number;
     totalPages: number;
   };
+};
+
+export type LeadFilterOption = {
+  label: string;
+  value: string;
+  description?: string;
+};
+
+export type LeadFilterOptionsResponse = {
+  createdBy: LeadFilterOption[];
+  assignedTo: LeadFilterOption[];
+  countries: LeadFilterOption[];
+  states: LeadFilterOption[];
+  services: LeadFilterOption[];
+  sources: LeadFilterOption[];
+  officeLocations: LeadFilterOption[];
 };
 
 export type DashboardStatsResponse = {

@@ -12,10 +12,11 @@ export async function GET(_: Request, context: RouteContext) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const userId = session?.user?.id;
+    if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
     const { leadId } = await context.params;
-    const data = await getFollowupHistory(ownerAdminId, leadId);
+    const data = await getFollowupHistory(ownerAdminId, leadId, userId);
 
     if (!data) {
       return jsonError("Lead not found.", 404);

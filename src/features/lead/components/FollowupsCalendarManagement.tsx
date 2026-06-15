@@ -18,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
@@ -29,6 +30,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
 import { LeadForm } from "@/features/lead/components/LeadForm";
 import type { LeadFormValues } from "@/features/lead/data/lead.data";
+import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import type {
   FollowupCalendarResponse,
   FollowupFilter,
@@ -81,6 +83,7 @@ function toLocalDateTimeInput(value: string | null) {
 }
 
 export function FollowupsCalendarManagement() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FollowupFilter>("all");
   const [calendarData, setCalendarData] = useState<FollowupCalendarResponse>(emptyCalendarData);
   const [todayData, setTodayData] = useState<FollowupCalendarResponse>(emptyCalendarData);
@@ -289,6 +292,12 @@ export function FollowupsCalendarManagement() {
       return;
     }
 
+    const parsedSnooze = new Date(snoozeValue);
+    if (!Number.isNaN(parsedSnooze.getTime()) && parsedSnooze.getTime() < Date.now()) {
+      setFeedbackMessage(FOLLOWUP_PAST_VALIDATION_MESSAGE);
+      return;
+    }
+
     setSubmittingLeadId(snoozingLead.id);
     setFeedbackMessage("");
 
@@ -367,6 +376,10 @@ export function FollowupsCalendarManagement() {
 
   function handleDateClick(info: DateClickArg) {
     void openDateDrawer(info.dateStr.slice(0, 10));
+  }
+
+  function openLeadEditor(leadId: string) {
+    router.push(`/dashboard/lead-management/all-leads?editLeadId=${encodeURIComponent(leadId)}`);
   }
 
   function renderEventContent(eventInfo: EventContentArg) {
@@ -714,10 +727,10 @@ export function FollowupsCalendarManagement() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setEditingLead(selectedFollowup)}
+                  onClick={() => openLeadEditor(selectedFollowup.id)}
                 >
                   <Pencil size={16} />
-                  Edit Lead
+                  Open Lead
                 </Button>
                 <a
                   href={selectedFollowup.callLink}

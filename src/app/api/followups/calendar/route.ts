@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const userId = session?.user?.id;
+    if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
     const { searchParams } = new URL(request.url);
     const rawFilter = searchParams.get("filter");
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
       ? (rawFilter as FollowupFilter)
       : "all";
 
-    const data = await getFollowupCalendar(ownerAdminId, filter);
+    const data = await getFollowupCalendar(ownerAdminId, filter, userId);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch followup calendar", error);

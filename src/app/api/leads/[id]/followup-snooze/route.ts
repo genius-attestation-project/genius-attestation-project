@@ -1,4 +1,5 @@
 import { snoozeFollowup } from "@/features/lead/server/lead.service";
+import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -67,6 +68,10 @@ export async function POST(
 
     if (!nextFollowupAt) {
       return jsonError("Next follow-up date and time is required.", 400);
+    }
+
+    if (nextFollowupAt.getTime() < Date.now()) {
+      return jsonError(FOLLOWUP_PAST_VALIDATION_MESSAGE, 400);
     }
 
     const lead = await snoozeFollowup({
