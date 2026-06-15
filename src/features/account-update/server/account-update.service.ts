@@ -7,6 +7,7 @@ import type {
   AccountStatementResponse,
   AccountTransactionResponse,
   CreditOrDebit,
+  AccountTallyResponse,
   PaymentMode,
   PaymentUpdateResponse,
   RegistrationPaymentLookup,
@@ -89,6 +90,45 @@ function buildVoucherNumber() {
   return `VCH-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
 }
 
+type PaymentWithRegistration = Prisma.PaymentUpdateGetPayload<{
+  include: { registration: true; invoiceGroup: true };
+}>;
+
+function mapRegistrationPayment(registration: {
+  id: string;
+  trackingNumber: string;
+  customerName: string;
+  processType: string | null;
+  totalCharges: Prisma.Decimal | number;
+  advancePaid: Prisma.Decimal | number;
+  balanceAmount: Prisma.Decimal | number;
+}): RegistrationPaymentLookup {
+  return {
+    id: registration.id,
+    trackingNumber: registration.trackingNumber,
+    customerName: registration.customerName,
+    processType: registration.processType ?? "-",
+    totalCharges: toNumber(registration.totalCharges),
+    advancePaid: toNumber(registration.advancePaid),
+    balanceAmount: toNumber(registration.balanceAmount),
+  };
+}
+
+function groupPaymentsByInvoice(items: PaymentWithRegistration[]) {
+  const grouped = new Map<string, PaymentWithRegistration[]>();
+  for (const item of items) {
+    const key = item.invoiceGroupId ?? `${item.ownerAdminId}:${item.invoiceNumber}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  }
+  return Array.from(grouped.values()).map((group) =>
+    group.sort((left, right) => left.trackingNumber.localeCompare(right.trackingNumber)),
+  );
+}
+
+function pickInvoicePayment(group: PaymentWithRegistration[]) {
+  return group.find((item) => toNumber(item.amountPaid) > 0) ?? group[0];
+}
+
 async function recalculateRunningBalances(ownerAdminId: string, tx: Prisma.TransactionClient = prisma) {
   const entries = await tx.accountStatementEntry.findMany({
     where: {
@@ -135,15 +175,7 @@ export async function findRegistrationForPayment(
 
   if (!registration) return null;
 
-  return {
-    id: registration.id,
-    trackingNumber: registration.trackingNumber,
-    customerName: registration.customerName,
-    processType: registration.processType ?? "-",
-    totalCharges: toNumber(registration.totalCharges),
-    advancePaid: toNumber(registration.advancePaid),
-    balanceAmount: toNumber(registration.balanceAmount),
-  };
+  return mapRegistrationPayment(registration);
 }
 
 export async function getPaymentUpdates(ownerAdminId: string): Promise<PaymentUpdateResponse> {
@@ -152,42 +184,97 @@ export async function getPaymentUpdates(ownerAdminId: string): Promise<PaymentUp
   const items = await prisma.paymentUpdate.findMany({
     where: { ownerAdminId },
     orderBy: [{ submittedAt: "desc" }],
+    include: { registration: true, invoiceGroup: true },
+  });
+  const groups = groupPaymentsByInvoice(items);
+
+  return {
+    items: groups.map((group) => {
+      const item = pickInvoicePayment(group);
+      const invoice = item.invoiceGroup;
+      const registrations = group.map((payment) => mapRegistrationPayment(payment.registration));
+      return {
+        ...registrations[0],
+        id: item.id,
+        invoiceGroupId: item.invoiceGroupId ?? item.id,
+        trackingNumbers: registrations.map((registration) => registration.trackingNumber),
+        registrations,
+        paymentMode: invoice?.paymentMode ?? item.paymentMode,
+        amountPaid: toNumber(invoice?.amountPaid ?? item.amountPaid),
+        invoiceNumber: invoice?.invoiceNumber ?? item.invoiceNumber,
+        paymentDate: (invoice?.paymentDate ?? item.paymentDate).toISOString().slice(0, 10),
+        receiptFileUrl: (invoice?.receiptFileName ?? item.receiptFileName) ? buildReceiptUrl(item.id) : null,
+        receiptFileName: invoice?.receiptFileName ?? item.receiptFileName ?? null,
+        receiptMimeType: invoice?.receiptMimeType ?? item.receiptMimeType ?? null,
+        receiptUploadedAt: (invoice?.receiptUploadedAt ?? item.receiptUploadedAt)?.toISOString() ?? null,
+        receiptUploadedBy: invoice?.receiptUploadedBy ?? item.receiptUploadedBy ?? null,
+        submittedBy: invoice?.submittedBy ?? item.submittedBy ?? "-",
+        submittedAt: formatDate(invoice?.submittedAt ?? item.submittedAt),
+        approvalStatus: invoice?.approvalStatus ?? item.approvalStatus,
+      };
+    }),
+    stats: {
+      pendingPayments: groups.filter((group) => (pickInvoicePayment(group).invoiceGroup?.approvalStatus ?? pickInvoicePayment(group).approvalStatus) === "Pending").length,
+      totalCollectionsToday: groups
+        .filter((group) => {
+          const item = pickInvoicePayment(group);
+          const submittedAt = item.invoiceGroup?.submittedAt ?? item.submittedAt;
+          return submittedAt >= todayStart && submittedAt < todayEnd;
+        })
+        .reduce((sum, group) => {
+          const item = pickInvoicePayment(group);
+          return sum + toNumber(item.invoiceGroup?.amountPaid ?? item.amountPaid);
+        }, 0),
+    },
+  };
+}
+
+export async function getAccountTally(ownerAdminId: string): Promise<AccountTallyResponse> {
+  const items = await prisma.paymentUpdate.findMany({
+    where: { ownerAdminId },
+    orderBy: [{ submittedAt: "desc" }],
+    include: { registration: true, invoiceGroup: true },
+  });
+  const groups = groupPaymentsByInvoice(items);
+  const tallyItems = groups.map((group) => {
+    const item = pickInvoicePayment(group);
+    const invoice = item.invoiceGroup;
+    const registrations = group.map((payment) => mapRegistrationPayment(payment.registration));
+    const totalCharges = registrations.reduce((sum, registration) => sum + registration.totalCharges, 0);
+    const advancePaid = registrations.reduce((sum, registration) => sum + registration.advancePaid, 0);
+    const amountPaid = toNumber(invoice?.amountPaid ?? item.amountPaid);
+
+    return {
+      id: item.id,
+      invoiceGroupId: item.invoiceGroupId ?? item.id,
+      invoiceNumber: invoice?.invoiceNumber ?? item.invoiceNumber,
+      trackingNumbers: registrations.map((registration) => registration.trackingNumber),
+      customerNames: registrations.map((registration) => registration.customerName),
+      processTypes: Array.from(new Set(registrations.map((registration) => registration.processType))),
+      totalCharges,
+      advancePaid,
+      amountPaid,
+      pendingAmount: Math.max(totalCharges - amountPaid, 0),
+      paymentMode: invoice?.paymentMode ?? item.paymentMode,
+      paymentDate: (invoice?.paymentDate ?? item.paymentDate).toISOString().slice(0, 10),
+      approvalStatus: invoice?.approvalStatus ?? item.approvalStatus,
+    };
   });
 
   return {
-    items: items.map((item) => ({
-      id: item.id,
-      trackingNumber: item.trackingNumber,
-      customerName: item.customerName,
-      processType: item.processType ?? "-",
-      totalCharges: toNumber(item.totalCharges),
-      advancePaid: toNumber(item.advancePaid),
-      balanceAmount: toNumber(item.balanceAmount),
-      paymentMode: item.paymentMode,
-      amountPaid: toNumber(item.amountPaid),
-      invoiceNumber: item.invoiceNumber,
-      paymentDate: item.paymentDate.toISOString().slice(0, 10),
-      receiptFileUrl: item.receiptFileName ? buildReceiptUrl(item.id) : null,
-      receiptFileName: item.receiptFileName ?? null,
-      receiptMimeType: item.receiptMimeType ?? null,
-      receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
-      receiptUploadedBy: item.receiptUploadedBy ?? null,
-      submittedBy: item.submittedBy ?? "-",
-      submittedAt: formatDate(item.submittedAt),
-      approvalStatus: item.approvalStatus,
-    })),
+    items: tallyItems,
     stats: {
-      pendingPayments: items.filter((item) => item.approvalStatus === "Pending").length,
-      totalCollectionsToday: items
-        .filter((item) => item.submittedAt >= todayStart && item.submittedAt < todayEnd)
-        .reduce((sum, item) => sum + toNumber(item.amountPaid), 0),
+      totalCharges: tallyItems.reduce((sum, item) => sum + item.totalCharges, 0),
+      totalReceived: tallyItems.reduce((sum, item) => sum + item.amountPaid, 0),
+      totalPending: tallyItems.reduce((sum, item) => sum + item.pendingAmount, 0),
     },
   };
 }
 
 export async function createPaymentUpdate(args: {
   ownerAdminId: string;
-  trackingNumber: string;
+  trackingNumber?: string;
+  trackingNumbers?: string[];
   paymentMode: PaymentMode;
   amountPaid: unknown;
   invoiceNumber: string;
@@ -210,11 +297,23 @@ export async function createPaymentUpdate(args: {
   validateUpload(args.receiptFile, "Receipt file");
   const receiptFile = args.receiptFile;
 
-  const registration = await prisma.registration.findFirst({
-    where: { ownerAdminId: args.ownerAdminId, trackingNumber: args.trackingNumber.trim() },
+  const trackingNumbers = Array.from(
+    new Set(
+      (args.trackingNumbers?.length ? args.trackingNumbers : [args.trackingNumber ?? ""])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (trackingNumbers.length === 0) {
+    throw new Error("At least one tracking number is required.");
+  }
+
+  const registrations = await prisma.registration.findMany({
+    where: { ownerAdminId: args.ownerAdminId, trackingNumber: { in: trackingNumbers } },
   });
 
-  if (!registration) {
+  if (registrations.length !== trackingNumbers.length) {
     throw new Error("Tracking number not found in revenue registration.");
   }
 
@@ -225,16 +324,9 @@ export async function createPaymentUpdate(args: {
   const receiptUploadedAt = new Date();
 
   return prisma.$transaction(async (tx) => {
-    const payment = await tx.paymentUpdate.create({
+    const invoice = await tx.paymentInvoice.create({
       data: {
         id: paymentUpdateId,
-        registrationId: registration.id,
-        trackingNumber: registration.trackingNumber,
-        customerName: registration.customerName,
-        processType: registration.processType,
-        totalCharges: registration.totalCharges,
-        advancePaid: registration.advancePaid,
-        balanceAmount: registration.balanceAmount,
         paymentMode: args.paymentMode,
         amountPaid,
         invoiceNumber: args.invoiceNumber.trim(),
@@ -252,28 +344,60 @@ export async function createPaymentUpdate(args: {
       },
     });
 
-    await tx.registration.update({
-      where: { id: registration.id },
-      data: {
-        paymentMode: args.paymentMode,
-        paymentUpdateStatus: "Submitted",
-        paymentStatus: "Paid",
-        balanceReceivedAmount: amountPaid,
-        submittedBy: args.submittedBy ?? null,
-        submittedAt: payment.submittedAt,
-        financeApprovalStatus: "Pending",
-        rejectionReason: null,
-        auditTrail: {
-          create: {
-            action: "Payment update submitted",
-            description: `Payment update ${payment.invoiceNumber} submitted for ${payment.trackingNumber}.`,
-            performedBy: args.submittedBy ?? null,
+    const createdPayments = [];
+    for (const [index, registration] of registrations.entries()) {
+      const payment = await tx.paymentUpdate.create({
+        data: {
+          id: index === 0 ? paymentUpdateId : randomUUID(),
+          invoiceGroupId: invoice.id,
+          registrationId: registration.id,
+          trackingNumber: registration.trackingNumber,
+          customerName: registration.customerName,
+          processType: registration.processType,
+          totalCharges: registration.totalCharges,
+          advancePaid: registration.advancePaid,
+          balanceAmount: registration.balanceAmount,
+          paymentMode: args.paymentMode,
+          amountPaid: index === 0 ? amountPaid : new Prisma.Decimal(0),
+          invoiceNumber: args.invoiceNumber.trim(),
+          paymentDate,
+          receiptFileUrl: buildReceiptUrl(paymentUpdateId),
+          receiptFileName: index === 0 ? receiptFile.fileName : null,
+          receiptMimeType: index === 0 ? receiptFile.mimeType : null,
+          receiptFileSize: index === 0 ? receiptFile.fileSize : null,
+          receiptFileData: index === 0 ? receiptFile.fileData : null,
+          receiptUploadedAt,
+          receiptUploadedBy: args.submittedBy ?? null,
+          submittedBy: args.submittedBy ?? null,
+          approvalStatus: "Pending",
+          ownerAdminId: args.ownerAdminId,
+        },
+      });
+      createdPayments.push(payment);
+
+      await tx.registration.update({
+        where: { id: registration.id },
+        data: {
+          paymentMode: args.paymentMode,
+          paymentUpdateStatus: "Submitted",
+          paymentStatus: "Paid",
+          balanceReceivedAmount: index === 0 ? amountPaid : registration.balanceReceivedAmount,
+          submittedBy: args.submittedBy ?? null,
+          submittedAt: invoice.submittedAt,
+          financeApprovalStatus: "Pending",
+          rejectionReason: null,
+          auditTrail: {
+            create: {
+              action: "Payment update submitted",
+              description: `Payment update ${invoice.invoiceNumber} submitted for grouped invoice tracking ${registration.trackingNumber}.`,
+              performedBy: args.submittedBy ?? null,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
-    return payment;
+    return createdPayments[0];
   });
 }
 
@@ -379,6 +503,32 @@ export async function getAccountStatement(
             { trackingNumber: { contains: query, mode: "insensitive" } },
             { invoiceNumber: { contains: query, mode: "insensitive" } },
             { voucherNumber: { contains: query, mode: "insensitive" } },
+            {
+              paymentUpdate: {
+                registration: {
+                  customerName: { contains: query, mode: "insensitive" },
+                },
+              },
+            },
+            {
+              paymentUpdate: {
+                invoiceGroup: {
+                  paymentUpdates: {
+                    some: {
+                      OR: [
+                        { trackingNumber: { contains: query, mode: "insensitive" } },
+                        { customerName: { contains: query, mode: "insensitive" } },
+                        {
+                          registration: {
+                            customerName: { contains: query, mode: "insensitive" },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
           ],
         }
       : {}),
@@ -387,6 +537,20 @@ export async function getAccountStatement(
   const items = await prisma.accountStatementEntry.findMany({
     where,
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+    include: {
+      paymentUpdate: {
+        include: {
+          invoiceGroup: {
+            include: {
+              paymentUpdates: {
+                include: { registration: true },
+                orderBy: { trackingNumber: "asc" },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
   const allItems = await prisma.accountStatementEntry.findMany({
@@ -424,6 +588,9 @@ export async function getAccountStatement(
       id: item.id,
       date: formatDate(item.date),
       trackingNumber: item.trackingNumber ?? "-",
+      trackingNumbers:
+        item.paymentUpdate?.invoiceGroup?.paymentUpdates.map((payment) => payment.trackingNumber) ??
+        (item.trackingNumber ? [item.trackingNumber] : []),
       invoiceNumber: item.invoiceNumber ?? "-",
       voucherNumber: item.voucherNumber ?? "-",
       particulars: item.particulars,
@@ -441,36 +608,53 @@ export async function getAdminApprovalQueue(ownerAdminId: string): Promise<Admin
   const items = await prisma.paymentUpdate.findMany({
     where: { ownerAdminId },
     orderBy: [{ submittedAt: "desc" }],
+    include: { registration: true, invoiceGroup: true },
   });
+  const groups = groupPaymentsByInvoice(items);
 
   return {
-    items: items.map((item) => ({
-      id: item.id,
-      trackingNumber: item.trackingNumber,
-      customerName: item.customerName,
-      processType: item.processType ?? "-",
-      totalCharges: toNumber(item.totalCharges),
-      advancePaid: toNumber(item.advancePaid),
-      balanceAmount: toNumber(item.balanceAmount),
-      paymentMode: item.paymentMode,
-      invoiceNumber: item.invoiceNumber,
-      receiptFileUrl: item.receiptFileName ? buildReceiptUrl(item.id) : null,
-      receiptFileName: item.receiptFileName ?? null,
-      receiptMimeType: item.receiptMimeType ?? null,
-      receiptUploadedAt: item.receiptUploadedAt?.toISOString() ?? null,
-      receiptUploadedBy: item.receiptUploadedBy ?? null,
-      paymentDate: item.paymentDate.toISOString().slice(0, 10),
-      submittedBy: item.submittedBy ?? "-",
-      submittedDate: formatDate(item.submittedAt),
-      submittedAt: item.submittedAt.toISOString(),
-      approvalStatus: item.approvalStatus,
-    })),
+    items: groups.map((group) => {
+      const item = pickInvoicePayment(group);
+      const invoice = item.invoiceGroup;
+      const registrations = group.map((payment) => mapRegistrationPayment(payment.registration));
+      return {
+        id: item.id,
+        invoiceGroupId: item.invoiceGroupId ?? item.id,
+        trackingNumber: registrations[0]?.trackingNumber ?? item.trackingNumber,
+        trackingNumbers: registrations.map((registration) => registration.trackingNumber),
+        customerName: registrations[0]?.customerName ?? item.customerName,
+        customerNames: registrations.map((registration) => registration.customerName),
+        processType: registrations[0]?.processType ?? item.processType ?? "-",
+        processTypes: Array.from(new Set(registrations.map((registration) => registration.processType))),
+        totalCharges: registrations.reduce((sum, registration) => sum + registration.totalCharges, 0),
+        advancePaid: registrations.reduce((sum, registration) => sum + registration.advancePaid, 0),
+        balanceAmount: registrations.reduce((sum, registration) => sum + registration.balanceAmount, 0),
+        paymentMode: invoice?.paymentMode ?? item.paymentMode,
+        invoiceNumber: invoice?.invoiceNumber ?? item.invoiceNumber,
+        receiptFileUrl: (invoice?.receiptFileName ?? item.receiptFileName) ? buildReceiptUrl(item.id) : null,
+        receiptFileName: invoice?.receiptFileName ?? item.receiptFileName ?? null,
+        receiptMimeType: invoice?.receiptMimeType ?? item.receiptMimeType ?? null,
+        receiptUploadedAt: (invoice?.receiptUploadedAt ?? item.receiptUploadedAt)?.toISOString() ?? null,
+        receiptUploadedBy: invoice?.receiptUploadedBy ?? item.receiptUploadedBy ?? null,
+        paymentDate: (invoice?.paymentDate ?? item.paymentDate).toISOString().slice(0, 10),
+        submittedBy: invoice?.submittedBy ?? item.submittedBy ?? "-",
+        submittedDate: formatDate(invoice?.submittedAt ?? item.submittedAt),
+        submittedAt: (invoice?.submittedAt ?? item.submittedAt).toISOString(),
+        approvalStatus: invoice?.approvalStatus ?? item.approvalStatus,
+      };
+    }),
     stats: {
-      pendingApprovals: items.filter((item) => item.approvalStatus === "Pending").length,
-      approvedToday: items.filter(
-        (item) => item.approvalStatus === "Approved" && item.approvedAt && item.approvedAt >= todayStart && item.approvedAt < todayEnd,
-      ).length,
-      resetRequests: items.filter((item) => item.resetAt && item.resetAt >= todayStart && item.resetAt < todayEnd).length,
+      pendingApprovals: groups.filter((group) => (pickInvoicePayment(group).invoiceGroup?.approvalStatus ?? pickInvoicePayment(group).approvalStatus) === "Pending").length,
+      approvedToday: groups.filter((group) => {
+        const item = pickInvoicePayment(group);
+        const approvedAt = item.invoiceGroup?.approvedAt ?? item.approvedAt;
+        return (item.invoiceGroup?.approvalStatus ?? item.approvalStatus) === "Approved" && approvedAt && approvedAt >= todayStart && approvedAt < todayEnd;
+      }).length,
+      resetRequests: groups.filter((group) => {
+        const item = pickInvoicePayment(group);
+        const resetAt = item.invoiceGroup?.resetAt ?? item.resetAt;
+        return resetAt && resetAt >= todayStart && resetAt < todayEnd;
+      }).length,
     },
   };
 }
@@ -509,15 +693,40 @@ export async function approvePaymentUpdate(args: {
 }) {
   const payment = await prisma.paymentUpdate.findFirst({
     where: { id: args.id, ownerAdminId: args.ownerAdminId },
+    include: {
+      invoiceGroup: {
+        include: {
+          paymentUpdates: { include: { registration: true }, orderBy: { trackingNumber: "asc" } },
+        },
+      },
+      registration: true,
+    },
   });
 
   if (!payment) throw new Error("Submitted payment update not found.");
-  if (payment.approvalStatus === "Approved") throw new Error("Payment update is already approved.");
+  const invoice = payment.invoiceGroup;
+  const groupPayments = invoice?.paymentUpdates ?? [payment];
+  const approvalStatus = invoice?.approvalStatus ?? payment.approvalStatus;
+  if (approvalStatus === "Approved") throw new Error("Payment update is already approved.");
 
   const approvedAt = new Date();
   return prisma.$transaction(async (tx) => {
-    await tx.paymentUpdate.update({
-      where: { id: payment.id },
+    if (invoice) {
+      await tx.paymentInvoice.update({
+        where: { id: invoice.id },
+        data: {
+          approvalStatus: "Approved",
+          approvedBy: args.performedBy ?? null,
+          approvedAt,
+          resetBy: null,
+          resetAt: null,
+          resetReason: null,
+        },
+      });
+    }
+
+    await tx.paymentUpdate.updateMany({
+      where: { id: { in: groupPayments.map((item) => item.id) } },
       data: {
         approvalStatus: "Approved",
         approvedBy: args.performedBy ?? null,
@@ -528,42 +737,46 @@ export async function approvePaymentUpdate(args: {
       },
     });
 
-    await tx.registration.update({
-      where: { id: payment.registrationId },
-      data: {
-        financeApprovalStatus: "Approved",
-        approvedBy: args.performedBy ?? null,
-        approvedAt,
-        auditTrail: {
-          create: {
-            action: "Finance approved",
-            description: `Finance approved invoice ${payment.invoiceNumber}.`,
-            performedBy: args.performedBy ?? null,
+    for (const child of groupPayments) {
+      await tx.registration.update({
+        where: { id: child.registrationId },
+        data: {
+          financeApprovalStatus: "Approved",
+          approvedBy: args.performedBy ?? null,
+          approvedAt,
+          auditTrail: {
+            create: {
+              action: "Finance approved",
+              description: `Finance approved invoice ${payment.invoiceNumber}.`,
+              performedBy: args.performedBy ?? null,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
     const existingEntry = await tx.accountStatementEntry.findFirst({
       where: {
         ownerAdminId: args.ownerAdminId,
-        paymentUpdateId: payment.id,
+        sourceType: "PaymentInvoice",
+        sourceId: invoice?.id ?? payment.id,
         reversedAt: null,
       },
     });
 
     if (!existingEntry) {
+      const trackingNumbers = groupPayments.map((child) => child.trackingNumber).join("\n");
       await tx.accountStatementEntry.create({
         data: {
-          date: payment.paymentDate,
-          trackingNumber: payment.trackingNumber,
+          date: invoice?.paymentDate ?? payment.paymentDate,
+          trackingNumber: trackingNumbers,
           invoiceNumber: payment.invoiceNumber,
           particulars: "Customer Payment",
           entryType: "Credit",
-          credit: payment.totalCharges,
+          credit: invoice?.amountPaid ?? payment.amountPaid,
           debit: new Prisma.Decimal(0),
-          sourceType: "PaymentUpdate",
-          sourceId: payment.id,
+          sourceType: "PaymentInvoice",
+          sourceId: invoice?.id ?? payment.id,
           paymentUpdateId: payment.id,
           registrationId: payment.registrationId,
           ownerAdminId: args.ownerAdminId,
@@ -589,17 +802,30 @@ export async function resetPaymentApproval(args: {
 
   const payment = await prisma.paymentUpdate.findFirst({
     where: { id: args.id, ownerAdminId: args.ownerAdminId },
+    include: {
+      invoiceGroup: {
+        include: {
+          paymentUpdates: true,
+        },
+      },
+    },
   });
 
   if (!payment) throw new Error("Payment update not found.");
-  if (payment.approvalStatus !== "Approved") throw new Error("Only approved payments can be reset.");
+  const invoice = payment.invoiceGroup;
+  const groupPayments = invoice?.paymentUpdates ?? [payment];
+  const approvalStatus = invoice?.approvalStatus ?? payment.approvalStatus;
+  if (approvalStatus !== "Approved") throw new Error("Only approved payments can be reset.");
 
   const resetAt = new Date();
   return prisma.$transaction(async (tx) => {
     await tx.accountStatementEntry.updateMany({
       where: {
         ownerAdminId: args.ownerAdminId,
-        paymentUpdateId: payment.id,
+        OR: [
+          { sourceType: "PaymentInvoice", sourceId: invoice?.id ?? payment.id },
+          { paymentUpdateId: { in: groupPayments.map((item) => item.id) } },
+        ],
         reversedAt: null,
       },
       data: {
@@ -609,8 +835,22 @@ export async function resetPaymentApproval(args: {
       },
     });
 
-    await tx.paymentUpdate.update({
-      where: { id: payment.id },
+    if (invoice) {
+      await tx.paymentInvoice.update({
+        where: { id: invoice.id },
+        data: {
+          approvalStatus: "Pending",
+          approvedBy: null,
+          approvedAt: null,
+          resetBy: args.performedBy ?? null,
+          resetAt,
+          resetReason,
+        },
+      });
+    }
+
+    await tx.paymentUpdate.updateMany({
+      where: { id: { in: groupPayments.map((item) => item.id) } },
       data: {
         approvalStatus: "Pending",
         approvedBy: null,
@@ -621,21 +861,23 @@ export async function resetPaymentApproval(args: {
       },
     });
 
-    await tx.registration.update({
-      where: { id: payment.registrationId },
-      data: {
-        financeApprovalStatus: "Pending",
-        approvedBy: null,
-        approvedAt: null,
-        auditTrail: {
-          create: {
-            action: "Finance approval reset",
-            description: resetReason,
-            performedBy: args.performedBy ?? null,
+    for (const child of groupPayments) {
+      await tx.registration.update({
+        where: { id: child.registrationId },
+        data: {
+          financeApprovalStatus: "Pending",
+          approvedBy: null,
+          approvedAt: null,
+          auditTrail: {
+            create: {
+              action: "Finance approval reset",
+              description: resetReason,
+              performedBy: args.performedBy ?? null,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
     await recalculateRunningBalances(args.ownerAdminId, tx);
   });

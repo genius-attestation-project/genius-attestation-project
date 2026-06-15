@@ -13,6 +13,9 @@ export type RegistrationPaymentLookup = {
 };
 
 export type PaymentUpdateItem = RegistrationPaymentLookup & {
+  invoiceGroupId: string;
+  trackingNumbers: string[];
+  registrations: RegistrationPaymentLookup[];
   paymentMode: string;
   amountPaid: number;
   invoiceNumber: string;
@@ -67,6 +70,7 @@ export type AccountStatementLine = {
   id: string;
   date: string;
   trackingNumber: string;
+  trackingNumbers: string[];
   invoiceNumber: string;
   voucherNumber: string;
   particulars: string;
@@ -83,11 +87,40 @@ export type AccountStatementResponse = {
   items: AccountStatementLine[];
 };
 
+export type AccountTallyItem = {
+  id: string;
+  invoiceGroupId: string;
+  invoiceNumber: string;
+  trackingNumbers: string[];
+  customerNames: string[];
+  processTypes: string[];
+  totalCharges: number;
+  advancePaid: number;
+  amountPaid: number;
+  pendingAmount: number;
+  paymentMode: string;
+  paymentDate: string;
+  approvalStatus: string;
+};
+
+export type AccountTallyResponse = {
+  items: AccountTallyItem[];
+  stats: {
+    totalCharges: number;
+    totalReceived: number;
+    totalPending: number;
+  };
+};
+
 export type AdminApprovalItem = {
   id: string;
+  invoiceGroupId: string;
   trackingNumber: string;
+  trackingNumbers: string[];
   customerName: string;
+  customerNames: string[];
   processType: string;
+  processTypes: string[];
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;

@@ -7,6 +7,7 @@ import {
   Eye,
   FileSearch,
   ReceiptText,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -27,6 +28,7 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { Textarea } from "@/components/ui/Textarea";
 import type {
   AccountStatementResponse,
+  AccountTallyResponse,
   AccountTransactionResponse,
   AdminApprovalItem,
   AdminApprovalResponse,
@@ -34,7 +36,7 @@ import type {
   RegistrationPaymentLookup,
 } from "@/features/account-update/types/account-update.types";
 
-type TabKey = "payment-update" | "account-transaction" | "account-statement" | "admin-approval";
+type TabKey = "payment-update" | "account-tally" | "account-transaction" | "account-statement" | "admin-approval";
 
 type AccountUpdateDashboardProps = {
   canApprove: boolean;
@@ -50,6 +52,11 @@ const emptyPaymentData: PaymentUpdateResponse = {
 const emptyTransactionData: AccountTransactionResponse = {
   items: [],
   stats: { totalCredits: 0, totalDebits: 0 },
+};
+
+const emptyTallyData: AccountTallyResponse = {
+  items: [],
+  stats: { totalCharges: 0, totalReceived: 0, totalPending: 0 },
 };
 
 const emptyStatementData: AccountStatementResponse = {
@@ -117,7 +124,6 @@ function SelectField({
     </label>
   );
 }
-
 function StatusBadge({ status }: { status: string }) {
   const tone =
     status === "Approved"
@@ -136,10 +142,11 @@ export function AccountUpdateDashboard({
 }: AccountUpdateDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("payment-update");
   const [paymentData, setPaymentData] = useState<PaymentUpdateResponse>(emptyPaymentData);
+  const [tallyData, setTallyData] = useState<AccountTallyResponse>(emptyTallyData);
   const [transactionData, setTransactionData] = useState<AccountTransactionResponse>(emptyTransactionData);
   const [statementData, setStatementData] = useState<AccountStatementResponse>(emptyStatementData);
   const [approvalData, setApprovalData] = useState<AdminApprovalResponse>(emptyApprovalData);
-  const [registration, setRegistration] = useState<RegistrationPaymentLookup | null>(null);
+  const [registrations, setRegistrations] = useState<RegistrationPaymentLookup[]>([]);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [statementSearch, setStatementSearch] = useState("");
   const [message, setMessage] = useState("");
@@ -172,8 +179,9 @@ export function AccountUpdateDashboard({
     setError("");
 
     try {
-      const [payments, transactions, statement, approvals] = await Promise.all([
+      const [payments, tally, transactions, statement, approvals] = await Promise.all([
         parseResponse<PaymentUpdateResponse>(await fetch("/api/account-update/payment-update", { cache: "no-store" })),
+        parseResponse<AccountTallyResponse>(await fetch("/api/account-update/account-tally", { cache: "no-store" })),
         parseResponse<AccountTransactionResponse>(
           await fetch("/api/account-update/account-transaction", { cache: "no-store" }),
         ),
@@ -190,6 +198,7 @@ export function AccountUpdateDashboard({
       ]);
 
       setPaymentData(payments);
+      setTallyData(tally);
       setTransactionData(transactions);
       setStatementData(statement);
       setApprovalData(approvals);
@@ -207,6 +216,7 @@ export function AccountUpdateDashboard({
   const visibleTabs = useMemo(
     () => [
       { key: "payment-update" as const, label: "Payment Update", icon: WalletCards },
+      { key: "account-tally" as const, label: "Account Tally", icon: ClipboardCheck },
       { key: "account-transaction" as const, label: "Account Transaction", icon: ReceiptText },
       { key: "account-statement" as const, label: "Account Statement", icon: FileSearch },
       ...(canApprove ? [{ key: "admin-approval" as const, label: "Admin Approval", icon: ShieldCheck }] : []),
@@ -215,6 +225,13 @@ export function AccountUpdateDashboard({
   );
 
   const cards = useMemo(() => {
+    if (activeTab === "account-tally") {
+      return [
+        { label: "Total Invoice Value", value: formatCurrency(tallyData.stats.totalCharges), delta: "Tally", description: "Grouped invoice charges", icon: ClipboardCheck, tone: "slate" as const },
+        { label: "Amount Received", value: formatCurrency(tallyData.stats.totalReceived), delta: "Credit", description: "Submitted invoice receipts", icon: Banknote, tone: "blue" as const },
+        { label: "Pending Amount", value: formatCurrency(tallyData.stats.totalPending), delta: "Pending", description: "Invoice value still open", icon: ReceiptText, tone: "amber" as const },
+      ];
+    }
     if (activeTab === "account-transaction") {
       return [
         { label: "Total Credits", value: formatCurrency(transactionData.stats.totalCredits), delta: "Income", description: "All saved credit transactions", icon: Banknote, tone: "blue" as const },
@@ -239,7 +256,7 @@ export function AccountUpdateDashboard({
       { label: "Pending Payments", value: paymentData.stats.pendingPayments.toLocaleString(), delta: "Queue", description: "Payment updates waiting for approval", icon: ClipboardCheck, tone: "amber" as const },
       { label: "Total Collections Today", value: formatCurrency(paymentData.stats.totalCollectionsToday), delta: "Today", description: "Submitted payment update amount", icon: Banknote, tone: "blue" as const },
     ];
-  }, [activeTab, approvalData.stats, paymentData.stats, statementData.summary, transactionData.stats]);
+  }, [activeTab, approvalData.stats, paymentData.stats, statementData.summary, tallyData.stats, transactionData.stats]);
 
   async function lookupTrackingNumber() {
     if (!trackingNumber.trim()) {
@@ -255,13 +272,19 @@ export function AccountUpdateDashboard({
       const payload = await parseResponse<{ registration: RegistrationPaymentLookup }>(
         await fetch(`/api/account-update/payment-lookup/${encodeURIComponent(trackingNumber.trim())}`),
       );
-      setRegistration(payload.registration);
-      setPaymentForm((current) => ({
-        ...current,
-        amountPaid: String(payload.registration.advancePaid || payload.registration.balanceAmount),
-      }));
+      setRegistrations((current) => {
+        if (current.some((item) => item.trackingNumber === payload.registration.trackingNumber)) {
+          return current;
+        }
+        const next = [...current, payload.registration];
+        setPaymentForm((form) => ({
+          ...form,
+          amountPaid: String(next.reduce((sum, item) => sum + (item.balanceAmount || item.advancePaid), 0)),
+        }));
+        return next;
+      });
+      setTrackingNumber("");
     } catch (requestError) {
-      setRegistration(null);
       setError(requestError instanceof Error ? requestError.message : "Tracking lookup failed.");
     } finally {
       setBusy(false);
@@ -269,8 +292,8 @@ export function AccountUpdateDashboard({
   }
 
   async function submitPayment() {
-    if (!registration) {
-      setError("Search and select a tracking number first.");
+    if (registrations.length === 0) {
+      setError("Add at least one tracking number first.");
       return;
     }
 
@@ -280,7 +303,8 @@ export function AccountUpdateDashboard({
     }
 
     const formData = new FormData();
-    formData.set("trackingNumber", registration.trackingNumber);
+    formData.set("trackingNumber", registrations[0].trackingNumber);
+    registrations.forEach((item) => formData.append("trackingNumbers", item.trackingNumber));
     formData.set("paymentMode", paymentForm.paymentMode);
     formData.set("amountPaid", paymentForm.amountPaid);
     formData.set("invoiceNumber", paymentForm.invoiceNumber);
@@ -296,7 +320,7 @@ export function AccountUpdateDashboard({
         await fetch("/api/account-update/payment-update", { method: "POST", body: formData }),
       );
       setMessage(payload.message ?? "Payment submitted.");
-      setRegistration(null);
+      setRegistrations([]);
       setTrackingNumber("");
       setPaymentForm({ paymentMode: "Cash", amountPaid: "", invoiceNumber: "", paymentDate: todayKey(), receiptFile: null });
       await loadData();
@@ -397,7 +421,7 @@ export function AccountUpdateDashboard({
       </section>
 
       <section className="rounded-[28px] border border-(--border) bg-white p-3 shadow-(--shadow-card)">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = tab.key === activeTab;
@@ -432,28 +456,39 @@ export function AccountUpdateDashboard({
       {!loading && activeTab === "payment-update" ? (
         <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <div className="grid gap-4 rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+            <Input label="Invoice Number" value={paymentForm.invoiceNumber} onChange={(event) => setPaymentForm((current) => ({ ...current, invoiceNumber: event.target.value }))} />
             <div className="flex gap-2">
-              <Input label="Tracking Number" value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} />
-              <Button size="icon" className="mt-7 shrink-0" onClick={() => void lookupTrackingNumber()} disabled={busy}><Search size={18} /></Button>
+              <Input label="Add Tracking Number" value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} />
+              <Button size="icon" className="mt-7 shrink-0" onClick={() => void lookupTrackingNumber()} disabled={busy} title="Add tracking number"><Plus size={18} /></Button>
             </div>
-            {registration ? (
+            {registrations.length ? (
               <div className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm">
-                <strong>{registration.customerName}</strong>
-                <span>{registration.processType}</span>
-                <span>Total: {formatCurrency(registration.totalCharges)}</span>
-                <span>Advance: {formatCurrency(registration.advancePaid)}</span>
-                <span>Balance: {formatCurrency(registration.balanceAmount)}</span>
+                {registrations.map((item) => (
+                  <div key={item.trackingNumber} className="grid gap-1 rounded-xl bg-white/80 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <strong>{item.trackingNumber} - {item.customerName}</strong>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRegistrations((current) => current.filter((row) => row.trackingNumber !== item.trackingNumber))}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <span>{item.processType}</span>
+                    <span>Total: {formatCurrency(item.totalCharges)} | Advance: {formatCurrency(item.advancePaid)} | Balance: {formatCurrency(item.balanceAmount)}</span>
+                  </div>
+                ))}
               </div>
             ) : null}
             <SelectField label="Mode Of Payment" value={paymentForm.paymentMode} onChange={(value) => setPaymentForm((current) => ({ ...current, paymentMode: value }))}>
               {paymentModes.map((mode) => <option key={mode}>{mode}</option>)}
             </SelectField>
             <Input label="Amount Paid" type="number" value={paymentForm.amountPaid} onChange={(event) => setPaymentForm((current) => ({ ...current, amountPaid: event.target.value }))} />
-            <Input label="Invoice Number" value={paymentForm.invoiceNumber} onChange={(event) => setPaymentForm((current) => ({ ...current, invoiceNumber: event.target.value }))} />
             <Input label="Payment Date" type="date" value={paymentForm.paymentDate} onChange={(event) => setPaymentForm((current) => ({ ...current, paymentDate: event.target.value }))} />
             <Input label="Transaction Receipt" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => setPaymentForm((current) => ({ ...current, receiptFile: event.target.files?.[0] ?? null }))} />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => { setRegistration(null); setTrackingNumber(""); }} disabled={busy}>Reset</Button>
+              <Button variant="ghost" onClick={() => { setRegistrations([]); setTrackingNumber(""); }} disabled={busy}>Reset</Button>
               <Button onClick={() => void submitPayment()} disabled={busy || !canSubmitPayment}><Save size={16} />Submit Payment</Button>
             </div>
           </div>
@@ -487,6 +522,10 @@ export function AccountUpdateDashboard({
         </section>
       ) : null}
 
+      {!loading && activeTab === "account-tally" ? (
+        <TallyTable data={tallyData} />
+      ) : null}
+
       {!loading && activeTab === "account-statement" ? (
         <section className="grid gap-5">
           <div className="rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
@@ -515,7 +554,9 @@ export function AccountUpdateDashboard({
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
           <div className="grid w-full max-w-lg gap-4 rounded-[28px] border border-(--border) bg-white p-5 shadow-xl">
             <h2 className="text-lg font-extrabold">Reset approval</h2>
-            <p className="text-sm text-soft">{resetTarget.trackingNumber} will return to Pending and its ledger credit will be reversed.</p>
+            <p className="text-sm text-soft">
+              Invoice {resetTarget.invoiceNumber} will return to Pending and its ledger credit will be reversed.
+            </p>
             <Textarea label="Reset Reason" value={resetReason} onChange={(event) => setResetReason(event.target.value)} />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setResetTarget(null)} disabled={busy}>Cancel</Button>
@@ -532,7 +573,7 @@ export function AccountUpdateDashboard({
               <div className="min-w-0">
                 <h2 className="break-words text-base font-extrabold">{receiptPreview.receiptFileName ?? "Transaction Receipt"}</h2>
                 <p className="text-sm text-soft">
-                  {receiptPreview.trackingNumber} | {receiptPreview.invoiceNumber} | {receiptPreview.paymentDate}
+                  {receiptPreview.trackingNumbers.join(", ")} | {receiptPreview.invoiceNumber} | {receiptPreview.paymentDate}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -568,10 +609,56 @@ function PaymentTable({ data }: { data: PaymentUpdateResponse }) {
   return (
     <TableShell minWidth="980px">
       <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-        <tr><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Submitted</th><th className="px-5 py-4">Status</th></tr>
+        <tr><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Customers</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Submitted</th><th className="px-5 py-4">Status</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
-        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{formatCurrency(item.amountPaid)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.submittedAt}</td><td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td></tr>)}
+        {data.items.map((item) => (
+          <tr key={item.invoiceGroupId}>
+            <td className="px-5 py-4 font-bold text-blue-700">{item.invoiceNumber}</td>
+            <td className="px-5 py-4"><StackedValues values={item.trackingNumbers} /></td>
+            <td className="px-5 py-4"><StackedValues values={item.registrations.map((row) => row.customerName)} /></td>
+            <td className="px-5 py-4">{formatCurrency(item.amountPaid)}</td>
+            <td className="px-5 py-4">{item.paymentMode}</td>
+            <td className="px-5 py-4">{item.submittedAt}</td>
+            <td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function TallyTable({ data }: { data: AccountTallyResponse }) {
+  if (!data.items.length) return <EmptyState icon={ClipboardCheck} title="No account tally" description="Grouped invoice totals will appear here." />;
+  return (
+    <TableShell minWidth="1180px">
+      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+        <tr>
+          <th className="px-5 py-4">Invoice Number</th>
+          <th className="px-5 py-4">Tracking Numbers</th>
+          <th className="px-5 py-4">Customers</th>
+          <th className="px-5 py-4">Process Types</th>
+          <th className="px-5 py-4">Total Charges</th>
+          <th className="px-5 py-4">Advance Paid</th>
+          <th className="px-5 py-4">Amount Received</th>
+          <th className="px-5 py-4">Pending</th>
+          <th className="px-5 py-4">Status</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-(--border)">
+        {data.items.map((item) => (
+          <tr key={item.invoiceGroupId}>
+            <td className="px-5 py-4 font-bold text-blue-700">{item.invoiceNumber}</td>
+            <td className="px-5 py-4"><StackedValues values={item.trackingNumbers} /></td>
+            <td className="px-5 py-4"><StackedValues values={item.customerNames} /></td>
+            <td className="px-5 py-4"><StackedValues values={item.processTypes} /></td>
+            <td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td>
+            <td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td>
+            <td className="px-5 py-4">{formatCurrency(item.amountPaid)}</td>
+            <td className="px-5 py-4 font-bold">{formatCurrency(item.pendingAmount)}</td>
+            <td className="px-5 py-4"><StatusBadge status={item.approvalStatus} /></td>
+          </tr>
+        ))}
       </tbody>
     </TableShell>
   );
@@ -617,10 +704,22 @@ function StatementTable({ data }: { data: AccountStatementResponse }) {
   return (
     <TableShell minWidth="1120px">
       <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-        <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Tracking</th><th className="px-5 py-4">Particulars</th><th className="px-5 py-4">Type</th><th className="px-5 py-4">Credit</th><th className="px-5 py-4">Debit</th><th className="px-5 py-4">Running Balance</th></tr>
+        <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Particulars</th><th className="px-5 py-4">Credit</th><th className="px-5 py-4">Debit</th><th className="px-5 py-4">Running Balance</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
-        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4">{item.date}</td><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.particulars}</td><td className="px-5 py-4">{item.type}</td><td className="px-5 py-4">{formatCurrency(item.credit)}</td><td className="px-5 py-4">{formatCurrency(item.debit)}</td><td className="px-5 py-4 font-bold">{formatCurrency(item.runningBalance)}</td></tr>)}
+        {data.items.map((item) => (
+          <tr key={item.id}>
+            <td className="px-5 py-4">{item.date}</td>
+            <td className="px-5 py-4 font-bold text-blue-700">{item.invoiceNumber}</td>
+            <td className="px-5 py-4">
+              <StackedValues values={item.trackingNumbers.length ? item.trackingNumbers : [item.trackingNumber]} />
+            </td>
+            <td className="px-5 py-4">{item.particulars}</td>
+            <td className="px-5 py-4">{formatCurrency(item.credit)}</td>
+            <td className="px-5 py-4">{formatCurrency(item.debit)}</td>
+            <td className="px-5 py-4 font-bold">{formatCurrency(item.runningBalance)}</td>
+          </tr>
+        ))}
       </tbody>
     </TableShell>
   );
@@ -645,12 +744,22 @@ function ApprovalTable({
   return (
     <TableShell minWidth="1500px">
       <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-        <tr><th className="px-5 py-4">Tracking Number</th><th className="px-5 py-4">Customer Name</th><th className="px-5 py-4">Process Type</th><th className="px-5 py-4">Total Charges</th><th className="px-5 py-4">Advance Paid</th><th className="px-5 py-4">Balance Amount</th><th className="px-5 py-4">Payment Mode</th><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Payment Date</th><th className="px-5 py-4">Transaction Receipt</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Submitted Date</th><th className="px-5 py-4">Actions</th></tr>
+        <tr><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Customer Names</th><th className="px-5 py-4">Process Types</th><th className="px-5 py-4">Total Charges</th><th className="px-5 py-4">Advance Paid</th><th className="px-5 py-4">Balance Amount</th><th className="px-5 py-4">Payment Mode</th><th className="px-5 py-4">Payment Date</th><th className="px-5 py-4">Transaction Receipt</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Submitted Date</th><th className="px-5 py-4">Actions</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
-        {data.items.map((item) => <tr key={item.id}><td className="px-5 py-4 font-bold text-blue-700">{item.trackingNumber}</td><td className="px-5 py-4">{item.customerName}</td><td className="px-5 py-4">{item.processType}</td><td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td><td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td><td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.invoiceNumber}</td><td className="px-5 py-4">{item.paymentDate}</td><td className="px-5 py-4">{item.receiptFileUrl ? <Button size="sm" variant="secondary" onClick={() => onViewReceipt(item)}><Eye size={14} />View Receipt</Button> : <span className="text-sm text-soft">No receipt</span>}</td><td className="px-5 py-4">{item.submittedBy}</td><td className="px-5 py-4">{item.submittedDate}</td><td className="px-5 py-4"><div className="flex gap-2"><Button size="sm" onClick={() => onApprove(item)} disabled={busy || !canApproveAction || item.approvalStatus === "Approved"}>Approve</Button><Button size="sm" variant="danger" onClick={() => onReset(item)} disabled={busy || !canApproveAction || item.approvalStatus !== "Approved"}><RefreshCw size={14} />Reset</Button></div><div className="mt-2"><StatusBadge status={item.approvalStatus} /></div></td></tr>)}
+        {data.items.map((item) => <tr key={item.invoiceGroupId}><td className="px-5 py-4 font-bold text-blue-700">{item.invoiceNumber}</td><td className="px-5 py-4 whitespace-pre-line">{item.trackingNumbers.join("\n")}</td><td className="px-5 py-4 whitespace-pre-line">{item.customerNames.join("\n")}</td><td className="px-5 py-4 whitespace-pre-line">{item.processTypes.join("\n")}</td><td className="px-5 py-4">{formatCurrency(item.totalCharges)}</td><td className="px-5 py-4">{formatCurrency(item.advancePaid)}</td><td className="px-5 py-4">{formatCurrency(item.balanceAmount)}</td><td className="px-5 py-4">{item.paymentMode}</td><td className="px-5 py-4">{item.paymentDate}</td><td className="px-5 py-4">{item.receiptFileUrl ? <Button size="sm" variant="secondary" onClick={() => onViewReceipt(item)}><Eye size={14} />View Receipt</Button> : <span className="text-sm text-soft">No receipt</span>}</td><td className="px-5 py-4">{item.submittedBy}</td><td className="px-5 py-4">{item.submittedDate}</td><td className="px-5 py-4"><div className="flex gap-2"><Button size="sm" onClick={() => onApprove(item)} disabled={busy || !canApproveAction || item.approvalStatus === "Approved"}>Approve</Button><Button size="sm" variant="danger" onClick={() => onReset(item)} disabled={busy || !canApproveAction || item.approvalStatus !== "Approved"}><RefreshCw size={14} />Reset</Button></div><div className="mt-2"><StatusBadge status={item.approvalStatus} /></div></td></tr>)}
       </tbody>
     </TableShell>
+  );
+}
+
+function StackedValues({ values }: { values: string[] }) {
+  return (
+    <div className="grid gap-1">
+      {values.map((value) => (
+        <span key={value} className="break-words">{value}</span>
+      ))}
+    </div>
   );
 }
 

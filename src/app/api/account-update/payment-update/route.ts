@@ -65,9 +65,14 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
+    const trackingNumbers = formData
+      .getAll("trackingNumbers")
+      .map((value) => String(value).trim())
+      .filter(Boolean);
     await createPaymentUpdate({
       ownerAdminId,
       trackingNumber: String(formData.get("trackingNumber") ?? ""),
+      trackingNumbers,
       paymentMode: String(formData.get("paymentMode") ?? "") as "Cash" | "Online" | "Cheque",
       amountPaid: formData.get("amountPaid"),
       invoiceNumber: String(formData.get("invoiceNumber") ?? ""),

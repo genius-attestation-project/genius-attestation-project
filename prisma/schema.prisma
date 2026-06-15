@@ -356,6 +356,8 @@ model Registration {
 
 model PaymentUpdate {
   id               String   @id @default(cuid())
+  invoiceGroupId   String?  @map("invoice_group_id")
+  invoiceGroup     PaymentInvoice? @relation(fields: [invoiceGroupId], references: [id], onDelete: SetNull)
   registrationId   String   @map("registration_id")
   registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   trackingNumber   String   @map("tracking_number")
@@ -387,11 +389,44 @@ model PaymentUpdate {
   statementEntries AccountStatementEntry[]
 
   @@index([ownerAdminId])
+  @@index([invoiceGroupId])
   @@index([trackingNumber])
   @@index([invoiceNumber])
   @@index([approvalStatus])
   @@index([submittedAt])
   @@map("payment_update")
+}
+
+model PaymentInvoice {
+  id               String   @id @default(cuid())
+  invoiceNumber    String   @map("invoice_number")
+  paymentMode      String   @map("payment_mode")
+  amountPaid       Decimal  @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  paymentDate      DateTime @map("payment_date")
+  receiptFileUrl   String?  @map("receipt_file_url")
+  receiptFileName  String?  @map("receipt_file_name")
+  receiptMimeType  String?  @map("receipt_mime_type")
+  receiptFileSize  Int?     @map("receipt_file_size")
+  receiptFileData  Bytes?   @map("receipt_file_data")
+  receiptUploadedAt DateTime? @map("receipt_uploaded_at")
+  receiptUploadedBy String? @map("receipt_uploaded_by")
+  submittedBy      String?  @map("submitted_by")
+  submittedAt      DateTime @default(now()) @map("submitted_at")
+  approvalStatus   String   @default("Pending") @map("approval_status")
+  approvedBy       String?  @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  resetBy          String?  @map("reset_by")
+  resetAt          DateTime? @map("reset_at")
+  resetReason      String?  @map("reset_reason")
+  ownerAdminId     String   @map("owner_admin_id")
+  paymentUpdates   PaymentUpdate[]
+
+  @@unique([ownerAdminId, invoiceNumber])
+  @@index([ownerAdminId])
+  @@index([invoiceNumber])
+  @@index([approvalStatus])
+  @@index([submittedAt])
+  @@map("payment_invoices")
 }
 
 model AccountTransaction {
