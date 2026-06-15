@@ -511,13 +511,18 @@ export function UsersManagement() {
             >
               <option value="">Select supervisor</option>
               {users
-                .filter((user) => user.status === "Active" && user.id !== editingUser?.id)
+                .filter((user) => user.status === "Active")
                 .map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.name} - {user.email}
                   </option>
                 ))}
             </select>
+            {editingUser && formState.supervisorUserId === editingUser.id && (
+              <p className="mt-1 text-xs font-semibold text-amber-600">
+                Selecting yourself as supervisor disables followup lock workflow.
+              </p>
+            )}
           </label>
           <label className="inline-flex items-center gap-3 text-sm font-bold">
             <input

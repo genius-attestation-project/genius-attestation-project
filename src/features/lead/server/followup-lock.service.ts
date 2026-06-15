@@ -44,6 +44,10 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       where: {
         id: userId,
         isLocked: false,
+        supervisorUserId: { not: null },
+        NOT: {
+          supervisorUserId: userId,
+        },
       },
       data: {
         isLocked: true,
