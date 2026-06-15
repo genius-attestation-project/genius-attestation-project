@@ -61,6 +61,14 @@ model User {
   officeLocationRef  OfficeLocation?  @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
   officeLocationName String?          @map("officeLocation")
   isActive           Boolean          @default(true) @map("is_active")
+  isLocked           Boolean          @default(false) @map("is_locked")
+  lockReason         String?          @map("lock_reason")
+  lockedAt           DateTime?        @map("locked_at")
+  lockedFollowupLeadId String?        @map("locked_followup_lead_id")
+  lockedFollowupAt   DateTime?        @map("locked_followup_at")
+  unlockedBy         String?          @map("unlocked_by")
+  unlockReason       String?          @map("unlock_reason")
+  unlockedAt         DateTime?        @map("unlocked_at")
   lastLoginAt        DateTime?
 
   accounts           Account[]
@@ -75,6 +83,7 @@ model User {
   @@index([officeLocationId])
   @@index([supervisorUserId])
   @@index([ownerAdminId])
+  @@index([isLocked])
   @@map("users")
 }
 

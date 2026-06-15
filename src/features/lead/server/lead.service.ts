@@ -6,6 +6,10 @@ import {
   getOwnerApprovalRequestCount,
   requiresLeadApproval,
 } from "@/features/lead/server/lead-approval.service";
+import {
+  FOLLOWUP_LOCK_MESSAGE,
+  getUserLockState,
+} from "@/features/lead/server/followup-lock.service";
 import type {
   DashboardStatsResponse,
   LeadFilterOptionsResponse,
@@ -530,12 +534,29 @@ function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhe
   };
 }
 
+function visibleScheduledFollowupWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhereInput {
+  return {
+    ...leadCreatorWhere(ownerAdminId, userId),
+    nextFollowupAt: { not: null },
+    followupCompleted: false,
+    NOT: [
+      { followupStatus: FollowupStatus.Completed },
+      { leadStatus: { in: [LeadStatus.Closed, LeadStatus.LOB] } },
+    ],
+  };
+}
+
+function visibleLegacyScheduledFollowupWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhereInput {
+  return {
+    ...leadCreatorWhere(ownerAdminId, userId),
+    nextFollowupAt: { not: null },
+    leadStatus: { notIn: [LeadStatus.Closed, LeadStatus.LOB] },
+  };
+}
+
 async function listScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
   return prisma.lead.findMany({
-    where: {
-      ...leadCreatorWhere(ownerAdminId, userId),
-      nextFollowupAt: { not: null },
-    },
+    where: visibleScheduledFollowupWhere(ownerAdminId, userId),
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: leadSelect,
   });
@@ -543,10 +564,7 @@ async function listScheduledFollowupRecords(ownerAdminId: string, userId?: strin
 
 async function listLegacyScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
   return prisma.lead.findMany({
-    where: {
-      ...leadCreatorWhere(ownerAdminId, userId),
-      nextFollowupAt: { not: null },
-    },
+    where: visibleLegacyScheduledFollowupWhere(ownerAdminId, userId),
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: legacyLeadSelect,
   });
@@ -702,11 +720,19 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
   ]);
 
   const officeLocations = new Map<string, { label: string; value: string }>();
-  const assignedUsers = new Map<string, { label: string; value: string; description?: string }>();
+  const assignedUsers = new Map<
+    string,
+    { label: string; value: string; description?: string; officeLocationId?: string }
+  >();
 
   for (const user of users) {
     const userName = user.name?.trim() || user.email;
-    assignedUsers.set(user.id, { label: userName, value: user.id, description: user.email });
+    assignedUsers.set(user.id, {
+      label: userName,
+      value: user.id,
+      description: user.email,
+      officeLocationId: user.officeLocationId ?? undefined,
+    });
 
     if (user.officeLocationId) {
       const label =
@@ -924,6 +950,13 @@ export async function getLeadById(ownerAdminId: string, id: string) {
 }
 
 export async function createLead(ownerAdminId: string, input: LeadInput, createdById?: string) {
+  if (createdById) {
+    const lockState = await getUserLockState(createdById);
+    if (lockState?.isLocked) {
+      throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+    }
+  }
+
   const assignedUser =
     input.assignedUserId
       ? await prisma.user.findFirst({
@@ -981,6 +1014,13 @@ export async function updateLead(
   changedBy?: string,
   changedByUserId?: string,
 ) {
+  if (changedByUserId) {
+    const lockState = await getUserLockState(changedByUserId);
+    if (lockState?.isLocked) {
+      throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+    }
+  }
+
   const existingLead = await prisma.lead.findFirst({
     where: {
       ownerAdminId,
@@ -1305,6 +1345,13 @@ export async function snoozeFollowupWithHistory(args: {
   changedByUserId?: string;
   changedBy?: string;
 }) {
+  if (args.changedByUserId) {
+    const lockState = await getUserLockState(args.changedByUserId);
+    if (lockState?.isLocked) {
+      throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+    }
+  }
+
   const lead = await prisma.lead.findFirst({
     where: {
       ...leadCreatorWhere(args.ownerAdminId, args.userId),
@@ -1358,6 +1405,13 @@ export async function completeFollowupWithDescription(args: {
   changedByUserId?: string;
   changedBy?: string;
 }) {
+  if (args.changedByUserId) {
+    const lockState = await getUserLockState(args.changedByUserId);
+    if (lockState?.isLocked) {
+      throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+    }
+  }
+
   const lead = await prisma.lead.findFirst({
     where: {
       ...leadCreatorWhere(args.ownerAdminId, args.userId),
@@ -1555,7 +1609,7 @@ export async function getFollowupsByDate(
   try {
     const records = await prisma.lead.findMany({
       where: {
-        ...leadCreatorWhere(ownerAdminId, userId),
+        ...visibleScheduledFollowupWhere(ownerAdminId, userId),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -1585,7 +1639,7 @@ export async function getFollowupsByDate(
 
     const records = await prisma.lead.findMany({
       where: {
-        ...leadCreatorWhere(ownerAdminId, userId),
+        ...visibleLegacyScheduledFollowupWhere(ownerAdminId, userId),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -1665,6 +1719,10 @@ export async function listDueFollowupReminders(args: {
       nextFollowupAt: { lte: now },
       followupCompleted: false,
       followupNotified: false,
+      NOT: [
+        { followupStatus: FollowupStatus.Completed },
+        { leadStatus: { in: [LeadStatus.Closed, LeadStatus.LOB] } },
+      ],
     },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     take: 10,
@@ -1701,6 +1759,10 @@ export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
       nextFollowupAt: { lte: now },
       followupCompleted: false,
       followupNotified: false,
+      NOT: [
+        { followupStatus: FollowupStatus.Completed },
+        { leadStatus: { in: [LeadStatus.Closed, LeadStatus.LOB] } },
+      ],
     },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     take: 25,
@@ -1733,6 +1795,11 @@ export async function completeFollowup(args: {
   completionNote?: string;
   changedBy?: string;
 }) {
+  const lockState = await getUserLockState(args.userId);
+  if (lockState?.isLocked) {
+    throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+  }
+
   const lead = await prisma.lead.findFirst({
     where: {
       id: args.leadId,
@@ -1764,6 +1831,11 @@ export async function snoozeFollowup(args: {
   snoozeNote?: string;
   changedBy?: string;
 }) {
+  const lockState = await getUserLockState(args.userId);
+  if (lockState?.isLocked) {
+    throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+  }
+
   const lead = await prisma.lead.findFirst({
     where: {
       id: args.leadId,
@@ -1788,10 +1860,48 @@ export async function snoozeFollowup(args: {
   });
 }
 
-export async function getLobSummary(ownerAdminId: string): Promise<LobResponse> {
+export async function requestMoveFollowupToLob(args: {
+  ownerAdminId: string;
+  userId: string;
+  leadId: string;
+}) {
+  const lockState = await getUserLockState(args.userId);
+  if (lockState?.isLocked) {
+    throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+  }
+
+  const lead = await prisma.lead.findFirst({
+    where: {
+      id: args.leadId,
+      ...leadCreatorWhere(args.ownerAdminId, args.userId),
+      leadStatus: { notIn: [LeadStatus.Closed, LeadStatus.LOB] },
+    },
+    select: {
+      id: true,
+      leadStatus: true,
+    },
+  });
+
+  if (!lead) {
+    return null;
+  }
+
+  return createLeadApprovalRequest({
+    ownerAdminId: args.ownerAdminId,
+    leadId: lead.id,
+    currentStatus: lead.leadStatus,
+    requestedStatus: LeadStatus.LOB,
+    requestedBy: args.userId,
+  });
+}
+
+export async function getLobSummary(ownerAdminId: string, officeLocationId?: string): Promise<LobResponse> {
   const grouped = await prisma.lead.groupBy({
     by: ["service", "leadStatus"],
-    where: { ownerAdminId },
+    where: {
+      ownerAdminId,
+      ...(officeLocationId ? { creator: { officeLocationId } } : {}),
+    },
     _count: { _all: true },
     _sum: { amount: true },
   });

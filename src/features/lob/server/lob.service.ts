@@ -9,6 +9,7 @@ export type LobFilters = {
   assignedUser?: string;
   previousStatus?: string;
   country?: string;
+  officeLocationId?: string;
   query?: string;
 };
 
@@ -70,6 +71,7 @@ export type LobFilterOptions = {
   assignedUsers: string[];
   countries: string[];
   previousStatuses: string[];
+  officeLocations: { label: string; value: string }[];
 };
 
 type LobLeadSnapshot = Prisma.LeadGetPayload<{
@@ -199,6 +201,10 @@ function buildBaseLeadWhere(ownerAdminId: string, filters: LobFilters): Prisma.L
 
   if (filters.country) {
     where.country = { contains: filters.country, mode: "insensitive" };
+  }
+
+  if (filters.officeLocationId) {
+    where.creator = { officeLocationId: filters.officeLocationId };
   }
 
   if (filters.query?.trim()) {
@@ -461,7 +467,7 @@ export async function getLobAnalyticsCards(
 ): Promise<LobAnalyticsCards & { filterOptions: LobFilterOptions }> {
   const now = new Date();
   const allCurrentLobSnapshots = await listCurrentLobSnapshots(ownerAdminId, {});
-  const filteredSnapshots = filters.service || filters.assignedUser || filters.previousStatus || filters.country || filters.query || filters.dateFrom || filters.dateTo
+  const filteredSnapshots = filters.service || filters.assignedUser || filters.previousStatus || filters.country || filters.officeLocationId || filters.query || filters.dateFrom || filters.dateTo
     ? await listCurrentLobSnapshots(ownerAdminId, filters)
     : allCurrentLobSnapshots;
 
@@ -477,6 +483,7 @@ export async function getLobAnalyticsCards(
       ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
       : {}),
     ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+    ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
     ...(filters.query?.trim()
       ? {
           OR: [
@@ -533,8 +540,42 @@ export async function getLobAnalyticsCards(
             : undefined,
         ),
       ),
+      officeLocations: await getOfficeLocationOptions(ownerAdminId),
     },
   };
+}
+
+async function getOfficeLocationOptions(ownerAdminId: string) {
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [{ ownerAdminId }, { id: ownerAdminId }],
+      officeLocationId: { not: null },
+    },
+    select: {
+      officeLocationId: true,
+      officeLocationName: true,
+      officeLocationRef: {
+        select: {
+          officeName: true,
+          location: true,
+        },
+      },
+    },
+  });
+
+  const options = new Map<string, { label: string; value: string }>();
+  for (const user of users) {
+    if (!user.officeLocationId) continue;
+    const label =
+      user.officeLocationName?.trim() ||
+      [user.officeLocationRef?.officeName, user.officeLocationRef?.location]
+        .filter(Boolean)
+        .join(" - ") ||
+      user.officeLocationId;
+    options.set(user.officeLocationId, { label, value: user.officeLocationId });
+  }
+
+  return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export async function getLobLeadsTable(
@@ -643,6 +684,7 @@ export async function getLobStatusHistory(
             ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
             : {}),
           ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+          ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
           ...(query
             ? {
                 OR: [

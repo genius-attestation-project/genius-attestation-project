@@ -16,12 +16,14 @@ function parseFilters(url: string): ClosedFilters {
   const assignedUser = searchParams.get("assignedUser");
   const previousStatus = searchParams.get("previousStatus");
   const country = searchParams.get("country");
+  const officeLocationId = searchParams.get("officeLocationId");
   const query = searchParams.get("query");
 
   if (service) filters.service = service;
   if (assignedUser) filters.assignedUser = assignedUser;
   if (previousStatus) filters.previousStatus = previousStatus;
   if (country) filters.country = country;
+  if (officeLocationId) filters.officeLocationId = officeLocationId;
   if (query) filters.query = query;
 
   return filters;

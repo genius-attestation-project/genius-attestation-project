@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, CircleX, ClipboardList, Eye, ShieldCheck } from "lucide-react";
+import { BadgeCheck, CircleX, ClipboardList, Eye, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,16 @@ import type {
 
 type ApprovalAction = "approve" | "reject";
 type TabKey = "pending" | "approved" | "rejected";
+
+type FollowupLockItem = {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  officeLocation: string;
+  leadName: string;
+  missedFollowupDate: string | null;
+  lockedDate: string | null;
+};
 
 async function parseResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as T & { message?: string };
@@ -64,6 +74,9 @@ export function PendingApprovalDashboard() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionModal, setActionModal] = useState<{ type: ApprovalAction; item: LeadApprovalItem } | null>(null);
   const [reason, setReason] = useState("");
+  const [locks, setLocks] = useState<FollowupLockItem[]>([]);
+  const [unlockModal, setUnlockModal] = useState<FollowupLockItem | null>(null);
+  const [unlockReason, setUnlockReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function loadApprovalData() {
@@ -75,16 +88,21 @@ export function PendingApprovalDashboard() {
         parseResponse<{ items: LeadApprovalItem[] }>(await fetch("/api/lead-approvals/pending", { cache: "no-store" })),
         parseResponse<LeadApprovalHistoryResponse>(await fetch("/api/lead-approvals/history", { cache: "no-store" })),
       ]);
+      const lockResponse = await parseResponse<{ items: FollowupLockItem[] }>(
+        await fetch("/api/followup-locks", { cache: "no-store" }),
+      );
 
       setPending(pendingResponse.items ?? []);
       setApproved(historyResponse.approved ?? []);
       setRejected(historyResponse.rejected ?? []);
       setStats(historyResponse.stats);
+      setLocks(lockResponse.items ?? []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load approvals.");
       setPending([]);
       setApproved([]);
       setRejected([]);
+      setLocks([]);
     } finally {
       setLoading(false);
     }
@@ -166,6 +184,36 @@ export function PendingApprovalDashboard() {
       setActiveTab(actionModal.type === "approve" ? "approved" : "rejected");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to process request.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitUnlock() {
+    if (!unlockModal || !unlockReason.trim()) {
+      setError("Unlock reason is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const payload = await parseResponse<{ message: string }>(
+        await fetch(`/api/followup-locks/${unlockModal.userId}/unlock`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: unlockReason.trim() }),
+        }),
+      );
+
+      setSuccess(payload.message);
+      setUnlockModal(null);
+      setUnlockReason("");
+      await loadApprovalData();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to unlock user.");
     } finally {
       setSubmitting(false);
     }
@@ -291,6 +339,67 @@ export function PendingApprovalDashboard() {
         </div>
       )}
 
+      <section className="rounded-[28px] border border-(--border) bg-white p-5 shadow-(--shadow-card)">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
+              Missed Followup Locks
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">Locked user accounts</h2>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+            <LockKeyhole size={14} />
+            {locks.length} locked
+          </span>
+        </div>
+
+        {loading ? (
+          <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">Loading locks...</p>
+        ) : locks.length === 0 ? (
+          <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
+            No missed followup locks are waiting for your action.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-[860px] text-left text-sm">
+              <thead className="bg-rose-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+                <tr>
+                  <th className="px-5 py-4">User Name</th>
+                  <th className="px-5 py-4">Office Location</th>
+                  <th className="px-5 py-4">Lead Name</th>
+                  <th className="px-5 py-4">Missed Followup Date</th>
+                  <th className="px-5 py-4">Locked Date</th>
+                  <th className="px-5 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-(--border)">
+                {locks.map((item) => (
+                  <tr key={item.userId}>
+                    <td className="px-5 py-4">
+                      <p className="font-bold text-slate-900">{item.userName}</p>
+                      <p className="text-xs text-soft">{item.userEmail}</p>
+                    </td>
+                    <td className="px-5 py-4">{item.officeLocation}</td>
+                    <td className="px-5 py-4">{item.leadName}</td>
+                    <td className="px-5 py-4">
+                      {item.missedFollowupDate ? formatDateTime(item.missedFollowupDate) : "-"}
+                    </td>
+                    <td className="px-5 py-4">
+                      {item.lockedDate ? formatDateTime(item.lockedDate) : "-"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <Button size="sm" onClick={() => { setUnlockModal(item); setUnlockReason(""); }}>
+                        Unlock
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <FormDrawer
         open={detailsOpen && Boolean(selected)}
         onClose={() => setDetailsOpen(false)}
@@ -359,6 +468,47 @@ export function PendingApprovalDashboard() {
           </div>
         ) : null}
       </FormDrawer>
+
+      <FormDrawer
+        open={Boolean(unlockModal)}
+        onClose={() => { if (!submitting) setUnlockModal(null); }}
+        title="Unlock user"
+        description="Provide the reason for releasing this missed followup account lock."
+        placement="center"
+      >
+        {unlockModal ? (
+          <div className="grid gap-4">
+            <div className="rounded-2xl border border-(--border) bg-slate-50 p-4 text-sm">
+              <p className="font-bold text-slate-900">{unlockModal.userName}</p>
+              <p className="mt-1 text-soft">{unlockModal.leadName}</p>
+            </div>
+            <Textarea
+              label="Unlock Reason"
+              value={unlockReason}
+              onChange={(event) => setUnlockReason(event.target.value)}
+              placeholder="Supervisor reviewed and approved account unlock."
+            />
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setUnlockModal(null)} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button onClick={() => void submitUnlock()} disabled={submitting}>
+                {submitting ? "Unlocking..." : "Unlock"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </FormDrawer>
     </div>
   );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     const assignedUser = searchParams.get("assignedUser");
     const previousStatus = searchParams.get("previousStatus");
     const country = searchParams.get("country");
+    const officeLocationId = searchParams.get("officeLocationId");
     const query = searchParams.get("query");
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
     if (assignedUser) filters.assignedUser = assignedUser;
     if (previousStatus) filters.previousStatus = previousStatus;
     if (country) filters.country = country;
+    if (officeLocationId) filters.officeLocationId = officeLocationId;
     if (query) filters.query = query;
     if (dateFrom) filters.dateFrom = new Date(dateFrom);
     if (dateTo) filters.dateTo = new Date(dateTo);

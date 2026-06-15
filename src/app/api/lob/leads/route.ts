@@ -20,11 +20,13 @@ export async function GET(request: Request) {
     const service = searchParams.get("service");
     const assignedUser = searchParams.get("assignedUser");
     const country = searchParams.get("country");
+    const officeLocationId = searchParams.get("officeLocationId");
     const previousStatus = searchParams.get("previousStatus");
     const query = searchParams.get("query");
     if (service) filters.service = service;
     if (assignedUser) filters.assignedUser = assignedUser;
     if (country) filters.country = country;
+    if (officeLocationId) filters.officeLocationId = officeLocationId;
     if (previousStatus) filters.previousStatus = previousStatus;
     if (query) filters.query = query;
 

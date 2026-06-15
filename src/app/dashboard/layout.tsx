@@ -4,12 +4,29 @@ import { FollowupReminderProvider } from "@/components/shared/FollowupReminderPr
 import { Navbar } from "@/components/shared/Navbar";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { requireAuth } from "@/middleware/auth.middleware";
+import { FOLLOWUP_LOCK_MESSAGE } from "@/features/lead/server/followup-lock.service";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireAuth("/dashboard");
   const userName = session.user.name ?? "Workspace User";
   const userEmail = session.user.email ?? "workspace@geniuserp.com";
   const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
+
+  if (session.user.isLocked) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-50 p-6">
+        <div className="max-w-xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
+            Account Locked
+          </p>
+          <h1 className="mt-3 text-2xl font-bold text-slate-900">CRM access restricted</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {session.user.lockReason ?? FOLLOWUP_LOCK_MESSAGE}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">

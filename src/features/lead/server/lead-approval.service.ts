@@ -10,6 +10,7 @@ import type {
 const approvalRequiredStatuses = new Set<LeadStatus>([
   LeadStatus.Potential_Qualified,
   LeadStatus.Closed,
+  LeadStatus.LOB,
 ]);
 
 type LeadApprovalRow = {

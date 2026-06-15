@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock3,
   History,
+  Layers3,
   Pencil,
   Phone,
   RefreshCw,
@@ -378,6 +379,34 @@ export function FollowupsCalendarManagement() {
     void openDateDrawer(info.dateStr.slice(0, 10));
   }
 
+  async function submitMoveToLob(item: FollowupItem) {
+    setSubmittingLeadId(item.id);
+    setFeedbackMessage("");
+
+    try {
+      const response = await fetch("/api/followups/lob-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: item.id }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Unable to request LOB approval.");
+      }
+
+      setFeedbackMessage(payload?.message ?? "LOB request sent for supervisor approval.");
+      await syncAfterMutation(item.id, item.dateKey);
+    } catch (submitError) {
+      console.error("Failed to request LOB approval", submitError);
+      setFeedbackMessage(
+        submitError instanceof Error ? submitError.message : "Unable to request LOB approval.",
+      );
+    } finally {
+      setSubmittingLeadId(null);
+    }
+  }
+
   function openLeadEditor(leadId: string) {
     router.push(`/dashboard/lead-management/all-leads?editLeadId=${encodeURIComponent(leadId)}`);
   }
@@ -731,6 +760,15 @@ export function FollowupsCalendarManagement() {
                 >
                   <Pencil size={16} />
                   Open Lead
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={submittingLeadId === selectedFollowup.id || selectedFollowup.isCompleted}
+                  onClick={() => void submitMoveToLob(selectedFollowup)}
+                >
+                  <Layers3 size={16} />
+                  Move To LOB
                 </Button>
                 <a
                   href={selectedFollowup.callLink}

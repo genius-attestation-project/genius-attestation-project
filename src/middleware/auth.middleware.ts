@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { hasPermission } from "@/features/admin/server/rbac.service";
+import {
+  FOLLOWUP_LOCK_MESSAGE,
+  getUserLockState,
+  lockUsersWithMissedFollowups,
+} from "@/features/lead/server/followup-lock.service";
 import { auth } from "@/lib/auth";
 
 function isDynamicUsageError(error: unknown) {
@@ -32,6 +37,19 @@ export async function requireAuth(callbackUrl = "/dashboard") {
   if (!session?.user) {
     console.warn("[auth] Missing session user, redirecting to login.", { callbackUrl });
     redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
+
+  await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
+  const lockState = await getUserLockState(session.user.id);
+  if (lockState?.isLocked) {
+    return {
+      ...session,
+      user: {
+        ...session.user,
+        isLocked: true,
+        lockReason: lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE,
+      },
+    };
   }
 
   return session;
@@ -67,6 +85,15 @@ export async function requireApiPermission(permission: string) {
   if (!session?.user) {
     console.warn("[auth] API access denied because no session user was found.", { permission });
     return Response.json({ message: "Authentication required." }, { status: 401 });
+  }
+
+  await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
+  const lockState = await getUserLockState(session.user.id);
+  if (lockState?.isLocked) {
+    return Response.json(
+      { message: lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE },
+      { status: 423 },
+    );
   }
 
   if (!hasPermission(session.user, permission)) {

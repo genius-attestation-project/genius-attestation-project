@@ -9,6 +9,7 @@ export type ClosedFilters = {
   assignedUser?: string;
   previousStatus?: string;
   country?: string;
+  officeLocationId?: string;
   query?: string;
 };
 
@@ -26,6 +27,7 @@ export type ClosedAnalyticsCards = {
     assignedUsers: string[];
     countries: string[];
     previousStatuses: string[];
+    officeLocations: { label: string; value: string }[];
   };
 };
 
@@ -201,6 +203,10 @@ function buildBaseClosedWhere(ownerAdminId: string, filters: ClosedFilters): Pri
 
   if (filters.country) {
     where.country = { contains: filters.country, mode: "insensitive" };
+  }
+
+  if (filters.officeLocationId) {
+    where.creator = { officeLocationId: filters.officeLocationId };
   }
 
   if (filters.query?.trim()) {
@@ -450,6 +456,7 @@ export async function getClosedAnalyticsCards(
     filters.previousStatus ||
     filters.country ||
     filters.query ||
+    filters.officeLocationId ||
     filters.dateFrom ||
     filters.dateTo
       ? await listCurrentClosedSnapshots(ownerAdminId, filters)
@@ -500,8 +507,42 @@ export async function getClosedAnalyticsCards(
             : undefined,
         ),
       ),
+      officeLocations: await getOfficeLocationOptions(ownerAdminId),
     },
   };
+}
+
+async function getOfficeLocationOptions(ownerAdminId: string) {
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [{ ownerAdminId }, { id: ownerAdminId }],
+      officeLocationId: { not: null },
+    },
+    select: {
+      officeLocationId: true,
+      officeLocationName: true,
+      officeLocationRef: {
+        select: {
+          officeName: true,
+          location: true,
+        },
+      },
+    },
+  });
+
+  const options = new Map<string, { label: string; value: string }>();
+  for (const user of users) {
+    if (!user.officeLocationId) continue;
+    const label =
+      user.officeLocationName?.trim() ||
+      [user.officeLocationRef?.officeName, user.officeLocationRef?.location]
+        .filter(Boolean)
+        .join(" - ") ||
+      user.officeLocationId;
+    options.set(user.officeLocationId, { label, value: user.officeLocationId });
+  }
+
+  return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export async function getClosedLeadsTable(
@@ -652,6 +693,7 @@ export async function getClosedTimeline(
             ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
             : {}),
           ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+          ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
           ...(query
             ? {
                 OR: [

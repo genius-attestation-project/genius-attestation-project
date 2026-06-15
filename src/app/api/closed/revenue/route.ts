@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const assignedUser = searchParams.get("assignedUser");
     const previousStatus = searchParams.get("previousStatus");
     const country = searchParams.get("country");
+    const officeLocationId = searchParams.get("officeLocationId");
     const query = searchParams.get("query");
     const interval = (searchParams.get("interval") ?? "monthly") as ClosedTrendInterval;
 
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
     if (assignedUser) filters.assignedUser = assignedUser;
     if (previousStatus) filters.previousStatus = previousStatus;
     if (country) filters.country = country;
+    if (officeLocationId) filters.officeLocationId = officeLocationId;
     if (query) filters.query = query;
 
     const data = await getClosedRevenue(ownerAdminId, filters, interval);

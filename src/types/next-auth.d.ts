@@ -12,6 +12,8 @@ declare module "next-auth" {
       ownerAdminId?: string;
       officeLocationId?: string;
       officeLocationName?: string;
+      isLocked?: boolean;
+      lockReason?: string;
     } & DefaultSession["user"];
   }
 }
@@ -27,5 +29,7 @@ declare module "next-auth/jwt" {
     ownerAdminId?: string;
     officeLocationId?: string;
     officeLocationName?: string;
+    isLocked?: boolean;
+    lockReason?: string;
   }
 }

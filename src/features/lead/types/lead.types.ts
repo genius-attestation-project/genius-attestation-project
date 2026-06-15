@@ -66,6 +66,7 @@ export type LeadFilterOption = {
   label: string;
   value: string;
   description?: string;
+  officeLocationId?: string;
 };
 
 export type LeadFilterOptionsResponse = {

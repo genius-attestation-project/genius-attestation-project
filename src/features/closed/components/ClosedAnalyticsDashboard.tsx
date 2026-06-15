@@ -50,6 +50,7 @@ type AnalyticsCards = {
     assignedUsers: string[];
     countries: string[];
     previousStatuses: string[];
+    officeLocations: Array<{ label: string; value: string }>;
   };
 };
 
@@ -231,6 +232,7 @@ export function ClosedAnalyticsDashboard() {
   const [assignedUserFilter, setAssignedUserFilter] = useState("");
   const [previousStatusFilter, setPreviousStatusFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [officeLocationFilter, setOfficeLocationFilter] = useState("");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [page, setPage] = useState(1);
@@ -276,12 +278,14 @@ export function ClosedAnalyticsDashboard() {
     ...(assignedUserFilter ? { assignedUser: assignedUserFilter } : {}),
     ...(previousStatusFilter ? { previousStatus: previousStatusFilter } : {}),
     ...(countryFilter ? { country: countryFilter } : {}),
+    ...(officeLocationFilter ? { officeLocationId: officeLocationFilter } : {}),
     ...(deferredSearch.trim() ? { query: deferredSearch.trim() } : {}),
   }), [
     assignedUserFilter,
     countryFilter,
     deferredSearch,
     getDateParams,
+    officeLocationFilter,
     previousStatusFilter,
     serviceFilter,
   ]);
@@ -352,7 +356,7 @@ export function ClosedAnalyticsDashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [dateRange, serviceFilter, assignedUserFilter, previousStatusFilter, countryFilter, deferredSearch]);
+  }, [dateRange, serviceFilter, assignedUserFilter, previousStatusFilter, countryFilter, officeLocationFilter, deferredSearch]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -384,6 +388,7 @@ export function ClosedAnalyticsDashboard() {
     assignedUsers: [],
     countries: [],
     previousStatuses: [],
+    officeLocations: [],
   };
 
   return (
@@ -436,8 +441,23 @@ export function ClosedAnalyticsDashboard() {
             <FilterSelect label="Assigned User" value={assignedUserFilter} onChange={setAssignedUserFilter} options={filterOptions.assignedUsers} placeholder="All owners" />
             <FilterSelect label="Previous Status" value={previousStatusFilter} onChange={setPreviousStatusFilter} options={filterOptions.previousStatuses} placeholder="All previous statuses" />
             <FilterSelect label="Country" value={countryFilter} onChange={setCountryFilter} options={filterOptions.countries} placeholder="All countries" />
+            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
+              Office Location
+              <select
+                value={officeLocationFilter}
+                onChange={(event) => setOfficeLocationFilter(event.target.value)}
+                className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="">All offices</option>
+                {filterOptions.officeLocations.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft sm:col-span-2 xl:col-span-2">
+            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft sm:col-span-2">
               Search
               <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
                 <Search size={15} className="text-soft" />

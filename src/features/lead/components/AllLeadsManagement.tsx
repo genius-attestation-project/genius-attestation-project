@@ -400,6 +400,26 @@ export function AllLeadsManagement({
 
   const showingCount = isServerFilteredEndpoint ? leadData.items.length : filteredLeads.length;
   const totalCount = isServerFilteredEndpoint ? leadData.pagination.totalItems : leadData.items.length;
+  const assignedToOptions = useMemo(
+    () =>
+      officeLocationFilter === "all"
+        ? filterOptions.assignedTo
+        : filterOptions.assignedTo.filter(
+            (option) => option.officeLocationId === officeLocationFilter,
+          ),
+    [filterOptions.assignedTo, officeLocationFilter],
+  );
+
+  useEffect(() => {
+    if (
+      officeLocationFilter !== "all" &&
+      assignedToFilter !== "all" &&
+      assignedToFilter !== "unassigned" &&
+      !assignedToOptions.some((option) => option.value === assignedToFilter)
+    ) {
+      setAssignedToFilter("all");
+    }
+  }, [assignedToFilter, assignedToOptions, officeLocationFilter]);
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
@@ -461,7 +481,7 @@ export function AllLeadsManagement({
                   options={[
                     { label: "All", value: "all" },
                     { label: "Unassigned", value: "unassigned" },
-                    ...filterOptions.assignedTo,
+                    ...assignedToOptions,
                   ]}
                   onChange={setAssignedToFilter}
                 />
