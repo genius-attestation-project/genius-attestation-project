@@ -1,6 +1,7 @@
 "use client";
 
 import { BadgeCheck, CircleX, ClipboardList, Eye, LockKeyhole, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -57,6 +58,7 @@ function DetailBlock({ label, value }: { label: string; value: string }) {
 }
 
 export function PendingApprovalDashboard() {
+  const router = useRouter();
   const [pending, setPending] = useState<LeadApprovalItem[]>([]);
   const [approved, setApproved] = useState<LeadApprovalItem[]>([]);
   const [rejected, setRejected] = useState<LeadApprovalItem[]>([]);
@@ -212,6 +214,7 @@ export function PendingApprovalDashboard() {
       setUnlockModal(null);
       setUnlockReason("");
       await loadApprovalData();
+      router.refresh();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to unlock user.");
     } finally {

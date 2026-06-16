@@ -58,6 +58,10 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       continue;
     }
 
+    if (user.unlockedAt && user.lockedFollowupLeadId === lead.id) {
+      continue;
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: {
