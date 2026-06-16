@@ -40,15 +40,26 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       continue;
     }
 
-    const result = await prisma.user.updateMany({
-      where: {
-        id: userId,
-        isLocked: false,
-        supervisorUserId: { not: null },
-        NOT: {
-          supervisorUserId: userId,
-        },
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.isLocked) {
+      continue;
+    }
+
+    const isSuperAdmin = user.role?.name === "Super Admin";
+    const isOwner = !user.ownerAdminId || user.id === user.ownerAdminId;
+    const isSelfSupervised = user.supervisorUserId === user.id;
+    const noSupervisor = !user.supervisorUserId;
+
+    if (isSuperAdmin || isOwner || isSelfSupervised || noSupervisor) {
+      continue;
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
       data: {
         isLocked: true,
         lockReason: FOLLOWUP_LOCK_MESSAGE,
@@ -61,9 +72,7 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       },
     });
 
-    if (result.count > 0) {
-      lockedUserIds.add(userId);
-    }
+    lockedUserIds.add(userId);
   }
 
   return lockedUserIds.size;

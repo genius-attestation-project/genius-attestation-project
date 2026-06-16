@@ -520,7 +520,7 @@ export function UsersManagement() {
             </select>
             {editingUser && formState.supervisorUserId === editingUser.id && (
               <p className="mt-1 text-xs font-semibold text-amber-600">
-                Selecting yourself as supervisor disables followup lock workflow.
+                Self-supervised users are excluded from automatic followup locking.
               </p>
             )}
           </label>
