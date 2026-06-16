@@ -84,6 +84,13 @@ export async function getUserLockState(userId: string) {
     select: {
       isLocked: true,
       lockReason: true,
+      supervisorUserId: true,
+      ownerAdminId: true,
+      role: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 }

@@ -17,6 +17,17 @@ function isDynamicUsageError(error: unknown) {
   );
 }
 
+function canUserBeLocked(lockState: any, sessionUserId: string) {
+  if (!lockState) return false;
+
+  const isSuperAdmin = lockState.role?.name === "Super Admin";
+  const isOwner = !lockState.ownerAdminId || lockState.ownerAdminId === sessionUserId;
+  const isSelfSupervised = lockState.supervisorUserId === sessionUserId;
+  const noSupervisor = !lockState.supervisorUserId;
+
+  return !isSuperAdmin && !isOwner && !isSelfSupervised && !noSupervisor;
+}
+
 export async function requireAuth(callbackUrl = "/dashboard") {
   let session;
 
@@ -41,7 +52,8 @@ export async function requireAuth(callbackUrl = "/dashboard") {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  if (lockState?.isLocked) {
+  
+  if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     return {
       ...session,
       user: {
@@ -89,7 +101,8 @@ export async function requireApiPermission(permission: string) {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  if (lockState?.isLocked) {
+  
+  if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     return Response.json(
       { message: lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE },
       { status: 423 },
