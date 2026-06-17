@@ -528,9 +528,8 @@ function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhe
   return {
     ownerAdminId,
     OR: [
+      { createdById: userId },
       { assignedUserId: userId },
-      { assignedUserId: null, createdById: userId },
-      { assignedUserId: null, createdById: null, ownerAdminId: userId },
     ],
   };
 }
@@ -1771,6 +1770,7 @@ export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
       id: true,
       ownerAdminId: true,
       assignedUserId: true,
+      createdById: true,
       firstName: true,
       lastName: true,
       countryCode: true,
@@ -1784,6 +1784,7 @@ export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
   return leads.map((lead) => ({
     ownerAdminId: lead.ownerAdminId,
     assignedUserId: lead.assignedUserId,
+    createdById: lead.createdById,
     payload: mapFollowupReminder(lead),
   }));
 }

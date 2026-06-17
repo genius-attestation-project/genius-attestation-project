@@ -36,7 +36,7 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
   const lockedUserIds = new Set<string>();
 
   for (const lead of missedLeads) {
-    const userId = lead.assignedUserId ?? lead.createdById ?? lead.ownerAdminId;
+    const userId = lead.assignedUserId ?? lead.createdById;
     if (!userId || lockedUserIds.has(userId)) {
       continue;
     }
