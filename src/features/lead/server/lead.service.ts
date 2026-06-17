@@ -528,8 +528,9 @@ function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhe
   return {
     ownerAdminId,
     OR: [
-      { createdById: userId },
-      { createdById: null, ownerAdminId: userId },
+      { assignedUserId: userId },
+      { assignedUserId: null, createdById: userId },
+      { assignedUserId: null, createdById: null, ownerAdminId: userId },
     ],
   };
 }

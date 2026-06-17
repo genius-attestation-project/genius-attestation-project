@@ -28,6 +28,7 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       id: true,
       ownerAdminId: true,
       createdById: true,
+      assignedUserId: true,
       nextFollowupAt: true,
     },
   });
@@ -35,7 +36,7 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
   const lockedUserIds = new Set<string>();
 
   for (const lead of missedLeads) {
-    const userId = lead.createdById ?? lead.ownerAdminId;
+    const userId = lead.assignedUserId ?? lead.createdById ?? lead.ownerAdminId;
     if (!userId || lockedUserIds.has(userId)) {
       continue;
     }
