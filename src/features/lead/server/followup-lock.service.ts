@@ -59,7 +59,8 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       continue;
     }
 
-    if (user.unlockedAt && user.lockedFollowupLeadId === lead.id) {
+    const startOfCurrentDay = startOfToday();
+    if (user.unlockedAt && user.unlockedAt >= startOfCurrentDay) {
       continue;
     }
 
@@ -208,6 +209,10 @@ export async function unlockMissedFollowupUser(args: {
     where: { id: lockedUser.id },
     data: {
       isLocked: false,
+      lockReason: null,
+      lockedAt: null,
+      lockedFollowupLeadId: null,
+      lockedFollowupAt: null,
       unlockedBy: args.viewerId,
       unlockReason: args.reason,
       unlockedAt: new Date(),
