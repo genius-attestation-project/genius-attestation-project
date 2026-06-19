@@ -44,6 +44,9 @@ function isLate(checkinTime: Date, expectedTime: string): boolean {
   return actual > expected;
 }
 
+const ATTENDANCE_NOT_READY_MESSAGE =
+  "Attendance system is not set up yet. Database migrations need to be applied.";
+
 /** Check if error is "table does not exist" (migration not run yet) */
 function isTableMissingError(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -62,6 +65,17 @@ function isTableMissingError(err: unknown): boolean {
     meta?.table?.includes("attendance") === true ||
     meta?.modelName?.includes("Attendance") === true
   );
+}
+
+export async function isAttendanceReady(): Promise<boolean> {
+  try {
+    await prisma.$queryRaw`SELECT 1 FROM "attendance_records" LIMIT 0`;
+    return true;
+  } catch (err) {
+    if (isTableMissingError(err)) return false;
+    console.error("[attendance] isAttendanceReady error:", err);
+    throw err;
+  }
 }
 
 async function assertUserBelongsToAdmin(userId: string, ownerAdminId: string): Promise<void> {
@@ -177,21 +191,30 @@ export async function checkIn(
   const late = setting ? isLate(checkinTime, setting.expectedCheckinTime) : false;
   const status = late ? "Late" : "Present";
 
-  const record = await prisma.attendanceRecord.upsert({
-    where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-    update: {}, // do NOT overwrite if already checked in
-    create: {
-      userId,
-      attendanceDate: todayDate(),
-      checkinTime,
-      status,
-      checkinRemarks: opts.checkinRemarks || null,
-      ownerAdminId,
-    },
-    include: userInclude,
-  });
+  try {
+    const record = await prisma.attendanceRecord.upsert({
+      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+      update: {}, // do NOT overwrite if already checked in
+      create: {
+        userId,
+        attendanceDate: todayDate(),
+        checkinTime,
+        status,
+        checkinRemarks: opts.checkinRemarks || null,
+        ownerAdminId,
+      },
+      include: userInclude,
+    });
 
-  return mapRecord(record);
+    return mapRecord(record);
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.error("[attendance] attendance_records table not found. Run: npx prisma migrate deploy");
+      throw new Error(ATTENDANCE_NOT_READY_MESSAGE);
+    }
+    console.error("[attendance] checkIn error:", err);
+    throw err;
+  }
 }
 
 // ─── check-out ──────────────────────────────────────────────────────────────
@@ -200,30 +223,42 @@ export async function checkOut(
   userId: string,
   opts: { checkoutTime?: string; dailySummary: string },
 ): Promise<AttendanceRecord> {
-  const existing = await prisma.attendanceRecord.findUnique({
-    where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-    select: { id: true, checkinTime: true },
-  });
+  try {
+    const existing = await prisma.attendanceRecord.findUnique({
+      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+      select: { id: true, checkinTime: true },
+    });
 
-  if (!existing) {
-    throw new Error("No check-in record found for today. Please check in first.");
+    if (!existing) {
+      throw new Error("No check-in record found for today. Please check in first.");
+    }
+
+    const checkoutTime = opts.checkoutTime ? new Date(opts.checkoutTime) : new Date();
+    const workingHours =
+      existing.checkinTime ? calcWorkingHours(existing.checkinTime, checkoutTime) : null;
+
+    const record = await prisma.attendanceRecord.update({
+      where: { id: existing.id },
+      data: {
+        checkoutTime,
+        dailySummary: opts.dailySummary,
+        workingHours: workingHours ?? undefined,
+      },
+      include: userInclude,
+    });
+
+    return mapRecord(record);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("check in first")) {
+      throw err;
+    }
+    if (isTableMissingError(err)) {
+      console.error("[attendance] attendance_records table not found. Run: npx prisma migrate deploy");
+      throw new Error(ATTENDANCE_NOT_READY_MESSAGE);
+    }
+    console.error("[attendance] checkOut error:", err);
+    throw err;
   }
-
-  const checkoutTime = opts.checkoutTime ? new Date(opts.checkoutTime) : new Date();
-  const workingHours =
-    existing.checkinTime ? calcWorkingHours(existing.checkinTime, checkoutTime) : null;
-
-  const record = await prisma.attendanceRecord.update({
-    where: { id: existing.id },
-    data: {
-      checkoutTime,
-      dailySummary: opts.dailySummary,
-      workingHours: workingHours ?? undefined,
-    },
-    include: userInclude,
-  });
-
-  return mapRecord(record);
 }
 
 // ─── list records ─────────────────────────────────────────────────────────────

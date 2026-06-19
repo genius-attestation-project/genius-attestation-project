@@ -24,7 +24,9 @@ export async function POST(
   try {
     const record = await approveAttendance(id, ownerAdminId, session.user.name ?? session.user.email ?? "Admin");
     return Response.json({ record });
-  } catch (err: any) {
-    return Response.json({ message: err.message ?? "Approval failed." }, { status: 400 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Approval failed.";
+    console.error("[api/attendance/approve] Error:", err);
+    return Response.json({ message }, { status: 500 });
   }
 }

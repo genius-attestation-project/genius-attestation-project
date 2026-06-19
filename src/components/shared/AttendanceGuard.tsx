@@ -61,6 +61,11 @@ export function AttendanceGuard({ userId }: Props) {
     try {
       const res = await fetch("/api/attendance/today");
       const data = await res.json();
+      if (data.ready === false) {
+        // Tables not migrated yet — don't block dashboard access
+        setModal("idle");
+        return;
+      }
       setTodayRecord(data.record);
       if (!data.record) {
         setCheckinTime(toTimeInputValue(new Date()));

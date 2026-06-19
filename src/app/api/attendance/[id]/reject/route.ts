@@ -35,7 +35,9 @@ export async function POST(
   try {
     const record = await rejectAttendance(id, ownerAdminId, parsed.data.rejectionReason);
     return Response.json({ record });
-  } catch (err: any) {
-    return Response.json({ message: err.message ?? "Rejection failed." }, { status: 400 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Rejection failed.";
+    console.error("[api/attendance/reject] Error:", err);
+    return Response.json({ message }, { status: 500 });
   }
 }
