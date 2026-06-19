@@ -16,6 +16,7 @@ export type LeadApprovalItem = {
   rejectionReason: string | null;
   approvedBy: string | null;
   approvedAt: string | null;
+  actionDate: string | null;
   requestDate: string;
   createdAt: string;
   country: string;

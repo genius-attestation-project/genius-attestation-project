@@ -97,6 +97,7 @@ async function mapApprovalItems(rows: LeadApprovalRow[]) {
     rejectionReason: row.rejectionReason,
     approvedBy: row.approvedBy ? userMap.get(row.approvedBy) ?? row.approvedBy : null,
     approvedAt: row.approvedAt?.toISOString() ?? null,
+    actionDate: row.approvedAt ? formatDate(row.approvedAt) : null,
     requestDate: formatDate(row.createdAt),
     createdAt: row.createdAt.toISOString(),
     country: row.country ?? "-",

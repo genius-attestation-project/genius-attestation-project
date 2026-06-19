@@ -7,6 +7,10 @@ import "@/styles/globals.css";
 export const metadata: Metadata = {
   title: "Genius Attestions",
   description: "Authentication starter with Next.js, Prisma, and Auth.js.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

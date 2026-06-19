@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     const supervisorId = session?.user?.id;
     if (!ownerAdminId || !supervisorId) return jsonError("Authentication required.", 401);
 

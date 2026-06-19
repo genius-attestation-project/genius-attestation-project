@@ -154,6 +154,7 @@ export function PendingApprovalDashboard() {
 
   const activeItems =
     activeTab === "approved" ? approved : activeTab === "rejected" ? rejected : pending;
+  const showActionDetails = activeTab !== "pending";
 
   async function submitAction() {
     if (!actionModal || !reason.trim()) {
@@ -300,6 +301,8 @@ export function PendingApprovalDashboard() {
                   <th className="px-5 py-4">Requested Status</th>
                   <th className="px-5 py-4">Requested By</th>
                   <th className="px-5 py-4">Request Date</th>
+                  {showActionDetails ? <th className="px-5 py-4">{activeTab === "approved" ? "Approved Date" : "Rejected Date"}</th> : null}
+                  {showActionDetails ? <th className="px-5 py-4">{activeTab === "approved" ? "Approval Description" : "Rejection Reason"}</th> : null}
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Actions</th>
                 </tr>
@@ -314,6 +317,12 @@ export function PendingApprovalDashboard() {
                     <td className="px-5 py-4">{item.requestedStatus}</td>
                     <td className="px-5 py-4">{item.requestedBy}</td>
                     <td className="px-5 py-4">{item.requestDate}</td>
+                    {showActionDetails ? <td className="px-5 py-4">{item.actionDate ?? "-"}</td> : null}
+                    {showActionDetails ? (
+                      <td className="px-5 py-4">
+                        {activeTab === "approved" ? item.approvalReason ?? "-" : item.rejectionReason ?? "-"}
+                      </td>
+                    ) : null}
                     <td className="px-5 py-4">
                       <StatusBadge status={item.approvalStatus} />
                     </td>
@@ -419,6 +428,10 @@ export function PendingApprovalDashboard() {
             <DetailBlock label="Request Date" value={selected.requestDate} />
             <DetailBlock label="Assigned User" value={selected.assignedUser} />
             <DetailBlock label="Approval Status" value={selected.approvalStatus} />
+            <DetailBlock
+              label={selected.approvalStatus === "Approved" ? "Approved Date" : selected.approvalStatus === "Rejected" ? "Rejected Date" : "Action Date"}
+              value={selected.actionDate ?? "-"}
+            />
             <DetailBlock label="Approval Notes" value={selected.approvalReason ?? selected.rejectionReason ?? "-"} />
             <DetailBlock label="Lead Notes" value={selected.remark} />
             <DetailBlock label="Email" value={selected.email} />

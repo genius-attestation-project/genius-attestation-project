@@ -32,7 +32,7 @@ const payloadSchema = z.object({
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     const requestedBy = session?.user?.id;
     if (!ownerAdminId || !requestedBy) return jsonError("Authentication required.", 401);
 
