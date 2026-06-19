@@ -194,6 +194,10 @@ export async function createRegistration(
     throw new Error("Office location is required to create a registration.");
   }
 
+  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
+    throw new Error("Advance Paid cannot exceed Total Charges.");
+  }
+
   const registration = await prisma.registration.create({
     data: {
       ...buildRegistrationData({
@@ -233,6 +237,10 @@ export async function updateRegistration(
   sourceOfficeName: string,
   performedBy?: string,
 ) {
+  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
+    throw new Error("Advance Paid cannot exceed Total Charges.");
+  }
+
   const existing = await prisma.registration.findFirst({
     where: { ownerAdminId, id },
     select: {

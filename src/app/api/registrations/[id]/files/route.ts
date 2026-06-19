@@ -27,8 +27,20 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("Invalid file category.");
     }
 
-    if (file.type !== "image/jpeg") {
-      return jsonError("Only JPG files are allowed.", 400);
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (!allowedMimeTypes.includes(file.type)) {
+      return jsonError("Only PDF, JPG, JPEG, PNG, and WEBP files are allowed.", 400);
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return jsonError("File size exceeds the 10 MB limit.", 400);
     }
 
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
