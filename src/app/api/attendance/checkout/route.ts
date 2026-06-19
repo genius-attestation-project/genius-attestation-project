@@ -10,9 +10,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
+    console.log("[api/attendance/checkout] body:", body);
+
     const parsed = checkoutSchema.safeParse(body);
 
     if (!parsed.success) {
+      console.error("[api/attendance/checkout] validation:", parsed.error.issues);
       return Response.json(
         { message: parsed.error.issues[0]?.message ?? "Invalid payload." },
         { status: 400 },
@@ -20,7 +23,8 @@ export async function POST(req: Request) {
     }
 
     const record = await checkOut(session.user.id, parsed.data);
-    return Response.json({ record });
+    console.log("[api/attendance/checkout] success:", { id: record.id, userId: record.userId });
+    return Response.json({ record }, { status: 200 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Check-out failed.";
     console.error("[api/attendance/checkout] Error:", err);

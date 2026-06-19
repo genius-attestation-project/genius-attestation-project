@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { signOutAction } from "@/features/auth/actions/auth.action";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
 
 type Props = {
@@ -29,6 +30,10 @@ export function AttendanceGuard({ userId }: Props) {
   const [rejectModal, setRejectModal] = useState(false);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const todayRecordRef = useRef<AttendanceRecord | null>(null);
+  const completingCheckoutRef = useRef(false);
+
+  todayRecordRef.current = todayRecord;
 
   // ── fetch today's record on mount ──
   useEffect(() => {
@@ -38,13 +43,15 @@ export function AttendanceGuard({ userId }: Props) {
   // ── intercept sign-out clicks (skip clicks inside attendance modal) ──
   useEffect(() => {
     function handleClick(e: MouseEvent) {
+      if (completingCheckoutRef.current) return;
       if (overlayRef.current?.contains(e.target as Node)) return;
 
       const btn = (e.target as HTMLElement).closest("button, [type=submit]");
       if (!btn) return;
       const text = btn.textContent?.trim().toLowerCase() ?? "";
       if (text.includes("sign out") || text.includes("logout") || text.includes("log out")) {
-        if (todayRecord && !todayRecord.checkoutTime) {
+        const record = todayRecordRef.current;
+        if (record && !record.checkoutTime) {
           e.preventDefault();
           e.stopImmediatePropagation();
           setCheckoutTime(toTimeInputValue(new Date()));
@@ -57,7 +64,7 @@ export function AttendanceGuard({ userId }: Props) {
 
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
-  }, [todayRecord]);
+  }, []);
 
   async function fetchToday() {
     try {
@@ -108,42 +115,50 @@ export function AttendanceGuard({ userId }: Props) {
   }
 
   async function handleCheckout() {
+    console.log("Submit clicked");
+    console.log("Summary:", dailySummary.trim());
+    console.log("Attendance ID:", todayRecord?.id ?? todayRecordRef.current?.id ?? null);
+
     setError("");
-    if (!dailySummary.trim() || dailySummary.trim().length < 10) {
+    const summary = dailySummary.trim();
+    if (!summary || summary.length < 10) {
       setError("Daily summary must be at least 10 characters.");
       return;
     }
+
     setSubmitting(true);
     try {
       const checkoutDateTime = buildDateTime(checkoutTime);
+      const payload = {
+        checkoutTime: checkoutDateTime,
+        dailySummary: summary,
+      };
+
+      console.log("[attendance] checkout request:", payload);
+
       const res = await fetch("/api/attendance/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checkoutTime: checkoutDateTime,
-          dailySummary: dailySummary.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      console.log("API response:", { ok: res.ok, status: res.status, data });
+
       if (!res.ok) {
         setError(data.message ?? "Check-out failed.");
         return;
       }
+
+      completingCheckoutRef.current = true;
       setTodayRecord(data.record);
       setModal("idle");
 
-      // proceed with sign out
-      const forms = document.querySelectorAll("form");
-      for (const form of forms) {
-        const btn = form.querySelector("button");
-        if (btn?.textContent?.toLowerCase().includes("sign out")) {
-          form.requestSubmit();
-          return;
-        }
-      }
-    } catch {
+      await signOutAction();
+    } catch (err) {
+      console.error("[attendance] checkout error:", err);
       setError("Network error. Please try again.");
     } finally {
+      completingCheckoutRef.current = false;
       setSubmitting(false);
     }
   }
@@ -245,7 +260,10 @@ export function AttendanceGuard({ userId }: Props) {
       )}
 
       {modal === "checkout" && (
-        <div className="w-full max-w-md rounded-3xl border border-orange-100 bg-white shadow-2xl dark:border-orange-500/20 dark:bg-[#0f1623] overflow-hidden">
+        <div
+          data-attendance-modal="checkout"
+          className="w-full max-w-md rounded-3xl border border-orange-100 bg-white shadow-2xl dark:border-orange-500/20 dark:bg-[#0f1623] overflow-hidden"
+        >
           {/* Header */}
           <div className="bg-gradient-to-r from-orange-500 to-amber-400 px-6 py-5">
             <div className="flex items-center gap-3">
@@ -310,8 +328,9 @@ export function AttendanceGuard({ userId }: Props) {
 
             <button
               type="button"
+              data-attendance-action="checkout-submit"
               onClick={handleCheckout}
-              disabled={submitting || !summaryValid}
+              disabled={submitting}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 transition hover:opacity-90 disabled:opacity-60"
             >
               {submitting ? (
@@ -320,12 +339,12 @@ export function AttendanceGuard({ userId }: Props) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Checking Out…
+                  Submitting…
                 </>
               ) : (
                 <>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                  Complete Check-Out
+                  Submit &amp; Sign Out
                 </>
               )}
             </button>
