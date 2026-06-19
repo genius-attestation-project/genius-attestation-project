@@ -35,9 +35,11 @@ export function AttendanceGuard({ userId }: Props) {
     fetchToday();
   }, [userId]);
 
-  // ── intercept sign-out clicks ──
+  // ── intercept sign-out clicks (skip clicks inside attendance modal) ──
   useEffect(() => {
     function handleClick(e: MouseEvent) {
+      if (overlayRef.current?.contains(e.target as Node)) return;
+
       const btn = (e.target as HTMLElement).closest("button, [type=submit]");
       if (!btn) return;
       const text = btn.textContent?.trim().toLowerCase() ?? "";
@@ -146,6 +148,8 @@ export function AttendanceGuard({ userId }: Props) {
     }
   }
 
+  const summaryLength = dailySummary.trim().length;
+  const summaryValid = summaryLength >= 10;
   if (loading) return null;
   if (modal === "idle") return null;
 
@@ -284,12 +288,17 @@ export function AttendanceGuard({ userId }: Props) {
               <textarea
                 value={dailySummary}
                 onChange={(e) => setDailySummary(e.target.value)}
-                placeholder={"Created 10 leads.\nCompleted 4 followups.\nProcessed 6 registrations.\nUpdated customer payments."}
+                placeholder="Type your daily work summary here..."
                 rows={5}
                 className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-white/30"
               />
               <p className="text-xs text-slate-400 dark:text-white/30">
-                {dailySummary.length} characters (min. 10 required)
+                Example: Created 10 leads. Completed 4 followups. Processed 6 registrations.
+              </p>
+              <p
+                className={`text-xs ${summaryValid ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white/30"}`}
+              >
+                {summaryLength} characters (min. 10 required)
               </p>
             </div>
 
@@ -302,7 +311,7 @@ export function AttendanceGuard({ userId }: Props) {
             <button
               type="button"
               onClick={handleCheckout}
-              disabled={submitting}
+              disabled={submitting || !summaryValid}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 transition hover:opacity-90 disabled:opacity-60"
             >
               {submitting ? (
@@ -316,7 +325,7 @@ export function AttendanceGuard({ userId }: Props) {
               ) : (
                 <>
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                  Submit & Sign Out
+                  Complete Check-Out
                 </>
               )}
             </button>
