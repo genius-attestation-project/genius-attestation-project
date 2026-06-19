@@ -40,8 +40,43 @@ function calcWorkingHours(checkin: Date, checkout: Date): number {
 function isLate(checkinTime: Date, expectedTime: string): boolean {
   const [expH, expM] = expectedTime.split(":").map(Number);
   const actual = checkinTime.getHours() * 60 + checkinTime.getMinutes();
-  const expected = expH * 60 + expM;
+  const expected = (expH ?? 9) * 60 + (expM ?? 0);
   return actual > expected;
+}
+
+/** Check if error is "table does not exist" (migration not run yet) */
+function isTableMissingError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = String((err as { code?: unknown }).code ?? "");
+  const message = String((err as { message?: unknown }).message ?? "");
+  const meta = (err as { meta?: { table?: string; modelName?: string } }).meta;
+  return (
+    code === "P2021" ||
+    code === "P2022" ||
+    code === "42P01" ||
+    code === "42704" ||
+    message.includes("does not exist") ||
+    message.includes("relation") ||
+    message.includes("attendance_records") ||
+    message.includes("attendance_settings") ||
+    meta?.table?.includes("attendance") === true ||
+    meta?.modelName?.includes("Attendance") === true
+  );
+}
+
+async function assertUserBelongsToAdmin(userId: string, ownerAdminId: string): Promise<void> {
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      OR: [{ ownerAdminId }, { id: ownerAdminId }],
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  if (!user) {
+    throw new Error("Selected user is not in your workspace.");
+  }
 }
 
 type RawRecord = {
@@ -100,12 +135,21 @@ const userInclude = {
 
 // ─── today ──────────────────────────────────────────────────────────────────
 
-export async function getTodayAttendance(userId: string) {
-  const record = await prisma.attendanceRecord.findUnique({
-    where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-    include: userInclude,
-  });
-  return record ? mapRecord(record) : null;
+export async function getTodayAttendance(userId: string): Promise<AttendanceRecord | null> {
+  try {
+    const record = await prisma.attendanceRecord.findUnique({
+      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+      include: userInclude,
+    });
+    return record ? mapRecord(record) : null;
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
+      return null;
+    }
+    console.error("[attendance] getTodayAttendance error:", err);
+    throw err;
+  }
 }
 
 // ─── check-in ───────────────────────────────────────────────────────────────
@@ -114,21 +158,28 @@ export async function checkIn(
   userId: string,
   ownerAdminId: string,
   opts: { checkinTime?: string; checkinRemarks?: string },
-) {
+): Promise<AttendanceRecord> {
   const checkinTime = opts.checkinTime ? new Date(opts.checkinTime) : new Date();
 
   // Determine status (Present or Late)
-  const setting = await prisma.attendanceSetting.findUnique({
-    where: { userId },
-    select: { expectedCheckinTime: true },
-  });
+  let setting: { expectedCheckinTime: string } | null = null;
+  try {
+    setting = await prisma.attendanceSetting.findUnique({
+      where: { userId },
+      select: { expectedCheckinTime: true },
+    });
+  } catch (err) {
+    if (!isTableMissingError(err)) {
+      console.error("[attendance] checkIn - attendanceSetting lookup error:", err);
+    }
+  }
 
   const late = setting ? isLate(checkinTime, setting.expectedCheckinTime) : false;
   const status = late ? "Late" : "Present";
 
   const record = await prisma.attendanceRecord.upsert({
     where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-    update: {}, // do NOT overwrite if already exists
+    update: {}, // do NOT overwrite if already checked in
     create: {
       userId,
       attendanceDate: todayDate(),
@@ -148,14 +199,14 @@ export async function checkIn(
 export async function checkOut(
   userId: string,
   opts: { checkoutTime?: string; dailySummary: string },
-) {
+): Promise<AttendanceRecord> {
   const existing = await prisma.attendanceRecord.findUnique({
     where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
     select: { id: true, checkinTime: true },
   });
 
   if (!existing) {
-    throw new Error("No check-in record found for today.");
+    throw new Error("No check-in record found for today. Please check in first.");
   }
 
   const checkoutTime = opts.checkoutTime ? new Date(opts.checkoutTime) : new Date();
@@ -175,7 +226,7 @@ export async function checkOut(
   return mapRecord(record);
 }
 
-// ─── list records (own or admin) ─────────────────────────────────────────────
+// ─── list records ─────────────────────────────────────────────────────────────
 
 export async function listAttendanceRecords(params: {
   userId: string;
@@ -189,35 +240,52 @@ export async function listAttendanceRecords(params: {
   const { userId, ownerAdminId, isSuperAdmin, canApprove, page = 1, limit = 20, filterUserId } = params;
   const skip = (page - 1) * limit;
 
-  // Admins with approval permission see all records under their workspace
   const where =
     isSuperAdmin || canApprove
       ? { ownerAdminId, ...(filterUserId ? { userId: filterUserId } : {}) }
       : { userId };
 
-  const [records, total] = await Promise.all([
-    prisma.attendanceRecord.findMany({
-      where,
-      orderBy: [{ attendanceDate: "desc" }],
-      skip,
-      take: limit,
-      include: userInclude,
-    }),
-    prisma.attendanceRecord.count({ where }),
-  ]);
+  try {
+    const [records, total] = await Promise.all([
+      prisma.attendanceRecord.findMany({
+        where,
+        orderBy: [{ attendanceDate: "desc" }],
+        skip,
+        take: limit,
+        include: userInclude,
+      }),
+      prisma.attendanceRecord.count({ where }),
+    ]);
 
-  return { records: records.map(mapRecord), total, page, limit };
+    return { records: records.map(mapRecord), total, page, limit };
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
+      return { records: [], total: 0, page, limit };
+    }
+    console.error("[attendance] listAttendanceRecords error:", err);
+    throw err;
+  }
 }
 
 // ─── pending approval ────────────────────────────────────────────────────────
 
 export async function listPendingApprovals(ownerAdminId: string) {
-  const records = await prisma.attendanceRecord.findMany({
-    where: { ownerAdminId, approvalStatus: "Pending" },
-    orderBy: [{ attendanceDate: "desc" }],
-    include: userInclude,
-  });
-  return records.map(mapRecord);
+  try {
+    const records = await prisma.attendanceRecord.findMany({
+      where: { ownerAdminId, approvalStatus: "Pending" },
+      orderBy: [{ attendanceDate: "desc" }],
+      include: userInclude,
+    });
+    return records.map(mapRecord);
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
+      return [];
+    }
+    console.error("[attendance] listPendingApprovals error:", err);
+    throw err;
+  }
 }
 
 // ─── approve ────────────────────────────────────────────────────────────────
@@ -226,7 +294,7 @@ export async function approveAttendance(
   recordId: string,
   ownerAdminId: string,
   approvedBy: string,
-) {
+): Promise<AttendanceRecord> {
   const record = await prisma.attendanceRecord.findFirst({
     where: { id: recordId, ownerAdminId },
     select: { id: true },
@@ -254,7 +322,7 @@ export async function rejectAttendance(
   recordId: string,
   ownerAdminId: string,
   rejectionReason: string,
-) {
+): Promise<AttendanceRecord> {
   const record = await prisma.attendanceRecord.findFirst({
     where: { id: recordId, ownerAdminId },
     select: { id: true },
@@ -279,65 +347,95 @@ export async function rejectAttendance(
 // ─── settings ────────────────────────────────────────────────────────────────
 
 export async function getAttendanceSetting(userId: string): Promise<AttendanceSetting | null> {
-  const s = await prisma.attendanceSetting.findUnique({
-    where: { userId },
-    include: { user: { select: { name: true, email: true } } },
-  });
-  if (!s) return null;
-  return {
-    id: s.id,
-    userId: s.userId,
-    userName: s.user.name ?? "Unknown",
-    userEmail: s.user.email,
-    expectedCheckinTime: s.expectedCheckinTime,
-    expectedCheckoutTime: s.expectedCheckoutTime,
-  };
+  try {
+    const s = await prisma.attendanceSetting.findUnique({
+      where: { userId },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    if (!s) return null;
+    return {
+      id: s.id,
+      userId: s.userId,
+      userName: s.user.name ?? "Unknown",
+      userEmail: s.user.email,
+      expectedCheckinTime: s.expectedCheckinTime,
+      expectedCheckoutTime: s.expectedCheckoutTime,
+    };
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_settings table not found. Run: npx prisma migrate dev");
+      return null;
+    }
+    console.error("[attendance] getAttendanceSetting error:", err);
+    throw err;
+  }
 }
 
 export async function listAttendanceSettings(ownerAdminId: string): Promise<AttendanceSetting[]> {
-  const settings = await prisma.attendanceSetting.findMany({
-    where: { ownerAdminId },
-    include: { user: { select: { name: true, email: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  return settings.map((s) => ({
-    id: s.id,
-    userId: s.userId,
-    userName: s.user.name ?? "Unknown",
-    userEmail: s.user.email,
-    expectedCheckinTime: s.expectedCheckinTime,
-    expectedCheckoutTime: s.expectedCheckoutTime,
-  }));
+  try {
+    const settings = await prisma.attendanceSetting.findMany({
+      where: { ownerAdminId },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    return settings.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      userName: s.user.name ?? "Unknown",
+      userEmail: s.user.email,
+      expectedCheckinTime: s.expectedCheckinTime,
+      expectedCheckoutTime: s.expectedCheckoutTime,
+    }));
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_settings table not found. Run: npx prisma migrate dev");
+      return [];
+    }
+    console.error("[attendance] listAttendanceSettings error:", err);
+    throw err;
+  }
 }
 
 export async function upsertAttendanceSetting(
   ownerAdminId: string,
   createdBy: string,
   payload: { userId: string; expectedCheckinTime: string; expectedCheckoutTime: string },
-) {
-  const s = await prisma.attendanceSetting.upsert({
-    where: { userId: payload.userId },
-    update: {
-      expectedCheckinTime: payload.expectedCheckinTime,
-      expectedCheckoutTime: payload.expectedCheckoutTime,
-    },
-    create: {
-      userId: payload.userId,
-      expectedCheckinTime: payload.expectedCheckinTime,
-      expectedCheckoutTime: payload.expectedCheckoutTime,
-      ownerAdminId,
-      createdBy,
-    },
-    include: { user: { select: { name: true, email: true } } },
-  });
-  return {
-    id: s.id,
-    userId: s.userId,
-    userName: s.user.name ?? "Unknown",
-    userEmail: s.user.email,
-    expectedCheckinTime: s.expectedCheckinTime,
-    expectedCheckoutTime: s.expectedCheckoutTime,
-  } as AttendanceSetting;
+): Promise<AttendanceSetting> {
+  await assertUserBelongsToAdmin(payload.userId, ownerAdminId);
+
+  try {
+    const s = await prisma.attendanceSetting.upsert({
+      where: { userId: payload.userId },
+      update: {
+        expectedCheckinTime: payload.expectedCheckinTime,
+        expectedCheckoutTime: payload.expectedCheckoutTime,
+        ownerAdminId,
+      },
+      create: {
+        userId: payload.userId,
+        expectedCheckinTime: payload.expectedCheckinTime,
+        expectedCheckoutTime: payload.expectedCheckoutTime,
+        ownerAdminId,
+        createdBy,
+      },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    return {
+      id: s.id,
+      userId: s.userId,
+      userName: s.user.name ?? "Unknown",
+      userEmail: s.user.email,
+      expectedCheckinTime: s.expectedCheckinTime,
+      expectedCheckoutTime: s.expectedCheckoutTime,
+    };
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.error("[attendance] attendance_settings table not found. Run: npx prisma migrate deploy");
+      throw new Error("Attendance settings table is missing. Run database migrations.");
+    }
+    console.error("[attendance] upsertAttendanceSetting error:", err);
+    throw err;
+  }
 }
 
 // ─── stats ───────────────────────────────────────────────────────────────────
@@ -347,33 +445,41 @@ export async function getAttendanceStats(
 ): Promise<AttendanceStats> {
   const today = todayDate();
 
-  const [presentToday, lateToday, pendingApproval, approvedToday] =
-    await Promise.all([
-      prisma.attendanceRecord.count({
-        where: { ownerAdminId, attendanceDate: today, status: "Present" },
-      }),
-      prisma.attendanceRecord.count({
-        where: { ownerAdminId, attendanceDate: today, status: "Late" },
-      }),
-      prisma.attendanceRecord.count({
-        where: { ownerAdminId, approvalStatus: "Pending" },
-      }),
-      prisma.attendanceRecord.count({
-        where: { ownerAdminId, attendanceDate: today, approvalStatus: "Approved" },
-      }),
-    ]);
+  try {
+    const [presentToday, lateToday, pendingApproval, approvedToday] =
+      await Promise.all([
+        prisma.attendanceRecord.count({
+          where: { ownerAdminId, attendanceDate: today, status: "Present" },
+        }),
+        prisma.attendanceRecord.count({
+          where: { ownerAdminId, attendanceDate: today, status: "Late" },
+        }),
+        prisma.attendanceRecord.count({
+          where: { ownerAdminId, approvalStatus: "Pending" },
+        }),
+        prisma.attendanceRecord.count({
+          where: { ownerAdminId, attendanceDate: today, approvalStatus: "Approved" },
+        }),
+      ]);
 
-  // Absent = total active users under this admin - those who checked in today
-  const totalUsers = await prisma.user.count({
-    where: {
-      OR: [{ ownerAdminId }, { id: ownerAdminId }],
-      isActive: true,
-    },
-  });
-  const checkedInToday = await prisma.attendanceRecord.count({
-    where: { ownerAdminId, attendanceDate: today },
-  });
-  const absentToday = Math.max(0, totalUsers - checkedInToday);
+    const totalUsers = await prisma.user.count({
+      where: {
+        OR: [{ ownerAdminId }, { id: ownerAdminId }],
+        isActive: true,
+      },
+    });
+    const checkedInToday = await prisma.attendanceRecord.count({
+      where: { ownerAdminId, attendanceDate: today },
+    });
+    const absentToday = Math.max(0, totalUsers - checkedInToday);
 
-  return { presentToday, absentToday, lateToday, pendingApproval, approvedToday };
+    return { presentToday, absentToday, lateToday, pendingApproval, approvedToday };
+  } catch (err) {
+    if (isTableMissingError(err)) {
+      console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
+      return { presentToday: 0, absentToday: 0, lateToday: 0, pendingApproval: 0, approvedToday: 0 };
+    }
+    console.error("[attendance] getAttendanceStats error:", err);
+    throw err;
+  }
 }

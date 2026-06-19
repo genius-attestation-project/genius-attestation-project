@@ -24,15 +24,60 @@ export const rejectSchema = z.object({
     .max(500),
 });
 
-export const attendanceSettingSchema = z.object({
-  userId: z.string().min(1),
-  expectedCheckinTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Time must be in HH:mm format"),
-  expectedCheckoutTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Time must be in HH:mm format"),
-});
+function normalizeTime(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 5);
+}
+
+export const attendanceSettingSchema = z
+  .object({
+    userId: z.string().optional(),
+    expectedCheckinTime: z.unknown().optional(),
+    expectedCheckoutTime: z.unknown().optional(),
+    expectedCheckInTime: z.unknown().optional(),
+    expectedCheckOutTime: z.unknown().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.userId?.trim()) {
+      ctx.addIssue({ code: "custom", message: "User is required.", path: ["userId"] });
+    }
+
+    const checkin = normalizeTime(data.expectedCheckinTime ?? data.expectedCheckInTime);
+    const checkout = normalizeTime(data.expectedCheckoutTime ?? data.expectedCheckOutTime);
+
+    if (!checkin) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Check-in time is required.",
+        path: ["expectedCheckinTime"],
+      });
+    } else if (!/^\d{2}:\d{2}$/.test(checkin)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Check-in time must be in HH:mm format.",
+        path: ["expectedCheckinTime"],
+      });
+    }
+
+    if (!checkout) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Check-out time is required.",
+        path: ["expectedCheckoutTime"],
+      });
+    } else if (!/^\d{2}:\d{2}$/.test(checkout)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Check-out time must be in HH:mm format.",
+        path: ["expectedCheckoutTime"],
+      });
+    }
+  })
+  .transform((data) => ({
+    userId: data.userId!.trim(),
+    expectedCheckinTime: normalizeTime(data.expectedCheckinTime ?? data.expectedCheckInTime),
+    expectedCheckoutTime: normalizeTime(data.expectedCheckoutTime ?? data.expectedCheckOutTime),
+  }));
 
 export type CheckinInput = z.infer<typeof checkinSchema>;
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
