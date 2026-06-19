@@ -59,6 +59,7 @@ export function AppSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(pathname.startsWith("/dashboard/admin-management"));
   const [leadOpen, setLeadOpen] = useState(pathname.startsWith("/dashboard/lead-management"));
+  const [attendanceOpen, setAttendanceOpen] = useState(pathname.startsWith("/dashboard/attendance"));
 
   const visibleNavigation = useMemo(
     () => filterNavigation(sidebarNavigation, permissions, isSuperAdmin),
@@ -79,20 +80,25 @@ export function AppSidebar({
     if (pathname.startsWith("/dashboard/lead-management")) {
       setLeadOpen(true);
     }
+
+    if (pathname.startsWith("/dashboard/attendance")) {
+      setAttendanceOpen(true);
+    }
   }, [pathname]);
 
   function renderNavItems(showLabels: boolean) {
     return visibleNavigation.map((item) => {
       const isAdmin = item.href === "/dashboard/admin-management";
       const isLead = item.href === "/dashboard/lead-management";
+      const isAttendance = item.href === "/dashboard/attendance";
       const isActive =
         item.href === "/dashboard"
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
-      if ((isAdmin || isLead) && item.children?.length) {
-        const accordionOpen = isAdmin ? adminOpen : leadOpen;
-        const setAccordionOpen = isAdmin ? setAdminOpen : setLeadOpen;
+      if ((isAdmin || isLead || isAttendance) && item.children?.length) {
+        const accordionOpen = isAdmin ? adminOpen : isLead ? leadOpen : attendanceOpen;
+        const setAccordionOpen = isAdmin ? setAdminOpen : isLead ? setLeadOpen : setAttendanceOpen;
 
         return (
           <div key={item.href} className="grid gap-2">

@@ -2,14 +2,18 @@ import {
   BadgeCheck,
   BadgeDollarSign,
   BriefcaseBusiness,
+  CalendarDays,
   ChartNoAxesColumn,
+  ClipboardList,
   Clock3,
   FileSearch,
   Handshake,
   Home,
+  LayoutDashboard,
   Layers3,
   PencilLine,
   RefreshCw,
+  Settings2,
   ShieldCheck,
   Truck,
   UserCheck,
@@ -192,6 +196,43 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     menuPermission: "menu.welcome-call",
     pagePermission: "welcome_call.view",
   },
+  {
+    label: "Attendance",
+    href: "/dashboard/attendance",
+    icon: ClipboardList,
+    menuPermission: "menu.attendance",
+    pagePermission: "attendance.view",
+    children: [
+      {
+        label: "Dashboard",
+        href: "/dashboard/attendance/dashboard",
+        icon: LayoutDashboard,
+        menuPermission: "menu.attendance.dashboard",
+        pagePermission: "attendance.view",
+      },
+      {
+        label: "My Records",
+        href: "/dashboard/attendance/records",
+        icon: CalendarDays,
+        menuPermission: "menu.attendance.records",
+        pagePermission: "attendance.view",
+      },
+      {
+        label: "Approval",
+        href: "/dashboard/attendance/approval",
+        icon: BadgeCheck,
+        menuPermission: "menu.attendance.approval",
+        pagePermission: "attendance_approval.view",
+      },
+      {
+        label: "Settings",
+        href: "/dashboard/attendance/settings",
+        icon: Settings2,
+        menuPermission: "menu.attendance.settings",
+        pagePermission: "attendance_settings.manage",
+      },
+    ],
+  },
 ];
 
 export const permissionModules: PermissionModuleDefinition[] = [
@@ -217,6 +258,9 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "account_admin_approval", label: "Account Admin Approval", description: "Account admin approval access." },
   { key: "ready_for_delivery", label: "Ready For Delivery", description: "Delivery queue access." },
   { key: "welcome_call", label: "Welcome Call", description: "Welcome call access." },
+  { key: "attendance", label: "Attendance", description: "View own attendance records." },
+  { key: "attendance_approval", label: "Attendance Approval", description: "Approve or reject attendance records." },
+  { key: "attendance_settings", label: "Attendance Settings", description: "Configure per-user attendance timings." },
 ];
 
 export const defaultRoleDefinitions = [

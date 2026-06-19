@@ -35,6 +35,19 @@ enum FollowupActionType {
   Rescheduled
 }
 
+enum AttendanceStatus {
+  Present
+  Late
+  Absent
+  HalfDay
+}
+
+enum AttendanceApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
 model User {
   id                 String           @id @default(cuid())
   name               String?
@@ -71,10 +84,12 @@ model User {
   unlockedAt         DateTime?        @map("unlocked_at")
   lastLoginAt        DateTime?
 
-  accounts           Account[]
-  sessions           Session[]
-  userRoles          UserRole[]
-  createdLeads       Lead[]           @relation("LeadCreator")
+  accounts             Account[]
+  sessions             Session[]
+  userRoles            UserRole[]
+  createdLeads         Lead[]             @relation("LeadCreator")
+  attendanceRecords    AttendanceRecord[] @relation("UserAttendance")
+  attendanceSetting    AttendanceSetting? @relation("UserAttendanceSetting")
 
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
@@ -571,4 +586,48 @@ model UserRole {
   @@id([userId, roleId])
   @@index([roleId])
   @@map("user_roles")
+}
+
+model AttendanceRecord {
+  id              String                   @id @default(cuid())
+  userId          String                   @map("user_id")
+  attendanceDate  DateTime                 @map("attendance_date") @db.Date
+  checkinTime     DateTime?                @map("checkin_time")
+  checkoutTime    DateTime?                @map("checkout_time")
+  workingHours    Decimal?                 @map("working_hours") @db.Decimal(5, 2)
+  status          AttendanceStatus         @default(Present)
+  dailySummary    String?                  @map("daily_summary")
+  checkinRemarks  String?                  @map("checkin_remarks")
+  approvalStatus  AttendanceApprovalStatus @default(Pending) @map("approval_status")
+  approvedBy      String?                  @map("approved_by")
+  approvedAt      DateTime?                @map("approved_at")
+  rejectionReason String?                  @map("rejection_reason")
+  ownerAdminId    String?                  @map("owner_admin_id")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  user            User                     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, attendanceDate])
+  @@index([userId])
+  @@index([attendanceDate])
+  @@index([ownerAdminId])
+  @@index([approvalStatus])
+  @@map("attendance_records")
+}
+
+model AttendanceSetting {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  expectedCheckinTime  String   @map("expected_checkin_time")
+  expectedCheckoutTime String   @map("expected_checkout_time")
+  ownerAdminId         String?  @map("owner_admin_id")
+  createdBy            String?  @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user                 User     @relation("UserAttendanceSetting", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ownerAdminId])
+  @@map("attendance_settings")
 }

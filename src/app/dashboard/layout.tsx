@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { AttendanceGuard } from "@/components/shared/AttendanceGuard";
 import { FollowupReminderProvider } from "@/components/shared/FollowupReminderProvider";
 import { Navbar } from "@/components/shared/Navbar";
 import { Sidebar } from "@/components/shared/Sidebar";
@@ -30,6 +31,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
+      <AttendanceGuard userId={session.user.id} />
       <FollowupReminderProvider userId={session.user.id} ownerAdminId={ownerAdminId} />
       <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
         <Sidebar
