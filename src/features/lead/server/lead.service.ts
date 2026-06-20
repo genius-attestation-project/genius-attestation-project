@@ -520,16 +520,26 @@ function buildCalendarEvents(items: FollowupItem[]): FollowupCalendarEvent[] {
   }));
 }
 
+/**
+ * Followup visibility owner:
+ * - If assignedUserId is set → only that user sees the followup
+ * - Otherwise → only createdById user sees the followup
+ */
 function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhereInput {
   if (!userId) {
-    return { ownerAdminId };
+    return { id: { in: [] } };
   }
 
   return {
     ownerAdminId,
     OR: [
-      { createdById: userId },
       { assignedUserId: userId },
+      {
+        AND: [
+          { OR: [{ assignedUserId: null }, { assignedUserId: "" }] },
+          { createdById: userId },
+        ],
+      },
     ],
   };
 }
@@ -1296,16 +1306,9 @@ export async function listPendingLeads(ownerAdminId: string) {
   return listLeads(ownerAdminId, { status: "Pending Approval", pageSize: 50 });
 }
 
-export async function listFollowups(ownerAdminId: string) {
+export async function listFollowups(ownerAdminId: string, userId?: string) {
   try {
-    const items = await prisma.lead.findMany({
-      where: {
-        ownerAdminId,
-        nextFollowupAt: { not: null },
-      },
-      orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
-      select: leadSelect,
-    });
+    const items = await listScheduledFollowupRecords(ownerAdminId, userId);
 
     return {
       items: items.map(mapLeadRow),
@@ -1321,7 +1324,7 @@ export async function listFollowups(ownerAdminId: string) {
       throw error;
     }
 
-    const legacyItems = await listLegacyScheduledFollowupRecords(ownerAdminId);
+    const legacyItems = await listLegacyScheduledFollowupRecords(ownerAdminId, userId);
 
     return {
       items: legacyItems.map(mapLegacyLeadRow),
@@ -1751,11 +1754,11 @@ export async function listDueFollowupReminders(args: {
   return leads.map(mapFollowupReminder);
 }
 
-export async function listDueFollowupRemindersForSocket(ownerAdminId: string) {
+export async function listDueFollowupRemindersForSocket(ownerAdminId: string, userId: string) {
   const now = new Date();
   const leads = await prisma.lead.findMany({
     where: {
-      ownerAdminId,
+      ...leadCreatorWhere(ownerAdminId, userId),
       nextFollowupAt: { lte: now },
       followupCompleted: false,
       followupNotified: false,
