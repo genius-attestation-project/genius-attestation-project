@@ -18,7 +18,15 @@ export async function GET(request: Request) {
       ? (rawFilter as FollowupFilter)
       : "all";
 
-    const data = await getFollowupCalendar(ownerAdminId, filter, userId);
+    const assignedUser = searchParams.get("assignedUser") || undefined;
+    const officeLocationId = searchParams.get("officeLocationId") || undefined;
+    const leadStatus = searchParams.get("leadStatus") || undefined;
+
+    const data = await getFollowupCalendar(ownerAdminId, filter, userId, {
+      assignedUser,
+      officeLocationId,
+      leadStatus,
+    });
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch followup calendar", error);

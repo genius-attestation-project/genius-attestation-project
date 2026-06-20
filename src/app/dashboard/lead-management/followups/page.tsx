@@ -1,5 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { FollowupsCalendarManagement } from "@/features/lead/components/FollowupsCalendarManagement";
+import { FollowupsViewContainer } from "@/features/lead/components/FollowupsViewContainer";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export default async function LeadFollowupsPage() {
@@ -9,5 +9,5 @@ export default async function LeadFollowupsPage() {
     return <AccessDenied description="Your role cannot access followup leads." />;
   }
 
-  return <FollowupsCalendarManagement />;
+  return <FollowupsViewContainer />;
 }

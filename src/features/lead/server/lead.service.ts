@@ -522,24 +522,26 @@ function buildCalendarEvents(items: FollowupItem[]): FollowupCalendarEvent[] {
 
 /**
  * Followup visibility owner:
- * - If assignedUserId is set → only that user sees the followup
- * - Otherwise → only createdById user sees the followup
+ * - Lead Owner (createdById) sees the followup
+ * - User assigned to the lead sees the followup
+ * - User who created the followup sees the followup
  */
 function leadCreatorWhere(ownerAdminId: string, userId?: string): Prisma.LeadWhereInput {
   if (!userId) {
     return { id: { in: [] } };
   }
 
+  // To strictly enforce: DO NOT SHOW FOLLOWUPS TO Supervisor, Department Head, Other Staff
+  // Owner Admin is still enforced, and we explicitly only show if:
+  // 1. User created the lead (Lead Owner)
+  // 2. User is assigned to the lead
+  // 3. User created a followup for this lead
   return {
     ownerAdminId,
     OR: [
+      { createdById: userId },
       { assignedUserId: userId },
-      {
-        AND: [
-          { OR: [{ assignedUserId: null }, { assignedUserId: "" }] },
-          { createdById: userId },
-        ],
-      },
+      { followupHistory: { some: { userId } } },
     ],
   };
 }
@@ -564,21 +566,32 @@ function visibleLegacyScheduledFollowupWhere(ownerAdminId: string, userId?: stri
   };
 }
 
-async function listScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
+async function listScheduledFollowupRecords(ownerAdminId: string, userId?: string, options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string }) {
+  const where = visibleScheduledFollowupWhere(ownerAdminId, userId);
+  if (options?.assignedUser) where.assignedUserId = options.assignedUser;
+  if (options?.leadStatus) where.leadStatus = options.leadStatus as LeadStatus;
+  if (options?.officeLocationId) where.creator = { officeLocationId: options.officeLocationId };
+
   return prisma.lead.findMany({
-    where: visibleScheduledFollowupWhere(ownerAdminId, userId),
+    where,
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: leadSelect,
   });
 }
 
-async function listLegacyScheduledFollowupRecords(ownerAdminId: string, userId?: string) {
+async function listLegacyScheduledFollowupRecords(ownerAdminId: string, userId?: string, options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string }) {
+  const where = visibleLegacyScheduledFollowupWhere(ownerAdminId, userId);
+  if (options?.assignedUser) where.assignedUserId = options.assignedUser;
+  if (options?.leadStatus) where.leadStatus = options.leadStatus as LeadStatus;
+  if (options?.officeLocationId) where.creator = { officeLocationId: options.officeLocationId };
+
   return prisma.lead.findMany({
-    where: visibleLegacyScheduledFollowupWhere(ownerAdminId, userId),
+    where,
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: legacyLeadSelect,
   });
 }
+
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -1549,10 +1562,11 @@ export async function getFollowupCalendar(
   ownerAdminId: string,
   filter: FollowupFilter = "all",
   userId?: string,
+  options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string },
 ): Promise<FollowupCalendarResponse> {
   const today = new Date();
   try {
-    const records = await listScheduledFollowupRecords(ownerAdminId, userId);
+    const records = await listScheduledFollowupRecords(ownerAdminId, userId, options);
     const items = records.map((lead) => mapFollowupItem(lead, today));
     const counts = buildFollowupCounts(items);
     const filteredItems = items.filter((item) => matchesFollowupFilter(item, filter));
@@ -1569,7 +1583,7 @@ export async function getFollowupCalendar(
       throw error;
     }
 
-    const records = await listLegacyScheduledFollowupRecords(ownerAdminId, userId);
+    const records = await listLegacyScheduledFollowupRecords(ownerAdminId, userId, options);
     const items = records.map((lead) => mapLegacyFollowupItem(lead, today));
     const counts = buildFollowupCounts(items);
     const filteredItems = items.filter((item) => matchesFollowupFilter(item, filter));

@@ -104,11 +104,28 @@ export function FollowupsCalendarManagement() {
   const [completionDescription, setCompletionDescription] = useState("");
   const [submittingLeadId, setSubmittingLeadId] = useState<string | null>(null);
   const [notificationItem, setNotificationItem] = useState<FollowupItem | null>(null);
+  
+  // Calendar Filters
+  const [assignedUserFilter, setAssignedUserFilter] = useState("");
+  const [officeLocationFilter, setOfficeLocationFilter] = useState("");
+  const [leadStatusFilter, setLeadStatusFilter] = useState("");
+  const [apiFilterOptions, setApiFilterOptions] = useState<any>(null);
+
   const notifiedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    fetch("/api/leads/filters")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.payload) setApiFilterOptions(data.payload);
+        else setApiFilterOptions(data);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
     void refreshCalendarData(activeFilter);
-  }, [activeFilter]);
+  }, [activeFilter, assignedUserFilter, officeLocationFilter, leadStatusFilter]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -148,8 +165,13 @@ export function FollowupsCalendarManagement() {
     setError("");
 
     try {
+      const params = new URLSearchParams({ filter });
+      if (assignedUserFilter) params.append("assignedUser", assignedUserFilter);
+      if (officeLocationFilter) params.append("officeLocationId", officeLocationFilter);
+      if (leadStatusFilter) params.append("leadStatus", leadStatusFilter);
+
       const [calendarResponse, todayResponse, upcomingResponse] = await Promise.all([
-        fetch(`/api/followups?filter=${filter}`, { cache: "no-store" }),
+        fetch(`/api/followups?${params.toString()}`, { cache: "no-store" }),
         fetch("/api/followups/today", { cache: "no-store" }),
         fetch("/api/followups/upcoming", { cache: "no-store" }),
       ]);
@@ -509,7 +531,7 @@ export function FollowupsCalendarManagement() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-semibold">{option.label}</span>
                     <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                      {calendarData.counts[option.value]}
+                      {calendarData.counts[option.value as keyof typeof calendarData.counts]}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-soft">{option.helper}</p>
@@ -520,6 +542,49 @@ export function FollowupsCalendarManagement() {
           <p className="text-sm text-soft">
             Showing {calendarData.items.length} followups for the {activeFilter} queue.
           </p>
+
+          <div className="mt-6 grid gap-4 border-t border-[color:var(--border)] pt-6 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">Assigned User</label>
+              <select
+                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={assignedUserFilter}
+                onChange={(e) => setAssignedUserFilter(e.target.value)}
+              >
+                <option value="">All Users</option>
+                {apiFilterOptions?.assignedTo?.map((o: any) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">Office Location</label>
+              <select
+                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={officeLocationFilter}
+                onChange={(e) => setOfficeLocationFilter(e.target.value)}
+              >
+                <option value="">All Locations</option>
+                {apiFilterOptions?.officeLocations?.map((o: any) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">Lead Status</label>
+              <select
+                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={leadStatusFilter}
+                onChange={(e) => setLeadStatusFilter(e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="New">New</option>
+                <option value="Followup">Followup</option>
+                <option value="Assigned">Assigned</option>
+                <option value="Potential_Qualified">Potential Qualified</option>
+              </select>
+            </div>
+          </div>
         </div>
       </DashboardCard>
 

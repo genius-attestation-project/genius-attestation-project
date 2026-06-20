@@ -11,12 +11,17 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get("filter");
+    const assignedUser = searchParams.get("assignedUser") || undefined;
+    const officeLocationId = searchParams.get("officeLocationId") || undefined;
+    const leadStatus = searchParams.get("leadStatus") || undefined;
+
     const data = await getFollowupCalendar(
       ownerAdminId,
       filter === "today" || filter === "upcoming" || filter === "missed" || filter === "completed"
         ? filter
         : "all",
       userId,
+      { assignedUser, officeLocationId, leadStatus }
     );
     return jsonOk(data);
   } catch (error) {
@@ -24,4 +29,3 @@ export async function GET(request: Request) {
     return jsonError("Unable to fetch followups.", 500);
   }
 }
-
