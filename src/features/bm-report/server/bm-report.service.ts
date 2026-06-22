@@ -16,6 +16,8 @@ type BmReportRow = {
   approvalStatus: string;
   acceptedAt: Date | null;
   acceptedBy: string | null;
+  isBmLocked: boolean;
+  bmExtensionStatus: string;
 };
 
 function logBmWorkflow(
@@ -55,7 +57,25 @@ function mapBmReportItem(row: BmReportRow): BmReportItem {
     acceptedAt: row.acceptedAt ? row.acceptedAt.toISOString() : null,
     acceptedDate: row.acceptedAt ? formatDate(row.acceptedAt) : null,
     acceptedBy: row.acceptedBy ?? null,
+    isBmLocked: row.isBmLocked,
+    bmExtensionStatus: row.bmExtensionStatus,
   };
+}
+
+async function enforceBmLocks() {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE registrations
+    SET is_bm_locked = true,
+        bm_lock_reason = 'Exceeded 7-day threshold'
+    WHERE is_bm_locked = false
+      AND bm_extension_status <> 'Approved'
+      AND created_at < ${sevenDaysAgo}
+      AND COALESCE(delivery_location, '') <> COALESCE(region_of_registration, '')
+      AND bm_status = 'Pending'
+  `);
 }
 
 async function listBmRows(
@@ -75,7 +95,9 @@ async function listBmRows(
       r.bm_status AS "status",
       r.approval_status AS "approvalStatus",
       r.accepted_at AS "acceptedAt",
-      COALESCE(accepted_user.name, accepted_user.email) AS "acceptedBy"
+      COALESCE(accepted_user.name, accepted_user.email) AS "acceptedBy",
+      r.is_bm_locked AS "isBmLocked",
+      r.bm_extension_status AS "bmExtensionStatus"
     FROM registrations r
     LEFT JOIN users accepted_user ON accepted_user.id = r.accepted_by
     WHERE r.owner_admin_id = ${ownerAdminId}
@@ -141,6 +163,7 @@ export async function getBmReportStats(ownerAdminId: string, officeLocationName:
 }
 
 export async function listBmInward(ownerAdminId: string, officeLocationName: string) {
+  await enforceBmLocks();
   const rows = await listBmRows(
     ownerAdminId,
     Prisma.sql`
@@ -166,6 +189,7 @@ export async function listBmInward(ownerAdminId: string, officeLocationName: str
 }
 
 export async function listBmHome(ownerAdminId: string, officeLocationName: string) {
+  await enforceBmLocks();
   const rows = await listBmRows(
     ownerAdminId,
     Prisma.sql`
@@ -190,6 +214,7 @@ export async function listBmHome(ownerAdminId: string, officeLocationName: strin
 }
 
 export async function listBmOutward(ownerAdminId: string, officeLocationName: string) {
+  await enforceBmLocks();
   const rows = await listBmRows(
     ownerAdminId,
     Prisma.sql`

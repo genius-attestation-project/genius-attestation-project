@@ -348,6 +348,14 @@ model Registration {
   welcomeCallStatus     String             @default("Pending") @map("welcome_call_status")
   welcomeCalledBy       String?            @map("welcome_called_by")
   welcomeCalledAt       DateTime?          @map("welcome_called_at")
+  isBmLocked            Boolean            @default(false) @map("is_bm_locked")
+  bmLockReason          String?            @map("bm_lock_reason")
+  bmExtensionStatus     String             @default("None") @map("bm_extension_status")
+  bmExtensionRequestedBy String?           @map("bm_extension_requested_by")
+  bmExtensionRequestedAt DateTime?         @map("bm_extension_requested_at")
+  bmExtensionReason     String?            @map("bm_extension_reason")
+  bmExtensionApprovedBy String?            @map("bm_extension_approved_by")
+  bmExtensionApprovedAt DateTime?          @map("bm_extension_approved_at")
   ownerAdminId          String?            @map("owner_admin_id")
   createdBy             String?            @map("created_by")
   createdAt             DateTime           @default(now()) @map("created_at")
@@ -366,6 +374,7 @@ model Registration {
   @@index([financeApprovalStatus])
   @@index([bmStatus])
   @@index([welcomeCallStatus])
+  @@index([isBmLocked])
   @@map("registrations")
 }
 

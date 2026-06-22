@@ -58,6 +58,11 @@ export const sidebarItems: SidebarItem[] = [
     icon: FileSearch,
   },
   {
+    label: "Status Checking",
+    href: "/dashboard/status-checking",
+    icon: ClipboardList,
+  },
+  {
     label: "BM Report",
     href: "/dashboard/bm-report",
     icon: ChartNoAxesColumn,

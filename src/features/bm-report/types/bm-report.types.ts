@@ -11,6 +11,8 @@ export type BmReportItem = {
   acceptedAt: string | null;
   acceptedDate: string | null;
   acceptedBy: string | null;
+  isBmLocked: boolean;
+  bmExtensionStatus: string;
 };
 
 export type BmReportStats = {

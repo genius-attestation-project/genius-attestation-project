@@ -198,6 +198,8 @@ export async function createRegistration(
     throw new Error("Advance Paid cannot exceed Total Charges.");
   }
 
+  const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
+
   const registration = await prisma.registration.create({
     data: {
       ...buildRegistrationData({
@@ -207,6 +209,9 @@ export async function createRegistration(
       welcomeCallStatus: "Pending",
       ownerAdminId,
       createdBy: performedBy ?? null,
+      bmStatus: isHomeDelivery ? "Accepted" : "Pending",
+      acceptedAt: isHomeDelivery ? new Date() : null,
+      acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,
       auditTrail: {
         create: {
           action: "Registration created",
@@ -249,10 +254,15 @@ export async function updateRegistration(
       totalCharges: true,
       advancePaid: true,
       regionOfRegistration: true,
+      isBmLocked: true,
     },
   });
 
   if (!existing) return null;
+
+  if (existing.isBmLocked) {
+    throw new Error("This registration is locked for BM Report processing and cannot be updated.");
+  }
 
   const paymentChanged =
     existing.paymentStatus !== input.paymentStatus ||

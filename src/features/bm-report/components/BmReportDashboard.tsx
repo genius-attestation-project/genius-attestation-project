@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeft, CheckCheck, Inbox, LoaderCircle, PackageCheck } from "lucide-react";
+import { ArrowRightLeft, CheckCheck, Inbox, LoaderCircle, PackageCheck, Lock, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -107,13 +107,26 @@ function BmTable({
                 {activeTab === "inward" ? <td className="px-5 py-4">{item.createdBy}</td> : null}
                 {activeTab === "inward" ? <td className="px-5 py-4">{item.createdDate}</td> : null}
                 <td className="px-5 py-4">
-                  <StatusBadge status={item.status} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={item.status} />
+                    {item.isBmLocked && (
+                      <div className="flex items-center gap-1 text-rose-600" title="This file is locked.">
+                        <Lock className="h-4 w-4" />
+                        <span className="text-xs font-bold uppercase">Locked</span>
+                      </div>
+                    )}
+                    {item.bmExtensionStatus === "Pending" && (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        Ext. Pending
+                      </span>
+                    )}
+                  </div>
                 </td>
                 {activeTab === "inward" ? (
                   <td className="px-5 py-4">
                     <Button
                       size="sm"
-                      disabled={acceptingId === item.id}
+                      disabled={acceptingId === item.id || item.isBmLocked}
                       onClick={() => onAccept(item.id)}
                     >
                       {acceptingId === item.id ? "Accepting..." : "Accept"}
