@@ -1,13 +1,16 @@
-export type AttendanceStatus = "Present" | "Late" | "Absent" | "HalfDay";
+export type AttendanceStatus = "Present" | "Late" | "Absent" | "HalfDay" | "Leave";
 export type AttendanceApprovalStatus = "Pending" | "Approved" | "Rejected";
+export type LeaveRequestStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
 
 export type AttendanceRecord = {
   id: string;
   userId: string;
   userName: string;
   userEmail: string;
+  department: string;
   officeLocation: string;
-  attendanceDate: string; // ISO date string
+  attendanceDate: string;
+  attendanceDateIso: string;
   checkinTime: string | null;
   checkoutTime: string | null;
   workingHours: string | null;
@@ -18,6 +21,10 @@ export type AttendanceRecord = {
   approvedBy: string | null;
   approvedAt: string | null;
   rejectionReason: string | null;
+  leaveRequestId: string | null;
+  leaveType: string | null;
+  leaveStatus: LeaveRequestStatus | null;
+  leaveReason: string | null;
   createdAt: string;
 };
 
@@ -26,25 +33,77 @@ export type AttendanceSetting = {
   userId: string;
   userName: string;
   userEmail: string;
-  expectedCheckinTime: string;  // "HH:mm"
-  expectedCheckoutTime: string; // "HH:mm"
+  expectedCheckinTime: string;
+  expectedCheckoutTime: string;
 };
 
 export type AttendanceStats = {
   presentToday: number;
   absentToday: number;
+  onLeaveToday: number;
   lateToday: number;
-  pendingApproval: number;
-  approvedToday: number;
+  pendingLeaveRequests: number;
+  approvedLeavesThisMonth: number;
+};
+
+export type CalendarDisplayStatus =
+  | "Present"
+  | "Absent"
+  | "Late"
+  | "Half Day"
+  | "Approved Leave"
+  | "Rejected Leave"
+  | "Pending Leave"
+  | "Holiday";
+
+export type AttendanceCalendarSummary = {
+  status: CalendarDisplayStatus;
+  count: number;
+  color: string;
+  label: string;
+};
+
+export type AttendanceCalendarDetail = {
+  userId: string;
+  userName: string;
+  department: string;
+  officeLocation: string;
+  date: string;
+  checkinTime: string | null;
+  checkoutTime: string | null;
+  workingHours: string | null;
+  status: CalendarDisplayStatus;
+  attendanceStatus: AttendanceStatus | null;
+  leaveRequestId: string | null;
+  leaveType: string | null;
+  leaveStatus: LeaveRequestStatus | null;
+  leaveReason: string | null;
+  approvalNote: string | null;
+  rejectionReason: string | null;
+};
+
+export type AttendanceCalendarDay = {
+  date: string;
+  summaries: AttendanceCalendarSummary[];
+  details: AttendanceCalendarDetail[];
+};
+
+export type AttendanceCalendarResponse = {
+  days: AttendanceCalendarDay[];
+  totalUsers: number;
+  range: {
+    from: string;
+    to: string;
+  };
 };
 
 export type CheckinPayload = {
-  checkinTime?: string; // ISO datetime — defaults to now
+  checkinTime?: string;
   checkinRemarks?: string;
 };
 
 export type CheckoutPayload = {
-  checkoutTime?: string; // ISO datetime — defaults to now
+  checkoutTime?: string;
   dailySummary: string;
 };
 

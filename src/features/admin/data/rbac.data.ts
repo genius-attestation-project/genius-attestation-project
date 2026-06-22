@@ -19,6 +19,8 @@ import {
   UserCheck,
   UserRoundPlus,
   Users,
+  PlaneTakeoff,
+  FileClock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -233,6 +235,43 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
       },
     ],
   },
+  {
+    label: "Leave Management",
+    href: "/dashboard/leave-management",
+    icon: PlaneTakeoff,
+    menuPermission: "menu.leave-management",
+    pagePermission: "leave.view",
+    children: [
+      {
+        label: "Apply Leave",
+        href: "/dashboard/leave-management/apply",
+        icon: PlaneTakeoff,
+        menuPermission: "menu.leave-management.apply",
+        pagePermission: "leave.create",
+      },
+      {
+        label: "Requests",
+        href: "/dashboard/leave-management/requests",
+        icon: CalendarDays,
+        menuPermission: "menu.leave-management.requests",
+        pagePermission: "leave.view",
+      },
+      {
+        label: "Approval",
+        href: "/dashboard/leave-management/approval",
+        icon: BadgeCheck,
+        menuPermission: "menu.leave-management.approval",
+        pagePermission: "leave.approve",
+      },
+      {
+        label: "Reports",
+        href: "/dashboard/leave-management/reports",
+        icon: FileClock,
+        menuPermission: "menu.leave-management.reports",
+        pagePermission: "leave.report",
+      },
+    ],
+  },
 ];
 
 export const permissionModules: PermissionModuleDefinition[] = [
@@ -261,6 +300,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "attendance", label: "Attendance", description: "View own attendance records." },
   { key: "attendance_approval", label: "Attendance Approval", description: "Approve or reject attendance records." },
   { key: "attendance_settings", label: "Attendance Settings", description: "Configure per-user attendance timings." },
+  { key: "leave", label: "Leave", description: "Apply for and review leave requests." },
 ];
 
 export const defaultRoleDefinitions = [
@@ -298,10 +338,17 @@ export const defaultRoleDefinitions = [
       "account_update.view",
       "ready_for_delivery.view",
       "welcome_call.view",
+      "leave.view",
+      "leave.create",
+      "leave.approve",
+      "leave.report",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
       "menu.lead-management.followups",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
       "menu.lead-management.pending-approval",
       "menu.lead-management.lob",
       "menu.lead-management.closed",
@@ -311,6 +358,11 @@ export const defaultRoleDefinitions = [
       "menu.account-update",
       "menu.ready-for-delivery",
       "menu.welcome-call",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.leave-management.approval",
+      "menu.leave-management.reports",
     ],
   },
   {
@@ -322,10 +374,15 @@ export const defaultRoleDefinitions = [
       "lead_management.view",
       "leads.view",
       "followups.view",
+      "leave.view",
+      "leave.create",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
       "menu.lead-management.followups",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
     ],
   },
   {
@@ -344,6 +401,8 @@ export const defaultRoleDefinitions = [
       "search_report.export",
       "revenue_summary.view",
       "revenue_summary.export",
+      "leave.view",
+      "leave.create",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
@@ -352,6 +411,9 @@ export const defaultRoleDefinitions = [
       "menu.search-report",
       "menu.search-report.general",
       "menu.search-report.revenue-summary",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
     ],
   },
   {
@@ -368,6 +430,8 @@ export const defaultRoleDefinitions = [
       "account_update.view",
       "ready_for_delivery.view",
       "welcome_call.view",
+      "leave.view",
+      "leave.create",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
@@ -376,6 +440,9 @@ export const defaultRoleDefinitions = [
       "menu.account-update",
       "menu.ready-for-delivery",
       "menu.welcome-call",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
     ],
   },
 ] as const;

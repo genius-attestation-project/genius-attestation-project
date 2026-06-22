@@ -1,75 +1,151 @@
 import { prisma } from "@/lib/prisma";
 import type {
+  AttendanceCalendarDetail,
+  AttendanceCalendarResponse,
   AttendanceRecord,
   AttendanceSetting,
   AttendanceStats,
+  AttendanceStatus,
+  CalendarDisplayStatus,
 } from "@/features/attendance/types/attendance.types";
+import {
+  ATTENDANCE_NOT_READY_MESSAGE,
+  addDays,
+  assertUserBelongsToAdmin,
+  calcWorkingHours,
+  eachDayInclusive,
+  endOfDay,
+  formatDate,
+  formatDateTime,
+  formatTime,
+  isLate,
+  isTableMissingError,
+  isWeekend,
+  startOfDay,
+  todayDate,
+  toIsoDate,
+} from "@/features/attendance/server/attendance.shared";
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+const CALENDAR_COLORS: Record<CalendarDisplayStatus, string> = {
+  Present: "#16a34a",
+  Absent: "#dc2626",
+  Late: "#f97316",
+  "Half Day": "#eab308",
+  "Approved Leave": "#2563eb",
+  "Rejected Leave": "#6b7280",
+  "Pending Leave": "#6366f1",
+  Holiday: "#94a3b8",
+};
 
-function todayDate(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+type AttendanceDbRecord = {
+  id: string;
+  userId: string;
+  attendanceDate: Date;
+  checkinTime: Date | null;
+  checkoutTime: Date | null;
+  workingHours: unknown;
+  status: AttendanceStatus;
+  dailySummary: string | null;
+  checkinRemarks: string | null;
+  approvalStatus: AttendanceRecord["approvalStatus"];
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  rejectionReason: string | null;
+  createdAt: Date;
+  leaveRequestId: string | null;
+  leaveRequest: null | {
+    id: string;
+    leaveType: string;
+    status: AttendanceRecord["leaveStatus"];
+    reason: string;
+  };
+  user: {
+    name: string | null;
+    email: string;
+    departmentRef: { name: string } | null;
+    officeLocationRef: { officeName: string } | null;
+  };
+};
+
+const attendanceUserInclude = {
+  user: {
+    select: {
+      name: true,
+      email: true,
+      departmentRef: { select: { name: true } },
+      officeLocationRef: { select: { officeName: true } },
+    },
+  },
+  leaveRequest: {
+    select: {
+      id: true,
+      leaveType: true,
+      status: true,
+      reason: true,
+    },
+  },
+} as const;
+
+function mapAttendanceRecord(record: AttendanceDbRecord): AttendanceRecord {
+  return {
+    id: record.id,
+    userId: record.userId,
+    userName: record.user.name ?? "Unknown",
+    userEmail: record.user.email,
+    department: record.user.departmentRef?.name ?? "-",
+    officeLocation: record.user.officeLocationRef?.officeName ?? "-",
+    attendanceDate: formatDate(record.attendanceDate),
+    attendanceDateIso: toIsoDate(record.attendanceDate),
+    checkinTime: formatTime(record.checkinTime),
+    checkoutTime: formatTime(record.checkoutTime),
+    workingHours: record.workingHours ? String(record.workingHours) : null,
+    status: record.status,
+    dailySummary: record.dailySummary,
+    checkinRemarks: record.checkinRemarks,
+    approvalStatus: record.approvalStatus,
+    approvedBy: record.approvedBy,
+    approvedAt: formatDateTime(record.approvedAt),
+    rejectionReason: record.rejectionReason,
+    leaveRequestId: record.leaveRequestId,
+    leaveType: record.leaveRequest?.leaveType ?? null,
+    leaveStatus: record.leaveRequest?.status ?? null,
+    leaveReason: record.leaveRequest?.reason ?? null,
+    createdAt: record.createdAt.toISOString(),
+  };
 }
 
-function formatTime(date: Date | null | undefined): string | null {
-  if (!date) return null;
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
+function getCalendarStatus(args: {
+  attendanceStatus: AttendanceStatus | null;
+  leaveStatus: AttendanceRecord["leaveStatus"];
+  date: Date;
+}): CalendarDisplayStatus {
+  if (args.attendanceStatus === "Present") return "Present";
+  if (args.attendanceStatus === "Late") return "Late";
+  if (args.attendanceStatus === "HalfDay") return "Half Day";
+  if (args.attendanceStatus === "Leave" || args.leaveStatus === "Approved") return "Approved Leave";
+  if (args.leaveStatus === "Pending") return "Pending Leave";
+  if (args.leaveStatus === "Rejected") return "Rejected Leave";
+  if (isWeekend(args.date)) return "Holiday";
+  return "Absent";
 }
 
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
-
-/** Returns working hours as a rounded decimal (e.g., 8.5) */
-function calcWorkingHours(checkin: Date, checkout: Date): number {
-  const ms = checkout.getTime() - checkin.getTime();
-  return Math.round((ms / (1000 * 60 * 60)) * 100) / 100;
-}
-
-/** Detect Late: compare actual time-of-day against expected HH:mm */
-function isLate(checkinTime: Date, expectedTime: string): boolean {
-  const [expH, expM] = expectedTime.split(":").map(Number);
-  const actual = checkinTime.getHours() * 60 + checkinTime.getMinutes();
-  const expected = (expH ?? 9) * 60 + (expM ?? 0);
-  return actual > expected;
-}
-
-const ATTENDANCE_NOT_READY_MESSAGE =
-  "Attendance system is not set up yet. Database migrations need to be applied.";
-
-/** Check if error is "table does not exist" (migration not run yet) */
-function isTableMissingError(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const code = String((err as { code?: unknown }).code ?? "");
-  const message = String((err as { message?: unknown }).message ?? "");
-  const meta = (err as { meta?: { table?: string; modelName?: string } }).meta;
-  return (
-    code === "P2021" ||
-    code === "P2022" ||
-    code === "42P01" ||
-    code === "42704" ||
-    message.includes("does not exist") ||
-    message.includes("relation") ||
-    message.includes("attendance_records") ||
-    message.includes("attendance_settings") ||
-    meta?.table?.includes("attendance") === true ||
-    meta?.modelName?.includes("Attendance") === true
-  );
+function leavePriority(status: AttendanceRecord["leaveStatus"]): number {
+  switch (status) {
+    case "Approved":
+      return 3;
+    case "Pending":
+      return 2;
+    case "Rejected":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 export async function isAttendanceReady(): Promise<boolean> {
   try {
     await prisma.$queryRaw`SELECT 1 FROM "attendance_records" LIMIT 0`;
+    await prisma.$queryRaw`SELECT 1 FROM "leave_requests" LIMIT 0`;
     return true;
   } catch (err) {
     if (isTableMissingError(err)) return false;
@@ -78,84 +154,13 @@ export async function isAttendanceReady(): Promise<boolean> {
   }
 }
 
-async function assertUserBelongsToAdmin(userId: string, ownerAdminId: string): Promise<void> {
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      OR: [{ ownerAdminId }, { id: ownerAdminId }],
-      isActive: true,
-    },
-    select: { id: true },
-  });
-
-  if (!user) {
-    throw new Error("Selected user is not in your workspace.");
-  }
-}
-
-type RawRecord = {
-  id: string;
-  userId: string;
-  attendanceDate: Date;
-  checkinTime: Date | null;
-  checkoutTime: Date | null;
-  workingHours: any;
-  status: any;
-  dailySummary: string | null;
-  checkinRemarks: string | null;
-  approvalStatus: any;
-  approvedBy: string | null;
-  approvedAt: Date | null;
-  rejectionReason: string | null;
-  createdAt: Date;
-  user: {
-    name: string | null;
-    email: string;
-    officeLocationRef: { officeName: string } | null;
-  };
-};
-
-function mapRecord(r: RawRecord): AttendanceRecord {
-  return {
-    id: r.id,
-    userId: r.userId,
-    userName: r.user.name ?? "Unknown",
-    userEmail: r.user.email,
-    officeLocation: r.user.officeLocationRef?.officeName ?? "-",
-    attendanceDate: formatDate(r.attendanceDate),
-    checkinTime: formatTime(r.checkinTime),
-    checkoutTime: formatTime(r.checkoutTime),
-    workingHours: r.workingHours ? String(r.workingHours) : null,
-    status: r.status as AttendanceRecord["status"],
-    dailySummary: r.dailySummary,
-    checkinRemarks: r.checkinRemarks,
-    approvalStatus: r.approvalStatus as AttendanceRecord["approvalStatus"],
-    approvedBy: r.approvedBy,
-    approvedAt: r.approvedAt ? formatDate(r.approvedAt) : null,
-    rejectionReason: r.rejectionReason,
-    createdAt: r.createdAt.toISOString(),
-  };
-}
-
-const userInclude = {
-  user: {
-    select: {
-      name: true,
-      email: true,
-      officeLocationRef: { select: { officeName: true } },
-    },
-  },
-} as const;
-
-// ─── today ──────────────────────────────────────────────────────────────────
-
 export async function getTodayAttendance(userId: string): Promise<AttendanceRecord | null> {
   try {
     const record = await prisma.attendanceRecord.findUnique({
       where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-      include: userInclude,
+      include: attendanceUserInclude,
     });
-    return record ? mapRecord(record) : null;
+    return record ? mapAttendanceRecord(record as AttendanceDbRecord) : null;
   } catch (err) {
     if (isTableMissingError(err)) {
       console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
@@ -166,8 +171,6 @@ export async function getTodayAttendance(userId: string): Promise<AttendanceReco
   }
 }
 
-// ─── check-in ───────────────────────────────────────────────────────────────
-
 export async function checkIn(
   userId: string,
   ownerAdminId: string,
@@ -175,7 +178,6 @@ export async function checkIn(
 ): Promise<AttendanceRecord> {
   const checkinTime = opts.checkinTime ? new Date(opts.checkinTime) : new Date();
 
-  // Determine status (Present or Late)
   let setting: { expectedCheckinTime: string } | null = null;
   try {
     setting = await prisma.attendanceSetting.findUnique({
@@ -188,14 +190,23 @@ export async function checkIn(
     }
   }
 
-  const late = setting ? isLate(checkinTime, setting.expectedCheckinTime) : false;
-  const status = late ? "Late" : "Present";
+  const existing = await prisma.attendanceRecord.findUnique({
+    where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+    include: attendanceUserInclude,
+  });
+
+  if (existing) {
+    if (existing.status === "Leave") {
+      throw new Error("Approved leave exists for today. Check-in is unavailable.");
+    }
+    return mapAttendanceRecord(existing as AttendanceDbRecord);
+  }
+
+  const status: AttendanceStatus = setting && isLate(checkinTime, setting.expectedCheckinTime) ? "Late" : "Present";
 
   try {
-    const record = await prisma.attendanceRecord.upsert({
-      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-      update: {}, // do NOT overwrite if already checked in
-      create: {
+    const record = await prisma.attendanceRecord.create({
+      data: {
         userId,
         attendanceDate: todayDate(),
         checkinTime,
@@ -203,10 +214,10 @@ export async function checkIn(
         checkinRemarks: opts.checkinRemarks || null,
         ownerAdminId,
       },
-      include: userInclude,
+      include: attendanceUserInclude,
     });
 
-    return mapRecord(record);
+    return mapAttendanceRecord(record as AttendanceDbRecord);
   } catch (err) {
     if (isTableMissingError(err)) {
       console.error("[attendance] attendance_records table not found. Run: npx prisma migrate deploy");
@@ -217,8 +228,6 @@ export async function checkIn(
   }
 }
 
-// ─── check-out ──────────────────────────────────────────────────────────────
-
 export async function checkOut(
   userId: string,
   opts: { checkoutTime?: string; dailySummary: string },
@@ -226,16 +235,19 @@ export async function checkOut(
   try {
     const existing = await prisma.attendanceRecord.findUnique({
       where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-      select: { id: true, checkinTime: true },
+      select: { id: true, checkinTime: true, status: true },
     });
 
     if (!existing) {
       throw new Error("No check-in record found for today. Please check in first.");
     }
 
+    if (existing.status === "Leave") {
+      throw new Error("Approved leave exists for today. Check-out is unavailable.");
+    }
+
     const checkoutTime = opts.checkoutTime ? new Date(opts.checkoutTime) : new Date();
-    const workingHours =
-      existing.checkinTime ? calcWorkingHours(existing.checkinTime, checkoutTime) : null;
+    const workingHours = existing.checkinTime ? calcWorkingHours(existing.checkinTime, checkoutTime) : null;
 
     const record = await prisma.attendanceRecord.update({
       where: { id: existing.id },
@@ -244,12 +256,12 @@ export async function checkOut(
         dailySummary: opts.dailySummary,
         workingHours: workingHours ?? undefined,
       },
-      include: userInclude,
+      include: attendanceUserInclude,
     });
 
-    return mapRecord(record);
+    return mapAttendanceRecord(record as AttendanceDbRecord);
   } catch (err) {
-    if (err instanceof Error && err.message.includes("check in first")) {
+    if (err instanceof Error && (err.message.includes("check in first") || err.message.includes("Check-out is unavailable"))) {
       throw err;
     }
     if (isTableMissingError(err)) {
@@ -260,8 +272,6 @@ export async function checkOut(
     throw err;
   }
 }
-
-// ─── list records ─────────────────────────────────────────────────────────────
 
 export async function listAttendanceRecords(params: {
   userId: string;
@@ -287,12 +297,12 @@ export async function listAttendanceRecords(params: {
         orderBy: [{ attendanceDate: "desc" }],
         skip,
         take: limit,
-        include: userInclude,
+        include: attendanceUserInclude,
       }),
       prisma.attendanceRecord.count({ where }),
     ]);
 
-    return { records: records.map(mapRecord), total, page, limit };
+    return { records: records.map((record) => mapAttendanceRecord(record as AttendanceDbRecord)), total, page, limit };
   } catch (err) {
     if (isTableMissingError(err)) {
       console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
@@ -303,16 +313,14 @@ export async function listAttendanceRecords(params: {
   }
 }
 
-// ─── pending approval ────────────────────────────────────────────────────────
-
 export async function listPendingApprovals(ownerAdminId: string) {
   try {
     const records = await prisma.attendanceRecord.findMany({
       where: { ownerAdminId, approvalStatus: "Pending" },
       orderBy: [{ attendanceDate: "desc" }],
-      include: userInclude,
+      include: attendanceUserInclude,
     });
-    return records.map(mapRecord);
+    return records.map((record) => mapAttendanceRecord(record as AttendanceDbRecord));
   } catch (err) {
     if (isTableMissingError(err)) {
       console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
@@ -322,8 +330,6 @@ export async function listPendingApprovals(ownerAdminId: string) {
     throw err;
   }
 }
-
-// ─── approve ────────────────────────────────────────────────────────────────
 
 export async function approveAttendance(
   recordId: string,
@@ -345,13 +351,11 @@ export async function approveAttendance(
       approvedAt: new Date(),
       rejectionReason: null,
     },
-    include: userInclude,
+    include: attendanceUserInclude,
   });
 
-  return mapRecord(updated);
+  return mapAttendanceRecord(updated as AttendanceDbRecord);
 }
-
-// ─── reject ──────────────────────────────────────────────────────────────────
 
 export async function rejectAttendance(
   recordId: string,
@@ -373,28 +377,26 @@ export async function rejectAttendance(
       approvedBy: null,
       approvedAt: null,
     },
-    include: userInclude,
+    include: attendanceUserInclude,
   });
 
-  return mapRecord(updated);
+  return mapAttendanceRecord(updated as AttendanceDbRecord);
 }
-
-// ─── settings ────────────────────────────────────────────────────────────────
 
 export async function getAttendanceSetting(userId: string): Promise<AttendanceSetting | null> {
   try {
-    const s = await prisma.attendanceSetting.findUnique({
+    const setting = await prisma.attendanceSetting.findUnique({
       where: { userId },
       include: { user: { select: { name: true, email: true } } },
     });
-    if (!s) return null;
+    if (!setting) return null;
     return {
-      id: s.id,
-      userId: s.userId,
-      userName: s.user.name ?? "Unknown",
-      userEmail: s.user.email,
-      expectedCheckinTime: s.expectedCheckinTime,
-      expectedCheckoutTime: s.expectedCheckoutTime,
+      id: setting.id,
+      userId: setting.userId,
+      userName: setting.user.name ?? "Unknown",
+      userEmail: setting.user.email,
+      expectedCheckinTime: setting.expectedCheckinTime,
+      expectedCheckoutTime: setting.expectedCheckoutTime,
     };
   } catch (err) {
     if (isTableMissingError(err)) {
@@ -413,13 +415,13 @@ export async function listAttendanceSettings(ownerAdminId: string): Promise<Atte
       include: { user: { select: { name: true, email: true } } },
       orderBy: { createdAt: "asc" },
     });
-    return settings.map((s) => ({
-      id: s.id,
-      userId: s.userId,
-      userName: s.user.name ?? "Unknown",
-      userEmail: s.user.email,
-      expectedCheckinTime: s.expectedCheckinTime,
-      expectedCheckoutTime: s.expectedCheckoutTime,
+    return settings.map((setting) => ({
+      id: setting.id,
+      userId: setting.userId,
+      userName: setting.user.name ?? "Unknown",
+      userEmail: setting.user.email,
+      expectedCheckinTime: setting.expectedCheckinTime,
+      expectedCheckoutTime: setting.expectedCheckoutTime,
     }));
   } catch (err) {
     if (isTableMissingError(err)) {
@@ -439,7 +441,7 @@ export async function upsertAttendanceSetting(
   await assertUserBelongsToAdmin(payload.userId, ownerAdminId);
 
   try {
-    const s = await prisma.attendanceSetting.upsert({
+    const setting = await prisma.attendanceSetting.upsert({
       where: { userId: payload.userId },
       update: {
         expectedCheckinTime: payload.expectedCheckinTime,
@@ -456,12 +458,12 @@ export async function upsertAttendanceSetting(
       include: { user: { select: { name: true, email: true } } },
     });
     return {
-      id: s.id,
-      userId: s.userId,
-      userName: s.user.name ?? "Unknown",
-      userEmail: s.user.email,
-      expectedCheckinTime: s.expectedCheckinTime,
-      expectedCheckoutTime: s.expectedCheckoutTime,
+      id: setting.id,
+      userId: setting.userId,
+      userName: setting.user.name ?? "Unknown",
+      userEmail: setting.user.email,
+      expectedCheckinTime: setting.expectedCheckinTime,
+      expectedCheckoutTime: setting.expectedCheckoutTime,
     };
   } catch (err) {
     if (isTableMissingError(err)) {
@@ -473,29 +475,25 @@ export async function upsertAttendanceSetting(
   }
 }
 
-// ─── stats ───────────────────────────────────────────────────────────────────
-
-export async function getAttendanceStats(
-  ownerAdminId: string,
-): Promise<AttendanceStats> {
+export async function getAttendanceStats(ownerAdminId: string): Promise<AttendanceStats> {
   const today = todayDate();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
   try {
-    const [presentToday, lateToday, pendingApproval, approvedToday] =
-      await Promise.all([
-        prisma.attendanceRecord.count({
-          where: { ownerAdminId, attendanceDate: today, status: "Present" },
-        }),
-        prisma.attendanceRecord.count({
-          where: { ownerAdminId, attendanceDate: today, status: "Late" },
-        }),
-        prisma.attendanceRecord.count({
-          where: { ownerAdminId, approvalStatus: "Pending" },
-        }),
-        prisma.attendanceRecord.count({
-          where: { ownerAdminId, attendanceDate: today, approvalStatus: "Approved" },
-        }),
-      ]);
+    const [presentToday, lateToday, onLeaveToday, pendingLeaveRequests, approvedLeavesThisMonth] = await Promise.all([
+      prisma.attendanceRecord.count({ where: { ownerAdminId, attendanceDate: today, status: "Present" } }),
+      prisma.attendanceRecord.count({ where: { ownerAdminId, attendanceDate: today, status: "Late" } }),
+      prisma.attendanceRecord.count({ where: { ownerAdminId, attendanceDate: today, status: "Leave" } }),
+      prisma.leaveRequest.count({ where: { ownerAdminId, status: "Pending" } }),
+      prisma.leaveRequest.count({
+        where: {
+          ownerAdminId,
+          status: "Approved",
+          approvedAt: { gte: startOfDay(monthStart), lte: endOfDay(monthEnd) },
+        },
+      }),
+    ]);
 
     const totalUsers = await prisma.user.count({
       where: {
@@ -503,18 +501,179 @@ export async function getAttendanceStats(
         isActive: true,
       },
     });
-    const checkedInToday = await prisma.attendanceRecord.count({
+    const attendedOrOnLeave = await prisma.attendanceRecord.count({
       where: { ownerAdminId, attendanceDate: today },
     });
-    const absentToday = Math.max(0, totalUsers - checkedInToday);
+    const absentToday = Math.max(0, totalUsers - attendedOrOnLeave);
 
-    return { presentToday, absentToday, lateToday, pendingApproval, approvedToday };
+    return {
+      presentToday,
+      absentToday,
+      onLeaveToday,
+      lateToday,
+      pendingLeaveRequests,
+      approvedLeavesThisMonth,
+    };
   } catch (err) {
     if (isTableMissingError(err)) {
-      console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
-      return { presentToday: 0, absentToday: 0, lateToday: 0, pendingApproval: 0, approvedToday: 0 };
+      console.warn("[attendance] attendance or leave tables not found. Run: npx prisma migrate dev");
+      return {
+        presentToday: 0,
+        absentToday: 0,
+        onLeaveToday: 0,
+        lateToday: 0,
+        pendingLeaveRequests: 0,
+        approvedLeavesThisMonth: 0,
+      };
     }
     console.error("[attendance] getAttendanceStats error:", err);
     throw err;
   }
+}
+
+export async function getAttendanceCalendar(params: {
+  currentUserId: string;
+  ownerAdminId: string;
+  isSuperAdmin: boolean;
+  canViewAll: boolean;
+  from: string;
+  to: string;
+  userId?: string;
+  departmentId?: string;
+  officeLocationId?: string;
+}): Promise<AttendanceCalendarResponse> {
+  const from = startOfDay(params.from);
+  const to = startOfDay(params.to);
+
+  const userWhere = params.isSuperAdmin || params.canViewAll
+    ? {
+        OR: [{ ownerAdminId: params.ownerAdminId }, { id: params.ownerAdminId }],
+        isActive: true,
+        ...(params.userId ? { id: params.userId } : {}),
+        ...(params.departmentId ? { departmentId: params.departmentId } : {}),
+        ...(params.officeLocationId ? { officeLocationId: params.officeLocationId } : {}),
+      }
+    : {
+        id: params.currentUserId,
+        isActive: true,
+      };
+
+  const users = await prisma.user.findMany({
+    where: userWhere,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      departmentRef: { select: { name: true } },
+      officeLocationRef: { select: { officeName: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const userIds = users.map((user) => user.id);
+  if (userIds.length === 0) {
+    return {
+      days: [],
+      totalUsers: 0,
+      range: { from: toIsoDate(from), to: toIsoDate(to) },
+    };
+  }
+
+  const [records, leaveRequests] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: {
+        userId: { in: userIds },
+        attendanceDate: { gte: from, lte: to },
+      },
+      include: attendanceUserInclude,
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        userId: { in: userIds },
+        status: { in: ["Approved", "Pending", "Rejected"] },
+        fromDate: { lte: to },
+        toDate: { gte: from },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            departmentRef: { select: { name: true } },
+            officeLocationRef: { select: { officeName: true } },
+          },
+        },
+      },
+      orderBy: [{ appliedAt: "desc" }],
+    }),
+  ]);
+
+  const recordMap = new Map(records.map((record) => [`${record.userId}:${toIsoDate(record.attendanceDate)}`, record as AttendanceDbRecord]));
+  const leaveMap = new Map<string, (typeof leaveRequests)[number]>();
+
+  for (const leave of leaveRequests) {
+    const leaveStart = leave.fromDate < from ? from : startOfDay(leave.fromDate);
+    const leaveEnd = leave.toDate > to ? to : startOfDay(leave.toDate);
+    for (const day of eachDayInclusive(leaveStart, leaveEnd)) {
+      const key = `${leave.userId}:${toIsoDate(day)}`;
+      const current = leaveMap.get(key);
+      if (!current || leavePriority(leave.status) >= leavePriority(current.status)) {
+        leaveMap.set(key, leave);
+      }
+    }
+  }
+
+  const days = eachDayInclusive(from, to).map((day) => {
+    const details: AttendanceCalendarDetail[] = users.map((user) => {
+      const key = `${user.id}:${toIsoDate(day)}`;
+      const record = recordMap.get(key);
+      const leave = leaveMap.get(key);
+      const attendanceStatus = record?.status ?? null;
+      const leaveStatus = record?.leaveRequest?.status ?? leave?.status ?? null;
+      const status = getCalendarStatus({ attendanceStatus, leaveStatus, date: day });
+
+      return {
+        userId: user.id,
+        userName: user.name ?? user.email,
+        department: user.departmentRef?.name ?? "-",
+        officeLocation: user.officeLocationRef?.officeName ?? "-",
+        date: toIsoDate(day),
+        checkinTime: formatTime(record?.checkinTime),
+        checkoutTime: formatTime(record?.checkoutTime),
+        workingHours: record?.workingHours ? String(record.workingHours) : null,
+        status,
+        attendanceStatus,
+        leaveRequestId: record?.leaveRequestId ?? leave?.id ?? null,
+        leaveType: record?.leaveRequest?.leaveType ?? leave?.leaveType ?? null,
+        leaveStatus,
+        leaveReason: record?.leaveRequest?.reason ?? leave?.reason ?? null,
+        approvalNote: leave?.approvalNote ?? null,
+        rejectionReason: leave?.rejectionReason ?? record?.rejectionReason ?? null,
+      };
+    });
+
+    const summaryCounts = new Map<CalendarDisplayStatus, number>();
+    for (const detail of details) {
+      summaryCounts.set(detail.status, (summaryCounts.get(detail.status) ?? 0) + 1);
+    }
+
+    const summaries = Array.from(summaryCounts.entries()).map(([status, count]) => ({
+      status,
+      count,
+      color: CALENDAR_COLORS[status],
+      label: `${count} ${status}`,
+    }));
+
+    return {
+      date: toIsoDate(day),
+      summaries,
+      details,
+    };
+  });
+
+  return {
+    days,
+    totalUsers: users.length,
+    range: { from: toIsoDate(from), to: toIsoDate(to) },
+  };
 }

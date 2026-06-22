@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fullcalendar/core/index.css";
+@import "@fullcalendar/daygrid/index.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {

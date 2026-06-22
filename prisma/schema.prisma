@@ -40,12 +40,20 @@ enum AttendanceStatus {
   Late
   Absent
   HalfDay
+  Leave
 }
 
 enum AttendanceApprovalStatus {
   Pending
   Approved
   Rejected
+}
+
+enum LeaveRequestStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
 }
 
 model User {
@@ -90,6 +98,7 @@ model User {
   createdLeads         Lead[]             @relation("LeadCreator")
   attendanceRecords    AttendanceRecord[] @relation("UserAttendance")
   attendanceSetting    AttendanceSetting? @relation("UserAttendanceSetting")
+  leaveRequests        LeaveRequest[]     @relation("UserLeaveRequests")
 
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
@@ -600,6 +609,7 @@ model UserRole {
 model AttendanceRecord {
   id              String                   @id @default(cuid())
   userId          String                   @map("user_id")
+  leaveRequestId  String?                  @map("leave_request_id")
   attendanceDate  DateTime                 @map("attendance_date") @db.Date
   checkinTime     DateTime?                @map("checkin_time")
   checkoutTime    DateTime?                @map("checkout_time")
@@ -616,9 +626,11 @@ model AttendanceRecord {
   updatedAt       DateTime                 @updatedAt @map("updated_at")
 
   user            User                     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  leaveRequest    LeaveRequest?            @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
 
   @@unique([userId, attendanceDate])
   @@index([userId])
+  @@index([leaveRequestId])
   @@index([attendanceDate])
   @@index([ownerAdminId])
   @@index([approvalStatus])
@@ -639,4 +651,43 @@ model AttendanceSetting {
 
   @@index([ownerAdminId])
   @@map("attendance_settings")
+}
+
+
+model LeaveRequest {
+  id                String             @id @default(cuid())
+  userId            String             @map("user_id")
+  leaveType         String             @map("leave_type")
+  fromDate          DateTime           @map("from_date") @db.Date
+  toDate            DateTime           @map("to_date") @db.Date
+  totalDays         Decimal            @map("total_days") @db.Decimal(5, 2)
+  reason            String
+  attachmentUrl     String?            @map("attachment_url")
+  status            LeaveRequestStatus @default(Pending)
+  approvalNote      String?            @map("approval_note")
+  rejectionReason   String?            @map("rejection_reason")
+  approvedBy        String?            @map("approved_by")
+  approvedAt        DateTime?          @map("approved_at")
+  rejectedBy        String?            @map("rejected_by")
+  rejectedAt        DateTime?          @map("rejected_at")
+  cancelledBy       String?            @map("cancelled_by")
+  cancelledAt       DateTime?          @map("cancelled_at")
+  appliedBy         String?            @map("applied_by")
+  appliedAt         DateTime           @default(now()) @map("applied_at")
+  modifiedBy        String?            @map("modified_by")
+  modifiedAt        DateTime           @updatedAt @map("modified_at")
+  ownerAdminId      String?            @map("owner_admin_id")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  user              User               @relation("UserLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
+  attendanceRecords AttendanceRecord[] @relation("LeaveAttendanceRecords")
+
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([status])
+  @@index([fromDate])
+  @@index([toDate])
+  @@index([appliedAt])
+  @@map("leave_requests")
 }
