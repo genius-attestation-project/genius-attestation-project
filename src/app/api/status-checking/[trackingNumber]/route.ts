@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireApiAuth } from "@/features/auth/server/auth.service";
+import { requireApiAuth } from "@/middleware/auth.middleware";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request, { params }: { params: Promise<{ trackingNumber: string }> }) {

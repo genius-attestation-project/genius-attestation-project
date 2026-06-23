@@ -119,3 +119,30 @@ export async function requireApiPermission(permission: string) {
 
   return null;
 }
+
+export async function requireApiAuth() {
+  let session;
+
+  try {
+    session = await auth();
+  } catch (error) {
+    if (isDynamicUsageError(error)) {
+      throw error;
+    }
+    console.error("[auth] Failed to resolve session in requireApiAuth.", { error });
+    throw new Error("Unable to validate session.");
+  }
+
+  if (!session?.user) {
+    throw new Error("Authentication required.");
+  }
+
+  await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
+  const lockState = await getUserLockState(session.user.id);
+  
+  if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
+    throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
+  }
+
+  return session;
+}

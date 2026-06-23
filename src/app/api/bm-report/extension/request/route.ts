@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireApiAuth } from "@/features/auth/server/auth.service";
+import { requireApiAuth } from "@/middleware/auth.middleware";
 import { requestBmExtension } from "@/features/bm-report/server/bm-lock.service";
 
 export async function POST(req: Request) {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     const result = await requestBmExtension({
       registrationId,
-      ownerAdminId: session.user.ownerAdminId,
+      ownerAdminId: session.user.ownerAdminId ?? session.user.id,
       reason,
       requestedByUserId: session.user.id,
     });

@@ -1,4 +1,4 @@
-import { requireAuth } from "@/features/auth/server/auth.service";
+import { requireAuth } from "@/middleware/auth.middleware";
 import { StatusCheckingDashboard } from "@/features/status-checking/components/StatusCheckingDashboard";
 
 export const metadata = {
