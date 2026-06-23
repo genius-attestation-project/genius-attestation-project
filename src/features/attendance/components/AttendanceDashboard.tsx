@@ -574,24 +574,25 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                           onClick={() => setSelectedDate(cell.date)}
                           className={`group min-h-32 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${cellTone} ${selectionTone} ${mutedTone} ${cell.isToday ? "ring-2 ring-blue-500/25" : ""}`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-extrabold ${cell.inMonth ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>
-                                {cell.dayNumber}
-                              </span>
-                              {cell.isToday ? (
-                                <span className="mt-1 inline-flex w-fit rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700">
-                                  Today
-                                </span>
-                              ) : null}
-                            </div>
-                            {cell.summaries.length > 0 ? (
-                              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${cell.badgeClassName}`}>
-                                {cell.badgeLabel}
-                                {cell.summaryCount > 1 ? ` (${cell.summaryCount})` : ""}
+                          <div className="flex flex-col items-start gap-2">
+                            <span className={`text-sm font-extrabold ${cell.inMonth ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>
+                              {cell.dayNumber}
+                            </span>
+                            {cell.isToday ? (
+                              <span className="inline-flex w-fit rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700">
+                                Today
                               </span>
                             ) : null}
                           </div>
+
+                          {cell.summaries.length > 0 ? (
+                            <div className="mt-3 flex justify-start">
+                              <span className={`inline-flex max-w-full items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${cell.badgeClassName}`}>
+                                {cell.badgeLabel}
+                                {cell.summaryCount > 1 ? ` (${cell.summaryCount})` : ""}
+                              </span>
+                            </div>
+                          ) : null}
 
                           {cell.inMonth && cell.summaries.length > 1 ? (
                             <div className="mt-3 space-y-1.5">
@@ -668,6 +669,3 @@ export function AttendanceDashboard({ canViewAll }: Props) {
     </div>
   );
 }
-
-
-
