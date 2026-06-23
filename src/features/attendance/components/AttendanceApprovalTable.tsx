@@ -70,7 +70,12 @@ export function AttendanceApprovalTable() {
         showToast("error", data.message ?? "Approval failed.");
         return;
       }
-      setRecords((prev) => prev.map((r) => (r.id === record.id ? data.record : r)));
+      if (!data.record) {
+        showToast("error", "Approval failed.");
+        return;
+      }
+      const updatedRecord = data.record;
+      setRecords((prev) => prev.map((r) => (r.id === record.id ? updatedRecord : r)));
       showToast("success", `Approved attendance for ${record.userName}.`);
     } catch (error) {
       console.error("Failed to approve attendance", error);
@@ -99,7 +104,12 @@ export function AttendanceApprovalTable() {
         setRejectError(data.message ?? "Rejection failed.");
         return;
       }
-      setRecords((prev) => prev.map((r) => (r.id === rejectModal.id ? data.record : r)));
+      if (!data.record) {
+        setRejectError("Rejection failed.");
+        return;
+      }
+      const updatedRecord = data.record;
+      setRecords((prev) => prev.map((r) => (r.id === rejectModal.id ? updatedRecord : r)));
       showToast("success", `Rejected attendance for ${rejectModal.userName}.`);
       setRejectModal(null);
       setRejectReason("");
@@ -364,3 +374,5 @@ export function AttendanceApprovalTable() {
     </div>
   );
 }
+
+

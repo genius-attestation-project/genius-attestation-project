@@ -21,6 +21,7 @@ import {
   isLate,
   isTableMissingError,
   isWeekend,
+  monthBounds,
   startOfDay,
   todayDate,
   toIsoDate,
@@ -531,19 +532,88 @@ export async function getAttendanceStats(ownerAdminId: string): Promise<Attendan
   }
 }
 
+function resolveCalendarWindow(params: {
+  month?: number;
+  year?: number;
+  from?: string;
+  to?: string;
+}) {
+  if (
+    typeof params.month === "number" &&
+    Number.isInteger(params.month) &&
+    params.month >= 1 &&
+    params.month <= 12 &&
+    typeof params.year === "number" &&
+    Number.isInteger(params.year) &&
+    params.year >= 1970
+  ) {
+    const bounds = monthBounds(params.year, params.month);
+    return {
+      month: params.month,
+      year: params.year,
+      from: bounds.start,
+      to: bounds.end,
+    };
+  }
+
+  if (params.from && params.to) {
+    const from = startOfDay(params.from);
+    const to = startOfDay(params.to);
+    return {
+      month: from.getMonth() + 1,
+      year: from.getFullYear(),
+      from,
+      to,
+    };
+  }
+
+  const today = todayDate();
+  const bounds = monthBounds(today.getFullYear(), today.getMonth() + 1);
+  return {
+    month: today.getMonth() + 1,
+    year: today.getFullYear(),
+    from: bounds.start,
+    to: bounds.end,
+  };
+}
+
+function createEmptyCalendarResponse(month: number, year: number, from: Date, to: Date): AttendanceCalendarResponse {
+  return {
+    month,
+    year,
+    summary: {
+      present: 0,
+      absent: 0,
+      late: 0,
+      leave: 0,
+    },
+    days: [],
+    totalUsers: 0,
+    range: { from: toIsoDate(from), to: toIsoDate(to) },
+  };
+}
+
 export async function getAttendanceCalendar(params: {
   currentUserId: string;
   ownerAdminId: string;
   isSuperAdmin: boolean;
   canViewAll: boolean;
-  from: string;
-  to: string;
+  month?: number;
+  year?: number;
+  from?: string;
+  to?: string;
   userId?: string;
   departmentId?: string;
   officeLocationId?: string;
 }): Promise<AttendanceCalendarResponse> {
-  const from = startOfDay(params.from);
-  const to = startOfDay(params.to);
+  const window = resolveCalendarWindow({
+    month: params.month,
+    year: params.year,
+    from: params.from,
+    to: params.to,
+  });
+  const from = window.from;
+  const to = window.to;
 
   console.log("[attendance] getAttendanceCalendar request", {
     currentUserId: params.currentUserId,
@@ -552,6 +622,8 @@ export async function getAttendanceCalendar(params: {
     canViewAll: params.canViewAll || params.isSuperAdmin,
     departmentId: params.departmentId ?? null,
     officeLocationId: params.officeLocationId ?? null,
+    month: window.month,
+    year: window.year,
     from: toIsoDate(from),
     to: toIsoDate(to),
   });
@@ -575,6 +647,7 @@ export async function getAttendanceCalendar(params: {
       id: true,
       name: true,
       email: true,
+      supervisorRef: { select: { name: true, email: true } },
       departmentRef: { select: { name: true } },
       officeLocationRef: { select: { officeName: true } },
     },
@@ -584,11 +657,7 @@ export async function getAttendanceCalendar(params: {
   const userIds = users.map((user) => user.id);
   console.log("[attendance] getAttendanceCalendar users", { count: userIds.length, userIds });
   if (userIds.length === 0) {
-    return {
-      days: [],
-      totalUsers: 0,
-      range: { from: toIsoDate(from), to: toIsoDate(to) },
-    };
+    return createEmptyCalendarResponse(window.month, window.year, from, to);
   }
 
   const [records, leaveRequests] = await Promise.all([
@@ -651,18 +720,27 @@ export async function getAttendanceCalendar(params: {
         userName: user.name ?? user.email,
         department: user.departmentRef?.name ?? "-",
         officeLocation: user.officeLocationRef?.officeName ?? "-",
+        supervisor: user.supervisorRef?.name ?? null,
         date: toIsoDate(day),
         checkinTime: formatTime(record?.checkinTime),
         checkoutTime: formatTime(record?.checkoutTime),
         workingHours: record?.workingHours ? String(record.workingHours) : null,
         status,
         attendanceStatus,
+        approvalStatus: record?.approvalStatus ?? null,
         leaveRequestId: record?.leaveRequestId ?? leave?.id ?? null,
         leaveType: record?.leaveRequest?.leaveType ?? leave?.leaveType ?? null,
         leaveStatus,
         leaveReason: record?.leaveRequest?.reason ?? leave?.reason ?? null,
         approvalNote: leave?.approvalNote ?? null,
         rejectionReason: leave?.rejectionReason ?? record?.rejectionReason ?? null,
+        description:
+          record?.dailySummary ??
+          record?.checkinRemarks ??
+          leave?.approvalNote ??
+          leave?.reason ??
+          leave?.rejectionReason ??
+          null,
       };
     });
 
@@ -685,7 +763,23 @@ export async function getAttendanceCalendar(params: {
     };
   });
 
+  const summary = days.reduce(
+    (acc, day) => {
+      for (const detail of day.details) {
+        if (detail.status === "Present") acc.present += 1;
+        else if (detail.status === "Late") acc.late += 1;
+        else if (detail.status === "Absent") acc.absent += 1;
+        else if (detail.status === "Approved Leave") acc.leave += 1;
+      }
+      return acc;
+    },
+    { present: 0, absent: 0, late: 0, leave: 0 },
+  );
+
   return {
+    month: window.month,
+    year: window.year,
+    summary,
     days,
     totalUsers: users.length,
     range: { from: toIsoDate(from), to: toIsoDate(to) },
