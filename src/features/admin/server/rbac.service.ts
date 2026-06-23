@@ -928,6 +928,22 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     console.error("[rbac] Bootstrap failed before session access lookup.", { userId, error });
   }
 
+  const baseUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      ownerAdminId: true,
+    },
+  });
+
+  if (!baseUser) return null;
+
+  try {
+    await ensureAdminRoles(baseUser.ownerAdminId ?? baseUser.id);
+  } catch (error) {
+    console.error("[rbac] Role sync failed before session access lookup.", { userId, error });
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -1017,4 +1033,5 @@ export async function getSidebarNavigationForUser(userId: string) {
 export function getPermissionModules() {
   return permissionModules;
 }
+
 

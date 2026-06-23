@@ -380,6 +380,7 @@ export const defaultRoleDefinitions = [
       "leave.create",
       "leave.approve",
       "leave.report",
+      "salary.view",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
@@ -401,6 +402,7 @@ export const defaultRoleDefinitions = [
       "menu.leave-management.requests",
       "menu.leave-management.approval",
       "menu.leave-management.reports",
+      "menu.salary-management",
     ],
   },
   {
@@ -470,6 +472,7 @@ export const defaultRoleDefinitions = [
       "welcome_call.view",
       "leave.view",
       "leave.create",
+      "salary.view",
       "menu.dashboard",
       "menu.lead-management",
       "menu.lead-management.all-leads",
@@ -481,6 +484,7 @@ export const defaultRoleDefinitions = [
       "menu.leave-management",
       "menu.leave-management.apply",
       "menu.leave-management.requests",
+      "menu.salary-management",
     ],
   },
 ] as const;
@@ -508,6 +512,7 @@ export function buildPermissionCatalog() {
 export function flattenNavigation(items: NavigationItemDefinition[]): NavigationItemDefinition[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavigation(item.children) : [])]);
 }
+
 
 
 
