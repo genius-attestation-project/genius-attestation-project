@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 const STATUS_COLORS: Record<string, string> = {
   Present: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -37,13 +38,14 @@ export function AttendanceApprovalTable() {
           ? "/api/attendance?limit=100"
           : `/api/attendance?limit=100`;
       const res = await fetch(url);
-      const data = await res.json();
+      const data = await readJsonResponse<{ records?: AttendanceRecord[]; record?: AttendanceRecord; message?: string }>(res);
       let allRecords: AttendanceRecord[] = data.records ?? [];
       if (filter !== "all") {
         allRecords = allRecords.filter((r) => r.approvalStatus === filter);
       }
       setRecords(allRecords);
-    } catch {
+    } catch (error) {
+      console.error("Failed to load attendance approvals", error);
       setRecords([]);
     } finally {
       setLoading(false);
@@ -63,15 +65,16 @@ export function AttendanceApprovalTable() {
     setActionLoading(record.id);
     try {
       const res = await fetch(`/api/attendance/${record.id}/approve`, { method: "POST" });
-      const data = await res.json();
+      const data = await readJsonResponse<{ record?: AttendanceRecord; message?: string }>(res);
       if (!res.ok) {
         showToast("error", data.message ?? "Approval failed.");
         return;
       }
       setRecords((prev) => prev.map((r) => (r.id === record.id ? data.record : r)));
       showToast("success", `Approved attendance for ${record.userName}.`);
-    } catch {
-      showToast("error", "Network error.");
+    } catch (error) {
+      console.error("Failed to approve attendance", error);
+      showToast("error", error instanceof Error ? error.message : "Network error.");
     } finally {
       setActionLoading(null);
     }
@@ -91,7 +94,7 @@ export function AttendanceApprovalTable() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rejectionReason: rejectReason.trim() }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ record?: AttendanceRecord; message?: string }>(res);
       if (!res.ok) {
         setRejectError(data.message ?? "Rejection failed.");
         return;
@@ -100,8 +103,9 @@ export function AttendanceApprovalTable() {
       showToast("success", `Rejected attendance for ${rejectModal.userName}.`);
       setRejectModal(null);
       setRejectReason("");
-    } catch {
-      setRejectError("Network error.");
+    } catch (error) {
+      console.error("Failed to reject attendance", error);
+      setRejectError(error instanceof Error ? error.message : "Network error.");
     } finally {
       setActionLoading(null);
     }

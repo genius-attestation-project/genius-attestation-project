@@ -545,6 +545,17 @@ export async function getAttendanceCalendar(params: {
   const from = startOfDay(params.from);
   const to = startOfDay(params.to);
 
+  console.log("[attendance] getAttendanceCalendar request", {
+    currentUserId: params.currentUserId,
+    selectedUserId: params.userId ?? null,
+    ownerAdminId: params.ownerAdminId,
+    canViewAll: params.canViewAll || params.isSuperAdmin,
+    departmentId: params.departmentId ?? null,
+    officeLocationId: params.officeLocationId ?? null,
+    from: toIsoDate(from),
+    to: toIsoDate(to),
+  });
+
   const userWhere = params.isSuperAdmin || params.canViewAll
     ? {
         OR: [{ ownerAdminId: params.ownerAdminId }, { id: params.ownerAdminId }],
@@ -571,6 +582,7 @@ export async function getAttendanceCalendar(params: {
   });
 
   const userIds = users.map((user) => user.id);
+  console.log("[attendance] getAttendanceCalendar users", { count: userIds.length, userIds });
   if (userIds.length === 0) {
     return {
       days: [],
@@ -607,6 +619,8 @@ export async function getAttendanceCalendar(params: {
       orderBy: [{ appliedAt: "desc" }],
     }),
   ]);
+
+  console.log("[attendance] getAttendanceCalendar fetched", { attendanceRecords: records.length, leaveRequests: leaveRequests.length });
 
   const recordMap = new Map(records.map((record) => [`${record.userId}:${toIsoDate(record.attendanceDate)}`, record as AttendanceDbRecord]));
   const leaveMap = new Map<string, (typeof leaveRequests)[number]>();

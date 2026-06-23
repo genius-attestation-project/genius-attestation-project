@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 const STATUS_COLORS: Record<string, string> = {
   Present: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -27,10 +28,12 @@ export function AttendanceRecordsTable() {
     setLoading(true);
     try {
       const res = await fetch(`/api/attendance?page=${page}&limit=${limit}`);
-      const data = await res.json();
+      const data = await readJsonResponse<{ records?: AttendanceRecord[]; total?: number; message?: string }>(res);
+      if (!res.ok) throw new Error(data.message ?? "Unable to load attendance records.");
       setRecords(data.records ?? []);
       setTotal(data.total ?? 0);
-    } catch {
+    } catch (error) {
+      console.error("Failed to load attendance records", error);
       setRecords([]);
     } finally {
       setLoading(false);

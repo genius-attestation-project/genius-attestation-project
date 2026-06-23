@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
 import { CalendarDays } from "lucide-react";
+import { readJsonResponse } from "@/utils/fetch";
 
 export function LeaveRequestsManagement() {
   const [rows, setRows] = useState<LeaveRequestRow[]>([]);
@@ -20,10 +21,11 @@ export function LeaveRequestsManagement() {
     setError("");
     try {
       const response = await fetch("/api/leaves/my", { cache: "no-store" });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ rows?: LeaveRequestRow[]; message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? "Unable to load leave requests.");
       setRows(payload.rows ?? []);
     } catch (loadError) {
+      console.error("Failed to load leave requests", loadError);
       setError(loadError instanceof Error ? loadError.message : "Unable to load leave requests.");
       setRows([]);
     } finally {
@@ -40,10 +42,11 @@ export function LeaveRequestsManagement() {
     if (!confirmed) return;
     try {
       const response = await fetch(`/api/leaves/${row.id}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: "Cancelled by user." }) });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? "Unable to cancel leave request.");
       await loadRows();
     } catch (cancelError) {
+      console.error("Failed to cancel leave request", cancelError);
       setError(cancelError instanceof Error ? cancelError.message : "Unable to cancel leave request.");
     }
   }

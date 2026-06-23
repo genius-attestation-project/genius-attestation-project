@@ -8,6 +8,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { DepartmentRow, OfficeLocationRow, UserAccessRow } from "@/features/admin/types/rbac.types";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 type FilterPayload = {
   users: UserAccessRow[];
@@ -26,9 +27,14 @@ export function LeaveReportsManagement() {
 
   useEffect(() => {
     void fetch("/api/leaves/filters", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload) => setFilters({ users: payload.users ?? [], departments: payload.departments ?? [], officeLocations: payload.officeLocations ?? [] }))
-      .catch(() => null);
+      .then(async (response) => {
+        const payload = await readJsonResponse<FilterPayload & { message?: string }>(response);
+        if (!response.ok) throw new Error(payload.message ?? "Unable to load leave filters.");
+        setFilters({ users: payload.users ?? [], departments: payload.departments ?? [], officeLocations: payload.officeLocations ?? [] });
+      })
+      .catch((error) => {
+        console.error("Failed to load leave filters", error);
+      });
   }, []);
 
   async function loadReport() {
@@ -37,11 +43,12 @@ export function LeaveReportsManagement() {
     try {
       const params = new URLSearchParams(query);
       const response = await fetch(`/api/leaves/reports?${params.toString()}`, { cache: "no-store" });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ rows?: LeaveRequestRow[]; stats?: { approved: number; rejected: number; pending: number; cancelled: number }; message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? "Unable to load leave reports.");
       setRows(payload.rows ?? []);
       setStats(payload.stats ?? { approved: 0, rejected: 0, pending: 0, cancelled: 0 });
     } catch (loadError) {
+      console.error("Failed to load leave reports", loadError);
       setError(loadError instanceof Error ? loadError.message : "Unable to load leave reports.");
       setRows([]);
     } finally {

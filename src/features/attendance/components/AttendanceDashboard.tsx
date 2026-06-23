@@ -12,6 +12,7 @@ import { DashboardCard } from "@/components/ui/DashboardCard";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { AttendanceCalendarDay, AttendanceStats } from "@/features/attendance/types/attendance.types";
 import type { DepartmentRow, OfficeLocationRow, UserAccessRow } from "@/features/admin/types/rbac.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 type Props = {
   canViewAll: boolean;
@@ -44,7 +45,16 @@ const STATUS_LEGEND = [
 ] as const;
 
 function isoDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMonthRange(value: Date) {
+  const start = new Date(value.getFullYear(), value.getMonth(), 1);
+  const end = new Date(value.getFullYear(), value.getMonth() + 1, 0);
+  return { from: isoDate(start), to: isoDate(end) };
 }
 
 export function AttendanceDashboard({ canViewAll }: Props) {
@@ -56,31 +66,41 @@ export function AttendanceDashboard({ canViewAll }: Props) {
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [query, setQuery] = useState({ userId: "", departmentId: "", officeLocationId: "", from: "", to: "" });
-
   useEffect(() => {
     void fetch("/api/attendance/stats", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload) => setStats(payload.stats ?? null))
-      .catch(() => setStats(null))
+      .then(async (response) => {
+        const payload = await readJsonResponse<{ stats?: AttendanceStats; message?: string }>(response);
+        if (!response.ok) throw new Error(payload.message ?? "Unable to load attendance stats.");
+        setStats(payload.stats ?? null);
+      })
+      .catch((error) => {
+        console.error("Failed to load attendance stats", error);
+        setStats(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!canViewAll) return;
     void fetch("/api/leaves/filters", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload) => {
+      .then(async (response) => {
+        const payload = await readJsonResponse<FilterPayload & { message?: string }>(response);
+        if (!response.ok) throw new Error(payload.message ?? "Unable to load leave filters.");
         setFilters({
           users: payload.users ?? [],
           departments: payload.departments ?? [],
           officeLocations: payload.officeLocations ?? [],
         });
       })
-      .catch(() => null);
+      .catch((error) => {
+        console.error("Failed to load leave filters", error);
+      });
   }, [canViewAll]);
 
-  const loadCalendar = useCallback(async (nextRange: { from: string; to: string }, active = query) => {
+  const loadCalendar = useCallback(async (nextRange: { from: string; to: string }, active: { userId: string; departmentId: string; officeLocationId: string; from: string; to: string }) => {
+    console.log("Calendar fetch started", { nextRange, activeQuery: active });
     setCalendarLoading(true);
     try {
       const params = new URLSearchParams({ from: active.from || nextRange.from, to: active.to || nextRange.to });
@@ -88,26 +108,47 @@ export function AttendanceDashboard({ canViewAll }: Props) {
       if (active.departmentId) params.set("departmentId", active.departmentId);
       if (active.officeLocationId) params.set("officeLocationId", active.officeLocationId);
       const response = await fetch(`/api/attendance/calendar?${params.toString()}`, { cache: "no-store" });
-      const payload = await response.json();
+      console.log("Calendar response", response);
+      const payload = await readJsonResponse<{ success?: boolean; days?: AttendanceCalendarDay[]; range?: { from: string; to: string }; message?: string }>(response);
+      console.log("Calendar data", payload);
+      console.log("[attendance-calendar] response", {
+        currentUserId: active.userId || "self",
+        departmentId: active.departmentId || null,
+        officeLocationId: active.officeLocationId || null,
+        from: active.from || nextRange.from,
+        to: active.to || nextRange.to,
+        totalDays: payload.days?.length ?? 0,
+      });
       if (!response.ok) throw new Error(payload.message ?? "Unable to load attendance calendar.");
+      setCalendarError(null);
       setCalendarDays(payload.days ?? []);
       setRange(payload.range ?? nextRange);
       setSelectedDate((current) => current && (payload.days ?? []).some((day: AttendanceCalendarDay) => day.date === current) ? current : payload.days?.[0]?.date ?? null);
     } catch (error) {
       console.error("Failed to load attendance calendar", error);
+      setCalendarError(error instanceof Error ? error.message : "Unable to load attendance calendar.");
       setCalendarDays([]);
     } finally {
+      console.log("Calendar loading complete");
       setCalendarLoading(false);
     }
-  }, [query]);
+  }, []);
+
+  useEffect(() => {
+    const nextRange = getMonthRange(new Date());
+    const baseQuery = { userId: "", departmentId: "", officeLocationId: "", from: "", to: "" };
+
+    setRange(nextRange);
+    void loadCalendar(nextRange, baseQuery);
+  }, [loadCalendar]);
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
     const visibleStart = arg.start;
     const visibleEnd = new Date(arg.end);
     visibleEnd.setDate(visibleEnd.getDate() - 1);
     const nextRange = { from: isoDate(visibleStart), to: isoDate(visibleEnd) };
-    void loadCalendar(nextRange);
-  }, [loadCalendar]);
+    void loadCalendar(nextRange, query);
+  }, [loadCalendar, query]);
 
   const events = useMemo(() => calendarDays.flatMap((day) =>
     day.summaries.map((summary) => ({
@@ -225,26 +266,37 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <div className="flex h-[680px] items-center justify-center text-sm text-soft">
                 <Loader2 className="mr-2 animate-spin" size={18} /> Loading calendar...
               </div>
+            ) : calendarError ? (
+              <div className="flex h-[680px] items-center justify-center px-6 text-center text-sm text-rose-600">
+                {calendarError}
+              </div>
             ) : (
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-                events={events}
-                height={680}
-                datesSet={handleDatesSet}
-                dateClick={(arg: DateClickArg) => selectCalendarDate(arg.dateStr)}
-                eventClick={(arg: EventClickArg) => selectCalendarDate(arg.event.startStr)}
-                dayMaxEventRows={4}
-              />
+              <div className="space-y-3">
+                {events.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-slate-50/70 px-4 py-3 text-sm text-soft dark:bg-white/5">
+                    No attendance records found.
+                  </div>
+                ) : null}
+                <FullCalendar
+                  ref={calendarRef}
+                  plugins={[dayGridPlugin, interactionPlugin]}
+                  initialView="dayGridMonth"
+                  headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
+                  events={events}
+                  height={680}
+                  datesSet={handleDatesSet}
+                  dateClick={(arg: DateClickArg) => selectCalendarDate(arg.dateStr)}
+                  eventClick={(arg: EventClickArg) => selectCalendarDate(arg.event.startStr)}
+                  dayMaxEventRows={4}
+                />
+              </div>
             )}
           </div>
 
           <div className="grid gap-4">
             <DashboardCard title={selectedDay ? `Attendance Details - ${selectedDay.date}` : "Attendance Details"} description="Date-wise attendance and leave summary.">
               {!selectedDay ? (
-                <p className="text-sm text-soft">Select a day from the calendar.</p>
+                <p className="text-sm text-soft">{events.length === 0 ? "No attendance records found." : "Select a day from the calendar."}</p>
               ) : selectedDay.details.length === 0 ? (
                 <p className="text-sm text-soft">No records found for this date.</p>
               ) : (

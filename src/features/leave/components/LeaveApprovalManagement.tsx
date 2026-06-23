@@ -9,6 +9,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 export function LeaveApprovalManagement() {
   const [rows, setRows] = useState<LeaveRequestRow[]>([]);
@@ -20,10 +21,11 @@ export function LeaveApprovalManagement() {
     setError("");
     try {
       const response = await fetch("/api/leaves/pending", { cache: "no-store" });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ rows?: LeaveRequestRow[]; message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? "Unable to load pending leave requests.");
       setRows(payload.rows ?? []);
     } catch (loadError) {
+      console.error("Failed to load pending leave requests", loadError);
       setError(loadError instanceof Error ? loadError.message : "Unable to load pending leave requests.");
       setRows([]);
     } finally {
@@ -46,10 +48,11 @@ export function LeaveApprovalManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note }),
       });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? `Unable to ${action} leave request.`);
       await loadRows();
     } catch (decisionError) {
+      console.error(`Failed to ${action} leave request`, decisionError);
       setError(decisionError instanceof Error ? decisionError.message : `Unable to ${action} leave request.`);
     }
   }

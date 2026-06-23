@@ -7,6 +7,7 @@ import { DashboardCard } from "@/components/ui/DashboardCard";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { LEAVE_TYPES } from "@/features/leave/types/leave.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 type ApplyLeaveFormState = {
   leaveType: string;
@@ -42,12 +43,13 @@ export function ApplyLeaveManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const payload = await response.json();
+      const payload = await readJsonResponse<{ message?: string }>(response);
       if (!response.ok) throw new Error(payload.message ?? "Unable to submit leave request.");
 
       setMessage("Leave request submitted successfully.");
       setForm(initialState);
     } catch (submitError) {
+      console.error("Failed to submit leave request", submitError);
       setError(submitError instanceof Error ? submitError.message : "Unable to submit leave request.");
     } finally {
       setSubmitting(false);

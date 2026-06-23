@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Loader } from "@/components/ui/Loader";
 import { GoogleButton } from "@/features/auth/components/GoogleButton";
+import { getAuthErrorMessage } from "@/features/auth/utils/auth.helper";
+import { readJsonResponse } from "@/utils/fetch";
 
 export function RegisterForm() {
   const [message, setMessage] = useState("");
@@ -16,46 +18,49 @@ export function RegisterForm() {
     setMessage("");
     setIsSubmitting(true);
 
-    const email = String(formData.get("email") ?? "");
-    const password = String(formData.get("password") ?? "");
+    try {
+      const email = String(formData.get("email") ?? "");
+      const password = String(formData.get("password") ?? "");
 
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: String(formData.get("name") ?? ""),
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(formData.get("name") ?? ""),
+          email,
+          password,
+        }),
+      });
+
+      const payload = await readJsonResponse<{ message?: string }>(response);
+      if (!response.ok) {
+        setMessage(payload.message ?? "Registration failed.");
+        return;
+      }
+
+      const result = await signIn("credentials", {
         email,
         password,
-      }),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as
-        | { message?: string }
-        | null;
-      setMessage(data?.message ?? "Registration failed.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const result = await signIn("credentials", {
-      email,
-      password,
-      callbackUrl: "/dashboard",
-      redirect: false,
-    });
-
-    setIsSubmitting(false);
-
-    if (result?.error) {
-      console.error("[auth] Auto-login after registration failed.", {
-        error: result.error,
+        callbackUrl: "/dashboard",
+        redirect: false,
       });
-      window.location.assign("/login");
-      return;
-    }
 
-    window.location.assign(result?.url ?? "/dashboard");
+      if (result?.error) {
+        console.warn("[auth] Auto-login after registration was rejected.", {
+          error: result.error,
+        });
+        setMessage(getAuthErrorMessage(result.error));
+        window.location.assign("/login");
+        return;
+      }
+
+      window.location.assign(result?.url ?? "/dashboard");
+    } catch (error) {
+      console.warn("[auth] Registration request failed.", error);
+      setMessage("We could not create your account right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (

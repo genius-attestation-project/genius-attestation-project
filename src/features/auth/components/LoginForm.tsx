@@ -40,35 +40,40 @@ export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps)
     setMessage("");
     setIsSubmitting(true);
 
-    const result = await signIn("credentials", {
-      email: String(formData.get("email") ?? ""),
-      password: String(formData.get("password") ?? ""),
-      callbackUrl,
-      redirect: false,
-    });
-
-    setIsSubmitting(false);
-
-    if (result?.error) {
-      console.error("[auth] Credentials sign-in failed.", {
-        error: result.error,
+    try {
+      const result = await signIn("credentials", {
+        email: String(formData.get("email") ?? ""),
+        password: String(formData.get("password") ?? ""),
+        callbackUrl,
+        redirect: false,
       });
-      setMessage("Invalid email or password.");
-      return;
+
+      if (result?.error) {
+        console.warn("[auth] Credentials sign-in was rejected.", {
+          error: result.error,
+        });
+        setMessage(getAuthErrorMessage(result.error));
+        return;
+      }
+
+      const destination = result?.url ?? callbackUrl;
+
+      if (!destination) {
+        setMessage("Login succeeded but no redirect destination was returned.");
+        return;
+      }
+
+      console.info("[auth] Credentials sign-in succeeded, redirecting.", {
+        destination,
+      });
+
+      window.location.assign(destination);
+    } catch (error) {
+      console.warn("[auth] Credentials sign-in request failed.", error);
+      setMessage("We could not sign you in right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const destination = result?.url ?? callbackUrl;
-
-    if (!destination) {
-      setMessage("Login succeeded but no redirect destination was returned.");
-      return;
-    }
-
-    console.info("[auth] Credentials sign-in succeeded, redirecting.", {
-      destination,
-    });
-
-    window.location.assign(destination);
   }
 
   return (

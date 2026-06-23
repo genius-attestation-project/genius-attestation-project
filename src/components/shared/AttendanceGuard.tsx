@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOutAction } from "@/features/auth/actions/auth.action";
 import { AttendanceCheckoutModal } from "@/features/attendance/components/AttendanceCheckoutModal";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 type Props = {
   userId: string;
@@ -68,7 +69,10 @@ export function AttendanceGuard({ userId }: Props) {
   async function fetchToday() {
     try {
       const res = await fetch("/api/attendance/today");
-      const data = await res.json();
+      const data = await readJsonResponse<{ ready?: boolean; record?: AttendanceRecord | null; message?: string }>(res);
+      if (!res.ok) {
+        throw new Error(data.message ?? "Unable to load today's attendance.");
+      }
       if (data.ready === false) {
         // Tables not migrated yet — don't block dashboard access
         setModal("idle");
@@ -99,15 +103,16 @@ export function AttendanceGuard({ userId }: Props) {
           checkinRemarks: checkinRemarks || undefined,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ record?: AttendanceRecord; message?: string }>(res);
       if (!res.ok) {
         setError(data.message ?? "Check-in failed.");
         return;
       }
       setTodayRecord(data.record);
       setModal("idle");
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (error) {
+      console.error("[attendance] checkin error:", error);
+      setError(error instanceof Error ? error.message : "Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +141,7 @@ export function AttendanceGuard({ userId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ record?: AttendanceRecord; message?: string }>(res);
       console.log("API response:", { ok: res.ok, status: res.status, data });
 
       if (!res.ok) {
@@ -151,7 +156,7 @@ export function AttendanceGuard({ userId }: Props) {
       await signOutAction();
     } catch (err) {
       console.error("[attendance] checkout error:", err);
-      setError("Network error. Please try again.");
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       completingCheckoutRef.current = false;
       setSubmitting(false);

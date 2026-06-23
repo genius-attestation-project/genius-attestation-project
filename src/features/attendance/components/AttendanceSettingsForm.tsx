@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AttendanceSetting } from "@/features/attendance/types/attendance.types";
+import { readJsonResponse } from "@/utils/fetch";
 
 type UserOption = {
   id: string;
@@ -27,9 +28,14 @@ export function AttendanceSettingsForm({ users }: Props) {
 
   useEffect(() => {
     fetch("/api/attendance/settings")
-      .then((r) => r.json())
-      .then((d) => setSettings(d.settings ?? []))
-      .catch(() => null)
+      .then(async (response) => {
+        const payload = await readJsonResponse<{ settings?: AttendanceSetting[]; message?: string }>(response);
+        if (!response.ok) throw new Error(payload.message ?? "Unable to load attendance settings.");
+        setSettings(payload.settings ?? []);
+      })
+      .catch((error) => {
+        console.error("Failed to load attendance settings", error);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -72,7 +78,7 @@ export function AttendanceSettingsForm({ users }: Props) {
           expectedCheckoutTime: checkoutTime,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ setting?: AttendanceSetting; message?: string }>(res);
       if (!res.ok) {
         showToast("error", data.message ?? "Save failed.");
         return;
@@ -87,8 +93,9 @@ export function AttendanceSettingsForm({ users }: Props) {
         return [...prev, data.setting];
       });
       showToast("success", "Attendance timing saved successfully.");
-    } catch {
-      showToast("error", "Network error.");
+    } catch (error) {
+      console.error("Failed to save attendance settings", error);
+      showToast("error", error instanceof Error ? error.message : "Network error.");
     } finally {
       setSaving(false);
     }
