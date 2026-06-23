@@ -78,7 +78,7 @@ export function AttendanceGuard({ userId }: Props) {
         setModal("idle");
         return;
       }
-      setTodayRecord(data.record);
+      setTodayRecord(data.record ?? null);
       if (!data.record) {
         setCheckinTime(toTimeInputValue(new Date()));
         setModal("checkin");
@@ -108,7 +108,7 @@ export function AttendanceGuard({ userId }: Props) {
         setError(data.message ?? "Check-in failed.");
         return;
       }
-      setTodayRecord(data.record);
+      setTodayRecord(data.record ?? null);
       setModal("idle");
     } catch (error) {
       console.error("[attendance] checkin error:", error);
@@ -150,7 +150,7 @@ export function AttendanceGuard({ userId }: Props) {
       }
 
       completingCheckoutRef.current = true;
-      setTodayRecord(data.record);
+      setTodayRecord(data.record ?? null);
       setModal("idle");
 
       await signOutAction();

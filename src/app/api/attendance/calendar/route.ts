@@ -2,6 +2,12 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { getAttendanceCalendar } from "@/features/attendance/server/attendance.service";
 
+function parseOptionalInt(value: string | null) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -10,11 +16,13 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const from = searchParams.get("from");
-    const to = searchParams.get("to");
+    const month = parseOptionalInt(searchParams.get("month"));
+    const year = parseOptionalInt(searchParams.get("year"));
+    const from = searchParams.get("from") ?? undefined;
+    const to = searchParams.get("to") ?? undefined;
 
-    if (!from || !to) {
-      return Response.json({ success: false, message: "from and to dates are required." }, { status: 400 });
+    if ((!month || !year) && (!from || !to)) {
+      return Response.json({ success: false, message: "month and year, or from and to, are required." }, { status: 400 });
     }
 
     const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
@@ -22,6 +30,8 @@ export async function GET(request: Request) {
 
     console.log("[api/attendance/calendar] request", {
       userId: session.user.id,
+      month,
+      year,
       from,
       to,
       selectedUserId: searchParams.get("userId") ?? null,
@@ -34,6 +44,8 @@ export async function GET(request: Request) {
       ownerAdminId,
       isSuperAdmin: session.user.isSuperAdmin,
       canViewAll,
+      month,
+      year,
       from,
       to,
       userId: searchParams.get("userId") ?? undefined,

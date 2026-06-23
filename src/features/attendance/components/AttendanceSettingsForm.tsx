@@ -83,14 +83,19 @@ export function AttendanceSettingsForm({ users }: Props) {
         showToast("error", data.message ?? "Save failed.");
         return;
       }
+      if (!data.setting) {
+        showToast("error", "Save failed.");
+        return;
+      }
+      const updatedSetting = data.setting;
       setSettings((prev) => {
         const existing = prev.findIndex((s) => s.userId === selectedUserId);
         if (existing >= 0) {
           const updated = [...prev];
-          updated[existing] = data.setting;
+          updated[existing] = updatedSetting;
           return updated;
         }
-        return [...prev, data.setting];
+        return [...prev, updatedSetting];
       });
       showToast("success", "Attendance timing saved successfully.");
     } catch (error) {
@@ -270,3 +275,5 @@ function formatTime12(time: string): string {
   const hour = h % 12 || 12;
   return `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
 }
+
+

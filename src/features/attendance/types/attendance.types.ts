@@ -68,18 +68,21 @@ export type AttendanceCalendarDetail = {
   userName: string;
   department: string;
   officeLocation: string;
+  supervisor: string | null;
   date: string;
   checkinTime: string | null;
   checkoutTime: string | null;
   workingHours: string | null;
   status: CalendarDisplayStatus;
   attendanceStatus: AttendanceStatus | null;
+  approvalStatus: AttendanceApprovalStatus | null;
   leaveRequestId: string | null;
   leaveType: string | null;
   leaveStatus: LeaveRequestStatus | null;
   leaveReason: string | null;
   approvalNote: string | null;
   rejectionReason: string | null;
+  description: string | null;
 };
 
 export type AttendanceCalendarDay = {
@@ -88,7 +91,17 @@ export type AttendanceCalendarDay = {
   details: AttendanceCalendarDetail[];
 };
 
+export type AttendanceCalendarOverview = {
+  present: number;
+  absent: number;
+  late: number;
+  leave: number;
+};
+
 export type AttendanceCalendarResponse = {
+  month: number;
+  year: number;
+  summary: AttendanceCalendarOverview;
   days: AttendanceCalendarDay[];
   totalUsers: number;
   range: {
