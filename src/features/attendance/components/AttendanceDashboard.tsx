@@ -34,7 +34,7 @@ type CalendarFilters = {
   officeLocationId: string;
 };
 
-type CalendarCellStatus = CalendarDisplayStatus | "No Records";
+type CalendarCellStatus = CalendarDisplayStatus | null;
 
 type CalendarCell = {
   date: string;
@@ -59,7 +59,7 @@ const CARD_CONFIG = [
   { key: "approvedLeavesThisMonth", label: "Approved Leaves This Month", color: "text-sky-600", bg: "bg-sky-50", icon: CalendarDays },
 ] as const;
 
-const STATUS_META: Record<CalendarCellStatus, { label: string; badgeClassName: string }> = {
+const STATUS_META: Partial<Record<CalendarDisplayStatus, { label: string; badgeClassName: string }>> = {
   Present: { label: "Present", badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700" },
   Absent: { label: "Absent", badgeClassName: "border-rose-200 bg-rose-50 text-rose-700" },
   Late: { label: "Late", badgeClassName: "border-orange-200 bg-orange-50 text-orange-700" },
@@ -67,8 +67,6 @@ const STATUS_META: Record<CalendarCellStatus, { label: string; badgeClassName: s
   "Approved Leave": { label: "Leave", badgeClassName: "border-blue-200 bg-blue-50 text-blue-700" },
   "Pending Leave": { label: "Pending", badgeClassName: "border-violet-200 bg-violet-50 text-violet-700" },
   "Rejected Leave": { label: "Rejected", badgeClassName: "border-slate-200 bg-slate-100 text-slate-600" },
-  Holiday: { label: "Holiday", badgeClassName: "border-slate-200 bg-slate-100 text-slate-600" },
-  "No Records": { label: "No records", badgeClassName: "border-slate-200 bg-slate-50 text-slate-500" },
 };
 
 const MONTH_NAMES = [
@@ -161,10 +159,8 @@ function buildCalendarCells(
     const currentDay = dayMap.get(key);
     const primarySummary = getPrimarySummary(currentDay?.summaries ?? []);
     const inMonth = date.getMonth() === monthIndex;
-    const status: CalendarCellStatus = inMonth
-      ? primarySummary?.status ?? (date.getDay() === 0 || date.getDay() === 6 ? "Holiday" : "No Records")
-      : "No Records";
-    const meta = STATUS_META[status];
+    const status: CalendarCellStatus = inMonth ? primarySummary?.status ?? null : null;
+    const meta = status ? STATUS_META[status] : null;
 
     return {
       date: key,
@@ -173,8 +169,8 @@ function buildCalendarCells(
       isToday: key === todayIso,
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       status,
-      badgeLabel: meta.label,
-      badgeClassName: meta.badgeClassName,
+      badgeLabel: meta?.label ?? "",
+      badgeClassName: meta?.badgeClassName ?? "",
       summaryCount: primarySummary?.count ?? 0,
       summaries: currentDay?.summaries ?? [],
       details: currentDay?.details ?? [],
@@ -568,7 +564,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                   <div className="grid grid-cols-7 gap-2">
                     {calendarCells.map((cell) => {
                       const selected = cell.date === selectedDate;
-                      const cellTone = cell.status === "No Records" ? "bg-slate-50/70" : "bg-white/95";
+                      const cellTone = "bg-white/95";
                       const selectionTone = selected ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-[color:var(--border)]";
                       const mutedTone = cell.inMonth ? "" : "opacity-45";
                       return (
@@ -589,7 +585,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                                 </span>
                               ) : null}
                             </div>
-                            {cell.inMonth ? (
+                            {cell.summaries.length > 0 ? (
                               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${cell.badgeClassName}`}>
                                 {cell.badgeLabel}
                                 {cell.summaryCount > 1 ? ` (${cell.summaryCount})` : ""}
@@ -643,8 +639,8 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                           <p className="text-xs text-soft">{detail.department} - {detail.officeLocation}</p>
                           {detail.supervisor ? <p className="mt-1 text-xs text-soft">Supervisor: {detail.supervisor}</p> : null}
                         </div>
-                        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${STATUS_META[detail.status].badgeClassName}`}>
-                          {STATUS_META[detail.status].label}
+                        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${STATUS_META[detail.status]!.badgeClassName}`}> 
+                          {STATUS_META[detail.status]!.label}
                         </span>
                       </div>
 
@@ -672,3 +668,6 @@ export function AttendanceDashboard({ canViewAll }: Props) {
     </div>
   );
 }
+
+
+

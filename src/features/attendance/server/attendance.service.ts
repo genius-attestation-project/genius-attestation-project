@@ -707,25 +707,30 @@ export async function getAttendanceCalendar(params: {
   }
 
   const days = eachDayInclusive(from, to).map((day) => {
-    const details: AttendanceCalendarDetail[] = users.map((user) => {
-      const key = `${user.id}:${toIsoDate(day)}`;
+    const dateIso = toIsoDate(day);
+    const details: AttendanceCalendarDetail[] = [];
+
+    for (const user of users) {
+      const key = `${user.id}:${dateIso}`;
       const record = recordMap.get(key);
       const leave = leaveMap.get(key);
+
+      if (!record && !leave) continue;
+
       const attendanceStatus = record?.status ?? null;
       const leaveStatus = record?.leaveRequest?.status ?? leave?.status ?? null;
-      const status = getCalendarStatus({ attendanceStatus, leaveStatus, date: day });
 
-      return {
+      details.push({
         userId: user.id,
         userName: user.name ?? user.email,
         department: user.departmentRef?.name ?? "-",
         officeLocation: user.officeLocationRef?.officeName ?? "-",
         supervisor: user.supervisorRef?.name ?? null,
-        date: toIsoDate(day),
+        date: dateIso,
         checkinTime: formatTime(record?.checkinTime),
         checkoutTime: formatTime(record?.checkoutTime),
         workingHours: record?.workingHours ? String(record.workingHours) : null,
-        status,
+        status: getCalendarStatus({ attendanceStatus, leaveStatus, date: day }),
         attendanceStatus,
         approvalStatus: record?.approvalStatus ?? null,
         leaveRequestId: record?.leaveRequestId ?? leave?.id ?? null,
@@ -741,8 +746,8 @@ export async function getAttendanceCalendar(params: {
           leave?.reason ??
           leave?.rejectionReason ??
           null,
-      };
-    });
+      });
+    }
 
     const summaryCounts = new Map<CalendarDisplayStatus, number>();
     for (const detail of details) {
@@ -757,12 +762,11 @@ export async function getAttendanceCalendar(params: {
     }));
 
     return {
-      date: toIsoDate(day),
+      date: dateIso,
       summaries,
       details,
     };
   });
-
   const summary = days.reduce(
     (acc, day) => {
       for (const detail of day.details) {
@@ -785,3 +789,5 @@ export async function getAttendanceCalendar(params: {
     range: { from: toIsoDate(from), to: toIsoDate(to) },
   };
 }
+
+
