@@ -51,14 +51,12 @@ function isoDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getMonthRange(value: Date) {
-  const start = new Date(value.getFullYear(), value.getMonth(), 1);
-  const end = new Date(value.getFullYear(), value.getMonth() + 1, 0);
-  return { from: isoDate(start), to: isoDate(end) };
-}
-
 export function AttendanceDashboard({ canViewAll }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestKeyRef = useRef<string | null>(null);
+  const currentRequestIdRef = useRef<string | null>(null);
+  const loadedRequestKeyRef = useRef<string | null>(null);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [calendarDays, setCalendarDays] = useState<AttendanceCalendarDay[]>([]);
   const [filters, setFilters] = useState<FilterPayload>({ users: [], departments: [], officeLocations: [] });
@@ -100,47 +98,110 @@ export function AttendanceDashboard({ canViewAll }: Props) {
   }, [canViewAll]);
 
   const loadCalendar = useCallback(async (nextRange: { from: string; to: string }, active: { userId: string; departmentId: string; officeLocationId: string; from: string; to: string }) => {
-    console.log("Calendar fetch started", { nextRange, activeQuery: active });
+    const effectiveRange = {
+      from: active.from || nextRange.from,
+      to: active.to || nextRange.to,
+    };
+
+    const requestKey = JSON.stringify({
+      ...effectiveRange,
+      userId: active.userId || "",
+      departmentId: active.departmentId || "",
+      officeLocationId: active.officeLocationId || "",
+    });
+
+    if (requestKey === activeRequestKeyRef.current || requestKey === loadedRequestKeyRef.current) {
+      console.log("Skipping duplicate calendar fetch", { requestKey });
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    const requestId = `${requestKey}:${Date.now()}`;
+
+    abortControllerRef.current = controller;
+    activeRequestKeyRef.current = requestKey;
+    currentRequestIdRef.current = requestId;
+
+    const timeoutId = window.setTimeout(() => {
+      controller.abort(new Error("Calendar request timed out after 10 seconds."));
+    }, 10000);
+
+    console.log("Fetching calendar", { nextRange, activeQuery: active, requestKey });
     setCalendarLoading(true);
+
     try {
-      const params = new URLSearchParams({ from: active.from || nextRange.from, to: active.to || nextRange.to });
+      const params = new URLSearchParams(effectiveRange);
       if (active.userId) params.set("userId", active.userId);
       if (active.departmentId) params.set("departmentId", active.departmentId);
       if (active.officeLocationId) params.set("officeLocationId", active.officeLocationId);
-      const response = await fetch(`/api/attendance/calendar?${params.toString()}`, { cache: "no-store" });
-      console.log("Calendar response", response);
+
+      const response = await fetch(`/api/attendance/calendar?${params.toString()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      console.log("Calendar response received", response);
+
       const payload = await readJsonResponse<{ success?: boolean; days?: AttendanceCalendarDay[]; range?: { from: string; to: string }; message?: string }>(response);
       console.log("Calendar data", payload);
       console.log("[attendance-calendar] response", {
         currentUserId: active.userId || "self",
         departmentId: active.departmentId || null,
         officeLocationId: active.officeLocationId || null,
-        from: active.from || nextRange.from,
-        to: active.to || nextRange.to,
+        from: effectiveRange.from,
+        to: effectiveRange.to,
         totalDays: payload.days?.length ?? 0,
       });
+
       if (!response.ok) throw new Error(payload.message ?? "Unable to load attendance calendar.");
+
       setCalendarError(null);
       setCalendarDays(payload.days ?? []);
-      setRange(payload.range ?? nextRange);
+      setRange(payload.range ?? effectiveRange);
       setSelectedDate((current) => current && (payload.days ?? []).some((day: AttendanceCalendarDay) => day.date === current) ? current : payload.days?.[0]?.date ?? null);
+      loadedRequestKeyRef.current = requestKey;
+      console.log("Calendar state updated", { totalDays: payload.days?.length ?? 0 });
     } catch (error) {
+      if (controller.signal.aborted) {
+        const abortReason = controller.signal.reason;
+        const timeoutMessage = abortReason instanceof Error ? abortReason.message : null;
+
+        if (timeoutMessage?.includes("timed out")) {
+          console.error("Failed to load attendance calendar", abortReason);
+          setCalendarError(timeoutMessage);
+          setCalendarDays([]);
+          loadedRequestKeyRef.current = null;
+        } else {
+          console.warn("Calendar fetch aborted", error);
+        }
+        return;
+      }
+
       console.error("Failed to load attendance calendar", error);
       setCalendarError(error instanceof Error ? error.message : "Unable to load attendance calendar.");
       setCalendarDays([]);
+      loadedRequestKeyRef.current = null;
     } finally {
-      console.log("Calendar loading complete");
-      setCalendarLoading(false);
+      window.clearTimeout(timeoutId);
+      if (currentRequestIdRef.current === requestId) {
+        activeRequestKeyRef.current = null;
+        currentRequestIdRef.current = null;
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+        console.log("Calendar loading complete");
+        setCalendarLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const nextRange = getMonthRange(new Date());
-    const baseQuery = { userId: "", departmentId: "", officeLocationId: "", from: "", to: "" };
+    console.log("Calendar mounted");
 
-    setRange(nextRange);
-    void loadCalendar(nextRange, baseQuery);
-  }, [loadCalendar]);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
     const visibleStart = arg.start;
@@ -261,36 +322,36 @@ export function AttendanceDashboard({ canViewAll }: Props) {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/80 p-3 dark:bg-white/5">
+          <div className="relative min-w-0 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/80 p-3 dark:bg-white/5">
+            <div className="space-y-3">
+              {calendarError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10">
+                  {calendarError ?? "Unable to load attendance calendar."}
+                </div>
+              ) : null}
+              {!calendarError && events.length === 0 && !calendarLoading ? (
+                <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-slate-50/70 px-4 py-3 text-sm text-soft dark:bg-white/5">
+                  No attendance records found.
+                </div>
+              ) : null}
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
+                events={events}
+                height={680}
+                datesSet={handleDatesSet}
+                dateClick={(arg: DateClickArg) => selectCalendarDate(arg.dateStr)}
+                eventClick={(arg: EventClickArg) => selectCalendarDate(arg.event.startStr)}
+                dayMaxEventRows={4}
+              />
+            </div>
             {calendarLoading ? (
-              <div className="flex h-[680px] items-center justify-center text-sm text-soft">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm text-soft backdrop-blur-[1px] dark:bg-slate-950/55">
                 <Loader2 className="mr-2 animate-spin" size={18} /> Loading calendar...
               </div>
-            ) : calendarError ? (
-              <div className="flex h-[680px] items-center justify-center px-6 text-center text-sm text-rose-600">
-                {calendarError}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {events.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-slate-50/70 px-4 py-3 text-sm text-soft dark:bg-white/5">
-                    No attendance records found.
-                  </div>
-                ) : null}
-                <FullCalendar
-                  ref={calendarRef}
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-                  events={events}
-                  height={680}
-                  datesSet={handleDatesSet}
-                  dateClick={(arg: DateClickArg) => selectCalendarDate(arg.dateStr)}
-                  eventClick={(arg: EventClickArg) => selectCalendarDate(arg.event.startStr)}
-                  dayMaxEventRows={4}
-                />
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div className="grid gap-4">
