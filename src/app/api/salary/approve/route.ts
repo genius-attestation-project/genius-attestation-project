@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { approveSalaryPayroll } from "@/features/salary/server/salary.service";
+import { salaryApproveSchema } from "@/features/salary/validations/salary.schema";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function POST(request: Request) {
@@ -14,13 +15,14 @@ export async function POST(request: Request) {
       return jsonError("You do not have permission to approve payroll.", 403);
     }
 
-    const body = (await request.json().catch(() => ({}))) as { payrollId?: string };
-    if (!body.payrollId) {
-      return jsonError("Payroll id is required.", 400);
+    const body = (await request.json().catch(() => ({}))) as unknown;
+    const parsed = salaryApproveSchema.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(parsed.error.issues[0]?.message ?? "Invalid payroll approval request.", 400);
     }
 
     const payroll = await approveSalaryPayroll(session.user.ownerAdminId ?? session.user.id, {
-      payrollId: body.payrollId,
+      payrollId: parsed.data.payrollId,
       approvedBy: session.user.id,
     });
 

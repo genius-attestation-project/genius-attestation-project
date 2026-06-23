@@ -1,13 +1,8 @@
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { getSalaryReports } from "@/features/salary/server/salary.service";
+import { salaryReportsQuerySchema } from "@/features/salary/validations/salary.schema";
 import { jsonError, jsonOk } from "@/utils/response";
-
-function parseOptionalInt(value: string | null) {
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : undefined;
-}
 
 export async function GET(request: Request) {
   try {
@@ -21,16 +16,22 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const month = parseOptionalInt(searchParams.get("month"));
-    const year = parseOptionalInt(searchParams.get("year"));
-    const userId = searchParams.get("userId") || undefined;
-    const status = searchParams.get("status") || undefined;
+    const parsed = salaryReportsQuerySchema.safeParse({
+      month: searchParams.get("month") ?? undefined,
+      year: searchParams.get("year") ?? undefined,
+      userId: searchParams.get("userId") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return jsonError(parsed.error.issues[0]?.message ?? "Invalid salary report filters.", 400);
+    }
 
     const payload = await getSalaryReports(session.user.ownerAdminId ?? session.user.id, {
-      month,
-      year,
-      userId,
-      status,
+      month: parsed.data.month,
+      year: parsed.data.year,
+      userId: parsed.data.userId,
+      status: parsed.data.status,
     });
 
     return jsonOk(payload);
