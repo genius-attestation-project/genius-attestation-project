@@ -27,6 +27,7 @@ type UserFormState = {
   password: string;
   phone: string;
   image: string;
+  monthlySalary: string;
   departmentId: string;
   officeLocationId: string;
   supervisorUserId: string;
@@ -40,6 +41,7 @@ const defaultFormState: UserFormState = {
   password: "",
   phone: "",
   image: "",
+  monthlySalary: "0",
   departmentId: "",
   officeLocationId: "",
   supervisorUserId: "",
@@ -145,6 +147,7 @@ export function UsersManagement() {
       password: "",
       phone: user.phone === "-" ? "" : user.phone,
       image: user.image,
+      monthlySalary: user.monthlySalary ?? "0",
       departmentId: user.departmentId ?? "",
       officeLocationId: user.officeLocationId ?? "",
       supervisorUserId: user.supervisorUserId ?? "",
@@ -336,6 +339,18 @@ export function UsersManagement() {
                   ),
                 },
                 { key: "role", label: "Role" },
+                {
+                  key: "monthlySalary",
+                  label: "Monthly Salary",
+                  render: (row) => {
+                    const amount = Number(row.monthlySalary ?? 0);
+                    return new Intl.NumberFormat("en-IN", {
+                      style: "currency",
+                      currency: "INR",
+                      maximumFractionDigits: 0,
+                    }).format(Number.isFinite(amount) ? amount : 0);
+                  },
+                },
                 { key: "phone", label: "Phone" },
                 { key: "department", label: "Department" },
                 { key: "officeLocation", label: "Office" },
@@ -436,6 +451,18 @@ export function UsersManagement() {
             placeholder={
               editingUser ? "Leave blank to keep the current password" : "Create a strong password"
             }
+          />
+          <Input
+            label="Monthly Salary"
+            name="monthlySalary"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formState.monthlySalary}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, monthlySalary: event.target.value }))
+            }
+            placeholder="50000"
           />
           <Input
             label="Phone"
@@ -548,3 +575,5 @@ export function UsersManagement() {
     </div>
   );
 }
+
+

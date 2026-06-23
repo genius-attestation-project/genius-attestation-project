@@ -24,6 +24,7 @@ export type UserAccessRow = {
   email: string;
   phone: string;
   image: string;
+  monthlySalary: string;
   role: string;
   roleId: string | null;
   departmentId: string | null;
@@ -63,6 +64,7 @@ export type UserPayload = {
   name: string;
   email: string;
   password?: string;
+  monthlySalary?: number;
   phone?: string;
   image?: string;
   departmentId?: string | null;

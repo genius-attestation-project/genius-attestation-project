@@ -112,10 +112,13 @@ export function isTableMissingError(err: unknown): boolean {
     message.includes("attendance_records") ||
     message.includes("attendance_settings") ||
     message.includes("leave_requests") ||
+    message.includes("salary_holidays") ||
+    message.includes("salary_payrolls") ||
     meta?.table?.includes("attendance") === true ||
     meta?.table?.includes("leave") === true ||
     meta?.modelName?.includes("Attendance") === true ||
-    meta?.modelName?.includes("Leave") === true
+    meta?.modelName?.includes("Leave") === true ||
+    meta?.modelName?.includes("Salary") === true
   );
 }
 
@@ -133,3 +136,5 @@ export async function assertUserBelongsToAdmin(userId: string, ownerAdminId: str
     throw new Error("Selected user is not in your workspace.");
   }
 }
+
+

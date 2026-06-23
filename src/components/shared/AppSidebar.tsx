@@ -61,6 +61,7 @@ export function AppSidebar({
   const [leadOpen, setLeadOpen] = useState(pathname.startsWith("/dashboard/lead-management"));
   const [attendanceOpen, setAttendanceOpen] = useState(pathname.startsWith("/dashboard/attendance"));
   const [leaveOpen, setLeaveOpen] = useState(pathname.startsWith("/dashboard/leave-management"));
+  const [salaryOpen, setSalaryOpen] = useState(pathname.startsWith("/dashboard/salary-management"));
 
   const visibleNavigation = useMemo(
     () => filterNavigation(sidebarNavigation, permissions, isSuperAdmin),
@@ -89,6 +90,10 @@ export function AppSidebar({
     if (pathname.startsWith("/dashboard/leave-management")) {
       setLeaveOpen(true);
     }
+
+    if (pathname.startsWith("/dashboard/salary-management")) {
+      setSalaryOpen(true);
+    }
   }, [pathname]);
 
   function renderNavItems(showLabels: boolean) {
@@ -97,14 +102,31 @@ export function AppSidebar({
       const isLead = item.href === "/dashboard/lead-management";
       const isAttendance = item.href === "/dashboard/attendance";
       const isLeave = item.href === "/dashboard/leave-management";
+      const isSalary = item.href === "/dashboard/salary-management";
       const isActive =
         item.href === "/dashboard"
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
-      if ((isAdmin || isLead || isAttendance || isLeave) && item.children?.length) {
-        const accordionOpen = isAdmin ? adminOpen : isLead ? leadOpen : isAttendance ? attendanceOpen : leaveOpen;
-        const setAccordionOpen = isAdmin ? setAdminOpen : isLead ? setLeadOpen : isAttendance ? setAttendanceOpen : setLeaveOpen;
+      if ((isAdmin || isLead || isAttendance || isLeave || isSalary) && item.children?.length) {
+        const accordionOpen = isAdmin
+          ? adminOpen
+          : isLead
+            ? leadOpen
+            : isAttendance
+              ? attendanceOpen
+              : isLeave
+                ? leaveOpen
+                : salaryOpen;
+        const setAccordionOpen = isAdmin
+          ? setAdminOpen
+          : isLead
+            ? setLeadOpen
+            : isAttendance
+              ? setAttendanceOpen
+              : isLeave
+                ? setLeaveOpen
+                : setSalaryOpen;
 
         return (
           <div key={item.href} className="grid gap-2">
@@ -316,3 +338,6 @@ function SidebarPanel({
     </div>
   );
 }
+
+
+

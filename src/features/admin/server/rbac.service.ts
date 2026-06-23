@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import bcrypt from "bcrypt";
+import { Prisma } from "@prisma/client";
 
 import {
   buildPermissionCatalog,
@@ -396,6 +397,7 @@ function mapUser(user: Awaited<ReturnType<typeof fetchUsersFromDb>>[number]): Us
   const officeLocationName =
     user.officeLocationRef?.officeName ?? user.officeLocationName ?? "-";
   const supervisorName = user.supervisorRef?.name ?? user.supervisorRef?.email ?? "-";
+  const monthlySalary = user.monthlySalary?.toString() ?? "0";
 
   return {
     id: user.id,
@@ -411,6 +413,7 @@ function mapUser(user: Awaited<ReturnType<typeof fetchUsersFromDb>>[number]): Us
     officeLocation: officeLocationName,
     supervisorUserId: user.supervisorUserId ?? null,
     supervisorName,
+    monthlySalary,
     status: user.isActive ? "Active" : "Inactive",
     lastLogin: formatRelativeTime(user.lastLoginAt),
     createdDate: formatDate(user.createdAt),
@@ -560,6 +563,7 @@ export async function createUser(ownerAdminId: string, payload: UserPayload) {
       departmentName: department?.name ?? null,
       officeLocationId: officeLocation?.id ?? null,
       officeLocationName: officeLocation?.officeName ?? null,
+      monthlySalary: new Prisma.Decimal(payload.monthlySalary ?? 0),
       supervisorUserId: supervisor?.id ?? null,
       isActive: payload.isActive ?? true,
       ownerAdminId,
@@ -637,6 +641,7 @@ export async function updateUser(ownerAdminId: string, userId: string, payload: 
       departmentName: department?.name ?? null,
       officeLocationId: officeLocation?.id ?? null,
       officeLocationName: officeLocation?.officeName ?? null,
+      monthlySalary: new Prisma.Decimal(payload.monthlySalary ?? 0),
       supervisorUserId: supervisor?.id ?? null,
       isActive: payload.isActive ?? true,
       roleId: payload.roleId,
@@ -1012,3 +1017,4 @@ export async function getSidebarNavigationForUser(userId: string) {
 export function getPermissionModules() {
   return permissionModules;
 }
+

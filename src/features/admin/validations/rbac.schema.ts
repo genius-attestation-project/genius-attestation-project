@@ -22,6 +22,7 @@ export const userSchema = z.object({
   name: z.string().trim().min(1, "Name is required."),
   email: z.string().trim().email("Email is required."),
   password: passwordSchema.optional(),
+  monthlySalary: z.coerce.number().min(0, "Monthly salary cannot be negative.").default(0),
   phone: z.string().trim().optional().default(""),
   image: z.string().trim().optional().default(""),
   departmentId: nullableTrimmedString,

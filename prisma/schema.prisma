@@ -56,6 +56,13 @@ enum LeaveRequestStatus {
   Cancelled
 }
 
+enum SalaryPayrollStatus {
+  Draft
+  Generated
+  Approved
+  Paid
+}
+
 model User {
   id                 String           @id @default(cuid())
   name               String?
@@ -81,6 +88,7 @@ model User {
   officeLocationId   String?          @map("office_location_id")
   officeLocationRef  OfficeLocation?  @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
   officeLocationName String?          @map("officeLocation")
+  monthlySalary      Decimal          @default(0) @map("monthly_salary") @db.Decimal(12,2)
   isActive           Boolean          @default(true) @map("is_active")
   isLocked           Boolean          @default(false) @map("is_locked")
   lockReason         String?          @map("lock_reason")
@@ -99,6 +107,7 @@ model User {
   attendanceRecords    AttendanceRecord[] @relation("UserAttendance")
   attendanceSetting    AttendanceSetting? @relation("UserAttendanceSetting")
   leaveRequests        LeaveRequest[]     @relation("UserLeaveRequests")
+  salaryPayrolls       SalaryPayroll[]    @relation("UserSalaryPayroll")
 
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
@@ -653,6 +662,67 @@ model AttendanceSetting {
   @@map("attendance_settings")
 }
 
+
+model SalaryHoliday {
+  id           String   @id @default(cuid())
+  holidayDate  DateTime @map("holiday_date") @db.Date
+  title        String
+  status       String   @default("Approved")
+  ownerAdminId String?  @map("owner_admin_id")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([holidayDate, ownerAdminId])
+  @@index([ownerAdminId])
+  @@index([holidayDate])
+  @@index([status])
+  @@map("salary_holidays")
+}
+
+model SalaryPayroll {
+  id                     String              @id @default(cuid())
+  userId                 String              @map("user_id")
+  user                   User                @relation("UserSalaryPayroll", fields: [userId], references: [id], onDelete: Cascade)
+  payrollMonth           Int                 @map("payroll_month")
+  payrollYear            Int                 @map("payroll_year")
+  periodStart            DateTime            @map("period_start") @db.Date
+  periodEnd              DateTime            @map("period_end") @db.Date
+  userNameSnapshot       String              @map("user_name_snapshot")
+  userEmailSnapshot      String              @map("user_email_snapshot")
+  departmentSnapshot     String              @map("department_snapshot")
+  officeLocationSnapshot  String              @map("office_location_snapshot")
+  monthlySalarySnapshot  Decimal             @map("monthly_salary_snapshot") @db.Decimal(12,2)
+  workingDays            Decimal             @map("working_days") @db.Decimal(5,2)
+  presentDays            Decimal             @map("present_days") @db.Decimal(5,2)
+  paidLeaveDays          Decimal             @map("paid_leave_days") @db.Decimal(5,2)
+  unpaidLeaveDays        Decimal             @map("unpaid_leave_days") @db.Decimal(5,2)
+  leaveDays              Decimal             @map("leave_days") @db.Decimal(5,2)
+  lopDays                Decimal             @map("lop_days") @db.Decimal(5,2)
+  grossSalary            Decimal             @map("gross_salary") @db.Decimal(12,2)
+  perDayRate             Decimal             @map("per_day_rate") @db.Decimal(12,2)
+  earnedSalary           Decimal             @map("earned_salary") @db.Decimal(12,2)
+  lopDeduction           Decimal             @map("lop_deduction") @db.Decimal(12,2)
+  netPayable             Decimal             @map("net_payable") @db.Decimal(12,2)
+  payrollStatus          SalaryPayrollStatus  @default(Draft) @map("payroll_status")
+  generatedBy            String?             @map("generated_by")
+  generatedAt            DateTime?           @map("generated_at")
+  approvedBy             String?             @map("approved_by")
+  approvedAt             DateTime?           @map("approved_at")
+  paidBy                 String?             @map("paid_by")
+  paidAt                 DateTime?           @map("paid_at")
+  notes                  String?
+  ownerAdminId           String?             @map("owner_admin_id")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+
+  @@unique([userId, payrollMonth, payrollYear, ownerAdminId])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([payrollMonth, payrollYear])
+  @@index([payrollStatus])
+  @@map("salary_payrolls")
+}
 
 model LeaveRequest {
   id                String             @id @default(cuid())

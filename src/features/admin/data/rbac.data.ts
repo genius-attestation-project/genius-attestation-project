@@ -272,6 +272,43 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
       },
     ],
   },
+  {
+    label: "Salary Management",
+    href: "/dashboard/salary-management",
+    icon: BadgeDollarSign,
+    menuPermission: "menu.salary-management",
+    pagePermission: "salary.view",
+    children: [
+      {
+        label: "Dashboard",
+        href: "/dashboard/salary-management/dashboard",
+        icon: LayoutDashboard,
+        menuPermission: "menu.salary-management.dashboard",
+        pagePermission: "salary.view",
+      },
+      {
+        label: "Calculator",
+        href: "/dashboard/salary-management/calculator",
+        icon: BadgeDollarSign,
+        menuPermission: "menu.salary-management.calculator",
+        pagePermission: "salary.calculate",
+      },
+      {
+        label: "Monthly Payroll",
+        href: "/dashboard/salary-management/monthly-payroll",
+        icon: ClipboardList,
+        menuPermission: "menu.salary-management.monthly-payroll",
+        pagePermission: "salary.generate",
+      },
+      {
+        label: "Reports",
+        href: "/dashboard/salary-management/reports",
+        icon: FileClock,
+        menuPermission: "menu.salary-management.reports",
+        pagePermission: "salary.report",
+      },
+    ],
+  },
 ];
 
 export const permissionModules: PermissionModuleDefinition[] = [
@@ -301,6 +338,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "attendance_approval", label: "Attendance Approval", description: "Approve or reject attendance records." },
   { key: "attendance_settings", label: "Attendance Settings", description: "Configure per-user attendance timings." },
   { key: "leave", label: "Leave", description: "Apply for and review leave requests." },
+  { key: "salary", label: "Salary", description: "Payroll calculation, approval, and reporting access." },
 ];
 
 export const defaultRoleDefinitions = [
@@ -470,3 +508,6 @@ export function buildPermissionCatalog() {
 export function flattenNavigation(items: NavigationItemDefinition[]): NavigationItemDefinition[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavigation(item.children) : [])]);
 }
+
+
+
