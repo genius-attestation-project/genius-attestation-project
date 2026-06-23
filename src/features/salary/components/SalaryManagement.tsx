@@ -85,7 +85,7 @@ function payrollColumns(withActions: boolean, onApprove?: (row: SalaryPayrollRow
         <div className="grid gap-1">
           <p className="font-semibold text-slate-900 dark:text-white">{row.userName}</p>
           <p className="text-xs text-soft">{row.userEmail}</p>
-          <p className="text-xs text-soft">{row.department} · {row.officeLocation}</p>
+          <p className="text-xs text-soft">{row.department}  {row.officeLocation}</p>
         </div>
       ),
     },
@@ -449,7 +449,7 @@ export function SalaryManagement({ mode }: SalaryModuleProps) {
         <DashboardCard title="Salary Preview" description="Generated from actual attendance and leave records.">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {calculationData.calculations.map((row) => (
-              <DashboardCard key={row.userId} title={row.userName} description={`${row.department} · ${row.officeLocation}`}>
+              <DashboardCard key={row.userId} title={row.userName} description={`${row.department}  ${row.officeLocation}`}>
                 <div className="grid gap-2 text-sm text-soft">
                   <p>Present: {dayCount(row.presentDays)}</p>
                   <p>Paid Leave: {dayCount(row.paidLeaveDays)}</p>
