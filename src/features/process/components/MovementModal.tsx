@@ -64,11 +64,10 @@ export function MovementModal({
     <FormDrawer open={open} onClose={onClose} title={title} description={description} placement="center">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="remarks" className="block text-sm font-semibold mb-1">
-            Remarks (Optional)
-          </label>
           <Textarea
             id="remarks"
+            label="Remarks"
+            description="Optional"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Add any relevant notes..."

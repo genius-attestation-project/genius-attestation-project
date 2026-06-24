@@ -54,6 +54,7 @@ function BmTable({
   items,
   acceptingId,
   onAccept,
+  onSendProcess,
 }: {
   activeTab: TabKey;
   items: BmReportItem[];
@@ -139,7 +140,7 @@ function BmTable({
                     {onSendProcess && (
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => onSendProcess(item)}
                       >
                         Send to Process

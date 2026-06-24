@@ -98,7 +98,7 @@ export function ProcessDashboard() {
     { label: "Total Documents", value: stats.total.toLocaleString(), delta: "All", description: "In process module", icon: FileText, tone: "slate" as const },
     { label: "Inbound", value: stats.inbound.toLocaleString(), delta: "Pending", description: "Waiting to start", icon: Inbox, tone: "amber" as const },
     { label: "In Hand", value: stats.inHand.toLocaleString(), delta: "Live", description: "Currently working", icon: LoaderCircle, tone: "blue" as const },
-    { label: "Completed", value: stats.completed.toLocaleString(), delta: "Done", description: "Ready for outbound", icon: CheckCheck, tone: "emerald" as const },
+    { label: "Completed", value: stats.completed.toLocaleString(), delta: "Done", description: "Ready for outbound", icon: CheckCheck, tone: "blue" as const },
   ];
 
   return (
@@ -202,7 +202,7 @@ export function ProcessDashboard() {
                       )}
                       {activeTab === "IN_HAND" && (
                         <>
-                          <Button size="sm" variant="outline" className="text-rose-600" onClick={() => openMovementModal(item.id, "REJECTED")}>Reject</Button>
+                          <Button size="sm" variant="secondary" className="text-rose-600" onClick={() => openMovementModal(item.id, "REJECTED")}>Reject</Button>
                           <Button size="sm" onClick={() => openMovementModal(item.id, "COMPLETED")}>Complete</Button>
                         </>
                       )}
