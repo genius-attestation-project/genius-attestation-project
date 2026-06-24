@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
 import type { BmReportItem, BmReportResponse, BmReportStats } from "@/features/bm-report/types/bm-report.types";
+import { SendToProcessModal } from "./SendToProcessModal";
 
 type BmReportDashboardProps = {
   currentOfficeLocationName: string;
@@ -58,6 +59,7 @@ function BmTable({
   items: BmReportItem[];
   acceptingId: string | null;
   onAccept: (id: string) => Promise<void>;
+  onSendProcess?: (item: BmReportItem) => void;
 }) {
   if (!items.length) {
     return (
@@ -87,7 +89,7 @@ function BmTable({
               {activeTab === "inward" ? <th className="px-5 py-4">Created By</th> : null}
               {activeTab === "inward" ? <th className="px-5 py-4">Created Date</th> : null}
               <th className="px-5 py-4">Status</th>
-              {activeTab === "inward" ? <th className="px-5 py-4">Action</th> : null}
+              {activeTab === "inward" || activeTab === "home" ? <th className="px-5 py-4 text-right">Action</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-(--border) bg-white">
@@ -123,7 +125,7 @@ function BmTable({
                   </div>
                 </td>
                 {activeTab === "inward" ? (
-                  <td className="px-5 py-4">
+                  <td className="px-5 py-4 text-right">
                     <Button
                       size="sm"
                       disabled={acceptingId === item.id || item.isBmLocked}
@@ -131,6 +133,18 @@ function BmTable({
                     >
                       {acceptingId === item.id ? "Accepting..." : "Accept"}
                     </Button>
+                  </td>
+                ) : activeTab === "home" ? (
+                  <td className="px-5 py-4 text-right">
+                    {onSendProcess && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onSendProcess(item)}
+                      >
+                        Send to Process
+                      </Button>
+                    )}
                   </td>
                 ) : null}
               </tr>
@@ -152,6 +166,9 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   const [inwardItems, setInwardItems] = useState<BmReportItem[]>([]);
   const [outwardItems, setOutwardItems] = useState<BmReportItem[]>([]);
   const [stats, setStats] = useState<BmReportStats>(emptyStats);
+  
+  const [sendProcessOpen, setSendProcessOpen] = useState(false);
+  const [selectedProcessItem, setSelectedProcessItem] = useState<BmReportItem | null>(null);
 
   async function loadBmReport() {
     if (!currentOfficeLocationName) {
@@ -315,12 +332,36 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           Loading BM report...
         </div>
       ) : currentOfficeLocationName ? (
-        <BmTable activeTab={activeTab} items={activeItems} acceptingId={acceptingId} onAccept={handleAccept} />
+        <BmTable 
+          activeTab={activeTab} 
+          items={activeItems} 
+          acceptingId={acceptingId} 
+          onAccept={handleAccept}
+          onSendProcess={(item) => {
+            setSelectedProcessItem(item);
+            setSendProcessOpen(true);
+          }}
+        />
       ) : (
         <EmptyState
           icon={Inbox}
           title="Office location required"
           description="Assign an office location to this user to activate BM routing, inward, outward, and home views."
+        />
+      )}
+
+      {sendProcessOpen && selectedProcessItem && (
+        <SendToProcessModal
+          open={sendProcessOpen}
+          onClose={() => {
+            setSendProcessOpen(false);
+            setSelectedProcessItem(null);
+          }}
+          registrationId={selectedProcessItem.id}
+          trackingNumber={selectedProcessItem.registrationNumber}
+          onSuccess={() => {
+            loadBmReport();
+          }}
         />
       )}
     </div>

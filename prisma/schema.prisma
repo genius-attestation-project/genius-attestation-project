@@ -383,6 +383,7 @@ model Registration {
   auditTrail            AuditTrail[]
   paymentUpdates        PaymentUpdate[]
   accountStatementEntries AccountStatementEntry[]
+  processAssignments    ProcessAssignment[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -760,4 +761,82 @@ model LeaveRequest {
   @@index([toDate])
   @@index([appliedAt])
   @@map("leave_requests")
+}
+
+model ProcessType {
+  id             String   @id @default(cuid())
+  name           String   
+  description    String?
+  isActive       Boolean  @default(true)
+  ownerAdminId   String   @map("owner_admin_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("process_types")
+}
+
+model ProcessAssignment {
+  id               String       @id @default(cuid())
+  registrationId   String       @map("registration_id")
+  registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber   String       @map("tracking_number")
+  processType      String       @map("process_type")
+  currentLocation  String       @map("current_location") 
+  status           String       @map("status") 
+  assignedUserId   String?      @map("assigned_user_id")
+  receivedDate     DateTime     @default(now()) @map("received_date")
+  sentDate         DateTime?    @map("sent_date")
+  completedDate    DateTime?    @map("completed_date")
+  rejectedDate     DateTime?    @map("rejected_date")
+  daysHeld         Int          @default(0) @map("days_held")
+  remarks          String?
+  ownerAdminId     String       @map("owner_admin_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  movements        ProcessMovement[]
+  history          ProcessHistory[]
+
+  @@unique([registrationId, processType])
+  @@index([trackingNumber])
+  @@index([ownerAdminId])
+  @@index([currentLocation])
+  @@index([status])
+  @@map("process_assignments")
+}
+
+model ProcessMovement {
+  id                  String   @id @default(cuid())
+  processAssignmentId String   @map("process_assignment_id")
+  processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
+  fromLocation        String   @map("from_location")
+  toLocation          String   @map("to_location")
+  action              String
+  userId              String   @map("user_id")
+  remarks             String?
+  ownerAdminId        String   @map("owner_admin_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([processAssignmentId])
+  @@index([ownerAdminId])
+  @@map("process_movements")
+}
+
+model ProcessHistory {
+  id                  String   @id @default(cuid())
+  processAssignmentId String   @map("process_assignment_id")
+  processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
+  fromModule          String   @map("from_module")
+  toModule            String   @map("to_module")
+  action              String
+  userId              String   @map("user_id")
+  remarks             String?
+  ownerAdminId        String   @map("owner_admin_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([processAssignmentId])
+  @@index([ownerAdminId])
+  @@map("process_history")
 }
