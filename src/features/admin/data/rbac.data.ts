@@ -21,6 +21,7 @@ import {
   Users,
   PlaneTakeoff,
   FileClock,
+  ListChecks,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -178,6 +179,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     pagePermission: "bm_report.view",
   },
   {
+    label: "Process Module",
+    href: "/dashboard/process",
+    icon: ListChecks,
+    menuPermission: "menu.process",
+    pagePermission: "process.view",
+  },
+  {
     label: "Account Update",
     href: "/dashboard/account-update",
     icon: RefreshCw,
@@ -329,6 +337,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
+  { key: "process", label: "Process Module", description: "Process Module tracking access." },
   { key: "account_update", label: "Account Update", description: "Account update access." },
   { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
   { key: "account_admin_approval", label: "Account Admin Approval", description: "Account admin approval access." },
