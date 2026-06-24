@@ -17,6 +17,7 @@ import {
   UserCheck,
   Users,
   UserRoundPlus,
+  ListChecks,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -71,6 +72,11 @@ export const sidebarItems: SidebarItem[] = [
     label: "Account Update",
     href: "/dashboard/account-update",
     icon: RefreshCw,
+  },
+  {
+    label: "Process Module",
+    href: "/dashboard/process",
+    icon: ListChecks,
   },
   {
     label: "Ready For Delivery",
