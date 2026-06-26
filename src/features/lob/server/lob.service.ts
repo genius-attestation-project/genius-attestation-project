@@ -196,11 +196,11 @@ function buildBaseLeadWhere(ownerAdminId: string, filters: LobFilters): Prisma.L
   }
 
   if (filters.assignedUser) {
-    where.assignedUser = { contains: filters.assignedUser, mode: "insensitive" };
+    where.assignedUser = { contains: filters.assignedUser };
   }
 
   if (filters.country) {
-    where.country = { contains: filters.country, mode: "insensitive" };
+    where.country = { contains: filters.country };
   }
 
   if (filters.officeLocationId) {
@@ -210,13 +210,13 @@ function buildBaseLeadWhere(ownerAdminId: string, filters: LobFilters): Prisma.L
   if (filters.query?.trim()) {
     const query = filters.query.trim();
     where.OR = [
-      { leadCode: { contains: query, mode: "insensitive" } },
-      { firstName: { contains: query, mode: "insensitive" } },
-      { lastName: { contains: query, mode: "insensitive" } },
-      { mobileNumber: { contains: query, mode: "insensitive" } },
-      { email: { contains: query, mode: "insensitive" } },
-      { service: { contains: query, mode: "insensitive" } },
-      { assignedUser: { contains: query, mode: "insensitive" } },
+      { leadCode: { contains: query } },
+      { firstName: { contains: query } },
+      { lastName: { contains: query } },
+      { mobileNumber: { contains: query } },
+      { email: { contains: query } },
+      { service: { contains: query } },
+      { assignedUser: { contains: query } },
     ];
   }
 
@@ -480,20 +480,20 @@ export async function getLobAnalyticsCards(
     ownerAdminId,
     ...(filters.service ? { service: filters.service } : {}),
     ...(filters.assignedUser
-      ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
+      ? { assignedUser: { contains: filters.assignedUser } }
       : {}),
-    ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+    ...(filters.country ? { country: { contains: filters.country } } : {}),
     ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
     ...(filters.query?.trim()
       ? {
           OR: [
-            { leadCode: { contains: filters.query.trim(), mode: "insensitive" } },
-            { firstName: { contains: filters.query.trim(), mode: "insensitive" } },
-            { lastName: { contains: filters.query.trim(), mode: "insensitive" } },
-            { mobileNumber: { contains: filters.query.trim(), mode: "insensitive" } },
-            { email: { contains: filters.query.trim(), mode: "insensitive" } },
-            { service: { contains: filters.query.trim(), mode: "insensitive" } },
-            { assignedUser: { contains: filters.query.trim(), mode: "insensitive" } },
+            { leadCode: { contains: filters.query.trim() } },
+            { firstName: { contains: filters.query.trim() } },
+            { lastName: { contains: filters.query.trim() } },
+            { mobileNumber: { contains: filters.query.trim() } },
+            { email: { contains: filters.query.trim() } },
+            { service: { contains: filters.query.trim() } },
+            { assignedUser: { contains: filters.query.trim() } },
           ],
         }
       : {}),
@@ -681,20 +681,20 @@ export async function getLobStatusHistory(
           id: { in: leadIds },
           ...(filters.service ? { service: filters.service } : {}),
           ...(filters.assignedUser
-            ? { assignedUser: { contains: filters.assignedUser, mode: "insensitive" } }
+            ? { assignedUser: { contains: filters.assignedUser } }
             : {}),
-          ...(filters.country ? { country: { contains: filters.country, mode: "insensitive" } } : {}),
+          ...(filters.country ? { country: { contains: filters.country } } : {}),
           ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
           ...(query
             ? {
                 OR: [
-                  { leadCode: { contains: query, mode: "insensitive" } },
-                  { firstName: { contains: query, mode: "insensitive" } },
-                  { lastName: { contains: query, mode: "insensitive" } },
-                  { mobileNumber: { contains: query, mode: "insensitive" } },
-                  { email: { contains: query, mode: "insensitive" } },
-                  { service: { contains: query, mode: "insensitive" } },
-                  { assignedUser: { contains: query, mode: "insensitive" } },
+                  { leadCode: { contains: query } },
+                  { firstName: { contains: query } },
+                  { lastName: { contains: query } },
+                  { mobileNumber: { contains: query } },
+                  { email: { contains: query } },
+                  { service: { contains: query } },
+                  { assignedUser: { contains: query } },
                 ],
               }
             : {}),

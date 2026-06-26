@@ -500,13 +500,13 @@ export async function getAccountStatement(
     ...(query
       ? {
           OR: [
-            { trackingNumber: { contains: query, mode: "insensitive" } },
-            { invoiceNumber: { contains: query, mode: "insensitive" } },
-            { voucherNumber: { contains: query, mode: "insensitive" } },
+            { trackingNumber: { contains: query } },
+            { invoiceNumber: { contains: query } },
+            { voucherNumber: { contains: query } },
             {
               paymentUpdate: {
                 registration: {
-                  customerName: { contains: query, mode: "insensitive" },
+                  customerName: { contains: query },
                 },
               },
             },
@@ -516,11 +516,11 @@ export async function getAccountStatement(
                   paymentUpdates: {
                     some: {
                       OR: [
-                        { trackingNumber: { contains: query, mode: "insensitive" } },
-                        { customerName: { contains: query, mode: "insensitive" } },
+                        { trackingNumber: { contains: query } },
+                        { customerName: { contains: query } },
                         {
                           registration: {
-                            customerName: { contains: query, mode: "insensitive" },
+                            customerName: { contains: query },
                           },
                         },
                       ],

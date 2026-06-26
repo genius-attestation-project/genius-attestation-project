@@ -1,4 +1,4 @@
-import { LeadStatus, Prisma } from "@prisma/client";
+import { LeadStatus } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -70,7 +70,7 @@ const modules: SearchItem[] = [
 ];
 
 function contains(query: string) {
-  return { contains: query, mode: Prisma.QueryMode.insensitive };
+  return { contains: query };
 }
 
 function matchesModule(item: SearchItem, query: string) {

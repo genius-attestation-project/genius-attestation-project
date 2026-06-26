@@ -870,11 +870,11 @@ export async function listLeads(ownerAdminId: string, params: {
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
     ...(status ? { leadStatus: status } : {}),
-    ...(service ? { service: { contains: service, mode: "insensitive" } } : {}),
+    ...(service ? { service: { contains: service } } : {}),
     ...(createdById ? { createdById } : {}),
-    ...(country ? { country: { equals: country, mode: "insensitive" } } : {}),
-    ...(state ? { state: { equals: state, mode: "insensitive" } } : {}),
-    ...(source ? { source: { equals: source, mode: "insensitive" } } : {}),
+    ...(country ? { country: { equals: country } } : {}),
+    ...(state ? { state: { equals: state } } : {}),
+    ...(source ? { source: { equals: source } } : {}),
     ...(officeLocationId ? { creator: { officeLocationId } } : {}),
     ...(assignedUserId
       ? assignedUserId === "unassigned"
@@ -886,14 +886,14 @@ export async function listLeads(ownerAdminId: string, params: {
     ...(query
       ? {
           OR: [
-            { leadCode: { contains: query, mode: "insensitive" } },
-            { firstName: { contains: query, mode: "insensitive" } },
-            { lastName: { contains: query, mode: "insensitive" } },
-            { email: { contains: query, mode: "insensitive" } },
-            { mobileNumber: { contains: query, mode: "insensitive" } },
-            { service: { contains: query, mode: "insensitive" } },
-            { assignedUser: { contains: query, mode: "insensitive" } },
-            { country: { contains: query, mode: "insensitive" } },
+            { leadCode: { contains: query } },
+            { firstName: { contains: query } },
+            { lastName: { contains: query } },
+            { email: { contains: query } },
+            { mobileNumber: { contains: query } },
+            { service: { contains: query } },
+            { assignedUser: { contains: query } },
+            { country: { contains: query } },
           ],
         }
       : {}),

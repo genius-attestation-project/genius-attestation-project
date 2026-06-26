@@ -133,12 +133,12 @@ export async function listRegistrations(
     ...(query
       ? {
           OR: [
-            { trackingNumber: { contains: query, mode: "insensitive" } },
-            { customerName: { contains: query, mode: "insensitive" } },
-            { mobile: { contains: query, mode: "insensitive" } },
-            { documentType: { contains: query, mode: "insensitive" } },
-            { paymentStatus: { contains: query, mode: "insensitive" } },
-            { approvalStatus: { contains: query, mode: "insensitive" } },
+            { trackingNumber: { contains: query } },
+            { customerName: { contains: query } },
+            { mobile: { contains: query } },
+            { documentType: { contains: query } },
+            { paymentStatus: { contains: query } },
+            { approvalStatus: { contains: query } },
           ],
         }
       : {}),

@@ -175,7 +175,6 @@ async function listWelcomeCallRegistrations(
       ownerAdminId,
       regionOfRegistration: {
         equals: officeLocationName,
-        mode: "insensitive",
       },
       ...(scope === "today"
         ? {
@@ -256,7 +255,6 @@ export async function updateWelcomeCallStatus(args: {
       ownerAdminId,
       regionOfRegistration: {
         equals: officeLocationName,
-        mode: "insensitive",
       },
       createdAt: {
         gte: start,
