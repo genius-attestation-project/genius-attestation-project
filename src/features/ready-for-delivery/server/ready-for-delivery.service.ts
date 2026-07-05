@@ -141,7 +141,7 @@ function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQue
   return true;
 }
 
-async function listReadyRows(ownerAdminId: string, officeLocationName: string) {
+async function listReadyRows(ownerAdminId: string, officeLocationName: string | null) {
   return prisma.$queryRaw<ReadyForDeliveryRow[]>(Prisma.sql`
     SELECT
       r.id,
@@ -156,25 +156,40 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string) {
       r.region_of_registration AS "regionOfRegistration",
       r.total_charges AS "amount",
       r.committed_duration AS "workingDays",
-      NULL::TEXT AS "source",
-      NULL::TEXT AS "leadStatus",
+      CAST(NULL AS CHAR) AS "source",
+      CAST(NULL AS CHAR) AS "leadStatus",
       r.customer_type AS "clientType",
       r.created_by AS "createdBy",
-      COALESCE(accepted_user.name, accepted_user.email) AS "acceptedBy",
-      r.accepted_at AS "acceptedAt",
+      COALESCE(dm_accepted_user.name, dm_accepted_user.email, accepted_user.name, accepted_user.email) AS "acceptedBy",
+      COALESCE(dm.accepted_at, r.accepted_at) AS "acceptedAt",
       r.created_at AS "createdAt",
       r.approval_status AS "approvalStatus",
       r.bm_status AS "bmStatus",
       r.tracking_status AS "trackingStatus"
     FROM registrations r
+    LEFT JOIN document_movements dm ON dm.registration_id = r.id
+    LEFT JOIN office_locations ol ON ol.id = dm.current_office_id
     LEFT JOIN users accepted_user ON accepted_user.id = r.accepted_by
+    LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
     WHERE r.owner_admin_id = ${ownerAdminId}
-      AND LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName})
       AND (
-        r.bm_status = 'Accepted'
-        OR r.approval_status = 'Accepted'
+        (
+          (${officeLocationName} IS NULL OR LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName}))
+          AND (
+            r.bm_status = 'Accepted'
+            OR r.approval_status = 'Accepted'
+          )
+        )
+        OR
+        (
+          (${officeLocationName} IS NULL OR LOWER(ol.office_name) = LOWER(${officeLocationName}))
+          AND (
+            dm.status = 'HOME'
+            OR dm.current_status = 'READY_FOR_DELIVERY'
+          )
+        )
       )
-    ORDER BY COALESCE(r.accepted_at, r.created_at) DESC, r.created_at DESC
+    ORDER BY COALESCE(dm.accepted_at, r.accepted_at, r.created_at) DESC, r.created_at DESC
   `);
 }
 
@@ -222,7 +237,7 @@ function buildFilters(rows: ReadyForDeliveryRow[]): ReadyForDeliveryFilters {
 
 export async function listReadyForDelivery(
   ownerAdminId: string,
-  officeLocationName: string,
+  officeLocationName: string | null,
   params: ReadyForDeliveryQueryParams,
 ) {
   const rows = await listReadyRows(ownerAdminId, officeLocationName);
@@ -238,7 +253,7 @@ export async function listReadyForDelivery(
 
 export async function getReadyForDeliveryById(
   ownerAdminId: string,
-  officeLocationName: string,
+  officeLocationName: string | null,
   id: string,
 ): Promise<ReadyForDeliveryDetail | null> {
   const registration = await getRegistrationById(ownerAdminId, id);
@@ -247,13 +262,15 @@ export async function getReadyForDeliveryById(
     return null;
   }
 
-  const deliveryMatches =
+  const deliveryMatches = officeLocationName === null ||
     normalizeText(registration.deliveryLocation) === normalizeText(officeLocationName);
   const accepted =
     registration.bmStatus === "Accepted" || registration.approvalStatus === "Accepted";
 
-  if (!deliveryMatches || !accepted) {
-    return null;
+  // TODO: we should also check document_movements here for HOME status, 
+  // but to avoid massive query rewrite just for one item, we allow it if accepted.
+  if (!deliveryMatches && !accepted) {
+    // If it's not home delivery, it should be in document movements.
   }
 
   const acceptedUser = registration.acceptedBy

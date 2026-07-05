@@ -13,13 +13,15 @@ export async function GET(request: Request) {
     const ownerAdminId = session?.user?.ownerAdminId;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
+    const isSuperAdmin = session.user?.isSuperAdmin === true;
+
     const officeLocationName = await resolveOfficeLocationName({
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,
     });
 
-    if (!officeLocationName) {
+    if (!officeLocationName && !isSuperAdmin) {
       return jsonError("Office location is required for ready for delivery access.", 400);
     }
 
