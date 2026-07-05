@@ -801,46 +801,16 @@ export async function createOfficeLocation(
 ) {
   await assertUniqueOfficeName(ownerAdminId, payload.officeName);
 
-  const [officeLocation] = await prisma.$queryRaw<Array<{
-    id: string;
-    officeName: string;
-    location: string;
-    timezone: string;
-    employees: number;
-    isProcessOffice: boolean;
-    createdAt: Date;
-  }>>`
-    INSERT INTO office_locations (
-      id,
-      office_name,
-      location,
-      timezone,
-      employees,
-      is_process_office,
-      owner_admin_id,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${randomUUID()},
-      ${payload.officeName},
-      ${payload.location},
-      ${payload.timezone},
-      ${payload.employees},
-      ${payload.isProcessOffice ? 1 : 0},
-      ${ownerAdminId},
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP
-    )
-    RETURNING
-      id,
-      office_name AS "officeName",
-      location,
-      timezone,
-      employees,
-      is_process_office AS "isProcessOffice",
-      created_at AS "createdAt"
-  `;
+  const officeLocation = await prisma.officeLocation.create({
+    data: {
+      officeName: payload.officeName,
+      location: payload.location,
+      timezone: payload.timezone,
+      employees: payload.employees,
+      isProcessOffice: payload.isProcessOffice,
+      ownerAdminId,
+    },
+  });
 
   return mapOfficeLocation(officeLocation);
 }
@@ -850,47 +820,25 @@ export async function updateOfficeLocation(
   officeLocationId: string,
   payload: OfficeLocationPayload,
 ) {
-  const [existingOfficeLocation] = await prisma.$queryRaw<Array<{
-    id: string;
-    officeName: string;
-  }>>`
-    SELECT id, office_name AS "officeName"
-    FROM office_locations
-    WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
-    LIMIT 1
-  `;
+  const existingOfficeLocation = await prisma.officeLocation.findFirst({
+    where: { id: officeLocationId, ownerAdminId },
+    select: { id: true, officeName: true },
+  });
 
   if (!existingOfficeLocation) return null;
 
   await assertUniqueOfficeName(ownerAdminId, payload.officeName, officeLocationId);
 
-  const [officeLocation] = await prisma.$queryRaw<Array<{
-    id: string;
-    officeName: string;
-    location: string;
-    timezone: string;
-    employees: number;
-    isProcessOffice: boolean;
-    createdAt: Date;
-  }>>`
-    UPDATE office_locations
-    SET
-      office_name = ${payload.officeName},
-      location = ${payload.location},
-      timezone = ${payload.timezone},
-      employees = ${payload.employees},
-      is_process_office = ${payload.isProcessOffice ? 1 : 0},
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
-    RETURNING
-      id,
-      office_name AS "officeName",
-      location,
-      timezone,
-      employees,
-      is_process_office AS "isProcessOffice",
-      created_at AS "createdAt"
-  `;
+  const officeLocation = await prisma.officeLocation.update({
+    where: { id: officeLocationId },
+    data: {
+      officeName: payload.officeName,
+      location: payload.location,
+      timezone: payload.timezone,
+      employees: payload.employees,
+      isProcessOffice: payload.isProcessOffice,
+    },
+  });
 
   if (existingOfficeLocation.officeName !== payload.officeName) {
     await prisma.user.updateMany({
