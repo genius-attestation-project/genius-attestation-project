@@ -1,29 +1,9 @@
 import { Prisma } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
 import type { BmReportItem, BmReportStats } from "@/features/bm-report/types/bm-report.types";
+import { resolveOfficeLocationId } from "@/lib/office-location";
 
-type BmReportRow = {
-  id: string;
-  registrationNumber: string;
-  clientName: string;
-  service: string | null;
-  sourceOffice: string | null;
-  deliveryLocation: string | null;
-  createdBy: string | null;
-  createdAt: Date;
-  status: string;
-  approvalStatus: string;
-  acceptedAt: Date | null;
-  acceptedBy: string | null;
-  isBmLocked: boolean;
-  bmExtensionStatus: string;
-};
-
-function logBmWorkflow(
-  message: string,
-  payload: Record<string, unknown>,
-) {
+function logBmWorkflow(message: string, payload: Record<string, unknown>) {
   console.info(`[bm-report] ${message}`, payload);
 }
 
@@ -43,199 +23,128 @@ function isSameDay(date: Date, compare: Date) {
   );
 }
 
-function mapBmReportItem(row: BmReportRow): BmReportItem {
+function mapMovement(movement: any): BmReportItem {
+  const reg = movement.registration;
   return {
-    id: row.id,
-    registrationNumber: row.registrationNumber,
-    clientName: row.clientName,
-    service: row.service ?? "-",
-    sourceOffice: row.sourceOffice ?? "-",
-    deliveryLocation: row.deliveryLocation ?? "-",
-    createdBy: row.createdBy ?? "-",
-    createdDate: formatDate(row.createdAt),
-    status: row.status,
-    acceptedAt: row.acceptedAt ? row.acceptedAt.toISOString() : null,
-    acceptedDate: row.acceptedAt ? formatDate(row.acceptedAt) : null,
-    acceptedBy: row.acceptedBy ?? null,
-    isBmLocked: row.isBmLocked,
-    bmExtensionStatus: row.bmExtensionStatus,
+    id: reg.id, // using registrationId for backward compatibility in UI
+    registrationNumber: movement.trackingNumber,
+    clientName: reg.customerName,
+    service: reg.processType ?? reg.documentType ?? "-",
+    sourceOffice: movement.fromOffice?.officeName ?? reg.regionOfRegistration ?? "-",
+    deliveryLocation: reg.deliveryLocation ?? "-",
+    createdBy: movement.createdBy ?? reg.createdBy ?? "-",
+    createdDate: formatDate(movement.createdAt),
+    status: movement.status,
+    acceptedAt: movement.acceptedAt ? movement.acceptedAt.toISOString() : null,
+    acceptedDate: movement.acceptedAt ? formatDate(movement.acceptedAt) : null,
+    acceptedBy: movement.acceptedBy ?? null,
+    isBmLocked: reg.isBmLocked,
+    bmExtensionStatus: reg.bmExtensionStatus,
   };
 }
 
-async function enforceBmLocks() {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  await prisma.$executeRaw(Prisma.sql`
-    UPDATE registrations
-    SET is_bm_locked = true,
-        bm_lock_reason = 'Exceeded 7-day threshold'
-    WHERE is_bm_locked = false
-      AND bm_extension_status <> 'Approved'
-      AND created_at < ${sevenDaysAgo}
-      AND COALESCE(delivery_location, '') <> COALESCE(region_of_registration, '')
-      AND bm_status = 'Pending'
-  `);
-}
-
-async function listBmRows(
-  ownerAdminId: string,
-  whereClause: Prisma.Sql,
-) {
-  return prisma.$queryRaw<BmReportRow[]>(Prisma.sql`
-    SELECT
-      r.id,
-      r.tracking_number AS "registrationNumber",
-      r.customer_name AS "clientName",
-      COALESCE(r.process_type, r.document_type) AS "service",
-      r.region_of_registration AS "sourceOffice",
-      r.delivery_location AS "deliveryLocation",
-      r.created_by AS "createdBy",
-      r.created_at AS "createdAt",
-      r.bm_status AS "status",
-      r.approval_status AS "approvalStatus",
-      r.accepted_at AS "acceptedAt",
-      COALESCE(accepted_user.name, accepted_user.email) AS "acceptedBy",
-      r.is_bm_locked AS "isBmLocked",
-      r.bm_extension_status AS "bmExtensionStatus"
-    FROM registrations r
-    LEFT JOIN users accepted_user ON accepted_user.id = r.accepted_by
-    WHERE r.owner_admin_id = ${ownerAdminId}
-      AND ${whereClause}
-    ORDER BY COALESCE(r.accepted_at, r.created_at) DESC, r.created_at DESC
-  `);
-}
-
 export async function getBmReportStats(ownerAdminId: string, officeLocationName: string): Promise<BmReportStats> {
-  const rows = await prisma.$queryRaw<Array<{
-      deliveryLocation: string | null;
-      sourceOffice: string | null;
-      status: string;
-      approvalStatus: string;
-      acceptedAt: Date | null;
-  }>>(Prisma.sql`
-    SELECT
-      delivery_location AS "deliveryLocation",
-      region_of_registration AS "sourceOffice",
-      bm_status AS "status",
-      approval_status AS "approvalStatus",
-      accepted_at AS "acceptedAt"
-    FROM registrations
-    WHERE owner_admin_id = ${ownerAdminId}
-      AND COALESCE(delivery_location, '') <> ''
-      AND COALESCE(region_of_registration, '') <> ''
-  `);
+  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+  if (!officeId) {
+    return { totalInward: 0, totalOutward: 0, acceptedToday: 0, pendingInward: 0 };
+  }
+
+  const movements = await prisma.documentMovement.findMany({
+    where: {
+      registration: { ownerAdminId },
+      currentModule: "REGISTRATION",
+    },
+    select: {
+      status: true,
+      currentOfficeId: true,
+      fromOfficeId: true,
+      acceptedAt: true,
+    }
+  });
 
   const today = new Date();
 
-  return rows.reduce<BmReportStats>(
-    (stats, row) => {
-      const deliveryMatches = row.deliveryLocation?.toLowerCase() === officeLocationName.toLowerCase();
-      const sourceMatches = row.sourceOffice?.toLowerCase() === officeLocationName.toLowerCase();
-      const crossOffice = Boolean(
-        row.deliveryLocation &&
-          row.sourceOffice &&
-          row.deliveryLocation.toLowerCase() !== row.sourceOffice.toLowerCase(),
-      );
-
-      if (deliveryMatches && crossOffice && row.status === "Pending") {
+  return movements.reduce<BmReportStats>(
+    (stats, mov) => {
+      if (mov.currentOfficeId === officeId && mov.status === "INBOUND") {
         stats.totalInward += 1;
         stats.pendingInward += 1;
       }
 
-      if (sourceMatches && !deliveryMatches && crossOffice) {
+      if (mov.fromOfficeId === officeId && mov.currentOfficeId !== officeId && mov.status === "INBOUND") {
         stats.totalOutward += 1;
       }
 
-      if (deliveryMatches && row.status === "Accepted" && row.acceptedAt && isSameDay(row.acceptedAt, today)) {
+      if (mov.currentOfficeId === officeId && mov.status === "HOME" && mov.acceptedAt && isSameDay(mov.acceptedAt, today)) {
         stats.acceptedToday += 1;
       }
 
       return stats;
     },
-    {
-      totalInward: 0,
-      totalOutward: 0,
-      acceptedToday: 0,
-      pendingInward: 0,
-    },
+    { totalInward: 0, totalOutward: 0, acceptedToday: 0, pendingInward: 0 }
   );
 }
 
 export async function listBmInward(ownerAdminId: string, officeLocationName: string) {
-  await enforceBmLocks();
-  const rows = await listBmRows(
-    ownerAdminId,
-    Prisma.sql`
-      LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName})
-      AND LOWER(COALESCE(r.region_of_registration, '')) <> LOWER(${officeLocationName})
-      AND r.bm_status = 'Pending'
-    `,
-  );
+  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+  if (!officeId) return [];
 
-  logBmWorkflow("Loaded inward queue.", {
-    currentUserOffice: officeLocationName,
-    totalRows: rows.length,
-    records: rows.map((row) => ({
-      trackingNumber: row.registrationNumber,
-      regionOfRegistration: row.sourceOffice,
-      deliveryLocation: row.deliveryLocation,
-      approvalStatus: row.approvalStatus,
-      bmStatus: row.status,
-    })),
+  const movements = await prisma.documentMovement.findMany({
+    where: {
+      registration: { ownerAdminId },
+      currentModule: "REGISTRATION",
+      currentOfficeId: officeId,
+      status: "INBOUND",
+    },
+    include: {
+      registration: true,
+      fromOffice: true,
+    },
+    orderBy: { createdAt: "desc" },
   });
 
-  return rows.map(mapBmReportItem);
+  return movements.map(mapMovement);
 }
 
 export async function listBmHome(ownerAdminId: string, officeLocationName: string) {
-  await enforceBmLocks();
-  const rows = await listBmRows(
-    ownerAdminId,
-    Prisma.sql`
-      LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName})
-      AND r.bm_status = 'Accepted'
-    `,
-  );
+  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+  if (!officeId) return [];
 
-  logBmWorkflow("Loaded home queue.", {
-    currentUserOffice: officeLocationName,
-    totalRows: rows.length,
-    records: rows.map((row) => ({
-      trackingNumber: row.registrationNumber,
-      regionOfRegistration: row.sourceOffice,
-      deliveryLocation: row.deliveryLocation,
-      approvalStatus: row.approvalStatus,
-      bmStatus: row.status,
-    })),
+  const movements = await prisma.documentMovement.findMany({
+    where: {
+      registration: { ownerAdminId },
+      currentModule: "REGISTRATION",
+      currentOfficeId: officeId,
+      status: "HOME",
+    },
+    include: {
+      registration: true,
+      fromOffice: true,
+    },
+    orderBy: { createdAt: "desc" },
   });
 
-  return rows.map(mapBmReportItem);
+  return movements.map(mapMovement);
 }
 
 export async function listBmOutward(ownerAdminId: string, officeLocationName: string) {
-  await enforceBmLocks();
-  const rows = await listBmRows(
-    ownerAdminId,
-    Prisma.sql`
-      LOWER(COALESCE(r.region_of_registration, '')) = LOWER(${officeLocationName})
-      AND LOWER(COALESCE(r.delivery_location, '')) <> LOWER(${officeLocationName})
-    `,
-  );
+  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+  if (!officeId) return [];
 
-  logBmWorkflow("Loaded outward queue.", {
-    currentUserOffice: officeLocationName,
-    totalRows: rows.length,
-    records: rows.map((row) => ({
-      trackingNumber: row.registrationNumber,
-      regionOfRegistration: row.sourceOffice,
-      deliveryLocation: row.deliveryLocation,
-      approvalStatus: row.approvalStatus,
-      bmStatus: row.status,
-    })),
+  const movements = await prisma.documentMovement.findMany({
+    where: {
+      registration: { ownerAdminId },
+      fromOfficeId: officeId,
+      status: "INBOUND", // Sent, waiting to be accepted
+    },
+    include: {
+      registration: true,
+      fromOffice: true,
+    },
+    orderBy: { createdAt: "desc" },
   });
 
-  return rows.map(mapBmReportItem);
+  return movements.map(mapMovement);
 }
 
 export async function acceptBmRegistration(params: {
@@ -245,77 +154,48 @@ export async function acceptBmRegistration(params: {
   acceptedByUserId: string;
   acceptedByName?: string;
 }) {
+  const officeId = await resolveOfficeLocationId({
+    ownerAdminId: params.ownerAdminId,
+    officeLocationName: params.officeLocationName,
+  });
+
+  if (!officeId) return null;
+
   return prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<Array<{ id: string; trackingNumber: string }>>(Prisma.sql`
-      SELECT id, tracking_number AS "trackingNumber"
-      FROM registrations
-      WHERE id = ${params.id}
-        AND owner_admin_id = ${params.ownerAdminId}
-        AND LOWER(COALESCE(delivery_location, '')) = LOWER(${params.officeLocationName})
-        AND LOWER(COALESCE(region_of_registration, '')) <> LOWER(${params.officeLocationName})
-        AND bm_status = 'Pending'
-      LIMIT 1
-    `);
+    const movement = await tx.documentMovement.findFirst({
+      where: {
+        registrationId: params.id,
+        currentModule: "REGISTRATION",
+        currentOfficeId: officeId,
+        status: "INBOUND",
+        registration: { ownerAdminId: params.ownerAdminId },
+      },
+      include: { registration: true },
+    });
 
-    const record = rows[0];
+    if (!movement) return null;
 
-    if (!record) {
-      return null;
-    }
-
-    const updatedRows = await tx.$queryRaw<
-      Array<{
-        trackingNumber: string;
-        sourceOffice: string | null;
-        deliveryLocation: string | null;
-        bmStatus: string;
-        approvalStatus: string;
-        acceptedBy: string | null;
-        acceptedAt: Date | null;
-      }>
-    >(Prisma.sql`
-      UPDATE registrations
-      SET
-        bm_status = 'Accepted',
-        approval_status = 'Accepted',
-        accepted_by = ${params.acceptedByUserId},
-        accepted_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${record.id}
-      RETURNING
-        tracking_number AS "trackingNumber",
-        region_of_registration AS "sourceOffice",
-        delivery_location AS "deliveryLocation",
-        bm_status AS "bmStatus",
-        approval_status AS "approvalStatus",
-        accepted_by AS "acceptedBy",
-        accepted_at AS "acceptedAt"
-    `);
-
-    const updatedRecord = updatedRows[0];
-
-    await tx.auditTrail.create({
+    const updated = await tx.documentMovement.update({
+      where: { trackingNumber: movement.trackingNumber },
       data: {
-        registrationId: record.id,
-        action: "BM document accepted",
-        description: `Registration ${record.trackingNumber} was accepted by ${params.acceptedByName ?? "the destination office"}.`,
+        status: "HOME",
+        acceptedAt: new Date(),
+        acceptedBy: params.acceptedByName ?? params.acceptedByUserId,
+      },
+    });
+
+    await tx.movementHistory.create({
+      data: {
+        trackingNumber: movement.trackingNumber,
+        action: "Accepted",
+        oldStatus: "INBOUND",
+        newStatus: "HOME",
+        oldOffice: params.officeLocationName,
+        newOffice: params.officeLocationName,
         performedBy: params.acceptedByName ?? params.acceptedByUserId,
       },
     });
 
-    if (updatedRecord) {
-      logBmWorkflow("Accepted inward document.", {
-        currentUserOffice: params.officeLocationName,
-        trackingNumber: updatedRecord.trackingNumber,
-        regionOfRegistration: updatedRecord.sourceOffice,
-        deliveryLocation: updatedRecord.deliveryLocation,
-        approvalStatus: updatedRecord.approvalStatus,
-        bmStatus: updatedRecord.bmStatus,
-        acceptedBy: updatedRecord.acceptedBy,
-        acceptedAt: updatedRecord.acceptedAt?.toISOString() ?? null,
-      });
-    }
-
-    return record;
+    return updated;
   });
 }

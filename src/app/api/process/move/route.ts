@@ -26,17 +26,14 @@ export async function POST(request: Request) {
 
     const { assignmentId, targetLocation, remarks } = parsed.data;
 
-    let officeLocationName: string | undefined = undefined;
-
-    if (targetLocation === "OUTBOUND") {
-      const name = await resolveOfficeLocationName({
-        ownerAdminId,
-        officeLocationId: session?.user?.officeLocationId,
-        officeLocationName: session?.user?.officeLocationName,
-      });
-      if (name) {
-        officeLocationName = name;
-      }
+    const officeLocationName = await resolveOfficeLocationName({
+      ownerAdminId,
+      officeLocationId: session?.user?.officeLocationId,
+      officeLocationName: session?.user?.officeLocationName,
+    });
+    
+    if (!officeLocationName) {
+      return jsonError("Office location required", 400);
     }
 
     const updated = await moveProcessAssignment({

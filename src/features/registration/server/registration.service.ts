@@ -200,6 +200,11 @@ export async function createRegistration(
 
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
 
+  const sourceOffice = await prisma.officeLocation.findFirst({
+    where: { officeName: sourceOfficeName, ownerAdminId },
+    select: { id: true },
+  });
+
   const registration = await prisma.registration.create({
     data: {
       ...buildRegistrationData({
@@ -219,8 +224,28 @@ export async function createRegistration(
           performedBy: performedBy ?? null,
         },
       },
+      documentMovements: {
+        create: {
+          trackingNumber: input.trackingNumber,
+          currentOfficeId: sourceOffice?.id ?? null,
+          currentModule: "REGISTRATION",
+          status: "HOME",
+          movementType: "INITIAL",
+          createdBy: performedBy ?? null,
+        }
+      }
     },
     include: registrationInclude,
+  });
+
+  await prisma.movementHistory.create({
+    data: {
+      trackingNumber: input.trackingNumber,
+      action: "Created",
+      newStatus: "HOME",
+      newOffice: sourceOfficeName,
+      performedBy: performedBy ?? null,
+    }
   });
 
   logRegistrationWorkflow("Created registration.", {

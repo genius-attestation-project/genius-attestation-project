@@ -53,4 +53,5 @@ export const officeLocationSchema = z.object({
     .int("Employees must be a whole number.")
     .min(0, "Employees cannot be negative.")
     .default(0),
+  isProcessOffice: z.boolean().default(false),
 });

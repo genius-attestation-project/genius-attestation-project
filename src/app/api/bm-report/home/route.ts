@@ -1,5 +1,6 @@
 import { listBmHome, getBmReportStats } from "@/features/bm-report/server/bm-report.service";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -27,7 +28,12 @@ export async function GET() {
       getBmReportStats(ownerAdminId, officeLocationName),
     ]);
 
-    return jsonOk({ items, stats });
+    const office = await prisma.officeLocation.findFirst({
+      where: { ownerAdminId, officeName: officeLocationName },
+      select: { isProcessOffice: true },
+    });
+
+    return jsonOk({ items, stats, isProcessOffice: office?.isProcessOffice || false });
   } catch (error) {
     console.error("Failed to fetch BM home", error);
     return jsonError("Unable to fetch BM home.", 500);

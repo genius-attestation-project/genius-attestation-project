@@ -15,13 +15,18 @@ export async function GET(request: Request) {
     if (!ownerAdminId) {
       return jsonError("Unauthorized", 401);
     }
+    
+    const officeLocationName = session?.user?.officeLocationName;
+    if (!officeLocationName) {
+      return jsonError("Office location required", 400);
+    }
 
     const { searchParams } = new URL(request.url);
     const location = searchParams.get("location") as ProcessLocation || "INBOUND";
     const processType = searchParams.get("processType") || undefined;
 
-    const stats = await getProcessStats(ownerAdminId, processType);
-    const items = await listProcessAssignments(ownerAdminId, location, processType);
+    const stats = await getProcessStats(ownerAdminId, officeLocationName, processType);
+    const items = await listProcessAssignments(ownerAdminId, officeLocationName, location, processType);
 
     return jsonOk({ items, stats });
   } catch (error) {

@@ -99,6 +99,7 @@ function mapOfficeLocation(officeLocation: {
   location: string;
   timezone: string;
   employees: number;
+  isProcessOffice?: boolean;
   createdAt: Date;
 }): OfficeLocationRow {
   return {
@@ -107,6 +108,7 @@ function mapOfficeLocation(officeLocation: {
     location: officeLocation.location,
     timezone: officeLocation.timezone,
     employees: officeLocation.employees,
+    isProcessOffice: officeLocation.isProcessOffice || false,
     createdDate: formatDate(officeLocation.createdAt),
   };
 }
@@ -774,6 +776,7 @@ export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeL
     location: string;
     timezone: string;
     employees: number;
+    isProcessOffice: boolean;
     createdAt: Date;
   }>>`
     SELECT
@@ -782,6 +785,7 @@ export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeL
       location,
       timezone,
       employees,
+      is_process_office AS "isProcessOffice",
       created_at AS "createdAt"
     FROM office_locations
     WHERE owner_admin_id = ${ownerAdminId}
@@ -803,6 +807,7 @@ export async function createOfficeLocation(
     location: string;
     timezone: string;
     employees: number;
+    isProcessOffice: boolean;
     createdAt: Date;
   }>>`
     INSERT INTO office_locations (
@@ -811,6 +816,7 @@ export async function createOfficeLocation(
       location,
       timezone,
       employees,
+      is_process_office,
       owner_admin_id,
       created_at,
       updated_at
@@ -821,6 +827,7 @@ export async function createOfficeLocation(
       ${payload.location},
       ${payload.timezone},
       ${payload.employees},
+      ${payload.isProcessOffice ? 1 : 0},
       ${ownerAdminId},
       CURRENT_TIMESTAMP,
       CURRENT_TIMESTAMP
@@ -831,6 +838,7 @@ export async function createOfficeLocation(
       location,
       timezone,
       employees,
+      is_process_office AS "isProcessOffice",
       created_at AS "createdAt"
   `;
 
@@ -862,6 +870,7 @@ export async function updateOfficeLocation(
     location: string;
     timezone: string;
     employees: number;
+    isProcessOffice: boolean;
     createdAt: Date;
   }>>`
     UPDATE office_locations
@@ -870,6 +879,7 @@ export async function updateOfficeLocation(
       location = ${payload.location},
       timezone = ${payload.timezone},
       employees = ${payload.employees},
+      is_process_office = ${payload.isProcessOffice ? 1 : 0},
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ${officeLocationId} AND owner_admin_id = ${ownerAdminId}
     RETURNING
@@ -878,6 +888,7 @@ export async function updateOfficeLocation(
       location,
       timezone,
       employees,
+      is_process_office AS "isProcessOffice",
       created_at AS "createdAt"
   `;
 

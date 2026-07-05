@@ -99,6 +99,7 @@ export type OfficeLocationRow = {
   location: string;
   timezone: string;
   employees: number;
+  isProcessOffice: boolean;
   createdDate: string;
 };
 
@@ -107,4 +108,5 @@ export type OfficeLocationPayload = {
   location: string;
   timezone: string;
   employees: number;
+  isProcessOffice: boolean;
 };

@@ -163,6 +163,7 @@ type OfficeLocationOption = {
   id: string;
   officeName: string;
   location?: string;
+  isProcessOffice?: boolean;
 };
 
 function normalizePhoneValue(value: string) {
@@ -464,6 +465,7 @@ export function RegistrationManager({
         const payload = await officeLocationsResponse.value.json().catch(() => ({}));
         const officeLocations = (payload.officeLocations ?? []) as OfficeLocationOption[];
         const names = officeLocations
+          .filter((officeLocation) => !officeLocation.isProcessOffice)
           .map((officeLocation) => officeLocation.officeName)
           .filter(Boolean);
         setOfficeLocationOptions(Array.from(new Set(names)));

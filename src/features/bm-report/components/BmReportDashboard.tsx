@@ -170,6 +170,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   
   const [sendProcessOpen, setSendProcessOpen] = useState(false);
   const [selectedProcessItem, setSelectedProcessItem] = useState<BmReportItem | null>(null);
+  const [isProcessOffice, setIsProcessOffice] = useState(false);
 
   async function loadBmReport() {
     if (!currentOfficeLocationName) {
@@ -195,6 +196,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
       setInwardItems(inward.items ?? []);
       setOutwardItems(outward.items ?? []);
       setStats(home.stats ?? inward.stats ?? outward.stats ?? emptyStats);
+      setIsProcessOffice((home as any).isProcessOffice ?? false);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load BM report.");
       setHomeItems([]);

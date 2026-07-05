@@ -140,10 +140,15 @@ model OfficeLocation {
   location     String
   timezone     String
   employees    Int      @default(0)
+  isProcessOffice Boolean @default(false) @map("is_process_office")
   ownerAdminId String   @map("owner_admin_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   users        User[]
+  
+  documentMovementsFrom    DocumentMovement[] @relation("FromOfficeRelation")
+  documentMovementsTo      DocumentMovement[] @relation("ToOfficeRelation")
+  documentMovementsCurrent DocumentMovement[] @relation("CurrentOfficeRelation")
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -385,6 +390,7 @@ model Registration {
   paymentUpdates        PaymentUpdate[]
   accountStatementEntries AccountStatementEntry[]
   processAssignments    ProcessAssignment[]
+  documentMovements     DocumentMovement[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -840,4 +846,56 @@ model ProcessHistory {
   @@index([processAssignmentId])
   @@index([ownerAdminId])
   @@map("process_history")
+}
+
+model DocumentMovement {
+  id              String   @id @default(cuid())
+  trackingNumber  String   @unique @map("tracking_number")
+  registrationId  String   @map("registration_id")
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fromOfficeId    String?  @map("from_office_id")
+  fromOffice      OfficeLocation? @relation("FromOfficeRelation", fields: [fromOfficeId], references: [id], onDelete: SetNull)
+  toOfficeId      String?  @map("to_office_id")
+  toOffice        OfficeLocation? @relation("ToOfficeRelation", fields: [toOfficeId], references: [id], onDelete: SetNull)
+  fromModule      String?  @map("from_module")
+  toModule        String?  @map("to_module")
+  movementType    String?  @map("movement_type")
+  status          String   @default("Pending")
+  processModuleId String?  @map("process_module_id")
+  currentOfficeId String?  @map("current_office_id")
+  currentOffice   OfficeLocation? @relation("CurrentOfficeRelation", fields: [currentOfficeId], references: [id], onDelete: SetNull)
+  currentModule   String?  @map("current_module")
+  currentStatus   String?  @map("current_status")
+  createdBy       String?  @map("created_by")
+  receivedBy      String?  @map("received_by")
+  acceptedBy      String?  @map("accepted_by")
+  sentAt          DateTime? @map("sent_at")
+  receivedAt      DateTime? @map("received_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  remarks         String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([currentOfficeId])
+  @@index([currentModule])
+  @@index([status])
+  @@map("document_movements")
+}
+
+model MovementHistory {
+  id             String   @id @default(cuid())
+  trackingNumber String   @map("tracking_number")
+  action         String
+  oldStatus      String?  @map("old_status")
+  newStatus      String?  @map("new_status")
+  oldOffice      String?  @map("old_office")
+  newOffice      String?  @map("new_office")
+  performedBy    String?  @map("performed_by")
+  performedAt    DateTime @default(now()) @map("performed_at")
+  remarks        String?
+
+  @@index([trackingNumber])
+  @@index([performedAt])
+  @@map("movement_history")
 }

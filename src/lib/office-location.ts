@@ -23,3 +23,22 @@ export async function resolveOfficeLocationName(params: ResolveOfficeLocationNam
 
   return params.officeLocationName?.trim() || null;
 }
+
+export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameParams) {
+  if (params.officeLocationId) {
+    return params.officeLocationId;
+  }
+
+  if (params.officeLocationName) {
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        officeName: params.officeLocationName,
+        ownerAdminId: params.ownerAdminId,
+      },
+      select: { id: true },
+    });
+    return office?.id || null;
+  }
+
+  return null;
+}

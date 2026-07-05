@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type SendToProcessModalProps = {
   open: boolean;
@@ -12,16 +13,6 @@ type SendToProcessModalProps = {
   onSuccess: () => void;
 };
 
-const processTypes = [
-  "UAE Embassy",
-  "Qatar Embassy",
-  "Apostille",
-  "HRD Attestation",
-  "MEA",
-  "WES",
-  "Others",
-];
-
 export function SendToProcessModal({
   open,
   onClose,
@@ -29,23 +20,52 @@ export function SendToProcessModal({
   trackingNumber,
   onSuccess,
 }: SendToProcessModalProps) {
-  const [selectedProcess, setSelectedProcess] = useState(processTypes[0]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [offices, setOffices] = useState<{ label: string; value: string }[]>([]);
+  const [loadingOffices, setLoadingOffices] = useState(true);
+
+  useEffect(() => {
+    if (open) {
+      setLoadingOffices(true);
+      fetch("/api/office-locations")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.officeLocations) {
+            const processOffices = data.officeLocations
+              .filter((o: any) => o.isProcessOffice)
+              .map((o: any) => ({ label: o.officeName, value: o.id }));
+            setOffices(processOffices);
+            if (processOffices.length > 0) {
+              setSelectedOfficeId(processOffices[0].value);
+            }
+          }
+        })
+        .finally(() => setLoadingOffices(false));
+    }
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedOfficeId) {
+      setError("Please select a process office.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/process/create", {
+      const response = await fetch("/api/document-movement/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          registrationId,
           trackingNumber,
-          processType: selectedProcess,
+          toOfficeId: selectedOfficeId,
+          fromModule: "REGISTRATION",
+          toModule: "PROCESS",
+          remarks: "Sent to process module",
         }),
       });
 
@@ -67,27 +87,28 @@ export function SendToProcessModal({
     <FormDrawer
       open={open}
       onClose={onClose}
-      title="Send to Process Module"
-      description={`Assign document ${trackingNumber} to a specific process.`}
+      title="Send to Process Office"
+      description={`Assign document ${trackingNumber} to a Process Office.`}
       placement="center"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="processType" className="block text-sm font-semibold mb-1">
-            Process Type
+          <label className="block text-sm font-semibold mb-1">
+            Process Office
           </label>
-          <select
-            id="processType"
-            value={selectedProcess}
-            onChange={(e) => setSelectedProcess(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            {processTypes.map((pt) => (
-              <option key={pt} value={pt}>
-                {pt}
-              </option>
-            ))}
-          </select>
+          {loadingOffices ? (
+            <p className="text-sm text-gray-500">Loading process offices...</p>
+          ) : offices.length === 0 ? (
+            <p className="text-sm text-amber-600">No process offices available.</p>
+          ) : (
+            <SearchableSelect
+              value={selectedOfficeId}
+              options={offices}
+              onChange={(val) => setSelectedOfficeId(val)}
+              placeholder="Select process office"
+              name="processOffice"
+            />
+          )}
         </div>
 
         {error && (
@@ -100,7 +121,7 @@ export function SendToProcessModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || offices.length === 0}>
             {loading ? "Sending..." : "Send to Process"}
           </Button>
         </div>

@@ -19,6 +19,7 @@ type OfficeLocationFormState = {
   location: string;
   timezone: string;
   employees: string;
+  isProcessOffice: boolean;
 };
 
 const defaultFormState: OfficeLocationFormState = {
@@ -26,6 +27,7 @@ const defaultFormState: OfficeLocationFormState = {
   location: "",
   timezone: "",
   employees: "",
+  isProcessOffice: false,
 };
 
 const timezoneOptions = timezones.map((timezone) => timezone.tzCode);
@@ -85,6 +87,7 @@ export function OfficeLocationManagement() {
       location: officeLocation.location,
       timezone: officeLocation.timezone,
       employees: String(officeLocation.employees),
+      isProcessOffice: officeLocation.isProcessOffice,
     });
     setError("");
     setIsDrawerOpen(true);
@@ -215,6 +218,15 @@ export function OfficeLocationManagement() {
               { key: "location", label: "Location" },
               { key: "timezone", label: "Timezone" },
               { key: "employees", label: "Employees" },
+              { 
+                key: "isProcessOffice", 
+                label: "Office Type",
+                render: (row) => (
+                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${row.isProcessOffice ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}>
+                    {row.isProcessOffice ? "Process Office" : "Normal Office"}
+                  </span>
+                ),
+              },
               { key: "createdDate", label: "Created Date" },
               {
                 key: "actions",
@@ -283,6 +295,19 @@ export function OfficeLocationManagement() {
             onChange={(event) => setFormState((current) => ({ ...current, employees: event.target.value }))}
             placeholder="0"
           />
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isProcessOffice"
+              name="isProcessOffice"
+              checked={formState.isProcessOffice}
+              onChange={(event) => setFormState((current) => ({ ...current, isProcessOffice: event.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:checked:bg-blue-500"
+            />
+            <label htmlFor="isProcessOffice" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Is Process Office
+            </label>
+          </div>
           <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={() => setIsDrawerOpen(false)}>
               Cancel
