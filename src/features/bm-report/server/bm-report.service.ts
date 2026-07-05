@@ -199,3 +199,56 @@ export async function acceptBmRegistration(params: {
     return updated;
   });
 }
+
+export async function markReadyForDelivery(params: {
+  id: string;
+  ownerAdminId: string;
+  officeLocationName: string;
+  performedByUserId: string;
+  performedByName?: string;
+}) {
+  const officeId = await resolveOfficeLocationId({
+    ownerAdminId: params.ownerAdminId,
+    officeLocationName: params.officeLocationName,
+  });
+
+  if (!officeId) return null;
+
+  return prisma.$transaction(async (tx) => {
+    const movement = await tx.documentMovement.findFirst({
+      where: {
+        registrationId: params.id,
+        currentModule: "REGISTRATION",
+        currentOfficeId: officeId,
+        status: "HOME",
+        registration: { ownerAdminId: params.ownerAdminId },
+      },
+      include: { registration: true },
+    });
+
+    if (!movement) throw new Error("Document movement not found in HOME.");
+
+    const updated = await tx.documentMovement.update({
+      where: { trackingNumber: movement.trackingNumber },
+      data: {
+        status: "READY_FOR_DELIVERY",
+        currentModule: "READY_FOR_DELIVERY",
+        updatedAt: new Date(),
+      },
+    });
+
+    await tx.movementHistory.create({
+      data: {
+        trackingNumber: movement.trackingNumber,
+        action: "Ready For Delivery",
+        oldStatus: "HOME",
+        newStatus: "READY_FOR_DELIVERY",
+        oldOffice: params.officeLocationName,
+        newOffice: params.officeLocationName,
+        performedBy: params.performedByName ?? params.performedByUserId,
+      },
+    });
+
+    return updated;
+  });
+}

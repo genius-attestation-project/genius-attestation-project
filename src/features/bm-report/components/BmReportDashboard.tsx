@@ -55,12 +55,14 @@ function BmTable({
   acceptingId,
   onAccept,
   onSendProcess,
+  onReady,
 }: {
   activeTab: TabKey;
   items: BmReportItem[];
   acceptingId: string | null;
   onAccept: (id: string) => Promise<void>;
   onSendProcess?: (item: BmReportItem) => void;
+  onReady?: (id: string) => Promise<void>;
 }) {
   if (!items.length) {
     return (
@@ -144,6 +146,16 @@ function BmTable({
                         onClick={() => onSendProcess(item)}
                       >
                         Send to Process
+                      </Button>
+                    )}
+                    {onReady && (
+                      <Button
+                        size="sm"
+                        className="ml-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => onReady(item.id)}
+                        disabled={acceptingId === item.id}
+                      >
+                        {acceptingId === item.id ? "Processing..." : "READY"}
                       </Button>
                     )}
                   </td>
@@ -230,6 +242,22 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
       await loadBmReport();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to accept document.");
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
+  async function handleReady(id: string) {
+    setAcceptingId(id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await parseResponse(await fetch(`/api/bm-report/ready/${id}`, { method: "POST" }));
+      setSuccess("Document marked as Ready For Delivery.");
+      await loadBmReport();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to mark document as ready.");
     } finally {
       setAcceptingId(null);
     }
@@ -344,6 +372,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             setSelectedProcessItem(item);
             setSendProcessOpen(true);
           }}
+          onReady={handleReady}
         />
       ) : (
         <EmptyState

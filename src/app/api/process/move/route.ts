@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return jsonError("Invalid input", 400);
     }
 
-    const { assignmentId, targetLocation, remarks } = parsed.data;
+    const { assignmentId, action, targetOfficeId, remarks } = parsed.data;
 
     const officeLocationName = await resolveOfficeLocationName({
       ownerAdminId,
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
 
     const updated = await moveProcessAssignment({
       assignmentId,
-      targetLocation,
+      action,
+      targetOfficeId,
       userId,
       ownerAdminId,
       remarks,

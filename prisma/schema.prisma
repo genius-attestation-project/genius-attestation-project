@@ -873,6 +873,8 @@ model DocumentMovement {
   receivedAt      DateTime? @map("received_at")
   acceptedAt      DateTime? @map("accepted_at")
   remarks         String?
+  originOfficeId  String?  @map("origin_office_id")
+  processChain    Json?    @map("process_chain")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

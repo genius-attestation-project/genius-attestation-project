@@ -22,11 +22,10 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location") as ProcessLocation || "INBOUND";
     const processType = searchParams.get("processType") || undefined;
 
     const stats = await getProcessStats(ownerAdminId, officeLocationName, processType);
-    const items = await listProcessAssignments(ownerAdminId, officeLocationName, location, processType);
+    const items = await listProcessAssignments(ownerAdminId, officeLocationName, processType);
 
     return jsonOk({ items, stats });
   } catch (error) {

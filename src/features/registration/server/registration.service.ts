@@ -232,6 +232,8 @@ export async function createRegistration(
           status: "HOME",
           movementType: "INITIAL",
           createdBy: performedBy ?? null,
+          originOfficeId: sourceOffice?.id ?? null,
+          processChain: [],
         }
       }
     },

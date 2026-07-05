@@ -42,19 +42,25 @@ export async function sendToOffice(
   const fromOffice = await prisma.officeLocation.findUnique({ where: { id: fromOfficeId } });
   const toOffice = await prisma.officeLocation.findUnique({ where: { id: toOfficeId } });
 
+  const processChain = Array.isArray(movement.processChain) ? [...movement.processChain] : [];
+  if (!processChain.includes(fromOfficeId)) {
+    processChain.push(fromOfficeId);
+  }
+
   await prisma.documentMovement.update({
     where: { trackingNumber },
     data: {
       fromOfficeId,
       toOfficeId,
       fromModule,
-      toModule,
+      toModule: "REGISTRATION", // Always route via BM Report
       currentOfficeId: toOfficeId,
-      currentModule: toModule,
+      currentModule: "REGISTRATION",
       status: "INBOUND",
       sentAt: new Date(),
       createdBy: performedBy,
       remarks,
+      processChain,
     },
   });
 

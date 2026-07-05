@@ -19,37 +19,24 @@ export async function getProcessStats(ownerAdminId: string, officeLocationName: 
 
   const whereClause: any = {
     registration: { ownerAdminId },
-    currentModule: "PROCESS",
     currentOfficeId: officeId,
+    status: "HOME",
   };
 
   if (processType && processType !== "All") {
     whereClause.registration.processType = processType;
   }
 
-  const movements = await prisma.documentMovement.findMany({
+  const count = await prisma.documentMovement.count({
     where: whereClause,
-    select: { status: true },
   });
 
-  return movements.reduce(
-    (acc, row) => {
-      acc.total += 1;
-      if (row.status === "INBOUND") acc.inbound += 1;
-      if (row.status === "IN_HAND") acc.inHand += 1;
-      if (row.status === "COMPLETED") acc.completed += 1;
-      if (row.status === "REJECTED") acc.rejected += 1;
-      if (row.status === "OUTBOUND") acc.outbound += 1;
-      return acc;
-    },
-    { inbound: 0, inHand: 0, completed: 0, rejected: 0, outbound: 0, total: 0 }
-  );
+  return { inbound: 0, inHand: count, completed: 0, rejected: 0, outbound: 0, total: count };
 }
 
 export async function listProcessAssignments(
   ownerAdminId: string,
   officeLocationName: string,
-  location: ProcessLocation,
   processType?: string
 ) {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
@@ -57,9 +44,8 @@ export async function listProcessAssignments(
 
   const whereClause: any = {
     registration: { ownerAdminId },
-    currentModule: "PROCESS",
     currentOfficeId: officeId,
-    status: location,
+    status: "HOME",
   };
 
   if (processType && processType !== "All") {
@@ -81,8 +67,8 @@ export async function listProcessAssignments(
     trackingNumber: mov.trackingNumber,
     clientName: mov.registration.customerName,
     processType: mov.registration.processType ?? mov.registration.documentType ?? "-",
-    currentLocation: mov.status,
-    status: mov.status,
+    currentLocation: "IN_HAND",
+    status: "IN_HAND",
     receivedDate: formatDate(mov.createdAt),
     daysHeld: Math.floor((new Date().getTime() - mov.updatedAt.getTime()) / (1000 * 3600 * 24)),
     assignedUserId: mov.acceptedBy,
@@ -92,8 +78,9 @@ export async function listProcessAssignments(
 }
 
 export async function moveProcessAssignment(params: {
-  assignmentId: string; // This is now Registration ID
-  targetLocation: ProcessLocation;
+  assignmentId: string;
+  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE";
+  targetOfficeId?: string;
   userId: string;
   ownerAdminId: string;
   remarks?: string;
@@ -110,7 +97,6 @@ export async function moveProcessAssignment(params: {
     const movement = await tx.documentMovement.findFirst({
       where: {
         registrationId: params.assignmentId,
-        currentModule: "PROCESS",
         currentOfficeId: officeId,
         registration: { ownerAdminId: params.ownerAdminId },
       },
@@ -118,14 +104,41 @@ export async function moveProcessAssignment(params: {
 
     if (!movement) throw new Error("Document movement not found in process module.");
 
-    const isOutbound = params.targetLocation === "OUTBOUND";
+    let nextOfficeId = "";
+    let nextStatus = "";
+    let processChain = Array.isArray(movement.processChain) ? [...movement.processChain] : [];
+
+    if (params.action === "SEND_TO_OFFICE") {
+      if (!params.targetOfficeId) throw new Error("Target office is required.");
+      nextOfficeId = params.targetOfficeId;
+      nextStatus = "INBOUND";
+      
+      if (!processChain.includes(officeId)) {
+         processChain.push(officeId);
+      }
+    } else {
+      nextStatus = params.action;
+      const previousOfficeId = processChain.length > 0 ? processChain.pop() : null;
+      
+      if (previousOfficeId) {
+        nextOfficeId = previousOfficeId as string;
+      } else {
+        if (!movement.originOfficeId) throw new Error("Origin office not found.");
+        nextOfficeId = movement.originOfficeId;
+      }
+    }
+
+    const nextOffice = await tx.officeLocation.findUnique({ where: { id: nextOfficeId } });
 
     const updated = await tx.documentMovement.update({
       where: { trackingNumber: movement.trackingNumber },
       data: {
-        status: isOutbound ? "INBOUND" : params.targetLocation,
-        currentModule: isOutbound ? "REGISTRATION" : "PROCESS",
-        acceptedBy: params.targetLocation === "IN_HAND" ? params.userId : movement.acceptedBy,
+        status: nextStatus,
+        fromOfficeId: officeId,
+        toOfficeId: nextOfficeId,
+        currentOfficeId: nextOfficeId,
+        currentModule: "REGISTRATION",
+        processChain,
         remarks: params.remarks,
         updatedAt: new Date(),
       },
@@ -134,11 +147,11 @@ export async function moveProcessAssignment(params: {
     await tx.movementHistory.create({
       data: {
         trackingNumber: movement.trackingNumber,
-        action: isOutbound ? "Returned to Office" : `Moved to ${params.targetLocation}`,
+        action: params.action === "SEND_TO_OFFICE" ? "Sent to Process Office" : `Marked as ${params.action}`,
         oldStatus: movement.status,
-        newStatus: isOutbound ? "INBOUND" : params.targetLocation,
+        newStatus: nextStatus,
         oldOffice: params.officeLocationName,
-        newOffice: params.officeLocationName,
+        newOffice: nextOffice?.officeName,
         performedBy: params.userId,
         remarks: params.remarks,
       },

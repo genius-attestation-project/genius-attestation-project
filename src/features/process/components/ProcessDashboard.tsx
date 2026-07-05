@@ -1,22 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCheck, FileText, Inbox, LoaderCircle, PackageCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCheck, FileText, LoaderCircle, PackageCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
-import { ProcessLocation, ProcessItem, ProcessStats } from "../types/process.types";
+import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
-
-const tabs: Array<{ key: ProcessLocation; label: string; description: string }> = [
-  { key: "INBOUND", label: "Inbound", description: "Documents received from BM" },
-  { key: "IN_HAND", label: "In Hand", description: "Currently being processed" },
-  { key: "COMPLETED", label: "Completed", description: "Process finished" },
-  { key: "REJECTED", label: "Rejected", description: "Process failed" },
-  { key: "OUTBOUND", label: "Outbound", description: "Ready to return to BM" },
-];
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -27,19 +19,7 @@ const emptyStats: ProcessStats = {
   total: 0,
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "COMPLETED" || status === "OUTBOUND"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "REJECTED"
-        ? "bg-rose-50 text-rose-700"
-        : "bg-amber-50 text-amber-700";
-
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
-}
-
 export function ProcessDashboard() {
-  const [activeTab, setActiveTab] = useState<ProcessLocation>("INBOUND");
   const [processType, setProcessType] = useState<string>("All"); // Filter
   
   const [loading, setLoading] = useState(true);
@@ -50,7 +30,7 @@ export function ProcessDashboard() {
   // Modals state
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
-  const [targetLocation, setTargetLocation] = useState<ProcessLocation>("INBOUND");
+  const [targetAction, setTargetAction] = useState<"COMPLETED" | "REJECTED" | "SEND_TO_OFFICE">("COMPLETED");
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -62,8 +42,8 @@ export function ProcessDashboard() {
     setError("");
 
     try {
-      const typeQuery = processType === "All" ? "" : `&processType=${encodeURIComponent(processType)}`;
-      const res = await fetch(`/api/process?location=${activeTab}${typeQuery}`, { cache: "no-store" });
+      const typeQuery = processType === "All" ? "" : `?processType=${encodeURIComponent(processType)}`;
+      const res = await fetch(`/api/process${typeQuery}`, { cache: "no-store" });
       const payload = await res.json();
       
       if (!res.ok) {
@@ -81,11 +61,11 @@ export function ProcessDashboard() {
 
   useEffect(() => {
     loadData();
-  }, [activeTab, processType]);
+  }, [processType]);
 
-  function openMovementModal(assignmentId: string, location: ProcessLocation) {
+  function openMovementModal(assignmentId: string, action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE") {
     setSelectedAssignmentId(assignmentId);
-    setTargetLocation(location);
+    setTargetAction(action);
     setMovementModalOpen(true);
   }
 
@@ -96,9 +76,7 @@ export function ProcessDashboard() {
 
   const cards = [
     { label: "Total Documents", value: stats.total.toLocaleString(), delta: "All", description: "In process module", icon: FileText, tone: "slate" as const },
-    { label: "Inbound", value: stats.inbound.toLocaleString(), delta: "Pending", description: "Waiting to start", icon: Inbox, tone: "amber" as const },
     { label: "In Hand", value: stats.inHand.toLocaleString(), delta: "Live", description: "Currently working", icon: LoaderCircle, tone: "blue" as const },
-    { label: "Completed", value: stats.completed.toLocaleString(), delta: "Done", description: "Ready for outbound", icon: CheckCheck, tone: "blue" as const },
   ];
 
   return (
@@ -129,29 +107,6 @@ export function ProcessDashboard() {
         {cards.map((card) => <StatsCard key={card.label} {...card} />)}
       </section>
 
-      <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
-        <div className="flex flex-wrap gap-3">
-          {tabs.map((tab) => {
-            const active = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "min-w-[140px] rounded-2xl border px-4 py-3 text-left transition",
-                  active
-                    ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-200"
-                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50",
-                ].join(" ")}
-              >
-                <span className="block text-sm font-bold">{tab.label}</span>
-                <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>{tab.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
       {error && (
         <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
           {error}
@@ -165,8 +120,8 @@ export function ProcessDashboard() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
-          title={`No ${activeTab} documents`}
-          description="There are currently no documents in this stage."
+          title={`No documents in hand`}
+          description="There are currently no documents to process."
         />
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
@@ -178,7 +133,6 @@ export function ProcessDashboard() {
                   <th className="px-5 py-4">Client Name</th>
                   <th className="px-5 py-4">Process Type</th>
                   <th className="px-5 py-4">Received Date</th>
-                  <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -193,22 +147,10 @@ export function ProcessDashboard() {
                     <td className="px-5 py-4">{item.clientName}</td>
                     <td className="px-5 py-4 font-medium">{item.processType}</td>
                     <td className="px-5 py-4">{item.receivedDate}</td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={item.status} />
-                    </td>
                     <td className="px-5 py-4 text-right space-x-2">
-                      {activeTab === "INBOUND" && (
-                        <Button size="sm" onClick={() => openMovementModal(item.id, "IN_HAND")}>Accept</Button>
-                      )}
-                      {activeTab === "IN_HAND" && (
-                        <>
-                          <Button size="sm" variant="secondary" className="text-rose-600" onClick={() => openMovementModal(item.id, "REJECTED")}>Reject</Button>
-                          <Button size="sm" onClick={() => openMovementModal(item.id, "COMPLETED")}>Complete</Button>
-                        </>
-                      )}
-                      {(activeTab === "COMPLETED" || activeTab === "REJECTED") && (
-                        <Button size="sm" onClick={() => openMovementModal(item.id, "OUTBOUND")}>Send Outbound</Button>
-                      )}
+                      <Button size="sm" variant="secondary" className="text-rose-600 border-rose-200" onClick={() => openMovementModal(item.id, "REJECTED")}>Reject</Button>
+                      <Button size="sm" variant="secondary" onClick={() => openMovementModal(item.id, "SEND_TO_OFFICE")}>Send To Office</Button>
+                      <Button size="sm" onClick={() => openMovementModal(item.id, "COMPLETED")}>Complete</Button>
                     </td>
                   </tr>
                 ))}
@@ -222,9 +164,9 @@ export function ProcessDashboard() {
         <MovementModal
           open={movementModalOpen}
           onClose={() => setMovementModalOpen(false)}
-          title={`Move to ${targetLocation}`}
-          description="Please confirm moving this document."
-          targetLocation={targetLocation}
+          title={`Process Document`}
+          description="Please confirm the action you want to take on this document."
+          action={targetAction}
           assignmentId={selectedAssignmentId}
           onSuccess={loadData}
         />

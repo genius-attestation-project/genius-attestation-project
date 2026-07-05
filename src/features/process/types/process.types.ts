@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const ProcessLocations = ["INBOUND", "IN_HAND", "COMPLETED", "REJECTED", "OUTBOUND"] as const;
+export const ProcessLocations = ["IN_HAND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE"] as const;
 export type ProcessLocation = (typeof ProcessLocations)[number];
 
-export const ProcessStatuses = ["PROCESS_SUBMITTED", "IN_HAND", "COMPLETED", "REJECTED", "OUTBOUND"] as const;
+export const ProcessStatuses = ["IN_HAND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE"] as const;
 export type ProcessStatus = (typeof ProcessStatuses)[number];
 
 export type ProcessItem = {
@@ -37,6 +37,7 @@ export type ProcessDashboardResponse = {
 
 export const moveProcessSchema = z.object({
   assignmentId: z.string().min(1, "Assignment ID is required"),
-  targetLocation: z.enum(ProcessLocations),
+  action: z.enum(["COMPLETED", "REJECTED", "SEND_TO_OFFICE"]),
+  targetOfficeId: z.string().optional(),
   remarks: z.string().optional(),
 });
