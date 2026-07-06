@@ -692,16 +692,10 @@ export async function deleteUser(ownerAdminId: string, userId: string) {
 }
 
 export async function listDepartments(ownerAdminId: string) {
-  const departments = await prisma.$queryRaw<Array<{
-    id: string;
-    name: string;
-    createdAt: Date;
-  }>>`
-    SELECT id, name, created_at AS "createdAt"
-    FROM departments
-    WHERE owner_admin_id = ${ownerAdminId}
-    ORDER BY created_at DESC
-  `;
+  const departments = await prisma.department.findMany({
+    where: { ownerAdminId },
+    orderBy: { createdAt: "desc" },
+  });
 
   return departments.map(mapDepartment);
 }
@@ -709,15 +703,12 @@ export async function listDepartments(ownerAdminId: string) {
 export async function createDepartment(ownerAdminId: string, payload: DepartmentPayload) {
   await assertUniqueDepartmentName(ownerAdminId, payload.name);
 
-  const [department] = await prisma.$queryRaw<Array<{
-    id: string;
-    name: string;
-    createdAt: Date;
-  }>>`
-    INSERT INTO departments (id, name, owner_admin_id, created_at, updated_at)
-    VALUES (${randomUUID()}, ${payload.name}, ${ownerAdminId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    RETURNING id, name, created_at AS "createdAt"
-  `;
+  const department = await prisma.department.create({
+    data: {
+      name: payload.name,
+      ownerAdminId,
+    },
+  });
 
   return mapDepartment(department);
 }
@@ -729,18 +720,16 @@ export async function updateDepartment(
 ) {
   await assertUniqueDepartmentName(ownerAdminId, payload.name, departmentId);
 
-  const [department] = await prisma.$queryRaw<Array<{
-    id: string;
-    name: string;
-    createdAt: Date;
-  }>>`
-    UPDATE departments
-    SET name = ${payload.name}, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ${departmentId} AND owner_admin_id = ${ownerAdminId}
-    RETURNING id, name, created_at AS "createdAt"
-  `;
+  const existing = await prisma.department.findFirst({
+    where: { id: departmentId, ownerAdminId },
+  });
 
-  if (!department) return null;
+  if (!existing) return null;
+
+  const department = await prisma.department.update({
+    where: { id: departmentId },
+    data: { name: payload.name },
+  });
 
   await prisma.user.updateMany({
     where: { ownerAdminId, departmentId },
