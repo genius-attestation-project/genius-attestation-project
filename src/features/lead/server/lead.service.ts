@@ -731,6 +731,7 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
     }),
     prisma.lead.findMany({
       where: { ownerAdminId },
+      distinct: ["country", "state", "service", "source", "assignedUserId", "assignedUser"],
       select: {
         country: true,
         state: true,
@@ -2051,7 +2052,6 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
   let followups = 0;
   let recentLeads: LeadRow[] = [];
   let recentActivities: DashboardStatsResponse["recentActivities"] = [];
-  let followupChartEntries: Array<{ label: string; value: number }> = [];
   let statusCounts: Array<{ leadStatus: LeadStatus; _count: { _all: number } }> = [];
 
   const monthLabels = Array.from({ length: 6 }, (_, index) => {
@@ -2062,11 +2062,11 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     };
   });
 
-  const monthlyLeadsMap = new Map(monthLabels.map((item) => [item.key, 0]));
-  const followupMap = new Map(monthLabels.map((item) => [item.key, 0]));
+  const monthlyLeadsMap = new Map<string, number>();
+  const followupMap = new Map<string, number>();
 
   try {
-    const [rawFollowups, recentLeadRecords, recentFollowupRecords, rawStatusCounts, monthlyLeadRecords] =
+    const [rawFollowups, recentLeadRecords, recentFollowupRecords, rawStatusCounts, monthlyCounts] =
       await Promise.all([
         prisma.lead.count({
           where: {
@@ -2095,21 +2095,24 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
           where: { ownerAdminId },
           _count: { _all: true },
         }),
-        prisma.lead.findMany({
-          where: {
-            ownerAdminId,
-            createdAt: {
-              gte: revenueWindowStart,
-            },
-          },
-          orderBy: { createdAt: "asc" },
-          select: {
-            createdAt: true,
-            amount: true,
-            leadStatus: true,
-            nextFollowupAt: true,
-          },
-        }),
+        Promise.all(
+          monthLabels.map(async (item) => {
+            const start = new Date(item.key);
+            const end = new Date(start);
+            end.setMonth(end.getMonth() + 1);
+
+            const [createdCount, followupCount] = await Promise.all([
+              prisma.lead.count({
+                where: { ownerAdminId, createdAt: { gte: start, lt: end } },
+              }),
+              prisma.lead.count({
+                where: { ownerAdminId, nextFollowupAt: { gte: start, lt: end } },
+              }),
+            ]);
+
+            return { key: item.key, createdCount, followupCount };
+          })
+        ),
       ]);
 
     followups = rawFollowups;
@@ -2121,27 +2124,16 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }));
     statusCounts = rawStatusCounts;
 
-    for (const lead of monthlyLeadRecords) {
-      const monthKey = startOfMonth(lead.createdAt).toISOString();
-
-      if (monthlyLeadsMap.has(monthKey)) {
-        monthlyLeadsMap.set(monthKey, (monthlyLeadsMap.get(monthKey) ?? 0) + 1);
-      }
-
-      if (lead.nextFollowupAt) {
-        const followupKey = startOfMonth(lead.nextFollowupAt).toISOString();
-
-        if (followupMap.has(followupKey)) {
-          followupMap.set(followupKey, (followupMap.get(followupKey) ?? 0) + 1);
-        }
-      }
+    for (const result of monthlyCounts) {
+      monthlyLeadsMap.set(result.key, result.createdCount);
+      followupMap.set(result.key, result.followupCount);
     }
   } catch (error) {
     if (!isMissingFollowupSchemaError(error)) {
       throw error;
     }
 
-    const [rawFollowups, recentLeadRecords, recentFollowupRecords, rawStatusCounts, monthlyLeadRecords] =
+    const [rawFollowups, recentLeadRecords, recentFollowupRecords, rawStatusCounts, monthlyCounts] =
       await Promise.all([
         prisma.lead.count({
           where: {
@@ -2169,21 +2161,24 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
           where: { ownerAdminId },
           _count: { _all: true },
         }),
-        prisma.lead.findMany({
-          where: {
-            ownerAdminId,
-            createdAt: {
-              gte: revenueWindowStart,
-            },
-          },
-          orderBy: { createdAt: "asc" },
-          select: {
-            createdAt: true,
-            amount: true,
-            leadStatus: true,
-            nextFollowupAt: true,
-          },
-        }),
+        Promise.all(
+          monthLabels.map(async (item) => {
+            const start = new Date(item.key);
+            const end = new Date(start);
+            end.setMonth(end.getMonth() + 1);
+
+            const [createdCount, followupCount] = await Promise.all([
+              prisma.lead.count({
+                where: { ownerAdminId, createdAt: { gte: start, lt: end } },
+              }),
+              prisma.lead.count({
+                where: { ownerAdminId, nextFollowupAt: { gte: start, lt: end } },
+              }),
+            ]);
+
+            return { key: item.key, createdCount, followupCount };
+          })
+        ),
       ]);
 
     followups = rawFollowups;
@@ -2195,20 +2190,9 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }));
     statusCounts = rawStatusCounts;
 
-    for (const lead of monthlyLeadRecords) {
-      const monthKey = startOfMonth(lead.createdAt).toISOString();
-
-      if (monthlyLeadsMap.has(monthKey)) {
-        monthlyLeadsMap.set(monthKey, (monthlyLeadsMap.get(monthKey) ?? 0) + 1);
-      }
-
-      if (lead.nextFollowupAt) {
-        const followupKey = startOfMonth(lead.nextFollowupAt).toISOString();
-
-        if (followupMap.has(followupKey)) {
-          followupMap.set(followupKey, (followupMap.get(followupKey) ?? 0) + 1);
-        }
-      }
+    for (const result of monthlyCounts) {
+      monthlyLeadsMap.set(result.key, result.createdCount);
+      followupMap.set(result.key, result.followupCount);
     }
   }
 

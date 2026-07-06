@@ -629,29 +629,47 @@ export async function generateSalaryPayrolls(ownerAdminId: string, params: Salar
   const payloads = context.calculations;
   const results: SalaryPayrollRow[] = [];
 
+  const existingPayrolls = await prisma.salaryPayroll.findMany({
+    where: {
+      ownerAdminId,
+      payrollMonth: window.month,
+      payrollYear: window.year,
+      userId: { in: payloads.map((p) => p.userId) },
+    },
+  });
+
+  const existingMap = new Map(existingPayrolls.map((p) => [p.userId, p]));
+  const upsertPromises = [];
+
   for (const calculation of payloads) {
-    const existing = await findPayrollByUserMonthYear(ownerAdminId, calculation.userId, calculation.month, calculation.year);
+    const existing = existingMap.get(calculation.userId);
     if (existing && (existing.payrollStatus === "Approved" || existing.payrollStatus === "Paid")) {
       results.push(mapPayrollRow(existing as never));
       continue;
     }
 
-    const saved = await prisma.salaryPayroll.upsert({
-      where: {
-        userId_payrollMonth_payrollYear_ownerAdminId: {
-          userId: calculation.userId,
-          payrollMonth: calculation.month,
-          payrollYear: calculation.year,
-          ownerAdminId,
+    const snapshot = payrollSnapshotData(calculation, ownerAdminId, params.generatedBy, params.notes);
+    upsertPromises.push(
+      prisma.salaryPayroll.upsert({
+        where: {
+          userId_payrollMonth_payrollYear_ownerAdminId: {
+            userId: calculation.userId,
+            payrollMonth: calculation.month,
+            payrollYear: calculation.year,
+            ownerAdminId,
+          },
         },
-      },
-      create: payrollSnapshotData(calculation, ownerAdminId, params.generatedBy, params.notes),
-      update: {
-        ...payrollSnapshotData(calculation, ownerAdminId, params.generatedBy, params.notes),
-      },
-    });
+        create: snapshot,
+        update: snapshot,
+      })
+    );
+  }
 
-    results.push(mapPayrollRow(saved as never));
+  if (upsertPromises.length > 0) {
+    const savedRows = await prisma.$transaction(upsertPromises);
+    for (const saved of savedRows) {
+      results.push(mapPayrollRow(saved as never));
+    }
   }
 
   return {

@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -65,53 +65,53 @@ enum SalaryPayrollStatus {
 }
 
 model User {
-  id                 String           @id @default(cuid())
-  name               String?
-  email              String           @unique
-  emailVerified      DateTime?
-  image              String?
-  phone              String?
-  passwordHash       String?          @map("password_hash")
-  legacyPasswordHash String?          @map("password")
-  provider           String?          @default("credentials")
-  roleId             String?          @map("role_id")
-  role               AccessRole?      @relation(fields: [roleId], references: [id])
-  ownerAdminId       String?          @map("owner_admin_id")
-  ownerAdmin         User?            @relation("UserOwner", fields: [ownerAdminId], references: [id])
-  ownedUsers         User[]           @relation("UserOwner")
-  supervisorUserId   String?          @map("supervisor_user_id")
-  supervisorRef      User?            @relation("UserSupervisor", fields: [supervisorUserId], references: [id])
-  supervisedUsers    User[]           @relation("UserSupervisor")
-  createdBy          String?          @map("created_by")
-  departmentId       String?          @map("department_id")
-  departmentRef      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  departmentName     String?          @map("department")
-  officeLocationId   String?          @map("office_location_id")
-  officeLocationRef  OfficeLocation?  @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
-  officeLocationName String?          @map("officeLocation")
-  monthlySalary      Decimal          @default(0) @map("monthly_salary") @db.Decimal(12,2)
-  isActive           Boolean          @default(true) @map("is_active")
-  isLocked           Boolean          @default(false) @map("is_locked")
-  lockReason         String?          @map("lock_reason")
-  lockedAt           DateTime?        @map("locked_at")
-  lockedFollowupLeadId String?        @map("locked_followup_lead_id")
-  lockedFollowupAt   DateTime?        @map("locked_followup_at")
-  unlockedBy         String?          @map("unlocked_by")
-  unlockReason       String?          @map("unlock_reason")
-  unlockedAt         DateTime?        @map("unlocked_at")
-  lastLoginAt        DateTime?
+  id                   String          @id @default(cuid())
+  name                 String?
+  email                String          @unique
+  emailVerified        DateTime?
+  image                String?
+  phone                String?
+  passwordHash         String?         @map("password_hash")
+  legacyPasswordHash   String?         @map("password")
+  provider             String?         @default("credentials")
+  roleId               String?         @map("role_id")
+  role                 AccessRole?     @relation(fields: [roleId], references: [id])
+  ownerAdminId         String?         @map("owner_admin_id")
+  ownerAdmin           User?           @relation("UserOwner", fields: [ownerAdminId], references: [id])
+  ownedUsers           User[]          @relation("UserOwner")
+  supervisorUserId     String?         @map("supervisor_user_id")
+  supervisorRef        User?           @relation("UserSupervisor", fields: [supervisorUserId], references: [id])
+  supervisedUsers      User[]          @relation("UserSupervisor")
+  createdBy            String?         @map("created_by")
+  departmentId         String?         @map("department_id")
+  departmentRef        Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentName       String?         @map("department")
+  officeLocationId     String?         @map("office_location_id")
+  officeLocationRef    OfficeLocation? @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
+  officeLocationName   String?         @map("officeLocation")
+  monthlySalary        Decimal         @default(0) @map("monthly_salary") @db.Decimal(12, 2)
+  isActive             Boolean         @default(true) @map("is_active")
+  isLocked             Boolean         @default(false) @map("is_locked")
+  lockReason           String?         @map("lock_reason")
+  lockedAt             DateTime?       @map("locked_at")
+  lockedFollowupLeadId String?         @map("locked_followup_lead_id")
+  lockedFollowupAt     DateTime?       @map("locked_followup_at")
+  unlockedBy           String?         @map("unlocked_by")
+  unlockReason         String?         @map("unlock_reason")
+  unlockedAt           DateTime?       @map("unlocked_at")
+  lastLoginAt          DateTime?
 
-  accounts             Account[]
-  sessions             Session[]
-  userRoles            UserRole[]
-  createdLeads         Lead[]             @relation("LeadCreator")
-  attendanceRecords    AttendanceRecord[] @relation("UserAttendance")
-  attendanceSetting    AttendanceSetting? @relation("UserAttendanceSetting")
-  leaveRequests        LeaveRequest[]     @relation("UserLeaveRequests")
-  salaryPayrolls       SalaryPayroll[]    @relation("UserSalaryPayroll")
+  accounts          Account[]
+  sessions          Session[]
+  userRoles         UserRole[]
+  createdLeads      Lead[]             @relation("LeadCreator")
+  attendanceRecords AttendanceRecord[] @relation("UserAttendance")
+  attendanceSetting AttendanceSetting? @relation("UserAttendanceSetting")
+  leaveRequests     LeaveRequest[]     @relation("UserLeaveRequests")
+  salaryPayrolls    SalaryPayroll[]    @relation("UserSalaryPayroll")
 
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([departmentId])
   @@index([officeLocationId])
@@ -135,17 +135,17 @@ model Department {
 }
 
 model OfficeLocation {
-  id           String   @id @default(cuid())
-  officeName   String   @map("office_name")
-  location     String
-  timezone     String
-  employees    Int      @default(0)
-  isProcessOffice Boolean @default(false) @map("is_process_office")
-  ownerAdminId String   @map("owner_admin_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  users        User[]
-  
+  id              String   @id @default(cuid())
+  officeName      String   @map("office_name")
+  location        String
+  timezone        String
+  employees       Int      @default(0)
+  isProcessOffice Boolean  @default(false) @map("is_process_office")
+  ownerAdminId    String   @map("owner_admin_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  users           User[]
+
   documentMovementsFrom    DocumentMovement[] @relation("FromOfficeRelation")
   documentMovementsTo      DocumentMovement[] @relation("ToOfficeRelation")
   documentMovementsCurrent DocumentMovement[] @relation("CurrentOfficeRelation")
@@ -192,50 +192,50 @@ model VerificationToken {
 }
 
 model Lead {
-  id                    String     @id @default(cuid())
-  leadCode              String     @unique
-  firstName             String
-  lastName              String?
-  countryCode           String     @default("+91")
-  mobileNumber          String
-  email                 String
-  docType               String?
-  noOfDocuments         Int?
-  country               String
-  state                 String?
-  documentIssuedCountry String?
-  service               String
-  source                String?
-  leadStatus            LeadStatus @default(New)
-  clientType            String?
-  amount                Decimal    @default(0) @db.Decimal(12, 2)
-  workingDays           Int?
-  remark                String?
-  assignedUser          String?
-  assignedUserId        String?    @map("assigned_user_id")
-  ownerAdminId          String?    @map("owner_admin_id")
-  createdById           String?    @map("created_by_id")
-  creator               User?      @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  nextFollowupAt        DateTime?
-  followupNotified      Boolean    @default(false) @map("followup_notified")
-  followupCompleted     Boolean    @default(false) @map("followup_completed")
-  followupStatus        FollowupStatus @default(Pending) @map("followup_status")
-  completionDescription String?    @map("completion_description")
-  followupCompletionNote String?   @map("followup_completion_note")
-  followupCompletedAt    DateTime? @map("followup_completed_at")
-  snoozeNote             String?   @map("snooze_note")
-  completedAt           DateTime?  @map("completed_at")
-  completedBy           String?    @map("completed_by")
-  snoozedAt             DateTime?  @map("snoozed_at")
-  snoozedBy             String?    @map("snoozed_by")
-  closedAt              DateTime?
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  id                     String         @id @default(cuid())
+  leadCode               String         @unique
+  firstName              String
+  lastName               String?
+  countryCode            String         @default("+91")
+  mobileNumber           String
+  email                  String
+  docType                String?
+  noOfDocuments          Int?
+  country                String
+  state                  String?
+  documentIssuedCountry  String?
+  service                String
+  source                 String?
+  leadStatus             LeadStatus     @default(New)
+  clientType             String?
+  amount                 Decimal        @default(0) @db.Decimal(12, 2)
+  workingDays            Int?
+  remark                 String?
+  assignedUser           String?
+  assignedUserId         String?        @map("assigned_user_id")
+  ownerAdminId           String?        @map("owner_admin_id")
+  createdById            String?        @map("created_by_id")
+  creator                User?          @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  nextFollowupAt         DateTime?
+  followupNotified       Boolean        @default(false) @map("followup_notified")
+  followupCompleted      Boolean        @default(false) @map("followup_completed")
+  followupStatus         FollowupStatus @default(Pending) @map("followup_status")
+  completionDescription  String?        @map("completion_description")
+  followupCompletionNote String?        @map("followup_completion_note")
+  followupCompletedAt    DateTime?      @map("followup_completed_at")
+  snoozeNote             String?        @map("snooze_note")
+  completedAt            DateTime?      @map("completed_at")
+  completedBy            String?        @map("completed_by")
+  snoozedAt              DateTime?      @map("snoozed_at")
+  snoozedBy              String?        @map("snoozed_by")
+  closedAt               DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
-  statusHistory         LeadStatusHistory[]
-  assignmentHistory     LeadAssignmentHistory[]
-  approvalRequests      LeadStatusApproval[]
-  followupHistory       LeadFollowupHistory[]
+  statusHistory     LeadStatusHistory[]
+  assignmentHistory LeadAssignmentHistory[]
+  approvalRequests  LeadStatusApproval[]
+  followupHistory   LeadFollowupHistory[]
 
   @@index([leadStatus])
   @@index([createdAt])
@@ -245,19 +245,22 @@ model Lead {
   @@index([createdById])
   @@index([assignedUserId])
   @@index([followupStatus])
+  @@index([ownerAdminId, leadStatus])
+  @@index([ownerAdminId, createdAt])
+  @@index([ownerAdminId, nextFollowupAt])
 }
 
 model LeadFollowupHistory {
-  id          String             @id @default(cuid())
-  leadId       String            @map("lead_id")
-  lead         Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id           String             @id @default(cuid())
+  leadId       String             @map("lead_id")
+  lead         Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
   actionType   FollowupActionType @map("action_type")
-  oldDate      DateTime?         @map("old_date")
-  newDate      DateTime?         @map("new_date")
+  oldDate      DateTime?          @map("old_date")
+  newDate      DateTime?          @map("new_date")
   description  String?
-  userId       String?           @map("user_id")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  ownerAdminId String?           @map("owner_admin_id")
+  userId       String?            @map("user_id")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  ownerAdminId String?            @map("owner_admin_id")
 
   @@index([leadId])
   @@index([actionType])
@@ -303,20 +306,20 @@ model LeadAssignmentHistory {
 }
 
 model LeadStatusApproval {
-  id               String     @id @default(cuid())
-  leadId           String     @map("lead_id")
-  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  currentStatus    LeadStatus @map("current_status")
-  requestedStatus  LeadStatus @map("requested_status")
-  requestedBy      String     @map("requested_by")
-  supervisorId     String     @map("supervisor_id")
-  approvalStatus   String     @default("Pending") @map("approval_status")
-  approvalReason   String?    @map("approval_reason")
-  rejectionReason  String?    @map("rejection_reason")
-  approvedBy       String?    @map("approved_by")
-  approvedAt       DateTime?  @map("approved_at")
-  ownerAdminId     String?    @map("owner_admin_id")
-  createdAt        DateTime   @default(now()) @map("created_at")
+  id              String     @id @default(cuid())
+  leadId          String     @map("lead_id")
+  lead            Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  currentStatus   LeadStatus @map("current_status")
+  requestedStatus LeadStatus @map("requested_status")
+  requestedBy     String     @map("requested_by")
+  supervisorId    String     @map("supervisor_id")
+  approvalStatus  String     @default("Pending") @map("approval_status")
+  approvalReason  String?    @map("approval_reason")
+  rejectionReason String?    @map("rejection_reason")
+  approvedBy      String?    @map("approved_by")
+  approvedAt      DateTime?  @map("approved_at")
+  ownerAdminId    String?    @map("owner_admin_id")
+  createdAt       DateTime   @default(now()) @map("created_at")
 
   @@index([leadId])
   @@index([supervisorId])
@@ -328,69 +331,69 @@ model LeadStatusApproval {
 }
 
 model Registration {
-  id                    String             @id @default(cuid())
-  trackingNumber        String             @unique @map("tracking_number")
-  customerName          String             @map("customer_name")
-  mobile                String
-  email                 String?
-  address               String?
-  country               String?
-  state                 String?
-  city                  String?
-  customerType          String?            @map("customer_type")
-  documentType          String?            @map("document_type")
-  documentIssuedCountry String?            @map("document_issued_country")
-  processType           String?            @map("process_type")
-  externalProcess       String?            @map("external_process")
-  priority              String?
-  committedDuration     String?            @map("committed_duration")
-  deliveryLocation      String?            @map("delivery_location")
-  totalCharges          Decimal            @default(0) @map("total_charges") @db.Decimal(12, 2)
-  advancePaid           Decimal            @default(0) @map("advance_paid") @db.Decimal(12, 2)
-  balanceAmount         Decimal            @default(0) @map("balance_amount") @db.Decimal(12, 2)
-  balanceReceivedAmount Decimal            @default(0) @map("balance_received_amount") @db.Decimal(12, 2)
-  paymentMode           String?            @map("payment_mode")
-  paymentStatus         String             @default("Pending") @map("payment_status")
-  paymentUpdateStatus   String             @default("Pending") @map("payment_update_status")
-  submittedBy           String?            @map("submitted_by")
-  submittedAt           DateTime?          @map("submitted_at")
-  financeApprovalStatus String             @default("Pending") @map("finance_approval_status")
-  approvedBy            String?            @map("approved_by")
-  approvedAt            DateTime?          @map("approved_at")
-  rejectionReason       String?            @map("rejection_reason")
-  collectedPerson       String?            @map("collected_person")
-  commissionToUserId    String?            @map("commission_to_user_id")
-  commissionToName      String?            @map("commission_to_name")
-  commissionToEmail     String?            @map("commission_to_email")
-  registeredPerson      String?            @map("registered_person")
-  regionOfRegistration  String?            @map("region_of_registration")
-  bmStatus              String             @default("Pending") @map("bm_status")
-  acceptedBy            String?            @map("accepted_by")
-  acceptedAt            DateTime?          @map("accepted_at")
-  approvalStatus        String             @default("Pending") @map("approval_status")
-  trackingStatus        String             @default("Registered") @map("tracking_status")
-  welcomeCallStatus     String             @default("Pending") @map("welcome_call_status")
-  welcomeCalledBy       String?            @map("welcome_called_by")
-  welcomeCalledAt       DateTime?          @map("welcome_called_at")
-  isBmLocked            Boolean            @default(false) @map("is_bm_locked")
-  bmLockReason          String?            @map("bm_lock_reason")
-  bmExtensionStatus     String             @default("None") @map("bm_extension_status")
-  bmExtensionRequestedBy String?           @map("bm_extension_requested_by")
-  bmExtensionRequestedAt DateTime?         @map("bm_extension_requested_at")
-  bmExtensionReason     String?            @map("bm_extension_reason")
-  bmExtensionApprovedBy String?            @map("bm_extension_approved_by")
-  bmExtensionApprovedAt DateTime?          @map("bm_extension_approved_at")
-  ownerAdminId          String?            @map("owner_admin_id")
-  createdBy             String?            @map("created_by")
-  createdAt             DateTime           @default(now()) @map("created_at")
-  updatedAt             DateTime           @updatedAt @map("updated_at")
+  id                     String    @id @default(cuid())
+  trackingNumber         String    @unique @map("tracking_number")
+  customerName           String    @map("customer_name")
+  mobile                 String
+  email                  String?
+  address                String?
+  country                String?
+  state                  String?
+  city                   String?
+  customerType           String?   @map("customer_type")
+  documentType           String?   @map("document_type")
+  documentIssuedCountry  String?   @map("document_issued_country")
+  processType            String?   @map("process_type")
+  externalProcess        String?   @map("external_process")
+  priority               String?
+  committedDuration      String?   @map("committed_duration")
+  deliveryLocation       String?   @map("delivery_location")
+  totalCharges           Decimal   @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid            Decimal   @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount          Decimal   @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  balanceReceivedAmount  Decimal   @default(0) @map("balance_received_amount") @db.Decimal(12, 2)
+  paymentMode            String?   @map("payment_mode")
+  paymentStatus          String    @default("Pending") @map("payment_status")
+  paymentUpdateStatus    String    @default("Pending") @map("payment_update_status")
+  submittedBy            String?   @map("submitted_by")
+  submittedAt            DateTime? @map("submitted_at")
+  financeApprovalStatus  String    @default("Pending") @map("finance_approval_status")
+  approvedBy             String?   @map("approved_by")
+  approvedAt             DateTime? @map("approved_at")
+  rejectionReason        String?   @map("rejection_reason")
+  collectedPerson        String?   @map("collected_person")
+  commissionToUserId     String?   @map("commission_to_user_id")
+  commissionToName       String?   @map("commission_to_name")
+  commissionToEmail      String?   @map("commission_to_email")
+  registeredPerson       String?   @map("registered_person")
+  regionOfRegistration   String?   @map("region_of_registration")
+  bmStatus               String    @default("Pending") @map("bm_status")
+  acceptedBy             String?   @map("accepted_by")
+  acceptedAt             DateTime? @map("accepted_at")
+  approvalStatus         String    @default("Pending") @map("approval_status")
+  trackingStatus         String    @default("Registered") @map("tracking_status")
+  welcomeCallStatus      String    @default("Pending") @map("welcome_call_status")
+  welcomeCalledBy        String?   @map("welcome_called_by")
+  welcomeCalledAt        DateTime? @map("welcome_called_at")
+  isBmLocked             Boolean   @default(false) @map("is_bm_locked")
+  bmLockReason           String?   @map("bm_lock_reason")
+  bmExtensionStatus      String    @default("None") @map("bm_extension_status")
+  bmExtensionRequestedBy String?   @map("bm_extension_requested_by")
+  bmExtensionRequestedAt DateTime? @map("bm_extension_requested_at")
+  bmExtensionReason      String?   @map("bm_extension_reason")
+  bmExtensionApprovedBy  String?   @map("bm_extension_approved_by")
+  bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
+  ownerAdminId           String?   @map("owner_admin_id")
+  createdBy              String?   @map("created_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  files                 RegistrationFile[]
-  auditTrail            AuditTrail[]
-  paymentUpdates        PaymentUpdate[]
+  files                   RegistrationFile[]
+  auditTrail              AuditTrail[]
+  paymentUpdates          PaymentUpdate[]
   accountStatementEntries AccountStatementEntry[]
-  processAssignments    ProcessAssignment[]
-  documentMovements     DocumentMovement[]
+  processAssignments      ProcessAssignment[]
+  documentMovements       DocumentMovement[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -401,42 +404,44 @@ model Registration {
   @@index([bmStatus])
   @@index([welcomeCallStatus])
   @@index([isBmLocked])
+  @@index([ownerAdminId, paymentStatus])
+  @@index([ownerAdminId, trackingStatus])
   @@map("registrations")
 }
 
 model PaymentUpdate {
-  id               String   @id @default(cuid())
-  invoiceGroupId   String?  @map("invoice_group_id")
-  invoiceGroup     PaymentInvoice? @relation(fields: [invoiceGroupId], references: [id], onDelete: SetNull)
-  registrationId   String   @map("registration_id")
-  registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  trackingNumber   String   @map("tracking_number")
-  customerName     String   @map("customer_name")
-  processType      String?  @map("process_type")
-  totalCharges     Decimal  @default(0) @map("total_charges") @db.Decimal(12, 2)
-  advancePaid      Decimal  @default(0) @map("advance_paid") @db.Decimal(12, 2)
-  balanceAmount    Decimal  @default(0) @map("balance_amount") @db.Decimal(12, 2)
-  paymentMode      String   @map("payment_mode")
-  amountPaid       Decimal  @default(0) @map("amount_paid") @db.Decimal(12, 2)
-  invoiceNumber    String   @map("invoice_number")
-  paymentDate      DateTime @map("payment_date")
-  receiptFileUrl   String?  @map("receipt_file_url")
-  receiptFileName  String?  @map("receipt_file_name")
-  receiptMimeType  String?  @map("receipt_mime_type")
-  receiptFileSize  Int?     @map("receipt_file_size")
-  receiptFileData  Bytes?   @map("receipt_file_data")
-  receiptUploadedAt DateTime? @map("receipt_uploaded_at")
-  receiptUploadedBy String? @map("receipt_uploaded_by")
-  submittedBy      String?  @map("submitted_by")
-  submittedAt      DateTime @default(now()) @map("submitted_at")
-  approvalStatus   String   @default("Pending") @map("approval_status")
-  approvedBy       String?  @map("approved_by")
-  approvedAt       DateTime? @map("approved_at")
-  resetBy          String?  @map("reset_by")
-  resetAt          DateTime? @map("reset_at")
-  resetReason      String?  @map("reset_reason")
-  ownerAdminId     String   @map("owner_admin_id")
-  statementEntries AccountStatementEntry[]
+  id                String                  @id @default(cuid())
+  invoiceGroupId    String?                 @map("invoice_group_id")
+  invoiceGroup      PaymentInvoice?         @relation(fields: [invoiceGroupId], references: [id], onDelete: SetNull)
+  registrationId    String                  @map("registration_id")
+  registration      Registration            @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber    String                  @map("tracking_number")
+  customerName      String                  @map("customer_name")
+  processType       String?                 @map("process_type")
+  totalCharges      Decimal                 @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid       Decimal                 @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount     Decimal                 @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  paymentMode       String                  @map("payment_mode")
+  amountPaid        Decimal                 @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  invoiceNumber     String                  @map("invoice_number")
+  paymentDate       DateTime                @map("payment_date")
+  receiptFileUrl    String?                 @map("receipt_file_url")
+  receiptFileName   String?                 @map("receipt_file_name")
+  receiptMimeType   String?                 @map("receipt_mime_type")
+  receiptFileSize   Int?                    @map("receipt_file_size")
+  receiptFileData   Bytes?                  @map("receipt_file_data")
+  receiptUploadedAt DateTime?               @map("receipt_uploaded_at")
+  receiptUploadedBy String?                 @map("receipt_uploaded_by")
+  submittedBy       String?                 @map("submitted_by")
+  submittedAt       DateTime                @default(now()) @map("submitted_at")
+  approvalStatus    String                  @default("Pending") @map("approval_status")
+  approvedBy        String?                 @map("approved_by")
+  approvedAt        DateTime?               @map("approved_at")
+  resetBy           String?                 @map("reset_by")
+  resetAt           DateTime?               @map("reset_at")
+  resetReason       String?                 @map("reset_reason")
+  ownerAdminId      String                  @map("owner_admin_id")
+  statementEntries  AccountStatementEntry[]
 
   @@index([ownerAdminId])
   @@index([invoiceGroupId])
@@ -444,32 +449,33 @@ model PaymentUpdate {
   @@index([invoiceNumber])
   @@index([approvalStatus])
   @@index([submittedAt])
+  @@index([ownerAdminId, approvalStatus])
   @@map("payment_update")
 }
 
 model PaymentInvoice {
-  id               String   @id @default(cuid())
-  invoiceNumber    String   @map("invoice_number")
-  paymentMode      String   @map("payment_mode")
-  amountPaid       Decimal  @default(0) @map("amount_paid") @db.Decimal(12, 2)
-  paymentDate      DateTime @map("payment_date")
-  receiptFileUrl   String?  @map("receipt_file_url")
-  receiptFileName  String?  @map("receipt_file_name")
-  receiptMimeType  String?  @map("receipt_mime_type")
-  receiptFileSize  Int?     @map("receipt_file_size")
-  receiptFileData  Bytes?   @map("receipt_file_data")
-  receiptUploadedAt DateTime? @map("receipt_uploaded_at")
-  receiptUploadedBy String? @map("receipt_uploaded_by")
-  submittedBy      String?  @map("submitted_by")
-  submittedAt      DateTime @default(now()) @map("submitted_at")
-  approvalStatus   String   @default("Pending") @map("approval_status")
-  approvedBy       String?  @map("approved_by")
-  approvedAt       DateTime? @map("approved_at")
-  resetBy          String?  @map("reset_by")
-  resetAt          DateTime? @map("reset_at")
-  resetReason      String?  @map("reset_reason")
-  ownerAdminId     String   @map("owner_admin_id")
-  paymentUpdates   PaymentUpdate[]
+  id                String          @id @default(cuid())
+  invoiceNumber     String          @map("invoice_number")
+  paymentMode       String          @map("payment_mode")
+  amountPaid        Decimal         @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  paymentDate       DateTime        @map("payment_date")
+  receiptFileUrl    String?         @map("receipt_file_url")
+  receiptFileName   String?         @map("receipt_file_name")
+  receiptMimeType   String?         @map("receipt_mime_type")
+  receiptFileSize   Int?            @map("receipt_file_size")
+  receiptFileData   Bytes?          @map("receipt_file_data")
+  receiptUploadedAt DateTime?       @map("receipt_uploaded_at")
+  receiptUploadedBy String?         @map("receipt_uploaded_by")
+  submittedBy       String?         @map("submitted_by")
+  submittedAt       DateTime        @default(now()) @map("submitted_at")
+  approvalStatus    String          @default("Pending") @map("approval_status")
+  approvedBy        String?         @map("approved_by")
+  approvedAt        DateTime?       @map("approved_at")
+  resetBy           String?         @map("reset_by")
+  resetAt           DateTime?       @map("reset_at")
+  resetReason       String?         @map("reset_reason")
+  ownerAdminId      String          @map("owner_admin_id")
+  paymentUpdates    PaymentUpdate[]
 
   @@unique([ownerAdminId, invoiceNumber])
   @@index([ownerAdminId])
@@ -480,21 +486,21 @@ model PaymentInvoice {
 }
 
 model AccountTransaction {
-  id              String   @id @default(cuid())
-  transactionType String   @map("transaction_type")
-  category        String
-  amount          Decimal  @default(0) @db.Decimal(12, 2)
-  creditOrDebit   String   @map("credit_or_debit")
-  date            DateTime
-  description     String?  @map("description")
-  voucherNumber   String   @unique @map("voucher_number")
-  billFileName    String?  @map("bill_file_name")
-  billMimeType    String?  @map("bill_mime_type")
-  billFileSize    Int?     @map("bill_file_size")
-  billFileData    Bytes?   @map("bill_file_data")
-  createdBy       String?  @map("created_by")
-  ownerAdminId    String   @map("owner_admin_id")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id               String                  @id @default(cuid())
+  transactionType  String                  @map("transaction_type")
+  category         String
+  amount           Decimal                 @default(0) @db.Decimal(12, 2)
+  creditOrDebit    String                  @map("credit_or_debit")
+  date             DateTime
+  description      String?                 @map("description")
+  voucherNumber    String                  @unique @map("voucher_number")
+  billFileName     String?                 @map("bill_file_name")
+  billMimeType     String?                 @map("bill_mime_type")
+  billFileSize     Int?                    @map("bill_file_size")
+  billFileData     Bytes?                  @map("bill_file_data")
+  createdBy        String?                 @map("created_by")
+  ownerAdminId     String                  @map("owner_admin_id")
+  createdAt        DateTime                @default(now()) @map("created_at")
   statementEntries AccountStatementEntry[]
 
   @@index([ownerAdminId])
@@ -505,30 +511,30 @@ model AccountTransaction {
 }
 
 model AccountStatementEntry {
-  id                   String   @id @default(cuid())
+  id                   String              @id @default(cuid())
   date                 DateTime
-  trackingNumber       String?  @map("tracking_number")
-  invoiceNumber        String?  @map("invoice_number")
-  voucherNumber        String?  @map("voucher_number")
+  trackingNumber       String?             @map("tracking_number")
+  invoiceNumber        String?             @map("invoice_number")
+  voucherNumber        String?             @map("voucher_number")
   particulars          String
-  entryType            String   @map("entry_type")
-  credit               Decimal  @default(0) @db.Decimal(12, 2)
-  debit                Decimal  @default(0) @db.Decimal(12, 2)
-  runningBalance       Decimal  @default(0) @map("running_balance") @db.Decimal(12, 2)
-  sourceType           String   @map("source_type")
-  sourceId             String?  @map("source_id")
-  paymentUpdateId      String?  @map("payment_update_id")
-  paymentUpdate        PaymentUpdate? @relation(fields: [paymentUpdateId], references: [id], onDelete: SetNull)
-  accountTransactionId String?  @map("account_transaction_id")
+  entryType            String              @map("entry_type")
+  credit               Decimal             @default(0) @db.Decimal(12, 2)
+  debit                Decimal             @default(0) @db.Decimal(12, 2)
+  runningBalance       Decimal             @default(0) @map("running_balance") @db.Decimal(12, 2)
+  sourceType           String              @map("source_type")
+  sourceId             String?             @map("source_id")
+  paymentUpdateId      String?             @map("payment_update_id")
+  paymentUpdate        PaymentUpdate?      @relation(fields: [paymentUpdateId], references: [id], onDelete: SetNull)
+  accountTransactionId String?             @map("account_transaction_id")
   accountTransaction   AccountTransaction? @relation(fields: [accountTransactionId], references: [id], onDelete: SetNull)
-  registrationId       String?  @map("registration_id")
-  registration         Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
-  ownerAdminId         String   @map("owner_admin_id")
-  createdBy            String?  @map("created_by")
-  createdAt            DateTime @default(now()) @map("created_at")
-  reversedAt           DateTime? @map("reversed_at")
-  reversedBy           String?  @map("reversed_by")
-  reversalReason       String?  @map("reversal_reason")
+  registrationId       String?             @map("registration_id")
+  registration         Registration?       @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  ownerAdminId         String              @map("owner_admin_id")
+  createdBy            String?             @map("created_by")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  reversedAt           DateTime?           @map("reversed_at")
+  reversedBy           String?             @map("reversed_by")
+  reversalReason       String?             @map("reversal_reason")
 
   @@index([ownerAdminId])
   @@index([date])
@@ -571,7 +577,7 @@ model AuditTrail {
 
 model AccessRole {
   id              String           @id @default(cuid())
-  name            String           
+  name            String
   description     String?
   isActive        Boolean          @default(true)
   ownerAdminId    String?          @map("owner_admin_id")
@@ -602,9 +608,9 @@ model Permission {
 model RolePermission {
   roleId       String
   permissionId String
-  role         AccessRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
+  role         AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
 
   @@id([roleId, permissionId])
   @@index([permissionId])
@@ -642,8 +648,8 @@ model AttendanceRecord {
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
 
-  user            User                     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
-  leaveRequest    LeaveRequest?            @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  user         User          @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  leaveRequest LeaveRequest? @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
 
   @@unique([userId, attendanceDate])
   @@index([userId])
@@ -664,12 +670,11 @@ model AttendanceSetting {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  user                 User     @relation("UserAttendanceSetting", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("UserAttendanceSetting", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([ownerAdminId])
   @@map("attendance_settings")
 }
-
 
 model SalaryHoliday {
   id           String   @id @default(cuid())
@@ -699,20 +704,20 @@ model SalaryPayroll {
   userNameSnapshot       String              @map("user_name_snapshot")
   userEmailSnapshot      String              @map("user_email_snapshot")
   departmentSnapshot     String              @map("department_snapshot")
-  officeLocationSnapshot  String              @map("office_location_snapshot")
-  monthlySalarySnapshot  Decimal             @map("monthly_salary_snapshot") @db.Decimal(12,2)
-  workingDays            Decimal             @map("working_days") @db.Decimal(5,2)
-  presentDays            Decimal             @map("present_days") @db.Decimal(5,2)
-  paidLeaveDays          Decimal             @map("paid_leave_days") @db.Decimal(5,2)
-  unpaidLeaveDays        Decimal             @map("unpaid_leave_days") @db.Decimal(5,2)
-  leaveDays              Decimal             @map("leave_days") @db.Decimal(5,2)
-  lopDays                Decimal             @map("lop_days") @db.Decimal(5,2)
-  grossSalary            Decimal             @map("gross_salary") @db.Decimal(12,2)
-  perDayRate             Decimal             @map("per_day_rate") @db.Decimal(12,2)
-  earnedSalary           Decimal             @map("earned_salary") @db.Decimal(12,2)
-  lopDeduction           Decimal             @map("lop_deduction") @db.Decimal(12,2)
-  netPayable             Decimal             @map("net_payable") @db.Decimal(12,2)
-  payrollStatus          SalaryPayrollStatus  @default(Draft) @map("payroll_status")
+  officeLocationSnapshot String              @map("office_location_snapshot")
+  monthlySalarySnapshot  Decimal             @map("monthly_salary_snapshot") @db.Decimal(12, 2)
+  workingDays            Decimal             @map("working_days") @db.Decimal(5, 2)
+  presentDays            Decimal             @map("present_days") @db.Decimal(5, 2)
+  paidLeaveDays          Decimal             @map("paid_leave_days") @db.Decimal(5, 2)
+  unpaidLeaveDays        Decimal             @map("unpaid_leave_days") @db.Decimal(5, 2)
+  leaveDays              Decimal             @map("leave_days") @db.Decimal(5, 2)
+  lopDays                Decimal             @map("lop_days") @db.Decimal(5, 2)
+  grossSalary            Decimal             @map("gross_salary") @db.Decimal(12, 2)
+  perDayRate             Decimal             @map("per_day_rate") @db.Decimal(12, 2)
+  earnedSalary           Decimal             @map("earned_salary") @db.Decimal(12, 2)
+  lopDeduction           Decimal             @map("lop_deduction") @db.Decimal(12, 2)
+  netPayable             Decimal             @map("net_payable") @db.Decimal(12, 2)
+  payrollStatus          SalaryPayrollStatus @default(Draft) @map("payroll_status")
   generatedBy            String?             @map("generated_by")
   generatedAt            DateTime?           @map("generated_at")
   approvedBy             String?             @map("approved_by")
@@ -733,30 +738,30 @@ model SalaryPayroll {
 }
 
 model LeaveRequest {
-  id                String             @id @default(cuid())
-  userId            String             @map("user_id")
-  leaveType         String             @map("leave_type")
-  fromDate          DateTime           @map("from_date") @db.Date
-  toDate            DateTime           @map("to_date") @db.Date
-  totalDays         Decimal            @map("total_days") @db.Decimal(5, 2)
-  reason            String
-  attachmentUrl     String?            @map("attachment_url")
-  status            LeaveRequestStatus @default(Pending)
-  approvalNote      String?            @map("approval_note")
-  rejectionReason   String?            @map("rejection_reason")
-  approvedBy        String?            @map("approved_by")
-  approvedAt        DateTime?          @map("approved_at")
-  rejectedBy        String?            @map("rejected_by")
-  rejectedAt        DateTime?          @map("rejected_at")
-  cancelledBy       String?            @map("cancelled_by")
-  cancelledAt       DateTime?          @map("cancelled_at")
-  appliedBy         String?            @map("applied_by")
-  appliedAt         DateTime           @default(now()) @map("applied_at")
-  modifiedBy        String?            @map("modified_by")
-  modifiedAt        DateTime           @updatedAt @map("modified_at")
-  ownerAdminId      String?            @map("owner_admin_id")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id              String             @id @default(cuid())
+  userId          String             @map("user_id")
+  leaveType       String             @map("leave_type")
+  fromDate        DateTime           @map("from_date") @db.Date
+  toDate          DateTime           @map("to_date") @db.Date
+  totalDays       Decimal            @map("total_days") @db.Decimal(5, 2)
+  reason          String
+  attachmentUrl   String?            @map("attachment_url")
+  status          LeaveRequestStatus @default(Pending)
+  approvalNote    String?            @map("approval_note")
+  rejectionReason String?            @map("rejection_reason")
+  approvedBy      String?            @map("approved_by")
+  approvedAt      DateTime?          @map("approved_at")
+  rejectedBy      String?            @map("rejected_by")
+  rejectedAt      DateTime?          @map("rejected_at")
+  cancelledBy     String?            @map("cancelled_by")
+  cancelledAt     DateTime?          @map("cancelled_at")
+  appliedBy       String?            @map("applied_by")
+  appliedAt       DateTime           @default(now()) @map("applied_at")
+  modifiedBy      String?            @map("modified_by")
+  modifiedAt      DateTime           @updatedAt @map("modified_at")
+  ownerAdminId    String?            @map("owner_admin_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   user              User               @relation("UserLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
   attendanceRecords AttendanceRecord[] @relation("LeaveAttendanceRecords")
@@ -771,13 +776,13 @@ model LeaveRequest {
 }
 
 model ProcessType {
-  id             String   @id @default(cuid())
-  name           String   
-  description    String?
-  isActive       Boolean  @default(true)
-  ownerAdminId   String   @map("owner_admin_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@unique([name, ownerAdminId])
   @@index([ownerAdminId])
@@ -785,26 +790,26 @@ model ProcessType {
 }
 
 model ProcessAssignment {
-  id               String       @id @default(cuid())
-  registrationId   String       @map("registration_id")
-  registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  trackingNumber   String       @map("tracking_number")
-  processType      String       @map("process_type")
-  currentLocation  String       @map("current_location") 
-  status           String       @map("status") 
-  assignedUserId   String?      @map("assigned_user_id")
-  receivedDate     DateTime     @default(now()) @map("received_date")
-  sentDate         DateTime?    @map("sent_date")
-  completedDate    DateTime?    @map("completed_date")
-  rejectedDate     DateTime?    @map("rejected_date")
-  daysHeld         Int          @default(0) @map("days_held")
-  remarks          String?
-  ownerAdminId     String       @map("owner_admin_id")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  id              String       @id @default(cuid())
+  registrationId  String       @map("registration_id")
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber  String       @map("tracking_number")
+  processType     String       @map("process_type")
+  currentLocation String       @map("current_location")
+  status          String       @map("status")
+  assignedUserId  String?      @map("assigned_user_id")
+  receivedDate    DateTime     @default(now()) @map("received_date")
+  sentDate        DateTime?    @map("sent_date")
+  completedDate   DateTime?    @map("completed_date")
+  rejectedDate    DateTime?    @map("rejected_date")
+  daysHeld        Int          @default(0) @map("days_held")
+  remarks         String?
+  ownerAdminId    String       @map("owner_admin_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
-  movements        ProcessMovement[]
-  history          ProcessHistory[]
+  movements ProcessMovement[]
+  history   ProcessHistory[]
 
   @@unique([registrationId, processType])
   @@index([trackingNumber])
@@ -815,16 +820,16 @@ model ProcessAssignment {
 }
 
 model ProcessMovement {
-  id                  String   @id @default(cuid())
-  processAssignmentId String   @map("process_assignment_id")
+  id                  String            @id @default(cuid())
+  processAssignmentId String            @map("process_assignment_id")
   processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
-  fromLocation        String   @map("from_location")
-  toLocation          String   @map("to_location")
+  fromLocation        String            @map("from_location")
+  toLocation          String            @map("to_location")
   action              String
-  userId              String   @map("user_id")
+  userId              String            @map("user_id")
   remarks             String?
-  ownerAdminId        String   @map("owner_admin_id")
-  createdAt           DateTime @default(now()) @map("created_at")
+  ownerAdminId        String            @map("owner_admin_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
 
   @@index([processAssignmentId])
   @@index([ownerAdminId])
@@ -832,16 +837,16 @@ model ProcessMovement {
 }
 
 model ProcessHistory {
-  id                  String   @id @default(cuid())
-  processAssignmentId String   @map("process_assignment_id")
+  id                  String            @id @default(cuid())
+  processAssignmentId String            @map("process_assignment_id")
   processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
-  fromModule          String   @map("from_module")
-  toModule            String   @map("to_module")
+  fromModule          String            @map("from_module")
+  toModule            String            @map("to_module")
   action              String
-  userId              String   @map("user_id")
+  userId              String            @map("user_id")
   remarks             String?
-  ownerAdminId        String   @map("owner_admin_id")
-  createdAt           DateTime @default(now()) @map("created_at")
+  ownerAdminId        String            @map("owner_admin_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
 
   @@index([processAssignmentId])
   @@index([ownerAdminId])
@@ -849,34 +854,34 @@ model ProcessHistory {
 }
 
 model DocumentMovement {
-  id              String   @id @default(cuid())
-  trackingNumber  String   @unique @map("tracking_number")
-  registrationId  String   @map("registration_id")
-  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  fromOfficeId    String?  @map("from_office_id")
+  id              String          @id @default(cuid())
+  trackingNumber  String          @unique @map("tracking_number")
+  registrationId  String          @map("registration_id")
+  registration    Registration    @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fromOfficeId    String?         @map("from_office_id")
   fromOffice      OfficeLocation? @relation("FromOfficeRelation", fields: [fromOfficeId], references: [id], onDelete: SetNull)
-  toOfficeId      String?  @map("to_office_id")
+  toOfficeId      String?         @map("to_office_id")
   toOffice        OfficeLocation? @relation("ToOfficeRelation", fields: [toOfficeId], references: [id], onDelete: SetNull)
-  fromModule      String?  @map("from_module")
-  toModule        String?  @map("to_module")
-  movementType    String?  @map("movement_type")
-  status          String   @default("Pending")
-  processModuleId String?  @map("process_module_id")
-  currentOfficeId String?  @map("current_office_id")
+  fromModule      String?         @map("from_module")
+  toModule        String?         @map("to_module")
+  movementType    String?         @map("movement_type")
+  status          String          @default("Pending")
+  processModuleId String?         @map("process_module_id")
+  currentOfficeId String?         @map("current_office_id")
   currentOffice   OfficeLocation? @relation("CurrentOfficeRelation", fields: [currentOfficeId], references: [id], onDelete: SetNull)
-  currentModule   String?  @map("current_module")
-  currentStatus   String?  @map("current_status")
-  createdBy       String?  @map("created_by")
-  receivedBy      String?  @map("received_by")
-  acceptedBy      String?  @map("accepted_by")
-  sentAt          DateTime? @map("sent_at")
-  receivedAt      DateTime? @map("received_at")
-  acceptedAt      DateTime? @map("accepted_at")
+  currentModule   String?         @map("current_module")
+  currentStatus   String?         @map("current_status")
+  createdBy       String?         @map("created_by")
+  receivedBy      String?         @map("received_by")
+  acceptedBy      String?         @map("accepted_by")
+  sentAt          DateTime?       @map("sent_at")
+  receivedAt      DateTime?       @map("received_at")
+  acceptedAt      DateTime?       @map("accepted_at")
   remarks         String?
-  originOfficeId  String?  @map("origin_office_id")
-  processChain    Json?    @map("process_chain")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  originOfficeId  String?         @map("origin_office_id")
+  processChain    Json?           @map("process_chain")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   @@index([trackingNumber])
   @@index([currentOfficeId])

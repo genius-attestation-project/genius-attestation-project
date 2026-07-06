@@ -143,13 +143,22 @@ async function recalculateRunningBalances(ownerAdminId: string, tx: Prisma.Trans
     },
   });
 
+  if (entries.length === 0) return;
+
   let balance = new Prisma.Decimal(0);
-  for (const entry of entries) {
+  const updates = entries.map((entry) => {
     balance = balance.plus(entry.credit).minus(entry.debit);
-    await tx.accountStatementEntry.update({
-      where: { id: entry.id },
-      data: { runningBalance: balance },
-    });
+    return { id: entry.id, balance: balance.toNumber() };
+  });
+
+  const chunkSize = 1000;
+  for (let i = 0; i < updates.length; i += chunkSize) {
+    const chunk = updates.slice(i, i + chunkSize);
+    const caseWhens = chunk.map((u) => `WHEN '${u.id}' THEN ${u.balance}`).join(" ");
+    const ids = chunk.map((u) => `'${u.id}'`).join(",");
+
+    const sql = `UPDATE account_statement_entries SET running_balance = CASE id ${caseWhens} END WHERE id IN (${ids})`;
+    await tx.$executeRawUnsafe(sql);
   }
 }
 

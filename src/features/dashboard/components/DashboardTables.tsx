@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState, useDeferredValue } from "react";
 
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,10 +19,12 @@ function formatStatus(status: string) {
   return status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function DashboardTables({ rows }: { rows: LeadRow[] }) {
+export const DashboardTables = memo(function DashboardTables({ rows }: { rows: LeadRow[] }) {
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
+
   const filteredRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = deferredQuery.trim().toLowerCase();
 
     if (!normalizedQuery) {
       return rows;
@@ -45,13 +47,13 @@ export function DashboardTables({ rows }: { rows: LeadRow[] }) {
       title="Recent Records"
       description="Latest lead entries from the current workspace pipeline."
       action={
-        <label className="flex h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-white px-3 text-sm shadow-sm sm:w-72 dark:bg-white/5">
+        <label className="flex h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-(--border) bg-white px-3 text-sm shadow-sm sm:w-72 dark:bg-white/5">
           <Search size={16} className="text-blue-600" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search records"
-            className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-[color:var(--text-muted)]"
+            className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-(--text-muted)"
           />
         </label>
       }
@@ -64,10 +66,10 @@ export function DashboardTables({ rows }: { rows: LeadRow[] }) {
           description="Recent lead records will appear here once new leads are added."
         />
       ) : (
-        <div className="min-w-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-sm dark:bg-white/5">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
           <div className="max-h-[420px] overflow-auto">
             <table className="min-w-[780px] w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-[color:var(--border)] bg-blue-50/95 text-xs font-semibold uppercase tracking-[0.14em] text-soft backdrop-blur dark:bg-blue-500/10">
+              <thead className="sticky top-0 z-10 border-b border-(--border) bg-blue-50/95 text-xs font-semibold uppercase tracking-[0.14em] text-soft backdrop-blur dark:bg-blue-500/10">
                 <tr>
                   <th className="px-4 py-3">Lead ID</th>
                   <th className="px-4 py-3">Client Name</th>
@@ -77,7 +79,7 @@ export function DashboardTables({ rows }: { rows: LeadRow[] }) {
                   <th className="px-4 py-3">Service</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[color:var(--border)]">
+              <tbody className="divide-y divide-(--border)">
                 {filteredRows.map((row) => (
                   <tr
                     key={row.id}
@@ -113,7 +115,7 @@ export function DashboardTables({ rows }: { rows: LeadRow[] }) {
               </tbody>
             </table>
             {filteredRows.length === 0 ? (
-              <div className="border-t border-[color:var(--border)] px-4 py-8 text-center text-sm text-soft">
+              <div className="border-t border-(--border) px-4 py-8 text-center text-sm text-soft">
                 No records match your search.
               </div>
             ) : null}
@@ -122,4 +124,4 @@ export function DashboardTables({ rows }: { rows: LeadRow[] }) {
       )}
     </DashboardCard>
   );
-}
+});
