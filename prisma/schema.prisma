@@ -107,6 +107,7 @@ model User {
   createdLeads      Lead[]             @relation("LeadCreator")
   attendanceRecords AttendanceRecord[] @relation("UserAttendance")
   attendanceSetting AttendanceSetting? @relation("UserAttendanceSetting")
+  attendanceDailySummaries AttendanceDailySummary[] @relation("UserAttendanceDailySummary")
   leaveRequests     LeaveRequest[]     @relation("UserLeaveRequests")
   salaryPayrolls    SalaryPayroll[]    @relation("UserSalaryPayroll")
 
@@ -650,6 +651,7 @@ model AttendanceRecord {
 
   user         User          @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
   leaveRequest LeaveRequest? @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  dailySummaryRecord AttendanceDailySummary? @relation("AttendanceRecordSummary")
 
   @@unique([userId, attendanceDate])
   @@index([userId])
@@ -905,4 +907,24 @@ model MovementHistory {
   @@index([trackingNumber])
   @@index([performedAt])
   @@map("movement_history")
+}
+
+model AttendanceDailySummary {
+  id           String   @id @default(cuid())
+  ownerAdminId String   @map("owner_admin_id")
+  userId       String   @map("user_id")
+  attendanceId String   @unique @map("attendance_id")
+  summary      String   @db.Text
+  summaryDate  DateTime @map("summary_date") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User             @relation("UserAttendanceDailySummary", fields: [userId], references: [id], onDelete: Cascade)
+  attendance   AttendanceRecord @relation("AttendanceRecordSummary", fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, summaryDate])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([summaryDate])
+  @@map("attendance_daily_summaries")
 }

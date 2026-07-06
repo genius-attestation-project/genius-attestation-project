@@ -54,7 +54,8 @@ export type CalendarDisplayStatus =
   | "Approved Leave"
   | "Rejected Leave"
   | "Pending Leave"
-  | "Holiday";
+  | "Holiday"
+  | "Empty";
 
 export type AttendanceCalendarSummary = {
   status: CalendarDisplayStatus;

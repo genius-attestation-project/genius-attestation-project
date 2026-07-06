@@ -36,6 +36,7 @@ const CALENDAR_COLORS: Record<CalendarDisplayStatus, string> = {
   "Rejected Leave": "#6b7280",
   "Pending Leave": "#6366f1",
   Holiday: "#94a3b8",
+  Empty: "transparent",
 };
 
 type AttendanceDbRecord = {
@@ -119,6 +120,7 @@ function getCalendarStatus(args: {
   attendanceStatus: AttendanceStatus | null;
   leaveStatus: AttendanceRecord["leaveStatus"];
   date: Date;
+  closingTimeStr?: string;
 }): CalendarDisplayStatus {
   if (args.attendanceStatus === "Present") return "Present";
   if (args.attendanceStatus === "Late") return "Late";
@@ -127,6 +129,21 @@ function getCalendarStatus(args: {
   if (args.leaveStatus === "Pending") return "Pending Leave";
   if (args.leaveStatus === "Rejected") return "Rejected Leave";
   if (isWeekend(args.date)) return "Holiday";
+
+  const today = todayDate();
+  if (args.date > today) return "Empty";
+
+  if (args.date.getTime() === today.getTime() && args.closingTimeStr) {
+    const current = new Date();
+    const [h, m] = args.closingTimeStr.split(":").map(Number);
+    const closing = new Date(today);
+    closing.setHours(h, m, 0, 0);
+    if (current < closing) return "Empty";
+  } else if (args.date.getTime() === today.getTime() && !args.closingTimeStr) {
+    // If no closing time, assume end of day or current time is not yet end of day.
+    return "Empty";
+  }
+
   return "Absent";
 }
 
@@ -236,7 +253,7 @@ export async function checkOut(
   try {
     const existing = await prisma.attendanceRecord.findUnique({
       where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-      select: { id: true, checkinTime: true, status: true },
+      select: { id: true, checkinTime: true, status: true, ownerAdminId: true },
     });
 
     if (!existing) {
@@ -256,6 +273,19 @@ export async function checkOut(
         checkoutTime,
         dailySummary: opts.dailySummary,
         workingHours: workingHours ?? undefined,
+        dailySummaryRecord: {
+          upsert: {
+            create: {
+              ownerAdminId: existing.ownerAdminId ?? userId,
+              userId,
+              summary: opts.dailySummary,
+              summaryDate: todayDate(),
+            },
+            update: {
+              summary: opts.dailySummary,
+            }
+          }
+        }
       },
       include: attendanceUserInclude,
     });
@@ -660,7 +690,7 @@ export async function getAttendanceCalendar(params: {
     return createEmptyCalendarResponse(window.month, window.year, from, to);
   }
 
-  const [records, leaveRequests] = await Promise.all([
+  const [records, leaveRequests, settings] = await Promise.all([
     prisma.attendanceRecord.findMany({
       where: {
         userId: { in: userIds },
@@ -687,12 +717,16 @@ export async function getAttendanceCalendar(params: {
       },
       orderBy: [{ appliedAt: "desc" }],
     }),
+    prisma.attendanceSetting.findMany({
+      where: { userId: { in: userIds } },
+    }),
   ]);
 
   console.log("[attendance] getAttendanceCalendar fetched", { attendanceRecords: records.length, leaveRequests: leaveRequests.length });
 
   const recordMap = new Map(records.map((record) => [`${record.userId}:${toIsoDate(record.attendanceDate)}`, record as AttendanceDbRecord]));
   const leaveMap = new Map<string, (typeof leaveRequests)[number]>();
+  const settingMap = new Map(settings.map(s => [s.userId, s.expectedCheckoutTime]));
 
   for (const leave of leaveRequests) {
     const leaveStart = leave.fromDate < from ? from : startOfDay(leave.fromDate);
@@ -730,7 +764,7 @@ export async function getAttendanceCalendar(params: {
         checkinTime: formatTime(record?.checkinTime),
         checkoutTime: formatTime(record?.checkoutTime),
         workingHours: record?.workingHours ? String(record.workingHours) : null,
-        status: getCalendarStatus({ attendanceStatus, leaveStatus, date: day }),
+        status: getCalendarStatus({ attendanceStatus, leaveStatus, date: day, closingTimeStr: settingMap.get(user.id) }),
         attendanceStatus,
         approvalStatus: record?.approvalStatus ?? null,
         leaveRequestId: record?.leaveRequestId ?? leave?.id ?? null,

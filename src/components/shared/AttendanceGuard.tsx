@@ -69,7 +69,7 @@ export function AttendanceGuard({ userId }: Props) {
   async function fetchToday() {
     try {
       const res = await fetch("/api/attendance/today");
-      const data = await readJsonResponse<{ ready?: boolean; record?: AttendanceRecord | null; message?: string }>(res);
+      const data = await readJsonResponse<{ ready?: boolean; record?: AttendanceRecord | null; setting?: { expectedCheckinTime: string, expectedCheckoutTime: string } | null; message?: string }>(res);
       if (!res.ok) {
         throw new Error(data.message ?? "Unable to load today's attendance.");
       }
@@ -79,9 +79,27 @@ export function AttendanceGuard({ userId }: Props) {
         return;
       }
       setTodayRecord(data.record ?? null);
+      
+      const currentTime = toTimeInputValue(new Date());
+      const expectedCheckinTime = data.setting?.expectedCheckinTime || "09:00";
+      const expectedCheckoutTime = data.setting?.expectedCheckoutTime || "18:00";
+
       if (!data.record) {
-        setCheckinTime(toTimeInputValue(new Date()));
-        setModal("checkin");
+        if (currentTime >= expectedCheckinTime) {
+          setCheckinTime(toTimeInputValue(new Date()));
+          setModal("checkin");
+        } else {
+          setModal("idle");
+        }
+      } else if (data.record && !data.record.checkoutTime && data.record.status !== "Leave") {
+        if (currentTime >= expectedCheckoutTime) {
+          setCheckoutTime(toTimeInputValue(new Date()));
+          setModal("checkout");
+        } else {
+          setModal("idle");
+        }
+      } else {
+        setModal("idle");
       }
     } catch {
       // silently fail — don't block the app if attendance API is unreachable

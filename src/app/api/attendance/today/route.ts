@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { getTodayAttendance, isAttendanceReady } from "@/features/attendance/server/attendance.service";
+import { getTodayAttendance, getAttendanceSetting, isAttendanceReady } from "@/features/attendance/server/attendance.service";
 
 export async function GET() {
   try {
@@ -17,8 +17,11 @@ export async function GET() {
       });
     }
 
-    const record = await getTodayAttendance(session.user.id);
-    return Response.json({ record, ready: true });
+    const [record, setting] = await Promise.all([
+      getTodayAttendance(session.user.id),
+      getAttendanceSetting(session.user.id),
+    ]);
+    return Response.json({ record, setting, ready: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to load today's attendance.";
     console.error("[api/attendance/today] Error:", err);
