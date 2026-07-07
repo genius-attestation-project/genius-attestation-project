@@ -370,16 +370,17 @@ export async function setRolePermissions(ownerAdminId: string, roleId: string, p
     select: { id: true },
   });
 
-  await prisma.$transaction([
-    prisma.rolePermission.deleteMany({ where: { roleId } }),
-    prisma.rolePermission.createMany({
+  await prisma.rolePermission.deleteMany({ where: { roleId } });
+
+  if (permissions.length > 0) {
+    await prisma.rolePermission.createMany({
       data: permissions.map((permission: { id: string }) => ({
         roleId,
         permissionId: permission.id,
       })),
       skipDuplicates: true,
-    }),
-  ]);
+    });
+  }
 
   const updatedRole = await prisma.accessRole.findUnique({
     where: { id: roleId },

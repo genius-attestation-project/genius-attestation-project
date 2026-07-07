@@ -7,7 +7,7 @@ import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET() {
-  const denied = await requireAnyApiPermission(["departments.view", "registrations.create", "registrations.view"]);
+  const denied = await requireAnyApiPermission(["departments.view", "revenue_registration.create", "revenue_registration.view"]);
   if (denied) return denied;
 
   try {
