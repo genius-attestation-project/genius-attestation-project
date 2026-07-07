@@ -433,7 +433,7 @@ export function RegistrationManager({
       setOfficeLocationsError("");
 
       const [usersResponse, officeLocationsResponse] = await Promise.allSettled([
-        fetch("/api/users", { cache: "no-store" }),
+        fetch("/api/users?active=true", { cache: "no-store" }),
         fetch("/api/office-locations", { cache: "no-store" }),
       ]);
 

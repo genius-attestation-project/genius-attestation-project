@@ -1,11 +1,11 @@
 import { createUser, listRoleOptions, listUsers } from "@/features/admin/server/rbac.service";
 import { userSchema } from "@/features/admin/validations/rbac.schema";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
-export async function GET() {
-  const denied = await requireApiPermission("users.view");
+export async function GET(request: Request) {
+  const denied = await requireAnyApiPermission(["users.view", "registrations.create", "registrations.view"]);
   if (denied) return denied;
 
   try {
@@ -13,10 +13,18 @@ export async function GET() {
     const ownerAdminId = session?.user?.ownerAdminId;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const [users, roles] = await Promise.all([
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get("active") === "true";
+
+    let [users, roles] = await Promise.all([
       listUsers(ownerAdminId),
       listRoleOptions(ownerAdminId)
     ]);
+
+    if (activeOnly) {
+      users = users.filter((user) => user.status === "Active");
+    }
+
     return jsonOk({ users, roles });
   } catch (error) {
     console.error("Failed to fetch users", error);

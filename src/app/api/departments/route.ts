@@ -3,11 +3,11 @@ import { Prisma } from "@prisma/client";
 import { createDepartment, listDepartments } from "@/features/admin/server/rbac.service";
 import { departmentSchema } from "@/features/admin/validations/rbac.schema";
 import { auth } from "@/lib/auth";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET() {
-  const denied = await requireApiPermission("departments.view");
+  const denied = await requireAnyApiPermission(["departments.view", "registrations.create", "registrations.view"]);
   if (denied) return denied;
 
   try {

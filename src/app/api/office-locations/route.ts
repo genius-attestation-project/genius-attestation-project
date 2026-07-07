@@ -6,11 +6,11 @@ import {
 } from "@/features/admin/server/rbac.service";
 import { officeLocationSchema } from "@/features/admin/validations/rbac.schema";
 import { auth } from "@/lib/auth";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET() {
-  const denied = await requireApiPermission("office_locations.view");
+  const denied = await requireAnyApiPermission(["office_locations.view", "registrations.create", "registrations.view"]);
   if (denied) return denied;
 
   try {
