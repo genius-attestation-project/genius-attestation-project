@@ -276,19 +276,6 @@ export async function checkOut(
         checkoutTime,
         dailySummary: opts.dailySummary,
         workingHours: workingHours ?? undefined,
-        dailySummaryRecord: {
-          upsert: {
-            create: {
-              ownerAdminId: existing.ownerAdminId ?? userId,
-              userId,
-              summary: opts.dailySummary,
-              summaryDate: todayDate(),
-            },
-            update: {
-              summary: opts.dailySummary,
-            }
-          }
-        }
       },
       include: attendanceUserInclude,
     });

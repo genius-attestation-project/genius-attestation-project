@@ -32,11 +32,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: { summary },
     });
 
-    await prisma.attendanceRecord.update({
-      where: { id: existing.attendanceId },
-      data: { dailySummary: summary },
-    });
-
     return Response.json({ record: updated });
   } catch (err: any) {
     return Response.json({ message: err.message }, { status: 500 });

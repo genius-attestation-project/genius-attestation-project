@@ -51,8 +51,8 @@ export async function GET(req: Request) {
     const summaries = await prisma.attendanceDailySummary.findMany({
       where,
       include: {
-        user: { select: { name: true, departmentRef: { select: { name: true } }, officeLocationRef: { select: { officeName: true } } } },
-        attendance: { select: { checkinTime: true, checkoutTime: true, status: true } },
+        user: { select: { id: true, name: true, departmentRef: { select: { name: true } }, officeLocationRef: { select: { officeName: true } } } },
+        attendance: { select: { checkinTime: true, checkoutTime: true, status: true, dailySummary: true, approvalStatus: true, approvedBy: true, approvedAt: true } },
       },
       orderBy: { summaryDate: "desc" },
     });
@@ -101,11 +101,6 @@ export async function POST(req: Request) {
         summary,
         summaryDate: todayDate(),
       },
-    });
-
-    await prisma.attendanceRecord.update({
-      where: { id: attendance.id },
-      data: { dailySummary: summary },
     });
 
     return Response.json({ record: newSummary });
