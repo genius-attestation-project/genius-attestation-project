@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { hasPermission } from "@/features/admin/server/rbac.service";
@@ -28,7 +29,7 @@ function canUserBeLocked(lockState: any, sessionUserId: string) {
   return !isSuperAdmin && !isOwner && !isSelfSupervised && !noSupervisor;
 }
 
-export async function requireAuth(callbackUrl = "/dashboard") {
+export const requireAuth = cache(async (callbackUrl = "/dashboard") => {
   let session;
 
   try {
@@ -65,9 +66,9 @@ export async function requireAuth(callbackUrl = "/dashboard") {
   }
 
   return session;
-}
+});
 
-export async function requirePermission(permission: string, callbackUrl = "/dashboard") {
+export const requirePermission = cache(async (permission: string, callbackUrl = "/dashboard") => {
   const session = await requireAuth(callbackUrl);
 
   if (!hasPermission(session.user, permission)) {
@@ -75,7 +76,7 @@ export async function requirePermission(permission: string, callbackUrl = "/dash
   }
 
   return session;
-}
+});
 
 export async function requireApiPermission(permission: string) {
   let session;

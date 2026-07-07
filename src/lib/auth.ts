@@ -166,8 +166,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return "/login?error=AuthCallbackFailure";
       }
     },
-    async jwt({ token }) {
+    async jwt({ token, user, trigger }) {
       if (!token.email) {
+        return token;
+      }
+
+      const isInitialSignIn = !!user;
+      const isUpdate = trigger === "update";
+      const missingPermissions = !token.permissions || !token.id;
+
+      if (!isInitialSignIn && !isUpdate && !missingPermissions) {
         return token;
       }
 
