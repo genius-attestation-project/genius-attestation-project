@@ -406,7 +406,7 @@ async function findStatusHistoryRows(
     SELECT id, lead_id, previous_status, new_status, changed_by, created_at
     FROM lead_status_history
     WHERE lead_id IN (${Prisma.join(leadIds)})
-      AND new_status = ${newStatus}::"LeadStatus"
+      AND new_status = ${newStatus}
     ORDER BY created_at DESC
   `);
 }
@@ -420,11 +420,11 @@ async function findTimelineRows(
   const previousStatus = parsePreviousStatus(filters.previousStatus);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`owner_admin_id = ${ownerAdminId}`,
-    Prisma.sql`new_status = ${newStatus}::"LeadStatus"`,
+    Prisma.sql`new_status = ${newStatus}`,
   ];
 
   if (previousStatus) {
-    conditions.push(Prisma.sql`previous_status = ${previousStatus}::"LeadStatus"`);
+    conditions.push(Prisma.sql`previous_status = ${previousStatus}`);
   }
 
   if (filters.dateFrom) {

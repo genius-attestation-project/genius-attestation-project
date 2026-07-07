@@ -101,7 +101,15 @@ export async function GET(request: Request) {
     const data = await getClosedAnalyticsCards(ownerAdminId, parseFilters(request.url));
     return jsonOk(data);
   } catch (error) {
-    console.error("Failed to fetch closed analytics", error);
+    const filters = parseFilters(request.url);
+    console.error(`[GET /api/closed/analytics] Database operation failed:`, {
+      endpoint: "/api/closed/analytics",
+      authenticatedUser: ownerAdminId,
+      filters,
+      prismaError: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     if (!ownerAdminId) {
       return jsonError("Unable to fetch closed analytics.", 500);
     }
@@ -110,7 +118,13 @@ export async function GET(request: Request) {
       const data = await getFallbackClosedAnalyticsCards(ownerAdminId);
       return jsonOk(data);
     } catch (fallbackError) {
-      console.error("Failed to fetch fallback closed analytics", fallbackError);
+      console.error(`[GET /api/closed/analytics] Fallback Database operation failed:`, {
+        endpoint: "/api/closed/analytics",
+        authenticatedUser: ownerAdminId,
+        prismaError: fallbackError instanceof Error ? fallbackError.name : "UnknownError",
+        message: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        stack: fallbackError instanceof Error ? fallbackError.stack : undefined,
+      });
       const message =
         process.env.NODE_ENV === "development" && fallbackError instanceof Error
           ? fallbackError.message

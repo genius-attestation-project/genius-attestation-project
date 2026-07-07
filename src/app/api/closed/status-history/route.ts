@@ -35,10 +35,19 @@ export async function GET(request: Request) {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("Authentication required.", 401);
 
-    const data = await getClosedTimeline(ownerAdminId, parseFilters(request.url));
+    const filters = parseFilters(request.url);
+    const data = await getClosedTimeline(ownerAdminId, filters);
     return jsonOk({ items: data });
   } catch (error) {
-    console.error("Failed to fetch closed status history", error);
+    const filters = parseFilters(request.url);
+    console.error(`[GET /api/closed/status-history] Database operation failed:`, {
+      endpoint: "/api/closed/status-history",
+      authenticatedUser: ownerAdminId,
+      filters,
+      prismaError: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     const message =
       process.env.NODE_ENV === "development" && error instanceof Error
         ? error.message

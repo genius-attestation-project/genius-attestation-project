@@ -38,11 +38,20 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get("page") ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
+    const filters = parseFilters(request.url);
 
-    const data = await getClosedLeadsTable(ownerAdminId, parseFilters(request.url), page, pageSize);
+    const data = await getClosedLeadsTable(ownerAdminId, filters, page, pageSize);
     return jsonOk(data);
   } catch (error) {
-    console.error("Failed to fetch closed leads", error);
+    const filters = parseFilters(request.url);
+    console.error(`[GET /api/leads/closed] Database operation failed:`, {
+      endpoint: "/api/leads/closed",
+      authenticatedUser: ownerAdminId,
+      filters,
+      prismaError: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     const message =
       process.env.NODE_ENV === "development" && error instanceof Error
         ? error.message

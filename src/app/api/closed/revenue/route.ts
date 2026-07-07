@@ -35,7 +35,14 @@ export async function GET(request: Request) {
     const data = await getClosedRevenue(ownerAdminId, filters, interval);
     return jsonOk({ items: data });
   } catch (error) {
-    console.error("Failed to fetch closed revenue", error);
+    console.error(`[GET /api/closed/revenue] Database operation failed:`, {
+      endpoint: "/api/closed/revenue",
+      authenticatedUser: ownerAdminId,
+      filters,
+      prismaError: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     const message =
       process.env.NODE_ENV === "development" && error instanceof Error
         ? error.message
