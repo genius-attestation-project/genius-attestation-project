@@ -133,8 +133,6 @@ function getCalendarStatus(args: {
   const today = todayDate();
 
   if (args.date > today) {
-    if (args.leaveStatus === "Approved" || args.attendanceStatus === "Leave") return "Approved Leave";
-    if (isWeekend(args.date)) return "Holiday";
     return "Empty";
   }
 
