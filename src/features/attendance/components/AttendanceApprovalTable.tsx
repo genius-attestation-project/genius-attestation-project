@@ -357,7 +357,7 @@ export function AttendanceApprovalTable() {
               )}
               {detailModal.dailySummary && (
                 <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-white/40">Daily Work Summary</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-white/40">Checkout Summary</p>
                   <p className="mt-1 text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">{detailModal.dailySummary}</p>
                 </div>
               )}

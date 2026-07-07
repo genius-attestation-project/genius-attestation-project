@@ -178,13 +178,6 @@ export function DailySummaryView({ canViewAll }: { canViewAll: boolean }) {
                   {selectedSummary.summary || "No daily work summary provided."}
                 </div>
               </div>
-
-              <div>
-                <h4 className="mb-2 text-sm font-bold text-slate-900 dark:text-white">Checkout Summary</h4>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 whitespace-pre-wrap">
-                  {selectedSummary.attendance.dailySummary || "No checkout summary provided."}
-                </div>
-              </div>
             </div>
             
             <div className="border-t border-slate-100 p-6 text-right dark:border-white/10">
