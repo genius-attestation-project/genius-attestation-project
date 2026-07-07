@@ -228,6 +228,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "attendance.view",
       },
       {
+        label: "Daily Summary",
+        href: "/dashboard/attendance/daily-summary",
+        icon: FileClock,
+        menuPermission: "menu.attendance.daily-summary",
+        pagePermission: "attendance.view",
+      },
+      {
         label: "Approval",
         href: "/dashboard/attendance/approval",
         icon: BadgeCheck,
