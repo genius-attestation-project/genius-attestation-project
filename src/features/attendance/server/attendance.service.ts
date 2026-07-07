@@ -131,7 +131,12 @@ function getCalendarStatus(args: {
   if (isWeekend(args.date)) return "Holiday";
 
   const today = todayDate();
-  if (args.date > today) return "Empty";
+
+  if (args.date > today) {
+    if (args.leaveStatus === "Approved" || args.attendanceStatus === "Leave") return "Approved Leave";
+    if (isWeekend(args.date)) return "Holiday";
+    return "Empty";
+  }
 
   if (args.date.getTime() === today.getTime() && args.closingTimeStr) {
     const current = new Date();
@@ -162,13 +167,13 @@ function leavePriority(status: AttendanceRecord["leaveStatus"]): number {
 
 export async function isAttendanceReady(): Promise<boolean> {
   try {
-    await prisma.$queryRaw`SELECT 1 FROM "attendance_records" LIMIT 0`;
-    await prisma.$queryRaw`SELECT 1 FROM "leave_requests" LIMIT 0`;
+    await prisma.attendanceRecord.findFirst({ select: { id: true } });
+    await prisma.leaveRequest.findFirst({ select: { id: true } });
     return true;
   } catch (err) {
     if (isTableMissingError(err)) return false;
     console.error("[attendance] isAttendanceReady error:", err);
-    throw err;
+    return false;
   }
 }
 
@@ -535,7 +540,29 @@ export async function getAttendanceStats(ownerAdminId: string): Promise<Attendan
     const attendedOrOnLeave = await prisma.attendanceRecord.count({
       where: { ownerAdminId, attendanceDate: today },
     });
-    const absentToday = Math.max(0, totalUsers - attendedOrOnLeave);
+    
+    const settings = await prisma.attendanceSetting.findMany({
+      where: { ownerAdminId },
+      select: { userId: true, expectedCheckoutTime: true }
+    });
+    
+    // We only count them as absent if their closing time has passed, or there is no setting.
+    // However, since it's a global stat, if we just want a rough number:
+    let absentToday = 0;
+    const currentTime = new Date();
+    for (const user of await prisma.user.findMany({ where: { OR: [{ ownerAdminId }, { id: ownerAdminId }], isActive: true }, select: { id: true } })) {
+      const hasAttended = await prisma.attendanceRecord.count({ where: { userId: user.id, attendanceDate: today } });
+      if (hasAttended === 0) {
+        const setting = settings.find(s => s.userId === user.id);
+        const closingTimeStr = setting?.expectedCheckoutTime;
+        if (closingTimeStr) {
+          const [h, m] = closingTimeStr.split(":").map(Number);
+          const closing = new Date(today);
+          closing.setHours(h, m, 0, 0);
+          if (currentTime >= closing) absentToday++;
+        }
+      }
+    }
 
     return {
       presentToday,
