@@ -42,7 +42,6 @@ export async function GET(request: Request) {
     const filters = parseFilters(request.url);
     console.error(`[GET /api/closed/charts] Database operation failed:`, {
       endpoint: "/api/closed/charts",
-      authenticatedUser: ownerAdminId,
       filters,
       prismaError: error instanceof Error ? error.name : "UnknownError",
       message: error instanceof Error ? error.message : String(error),

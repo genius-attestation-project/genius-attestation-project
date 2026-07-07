@@ -37,8 +37,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error(`[GET /api/closed/trends] Database operation failed:`, {
       endpoint: "/api/closed/trends",
-      authenticatedUser: ownerAdminId,
-      filters,
       prismaError: error instanceof Error ? error.name : "UnknownError",
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
