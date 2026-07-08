@@ -28,13 +28,15 @@ export function buildReportFilters(searchParams: URLSearchParams, ownerAdminId: 
 }
 
 export function applyFiltersToLead(baseWhere: any, filters: any) {
-  const where = { ...baseWhere };
-  if (filters.userId) where.assignedUserId = filters.userId;
-  if (filters.assignedUserId) where.assignedUserId = filters.assignedUserId;
-  if (filters.leadStatus) where.leadStatus = filters.leadStatus;
-  if (filters.countryId) where.country = filters.countryId;
-  if (filters.serviceId) where.service = filters.serviceId;
-  if (filters.leadSourceId) where.source = filters.leadSourceId;
+  const where = { 
+    ...baseWhere,
+    ...(filters.userId ? { assignedUserId: filters.userId } : {}),
+    ...(filters.assignedUserId ? { assignedUserId: filters.assignedUserId } : {}),
+    ...(filters.leadStatus ? { leadStatus: filters.leadStatus } : {}),
+    ...(filters.countryId ? { country: filters.countryId } : {}),
+    ...(filters.serviceId ? { service: filters.serviceId } : {}),
+    ...(filters.leadSourceId ? { source: filters.leadSourceId } : {})
+  };
   
   if (filters.search) {
     where.OR = [
@@ -49,13 +51,14 @@ export function applyFiltersToLead(baseWhere: any, filters: any) {
 }
 
 export function applyFiltersToRegistration(baseWhere: any, filters: any) {
-  const where = { ...baseWhere };
-  
-  if (filters.userId) where.createdBy = filters.userId;
-  if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
-  if (filters.countryId) where.country = filters.countryId;
-  if (filters.serviceId) where.processType = filters.serviceId;
-  if (filters.documentTypeId) where.documentType = filters.documentTypeId;
+  const where = { 
+    ...baseWhere,
+    ...(filters.userId ? { createdBy: filters.userId } : {}),
+    ...(filters.paymentStatus ? { paymentStatus: filters.paymentStatus } : {}),
+    ...(filters.countryId ? { country: filters.countryId } : {}),
+    ...(filters.serviceId ? { processType: filters.serviceId } : {}),
+    ...(filters.documentTypeId ? { documentType: filters.documentTypeId } : {})
+  };
   
   if (filters.search) {
     where.OR = [
@@ -69,25 +72,32 @@ export function applyFiltersToRegistration(baseWhere: any, filters: any) {
 }
 
 export function applyFiltersToFollowup(baseWhere: any, filters: any) {
-  const where = { ...baseWhere };
-  if (filters.userId) where.userId = filters.userId;
-  return where;
+  return {
+    ...baseWhere,
+    ...(filters.userId ? { userId: filters.userId } : {})
+  };
 }
 
 export function applyFiltersToAttendance(baseWhere: any, filters: any) {
-  const where = { ...baseWhere };
-  if (filters.userId) where.userId = filters.userId;
-  return where;
+  return {
+    ...baseWhere,
+    ...(filters.userId ? { userId: filters.userId } : {})
+  };
 }
 
 export function applyFiltersToDocumentMovement(baseWhere: any, filters: any) {
   const where = { ...baseWhere };
-  if (filters.userId) where.createdBy = filters.userId;
-  return where;
+  delete where.ownerAdminId; // DocumentMovement schema does not have ownerAdminId
+  
+  return {
+    ...where,
+    ...(filters.userId ? { createdBy: filters.userId } : {})
+  };
 }
 
 export function applyFiltersToProcess(baseWhere: any, filters: any) {
-  const where = { ...baseWhere };
-  if (filters.userId) where.assignedUserId = filters.userId;
-  return where;
+  return {
+    ...baseWhere,
+    ...(filters.userId ? { assignedUserId: filters.userId } : {})
+  };
 }
