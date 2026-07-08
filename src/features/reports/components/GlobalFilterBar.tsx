@@ -24,42 +24,93 @@ export default function GlobalFilterBar() {
   const [localFilters, setLocalFilters] = useState(filters);
   const [resetKey, setResetKey] = useState(0);
   const [dateError, setDateError] = useState("");
-  
+
   const [metadata, setMetadata] = useState<FilterMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    let retries = 1;
+    const abortController = new AbortController();
+    let isMounted = true;
+
     const fetchMetadata = async () => {
-      try {
-        setLoading(true);
-        setError(false);
-        const res = await fetch("/api/reports/filter-options");
-        if (!res.ok) throw new Error("Failed to fetch filter options");
-        const data = await res.json();
-        
-        // Log partial failures on the frontend
-        Object.entries(data).forEach(([key, value]) => {
-          if (value === null) {
-            console.error(`[GlobalFilterBar] Failed to load data for filter: ${key}`);
+      let attempt = 0;
+      const maxRetries = 1;
+
+      while (attempt <= maxRetries && isMounted) {
+        try {
+          if (attempt === 0) setLoading(true);
+          setError(false);
+
+          console.log("[GlobalFilterBar] Request started", { attempt });
+          const res = await fetch("/api/reports/filter-options", {
+            signal: abortController.signal,
+          });
+
+          console.log("[GlobalFilterBar] Response status:", res.status);
+
+          if (!res.ok) {
+            let errorBody = "";
+            try {
+              errorBody = await res.text();
+            } catch (e) {
+              errorBody = "Could not read error body";
+            }
+            console.error(`[GlobalFilterBar] API Error ${res.status}:`, errorBody);
+            throw new Error(`HTTP error! status: ${res.status}`);
           }
-        });
-        
-        setMetadata(data);
-      } catch (err) {
-        if (retries > 0) {
-          retries--;
-          fetchMetadata(); // retry once
-        } else {
-          setError(true);
-          console.error("[GlobalFilterBar] Failed to load filter metadata:", err);
+
+          let data;
+          try {
+            data = await res.json();
+            console.log("[GlobalFilterBar] Parsed JSON successfully");
+          } catch (e) {
+            console.error("[GlobalFilterBar] JSON parsing failure:", e);
+            throw new Error("Failed to parse JSON response");
+          }
+
+          if (!isMounted) return;
+
+          const expectedProps = [
+            "officeLocations", "processOffices", "departments", "users",
+            "countries", "services", "documentTypes", "leadSources",
+            "leadStatuses", "paymentStatuses"
+          ];
+
+          expectedProps.forEach(prop => {
+            if (data[prop] === undefined) {
+              console.warn(`[GlobalFilterBar] Missing property in response: ${prop}`);
+            } else if (data[prop] === null) {
+              console.error(`[GlobalFilterBar] Property returned as null (failed to load): ${prop}`);
+            }
+          });
+
+          setMetadata(data);
+          setLoading(false);
+          console.log("[GlobalFilterBar] Loading completed successfully");
+          return; // Success, exit loop
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            console.log("[GlobalFilterBar] Fetch aborted");
+            return;
+          }
+          console.error("[GlobalFilterBar] Fetch attempt failed:", err);
+          attempt++;
+          if (attempt > maxRetries && isMounted) {
+            setError(true);
+            setLoading(false);
+            console.log("[GlobalFilterBar] Max retries reached, setting error state");
+          }
         }
-      } finally {
-        if (retries <= 0 || metadata) setLoading(false);
       }
     };
+
     fetchMetadata();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, []);
 
   // Make sure localFilters are updated if context filters are reset
@@ -96,10 +147,11 @@ export default function GlobalFilterBar() {
     }
   };
 
-  const makeOptions = (items: {id: string, name: string}[] | undefined | null, allLabel: string, errorLabel: string) => {
+  const makeOptions = (items: { id: string, name: string }[] | undefined | null, allLabel: string, _errorLabel: string) => {
+    if (loading) return [{ label: "Loading...", value: "" }];
     if (error) return [{ label: "Unable to load data", value: "" }];
-    if (loading || items === undefined) return [{ label: "Loading...", value: "" }];
-    if (items === null) return [{ label: errorLabel, value: "" }];
+    if (items === undefined || items === null) return [{ label: "Unable to load data", value: "" }];
+    if (Array.isArray(items) && items.length === 0) return [{ label: "No records found", value: "" }];
     return [{ label: allLabel, value: "" }, ...items.map(item => ({ label: item.name, value: item.id }))];
   };
 
