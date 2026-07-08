@@ -10,7 +10,6 @@ export const documentTypeOptions = [
 ] as const;
 
 export const processTypeOptions = ["Apostille", "Attestation", "Translation", "Embassy"] as const;
-export const externalProcessOptions = ["MOFA", "Home Department", "Embassy", "Other"] as const;
 export const priorityOptions = ["Normal", "Express", "Super Fast"] as const;
 export const paymentModeOptions = ["Cash", "UPI", "Bank Transfer", "Card", "Corporate"] as const;
 export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as const;
