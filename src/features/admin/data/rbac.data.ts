@@ -22,6 +22,7 @@ import {
   PlaneTakeoff,
   FileClock,
   ListChecks,
+  BarChart3,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -170,6 +171,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "revenue_summary.view",
       },
     ],
+  },
+  {
+    label: "Reports & Analytics",
+    href: "/dashboard/reports",
+    icon: BarChart3,
+    menuPermission: "menu.reports",
+    pagePermission: "reports.view",
   },
   {
     label: "BM Report",
@@ -348,6 +356,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "lob", label: "LOB", description: "Line of business access." },
   { key: "closed_leads", label: "Closed Leads", description: "Closed lead access." },
   { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access." },
+  { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
@@ -393,6 +402,7 @@ export const defaultRoleDefinitions = [
       "pending_approval.edit",
       "lob.view",
       "closed_leads.view",
+      "reports.view",
       "search_report.view",
       "search_report.export",
       "revenue_summary.view",
@@ -415,6 +425,7 @@ export const defaultRoleDefinitions = [
       "menu.lead-management.pending-approval",
       "menu.lead-management.lob",
       "menu.lead-management.closed",
+      "menu.reports",
       "menu.search-report",
       "menu.search-report.general",
       "menu.search-report.revenue-summary",
