@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 type FilterMetadata = {
-  offices: { id: string; name: string }[] | null;
+  officeLocations: { id: string; name: string }[] | null;
   processOffices: { id: string; name: string }[] | null;
   departments: { id: string; name: string }[] | null;
   users: { id: string; name: string }[] | null;
@@ -35,9 +35,17 @@ export default function GlobalFilterBar() {
       try {
         setLoading(true);
         setError(false);
-        const res = await fetch("/api/reports/filters");
-        if (!res.ok) throw new Error("Failed");
+        const res = await fetch("/api/reports/filter-options");
+        if (!res.ok) throw new Error("Failed to fetch filter options");
         const data = await res.json();
+        
+        // Log partial failures on the frontend
+        Object.entries(data).forEach(([key, value]) => {
+          if (value === null) {
+            console.error(`[GlobalFilterBar] Failed to load data for filter: ${key}`);
+          }
+        });
+        
         setMetadata(data);
       } catch (err) {
         if (retries > 0) {
@@ -45,7 +53,7 @@ export default function GlobalFilterBar() {
           fetchMetadata(); // retry once
         } else {
           setError(true);
-          console.error("Failed to load filter metadata:", err);
+          console.error("[GlobalFilterBar] Failed to load filter metadata:", err);
         }
       } finally {
         if (retries <= 0 || metadata) setLoading(false);
@@ -119,7 +127,7 @@ export default function GlobalFilterBar() {
           <label className="block text-sm font-semibold text-slate-700 mb-1">Office Location</label>
           <FilterDropdown
             label=""
-            options={makeOptions(metadata?.offices, "All Offices", "Unable to load Offices")}
+            options={makeOptions(metadata?.officeLocations, "All Offices", "Unable to load Offices")}
             defaultValue={localFilters.officeId || ""}
             onChange={(val) => handleUpdate("officeId", val)}
           />

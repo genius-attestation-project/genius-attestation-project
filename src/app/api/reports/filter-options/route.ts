@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const authError = await requireApiPermission("reports.view");
+    if (authError) return authError;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,7 +53,7 @@ export async function GET() {
       }
     });
 
-    const offices = results[0].status === 'fulfilled' ? results[0].value : null;
+    const officeLocationsResult = results[0].status === 'fulfilled' ? results[0].value : null;
     const departments = results[1].status === 'fulfilled' ? results[1].value : null;
     const users = results[2].status === 'fulfilled' ? results[2].value : null;
     const leads = results[3].status === 'fulfilled' ? results[3].value : null;
@@ -64,8 +68,8 @@ export async function GET() {
     const documentTypes = registrations ? Array.from(new Set(registrations.map(r => r.documentType).filter(Boolean))) : null;
 
     return NextResponse.json({
-      offices: offices ? offices.map(o => ({ id: o.id, name: o.officeName })) : null,
-      processOffices: offices ? offices.filter(o => o.isProcessOffice).map(o => ({ id: o.id, name: o.officeName })) : null,
+      officeLocations: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
+      processOffices: officeLocationsResult ? officeLocationsResult.filter(o => o.isProcessOffice).map(o => ({ id: o.id, name: o.officeName })) : null,
       departments: departments ? departments.map(d => ({ id: d.id, name: d.name })) : null,
       users: users ? users.map(u => ({ id: u.id, name: u.name || u.email })) : null,
       countries: countries ? countries.map(c => ({ id: c, name: c })) : null,
