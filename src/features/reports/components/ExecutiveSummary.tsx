@@ -42,10 +42,9 @@ export default function ExecutiveSummary() {
       setError(null);
       try {
         const queryParams = new URLSearchParams();
-        if (filters.dateRange) queryParams.append("dateRange", filters.dateRange);
-        if (filters.startDate) queryParams.append("startDate", filters.startDate);
-        if (filters.endDate) queryParams.append("endDate", filters.endDate);
-        if (filters.officeLocationId) queryParams.append("officeLocationId", filters.officeLocationId);
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) queryParams.append(key, String(value));
+        });
         
         const res = await fetch(`/api/reports/executive-summary?${queryParams.toString()}`);
         if (!res.ok) throw new Error("Failed to fetch data");

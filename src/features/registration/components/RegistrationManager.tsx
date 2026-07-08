@@ -26,7 +26,6 @@ import { RegistrationDetail } from "@/features/registration/components/Registrat
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   documentTypeOptions,
-  externalProcessOptions,
   paymentModeOptions,
   paymentStatusOptions,
   priorityOptions,
@@ -822,7 +821,12 @@ export function RegistrationManager({
               required
             />
             <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} required />
-            <SelectField label="Address Process" name="externalProcess" value={form.externalProcess} options={externalProcessOptions} onChange={updateField} required />
+            <Input
+              label="Address Process"
+              value={form.externalProcess}
+              onChange={(event) => updateField("externalProcess", event.target.value)}
+              required
+            />
             <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} required />
             <Input
               label="Committed Duration / SLA"

@@ -25,7 +25,7 @@ export default function ReportsDashboard() {
             description="Centralized data reporting and visualization" 
           />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handlePrint} className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handlePrint} className="flex items-center gap-2">
               <Printer className="w-4 h-4" /> Print / Save as PDF
             </Button>
           </div>
