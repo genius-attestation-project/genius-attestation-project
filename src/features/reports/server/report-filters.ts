@@ -10,10 +10,9 @@ export function buildReportFilters(searchParams: URLSearchParams, ownerAdminId: 
     if (toDate) baseWhere.createdAt.lte = new Date(`${toDate}T23:59:59.999Z`);
   }
 
-  // To map filters correctly based on different models, we'll return the raw filter values
-  // and let the specific report endpoints apply them where applicable.
   return {
     baseWhere,
+    userId: searchParams.get("userId") || undefined,
     officeId: searchParams.get("officeId") || undefined,
     departmentId: searchParams.get("departmentId") || undefined,
     assignedUserId: searchParams.get("assignedUserId") || undefined,
@@ -30,6 +29,7 @@ export function buildReportFilters(searchParams: URLSearchParams, ownerAdminId: 
 
 export function applyFiltersToLead(baseWhere: any, filters: any) {
   const where = { ...baseWhere };
+  if (filters.userId) where.assignedUserId = filters.userId;
   if (filters.assignedUserId) where.assignedUserId = filters.assignedUserId;
   if (filters.leadStatus) where.leadStatus = filters.leadStatus;
   if (filters.countryId) where.country = filters.countryId;
@@ -51,6 +51,7 @@ export function applyFiltersToLead(baseWhere: any, filters: any) {
 export function applyFiltersToRegistration(baseWhere: any, filters: any) {
   const where = { ...baseWhere };
   
+  if (filters.userId) where.createdBy = filters.userId;
   if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
   if (filters.countryId) where.country = filters.countryId;
   if (filters.serviceId) where.processType = filters.serviceId;
@@ -64,5 +65,29 @@ export function applyFiltersToRegistration(baseWhere: any, filters: any) {
       { mobile: { contains: filters.search } },
     ];
   }
+  return where;
+}
+
+export function applyFiltersToFollowup(baseWhere: any, filters: any) {
+  const where = { ...baseWhere };
+  if (filters.userId) where.userId = filters.userId;
+  return where;
+}
+
+export function applyFiltersToAttendance(baseWhere: any, filters: any) {
+  const where = { ...baseWhere };
+  if (filters.userId) where.userId = filters.userId;
+  return where;
+}
+
+export function applyFiltersToDocumentMovement(baseWhere: any, filters: any) {
+  const where = { ...baseWhere };
+  if (filters.userId) where.createdBy = filters.userId;
+  return where;
+}
+
+export function applyFiltersToProcess(baseWhere: any, filters: any) {
+  const where = { ...baseWhere };
+  if (filters.userId) where.assignedUserId = filters.userId;
   return where;
 }

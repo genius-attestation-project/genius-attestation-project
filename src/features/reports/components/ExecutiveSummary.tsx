@@ -76,7 +76,12 @@ export default function ExecutiveSummary() {
     <div className="space-y-8">
       {/* Overview Section */}
       <section>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Overview</h2>
+        <div className="flex justify-between items-end border-b pb-2 mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">Overview</h2>
+          <span className="text-sm font-medium text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+            Reporting User: <span className="font-semibold text-slate-800">{data.userName || "All Users"}</span>
+          </span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             label="Leads Created"

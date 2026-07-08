@@ -88,6 +88,14 @@ export default function GlobalFilterBar() {
           setMetadata(data);
           setLoading(false);
           console.log("[GlobalFilterBar] Loading completed successfully");
+          
+          if (data.users && data.users.length === 1) {
+             const defaultUserId = data.users[0].id;
+             const defaultUserName = data.users[0].name;
+             setLocalFilters(prev => ({ ...prev, userId: defaultUserId, userName: defaultUserName }));
+             updateFilters({ ...filters, userId: defaultUserId, userName: defaultUserName });
+          }
+          
           return; // Success, exit loop
         } catch (err: any) {
           if (err.name === 'AbortError') {
@@ -136,9 +144,16 @@ export default function GlobalFilterBar() {
   const handleReset = () => {
     setDateError("");
     setResetKey(prev => prev + 1);
-    const defaults = { fromDate: "", toDate: "" };
+    const defaults: any = { fromDate: "", toDate: "" };
+    if (metadata?.users?.length === 1) {
+       defaults.userId = metadata.users[0].id;
+    }
     setLocalFilters(defaults);
     resetFilters();
+    // if there's only one user, we must ensure it stays in context after reset
+    if (metadata?.users?.length === 1) {
+       setTimeout(() => updateFilters({ userId: metadata.users![0].id, userName: metadata.users![0].name }), 0);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -197,7 +212,21 @@ export default function GlobalFilterBar() {
       {dateError && <p className="text-red-500 text-sm font-medium -mt-2">{dateError}</p>}
 
       {/* Row 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+        <div key={`mainuser-${resetKey}`}>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">User</label>
+          <FilterDropdown
+            label=""
+            options={makeOptions(metadata?.users, "All Users", "Unable to load Users")}
+            defaultValue={metadata?.users?.length === 1 ? metadata.users[0].id : (localFilters.userId || "")}
+            onChange={(val) => {
+              handleUpdate("userId", val);
+              const userObj = metadata?.users?.find(u => u.id === val);
+              handleUpdate("userName", userObj ? userObj.name : "All Users");
+            }}
+            disabled={metadata?.users?.length === 1}
+          />
+        </div>
         <div key={`user-${resetKey}`}>
           <label className="block text-sm font-semibold text-slate-700 mb-1">Assigned User</label>
           <FilterDropdown

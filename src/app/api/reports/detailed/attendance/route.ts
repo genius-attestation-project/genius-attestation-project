@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
+import { buildReportFilters, applyFiltersToAttendance } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -19,23 +19,21 @@ export async function GET(request: Request) {
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const filters = buildReportFilters(searchParams, ownerAdminId);
-    const baseWhere = filters.baseWhere;
-    const leadWhere = applyFiltersToLead(baseWhere, filters);
-    const regWhere = applyFiltersToRegistration(baseWhere, filters);
+    const attendanceWhere = applyFiltersToAttendance(filters.baseWhere, filters);
 
     if (assignedUser) {
-      baseWhere.userId = assignedUser;
+      attendanceWhere.userId = assignedUser;
     }
 
     if (attendanceStatus) {
-      baseWhere.status = attendanceStatus;
+      attendanceWhere.status = attendanceStatus;
     }
 
     const skip = (page - 1) * limit;
 
     const [attendance, total] = await Promise.all([
       prisma.attendanceRecord.findMany({
-        where: baseWhere,
+        where: attendanceWhere,
         skip,
         take: limit,
         orderBy: { attendanceDate: 'desc' },
@@ -43,7 +41,7 @@ export async function GET(request: Request) {
           user: { select: { name: true } }
         }
       }),
-      prisma.attendanceRecord.count({ where: baseWhere })
+      prisma.attendanceRecord.count({ where: attendanceWhere })
     ]);
 
     return NextResponse.json({

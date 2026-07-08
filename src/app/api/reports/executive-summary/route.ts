@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
+import { 
+  buildReportFilters, 
+  applyFiltersToLead, 
+  applyFiltersToRegistration,
+  applyFiltersToFollowup,
+  applyFiltersToAttendance,
+  applyFiltersToDocumentMovement,
+  applyFiltersToProcess
+} from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -17,16 +25,22 @@ export async function GET(request: Request) {
     // Default to the current admin's ownerAdminId
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const filters = buildReportFilters(searchParams, ownerAdminId);
+    
     const baseWhere = filters.baseWhere;
     const leadWhere = applyFiltersToLead(baseWhere, filters);
     const regWhere = applyFiltersToRegistration(baseWhere, filters);
+    
+    const followupWhere = applyFiltersToFollowup(baseWhere, filters);
+    const attendanceWhere = applyFiltersToAttendance(baseWhere, filters);
+    const docMoveWhere = applyFiltersToDocumentMovement(baseWhere, filters);
+    const processWhere = applyFiltersToProcess(baseWhere, filters);
 
     // 1. Leads
-    const leadsCreated = await prisma.lead.count({ where: leadWhere,
-    });
+    const leadsCreated = await prisma.lead.count({ where: leadWhere });
 
     // 2. Registrations & Revenue
-    const registrations = await prisma.registration.findMany({ where: regWhere,
+    const registrations = await prisma.registration.findMany({ 
+      where: regWhere,
       select: { totalCharges: true, balanceAmount: true, trackingStatus: true },
     });
     const revenueRegistrations = registrations.length;
@@ -35,17 +49,25 @@ export async function GET(request: Request) {
     const documentsDelivered = registrations.filter(r => r.trackingStatus === "Delivered").length;
 
     // 3. Followups
-    const followupsCreated = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Created" },
+    const finalFollowupWhere = {
+      ...followupWhere,
+      lead: leadWhere,
+    };
+    
+    const followupsCreated = await prisma.leadFollowupHistory.count({ 
+      where: { ...finalFollowupWhere, actionType: "Created" } 
     });
-    const followupsCompleted = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Completed" },
+    const followupsCompleted = await prisma.leadFollowupHistory.count({ 
+      where: { ...finalFollowupWhere, actionType: "Completed" } 
     });
-    const followupsExtended = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Rescheduled" },
+    const followupsExtended = await prisma.leadFollowupHistory.count({ 
+      where: { ...finalFollowupWhere, actionType: "Rescheduled" } 
     });
     const callsMade = followupsCompleted; // Approximation
 
     // 4. Attendance
     const attendanceRecords = await prisma.attendanceRecord.findMany({
-      where: baseWhere, // Assuming we add ownerAdminId to attendance in schema, if not use user relation
+      where: attendanceWhere, 
       select: { status: true, workingHours: true, dailySummary: true },
     });
     const presentDays = attendanceRecords.filter(a => a.status === "Present").length;
@@ -53,15 +75,20 @@ export async function GET(request: Request) {
     const dailySummariesSubmitted = attendanceRecords.filter(a => a.dailySummary != null).length;
 
     // 5. Operations
+    const finalDocMoveWhere = {
+      ...docMoveWhere,
+      registration: regWhere,
+    };
     const bmMovements = await prisma.documentMovement.count({
-      // We don't have ownerAdminId directly on DocumentMovement in schema, we might need to join Registration
-      where: {
-        registration: { ownerAdminId }
-      },
+      where: finalDocMoveWhere,
     });
 
+    const finalProcessWhere = {
+      ...processWhere,
+      registration: regWhere,
+    };
     const processActions = await prisma.processAssignment.count({
-      where: baseWhere,
+      where: finalProcessWhere,
     });
 
     // 6. Chart Data - Revenue Trend (Last 7 Days)
@@ -69,7 +96,8 @@ export async function GET(request: Request) {
     const last7Days = new Date(now);
     last7Days.setDate(last7Days.getDate() - 7);
     
-    const recentRegistrations = await prisma.registration.findMany({ where: { ...regWhere, createdAt: { gte: last7Days } },
+    const recentRegistrations = await prisma.registration.findMany({ 
+      where: { ...regWhere, createdAt: { gte: last7Days } },
       select: { createdAt: true, totalCharges: true }
     });
 
@@ -95,7 +123,7 @@ export async function GET(request: Request) {
     // Chart Data - Lead Source
     const leadsBySource = await prisma.lead.groupBy({
       by: ['source'],
-      where: baseWhere,
+      where: leadWhere,
       _count: true
     });
     const leadSources = leadsBySource
@@ -103,14 +131,24 @@ export async function GET(request: Request) {
       .map(l => ({ name: l.source, value: l._count }));
 
     // Customers Handled
-    const leadsEmails = await prisma.lead.findMany({ where: leadWhere,
+    const leadsEmails = await prisma.lead.findMany({ 
+      where: leadWhere,
       select: { email: true }
     });
     const uniqueCustomers = new Set(leadsEmails.map(l => l.email));
     const totalCustomersHandled = uniqueCustomers.size;
 
+    let userName = "All Users";
+    if (filters.userId) {
+      const user = await prisma.user.findUnique({ where: { id: filters.userId }, select: { name: true, email: true } });
+      if (user) {
+         userName = user.name || user.email || "Unknown";
+      }
+    }
+
     return NextResponse.json({
       data: {
+        userName,
         leadsCreated,
         revenueRegistrations,
         revenueGenerated,

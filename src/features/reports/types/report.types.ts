@@ -3,6 +3,8 @@ export interface GlobalReportFilters {
   toDate?: string;
   officeId?: string;
   departmentId?: string;
+  userId?: string;
+  userName?: string;
   assignedUserId?: string;
   leadStatus?: string;
   paymentStatus?: string;
@@ -15,6 +17,7 @@ export interface GlobalReportFilters {
 }
 
 export interface ExecutiveSummaryMetrics {
+  userName?: string;
   leadsCreated: number;
   revenueRegistrations: number;
   followupsCreated: number;

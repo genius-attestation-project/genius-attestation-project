@@ -135,7 +135,8 @@ export default function DetailedReports() {
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    doc.text(`Genius Attestation - ${activeTab.toUpperCase()} Report`, 14, 15);
+    const titleSuffix = filters.userName && filters.userName !== "All Users" ? ` - ${filters.userName}` : "";
+    doc.text(`Genius Attestation - ${activeTab.toUpperCase()} Report${titleSuffix}`, 14, 15);
     
     const cols = getColumns();
     const head = [cols.map(c => c.label)];
@@ -162,7 +163,7 @@ export default function DetailedReports() {
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    doc.save(`Genius_${activeTab}_Report.pdf`);
+    doc.save(`Genius_${activeTab}_Report${titleSuffix.replace(' - ', '_').replace(/ /g, '_')}.pdf`);
   };
 
   const handleExportExcel = () => {
@@ -183,7 +184,8 @@ export default function DetailedReports() {
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, `Genius_${activeTab}_Report.xlsx`);
+    const titleSuffix = filters.userName && filters.userName !== "All Users" ? `_${filters.userName.replace(/ /g, '_')}` : "";
+    XLSX.writeFile(workbook, `Genius_${activeTab}_Report${titleSuffix}.xlsx`);
   };
 
   return (

@@ -13,6 +13,7 @@ type FilterDropdownProps = {
   options: FilterOption[];
   defaultValue?: string;
   onChange?: (value: string) => void;
+  disabled?: boolean;
 };
 
 export function FilterDropdown({
@@ -20,12 +21,13 @@ export function FilterDropdown({
   options,
   defaultValue,
   onChange,
+  disabled,
 }: FilterDropdownProps) {
   const fallbackValue = useMemo(() => options[0]?.value ?? "", [options]);
   const [value, setValue] = useState(defaultValue ?? fallbackValue);
 
   return (
-    <label className="inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm sm:w-auto dark:bg-white/5">
+    <label className={`inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] px-4 text-sm shadow-sm sm:w-auto ${disabled ? 'bg-slate-100 opacity-60 cursor-not-allowed' : 'bg-white/70 dark:bg-white/5'}`}>
       <span className="font-semibold text-soft">{label}</span>
       <select
         value={value}
@@ -33,7 +35,8 @@ export function FilterDropdown({
           setValue(event.target.value);
           onChange?.(event.target.value);
         }}
-        className="min-w-0 flex-1 bg-transparent font-semibold outline-none sm:flex-none"
+        disabled={disabled}
+        className={`min-w-0 flex-1 bg-transparent font-semibold outline-none sm:flex-none ${disabled ? 'cursor-not-allowed' : ''}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

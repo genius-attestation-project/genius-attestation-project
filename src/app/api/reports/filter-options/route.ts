@@ -14,6 +14,21 @@ export async function GET() {
     }
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
+    const userRole = typeof session.user.role === 'string' ? session.user.role : (session.user.role as any)?.name || "";
+    const isSuperAdmin = userRole === "Super Admin";
+    const isOwnerAdmin = !session.user.ownerAdminId || session.user.ownerAdminId === session.user.id;
+    
+    let userWhere: any = { isActive: true };
+    if (isSuperAdmin) {
+      // all
+    } else if (isOwnerAdmin || userRole === "Admin") {
+      userWhere.ownerAdminId = ownerAdminId;
+    } else if (userRole === "Manager" || userRole === "Department Admin") {
+      userWhere.ownerAdminId = ownerAdminId;
+      // You can add departmentId here if needed: if (session.user.departmentId) userWhere.departmentId = session.user.departmentId;
+    } else {
+      userWhere.id = session.user.id;
+    }
 
     // Fetch master data for dropdowns using Promise.allSettled
     const results = await Promise.allSettled([
@@ -26,7 +41,7 @@ export async function GET() {
         select: { id: true, name: true },
       }),
       prisma.user.findMany({
-        where: { ownerAdminId, isActive: true },
+        where: userWhere,
         select: { id: true, name: true, email: true },
       }),
       // Fetch distinct values from Lead
@@ -55,9 +70,25 @@ export async function GET() {
 
     const officeLocationsResult = results[0].status === 'fulfilled' ? results[0].value : null;
     const departments = results[1].status === 'fulfilled' ? results[1].value : null;
-    const users = results[2].status === 'fulfilled' ? results[2].value : null;
+    const usersList = results[2].status === 'fulfilled' ? results[2].value : null;
     const leads = results[3].status === 'fulfilled' ? results[3].value : null;
     const registrations = results[4].status === 'fulfilled' ? results[4].value : null;
+
+    let users = null;
+    if (usersList) {
+      const nameCounts = new Map<string, number>();
+      usersList.forEach(u => {
+         const n = u.name || "Unknown";
+         nameCounts.set(n, (nameCounts.get(n) || 0) + 1);
+      });
+      users = usersList.map(u => {
+         const n = u.name || "Unknown";
+         if (nameCounts.get(n)! > 1) {
+            return { id: u.id, name: `${n} (${u.email})` };
+         }
+         return { id: u.id, name: n };
+      });
+    }
 
     const countries = leads ? Array.from(new Set(leads.map(l => l.country).filter(Boolean))) : null;
     const services = (leads || registrations) ? Array.from(new Set([
@@ -71,7 +102,7 @@ export async function GET() {
       officeLocations: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
       processOffices: officeLocationsResult ? officeLocationsResult.filter(o => o.isProcessOffice).map(o => ({ id: o.id, name: o.officeName })) : null,
       departments: departments ? departments.map(d => ({ id: d.id, name: d.name })) : null,
-      users: users ? users.map(u => ({ id: u.id, name: u.name || u.email })) : null,
+      users: users,
       countries: countries ? countries.map(c => ({ id: c, name: c })) : null,
       services: services ? services.map(s => ({ id: s, name: s })) : null,
       documentTypes: documentTypes ? documentTypes.map(d => ({ id: d, name: d })) : null,

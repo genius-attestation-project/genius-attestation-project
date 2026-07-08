@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
+import { buildReportFilters, applyFiltersToDocumentMovement } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -17,15 +17,13 @@ export async function GET(request: Request) {
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const filters = buildReportFilters(searchParams, ownerAdminId);
-    const baseWhere = filters.baseWhere;
-    const leadWhere = applyFiltersToLead(baseWhere, filters);
-    const regWhere = applyFiltersToRegistration(baseWhere, filters);
+    const docWhere = applyFiltersToDocumentMovement(filters.baseWhere, filters);
 
     const skip = (page - 1) * limit;
 
     const [movements, total] = await Promise.all([
       prisma.documentMovement.findMany({
-        where: baseWhere,
+        where: docWhere,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -35,7 +33,7 @@ export async function GET(request: Request) {
           currentOffice: { select: { officeName: true } },
         }
       }),
-      prisma.documentMovement.count({ where: baseWhere })
+      prisma.documentMovement.count({ where: docWhere })
     ]);
 
     return NextResponse.json({

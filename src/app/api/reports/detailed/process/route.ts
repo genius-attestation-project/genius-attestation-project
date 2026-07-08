@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-// Forced IDE refresh
 import { prisma } from "@/lib/prisma";
-import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
+import { buildReportFilters, applyFiltersToRegistration, applyFiltersToProcess } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -18,20 +17,25 @@ export async function GET(request: Request) {
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const filters = buildReportFilters(searchParams, ownerAdminId);
-    const baseWhere = filters.baseWhere;
-    const leadWhere = applyFiltersToLead(baseWhere, filters);
-    const regWhere = applyFiltersToRegistration(baseWhere, filters);
+    
+    const regWhere = applyFiltersToRegistration(filters.baseWhere, filters);
+    const processWhere = applyFiltersToProcess(filters.baseWhere, filters);
+
+    const finalWhere = {
+      ...processWhere,
+      registration: regWhere
+    };
 
     const skip = (page - 1) * limit;
 
     const [processData, total] = await Promise.all([
       prisma.processAssignment.findMany({
-        where: baseWhere,
+        where: finalWhere,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.processAssignment.count({ where: baseWhere })
+      prisma.processAssignment.count({ where: finalWhere })
     ]);
 
     return NextResponse.json({

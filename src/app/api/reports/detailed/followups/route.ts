@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
+import { buildReportFilters, applyFiltersToLead, applyFiltersToFollowup } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -18,19 +18,23 @@ export async function GET(request: Request) {
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const filters = buildReportFilters(searchParams, ownerAdminId);
-    const baseWhere = filters.baseWhere;
-    const leadWhere = applyFiltersToLead(baseWhere, filters);
-    const regWhere = applyFiltersToRegistration(baseWhere, filters);
+    const followupWhere = applyFiltersToFollowup(filters.baseWhere, filters);
+    const leadWhere = applyFiltersToLead(filters.baseWhere, filters);
 
     if (assignedUser) {
-      baseWhere.userId = assignedUser;
+      followupWhere.userId = assignedUser;
     }
+
+    const finalWhere = {
+      ...followupWhere,
+      lead: leadWhere
+    };
 
     const skip = (page - 1) * limit;
 
     const [followups, total] = await Promise.all([
       prisma.leadFollowupHistory.findMany({
-        where: baseWhere,
+        where: finalWhere,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -38,7 +42,7 @@ export async function GET(request: Request) {
           lead: { select: { firstName: true, lastName: true, leadCode: true } }
         }
       }),
-      prisma.leadFollowupHistory.count({ where: baseWhere })
+      prisma.leadFollowupHistory.count({ where: finalWhere })
     ]);
 
     return NextResponse.json({
