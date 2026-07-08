@@ -196,56 +196,56 @@ export default function DetailedReports() {
       {/* Sub-Tabs */}
       <div className="flex gap-2 pb-2 overflow-x-auto print:hidden">
         <Button 
-          variant={activeTab === "leads" ? "primary" : "outline"} 
+          variant={activeTab === "leads" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("leads")}
           className="text-sm rounded-full"
         >
           Leads Report
         </Button>
         <Button 
-          variant={activeTab === "registrations" ? "primary" : "outline"} 
+          variant={activeTab === "registrations" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("registrations")}
           className="text-sm rounded-full"
         >
           Revenue Registrations
         </Button>
         <Button 
-          variant={activeTab === "followups" ? "primary" : "outline"} 
+          variant={activeTab === "followups" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("followups")}
           className="text-sm rounded-full"
         >
           Followups
         </Button>
         <Button 
-          variant={activeTab === "attendance" ? "primary" : "outline"} 
+          variant={activeTab === "attendance" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("attendance")}
           className="text-sm rounded-full"
         >
           Attendance
         </Button>
         <Button 
-          variant={activeTab === "process" ? "primary" : "outline"} 
+          variant={activeTab === "process" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("process")}
           className="text-sm rounded-full"
         >
           Process Module
         </Button>
         <Button 
-          variant={activeTab === "bm-movements" ? "primary" : "outline"} 
+          variant={activeTab === "bm-movements" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("bm-movements")}
           className="text-sm rounded-full"
         >
           BM Movements
         </Button>
         <Button 
-          variant={activeTab === "delivery" ? "primary" : "outline"} 
+          variant={activeTab === "delivery" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("delivery")}
           className="text-sm rounded-full"
         >
           Ready For Delivery
         </Button>
         <Button 
-          variant={activeTab === "welcome-calls" ? "primary" : "outline"} 
+          variant={activeTab === "welcome-calls" ? "primary" : "secondary"} 
           onClick={() => setActiveTab("welcome-calls")}
           className="text-sm rounded-full"
         >
@@ -254,10 +254,10 @@ export default function DetailedReports() {
       </div>
 
       <div className="flex justify-end gap-2 print:hidden mb-2">
-        <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
           <Download className="w-4 h-4" /> Export PDF
         </Button>
-        <Button variant="outline" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
           <FileSpreadsheet className="w-4 h-4" /> Export Excel
         </Button>
       </div>
@@ -290,7 +290,7 @@ export default function DetailedReports() {
                   </div>
                   <div className="flex gap-2">
                     <Button 
-                      variant="outline" 
+                      variant="secondary" 
                       onClick={() => handlePageChange(pagination.page - 1)}
                       disabled={pagination.page <= 1}
                     >
@@ -300,7 +300,7 @@ export default function DetailedReports() {
                       Page {pagination.page} of {pagination.totalPages}
                     </span>
                     <Button 
-                      variant="outline" 
+                      variant="secondary" 
                       onClick={() => handlePageChange(pagination.page + 1)}
                       disabled={pagination.page >= pagination.totalPages}
                     >

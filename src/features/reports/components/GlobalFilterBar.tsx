@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { useReportFilters } from "../context/ReportFilterContext";
-import FilterDropdown from "@/components/ui/FilterDropdown";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { FilterDropdown } from "@/components/ui/FilterDropdown";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { DateRangeOption } from "../types/report.types";
 
 const DATE_OPTIONS = [
@@ -35,7 +35,7 @@ export default function GlobalFilterBar() {
             <FilterDropdown
               label="Date Range"
               options={DATE_OPTIONS}
-              value={filters.dateRange}
+              defaultValue={filters.dateRange}
               onChange={handleDateRangeChange}
             />
           </div>
@@ -66,17 +66,17 @@ export default function GlobalFilterBar() {
             <FilterDropdown
               label="All Offices"
               options={[]} // TODO: Fetch offices
-              value={filters.officeLocationId || ""}
+              defaultValue={filters.officeLocationId || ""}
               onChange={(val) => updateFilters({ officeLocationId: val })}
             />
           </div>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsExpanded(!isExpanded)}>
+          <Button variant="secondary" onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? "Less Filters" : "More Filters"}
           </Button>
-          <Button variant="outline" onClick={resetFilters}>
+          <Button variant="secondary" onClick={resetFilters}>
             Reset
           </Button>
         </div>
@@ -89,7 +89,7 @@ export default function GlobalFilterBar() {
             <FilterDropdown
               label="All Departments"
               options={[]} // TODO: Fetch departments
-              value={filters.departmentId || ""}
+              defaultValue={filters.departmentId || ""}
               onChange={(val) => updateFilters({ departmentId: val })}
             />
           </div>
@@ -98,7 +98,7 @@ export default function GlobalFilterBar() {
             <FilterDropdown
               label="All Users"
               options={[]} // TODO: Fetch users
-              value={filters.assignedUser || ""}
+              defaultValue={filters.assignedUser || ""}
               onChange={(val) => updateFilters({ assignedUser: val })}
             />
           </div>
@@ -111,7 +111,7 @@ export default function GlobalFilterBar() {
                 { value: "Followup", label: "Followup" },
                 { value: "Closed", label: "Closed" },
               ]}
-              value={filters.leadStatus || ""}
+              defaultValue={filters.leadStatus || ""}
               onChange={(val) => updateFilters({ leadStatus: val })}
             />
           </div>
@@ -123,7 +123,7 @@ export default function GlobalFilterBar() {
                 { value: "Pending", label: "Pending" },
                 { value: "Completed", label: "Completed" },
               ]}
-              value={filters.paymentStatus || ""}
+              defaultValue={filters.paymentStatus || ""}
               onChange={(val) => updateFilters({ paymentStatus: val })}
             />
           </div>
