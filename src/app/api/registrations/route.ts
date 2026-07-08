@@ -7,22 +7,48 @@ import { createRegistration, listRegistrations } from "@/features/registration/s
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
 
 export async function GET(request: Request) {
+  console.log("[GET /api/registrations] Request received:", request.url);
   try {
     const session = await auth();
+    console.log("[GET /api/registrations] Session retrieved for user:", session?.user?.email);
+    
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    console.log("[GET /api/registrations] ownerAdminId lookup:", ownerAdminId);
+    
+    if (!ownerAdminId) {
+      console.warn("[GET /api/registrations] Unauthorized: No owner admin ID found.");
+      return jsonError("No owner admin ID found.", 401);
+    }
 
     const { searchParams } = new URL(request.url);
-    const data = await listRegistrations(ownerAdminId, {
-      page: Number(searchParams.get("page") ?? "1"),
-      pageSize: Number(searchParams.get("pageSize") ?? "10"),
-      query: searchParams.get("query") ?? undefined,
-    });
+    const rawPage = searchParams.get("page");
+    const rawPageSize = searchParams.get("pageSize");
+    const query = searchParams.get("query") ?? undefined;
+    
+    console.log("[GET /api/registrations] Search Params - rawPage:", rawPage, "rawPageSize:", rawPageSize, "query:", query);
+    
+    const parsedPage = parseInt(rawPage ?? "1", 10);
+    const parsedPageSize = parseInt(rawPageSize ?? "10", 10);
+    
+    const page = isNaN(parsedPage) ? 1 : parsedPage;
+    const pageSize = isNaN(parsedPageSize) ? 10 : parsedPageSize;
+    
+    console.log("[GET /api/registrations] Parsed Pagination - page:", page, "pageSize:", pageSize);
 
+    const data = await listRegistrations(ownerAdminId, {
+      page,
+      pageSize,
+      query,
+    });
+    
+    console.log("[GET /api/registrations] Success! Response items length:", data.items.length);
     return jsonOk(data);
-  } catch (error) {
-    console.error("Failed to fetch registrations", error);
-    return jsonError("Unable to fetch registrations.", 500);
+  } catch (error: any) {
+    console.error("[GET /api/registrations] FATAL ERROR:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error("[GET /api/registrations] Prisma error code:", error.code, "meta:", error.meta);
+    }
+    return jsonError(error?.message || "Unable to fetch registrations.", 500);
   }
 }
 
