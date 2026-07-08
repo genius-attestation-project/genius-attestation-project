@@ -10,7 +10,8 @@ interface ReportFilterContextType {
 }
 
 const defaultFilters: GlobalReportFilters = {
-  dateRange: "thisMonth",
+  fromDate: "",
+  toDate: "",
 };
 
 const ReportFilterContext = createContext<ReportFilterContextType | undefined>(undefined);

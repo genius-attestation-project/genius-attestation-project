@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { buildReportFilters, applyFiltersToLead, applyFiltersToRegistration } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -15,35 +16,17 @@ export async function GET(request: Request) {
 
     // Default to the current admin's ownerAdminId
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
-    const baseWhere: any = { ownerAdminId };
-
-    // Build Date Filter (simple example)
-    const now = new Date();
-    let startDate = new Date(0);
-    let endDate = now;
-
-    if (dateRange === "today") {
-      startDate = new Date(now.setHours(0, 0, 0, 0));
-    } else if (dateRange === "thisMonth") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-    // Expand date logic as needed...
-
-    if (dateRange !== "all") {
-      baseWhere.createdAt = {
-        gte: startDate,
-        lte: endDate,
-      };
-    }
+    const filters = buildReportFilters(searchParams, ownerAdminId);
+    const baseWhere = filters.baseWhere;
+    const leadWhere = applyFiltersToLead(baseWhere, filters);
+    const regWhere = applyFiltersToRegistration(baseWhere, filters);
 
     // 1. Leads
-    const leadsCreated = await prisma.lead.count({
-      where: baseWhere,
+    const leadsCreated = await prisma.lead.count({ where: leadWhere,
     });
 
     // 2. Registrations & Revenue
-    const registrations = await prisma.registration.findMany({
-      where: baseWhere,
+    const registrations = await prisma.registration.findMany({ where: regWhere,
       select: { totalCharges: true, balanceAmount: true, trackingStatus: true },
     });
     const revenueRegistrations = registrations.length;
@@ -52,14 +35,11 @@ export async function GET(request: Request) {
     const documentsDelivered = registrations.filter(r => r.trackingStatus === "Delivered").length;
 
     // 3. Followups
-    const followupsCreated = await prisma.leadFollowupHistory.count({
-      where: { ...baseWhere, actionType: "Created" },
+    const followupsCreated = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Created" },
     });
-    const followupsCompleted = await prisma.leadFollowupHistory.count({
-      where: { ...baseWhere, actionType: "Completed" },
+    const followupsCompleted = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Completed" },
     });
-    const followupsExtended = await prisma.leadFollowupHistory.count({
-      where: { ...baseWhere, actionType: "Rescheduled" },
+    const followupsExtended = await prisma.leadFollowupHistory.count({ where: { ...leadWhere, actionType: "Rescheduled" },
     });
     const callsMade = followupsCompleted; // Approximation
 
@@ -85,11 +65,11 @@ export async function GET(request: Request) {
     });
 
     // 6. Chart Data - Revenue Trend (Last 7 Days)
+    const now = new Date();
     const last7Days = new Date(now);
     last7Days.setDate(last7Days.getDate() - 7);
     
-    const recentRegistrations = await prisma.registration.findMany({
-      where: { ...baseWhere, createdAt: { gte: last7Days } },
+    const recentRegistrations = await prisma.registration.findMany({ where: { ...regWhere, createdAt: { gte: last7Days } },
       select: { createdAt: true, totalCharges: true }
     });
 
@@ -123,8 +103,7 @@ export async function GET(request: Request) {
       .map(l => ({ name: l.source, value: l._count }));
 
     // Customers Handled
-    const leadsEmails = await prisma.lead.findMany({
-      where: baseWhere,
+    const leadsEmails = await prisma.lead.findMany({ where: leadWhere,
       select: { email: true }
     });
     const uniqueCustomers = new Set(leadsEmails.map(l => l.email));

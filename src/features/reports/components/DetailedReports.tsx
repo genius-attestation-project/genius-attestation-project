@@ -26,14 +26,9 @@ export default function DetailedReports() {
     setError(null);
     try {
       const queryParams = new URLSearchParams();
-      if (filters.dateRange) queryParams.append("dateRange", filters.dateRange);
-      if (filters.startDate) queryParams.append("startDate", filters.startDate);
-      if (filters.endDate) queryParams.append("endDate", filters.endDate);
-      if (filters.officeLocationId) queryParams.append("officeLocationId", filters.officeLocationId);
-      if (filters.departmentId) queryParams.append("departmentId", filters.departmentId);
-      if (filters.assignedUser) queryParams.append("assignedUser", filters.assignedUser);
-      if (filters.leadStatus) queryParams.append("leadStatus", filters.leadStatus);
-      if (filters.paymentStatus) queryParams.append("paymentStatus", filters.paymentStatus);
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) queryParams.append(key, String(value));
+      });
       
       queryParams.append("page", page.toString());
       queryParams.append("limit", pagination.limit.toString());

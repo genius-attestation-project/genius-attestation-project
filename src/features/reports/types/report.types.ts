@@ -1,33 +1,17 @@
-export type DateRangeOption = 
-  | 'today'
-  | 'yesterday'
-  | 'last7'
-  | 'last30'
-  | 'thisMonth'
-  | 'lastMonth'
-  | 'custom'
-  | 'all';
-
 export interface GlobalReportFilters {
-  dateRange: DateRangeOption;
-  startDate?: string;
-  endDate?: string;
-
-  // Global Context
-  createdBy?: string;
-  assignedUser?: string;
-  officeLocationId?: string;
+  fromDate?: string;
+  toDate?: string;
+  officeId?: string;
   departmentId?: string;
-  
-  // Specific Context
+  assignedUserId?: string;
   leadStatus?: string;
-  leadSource?: string;
-  customerType?: string;
-  processType?: string;
-  documentType?: string;
   paymentStatus?: string;
-  paymentMode?: string;
-  attendanceStatus?: string;
+  countryId?: string;
+  serviceId?: string;
+  documentTypeId?: string;
+  processOfficeId?: string;
+  leadSourceId?: string;
+  search?: string;
 }
 
 export interface ExecutiveSummaryMetrics {
