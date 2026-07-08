@@ -7,16 +7,16 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 type FilterMetadata = {
-  offices: { id: string; name: string }[];
-  processOffices: { id: string; name: string }[];
-  departments: { id: string; name: string }[];
-  users: { id: string; name: string }[];
-  countries: { id: string; name: string }[];
-  services: { id: string; name: string }[];
-  documentTypes: { id: string; name: string }[];
-  leadSources: { id: string; name: string }[];
-  leadStatuses: { id: string; name: string }[];
-  paymentStatuses: { id: string; name: string }[];
+  offices: { id: string; name: string }[] | null;
+  processOffices: { id: string; name: string }[] | null;
+  departments: { id: string; name: string }[] | null;
+  users: { id: string; name: string }[] | null;
+  countries: { id: string; name: string }[] | null;
+  services: { id: string; name: string }[] | null;
+  documentTypes: { id: string; name: string }[] | null;
+  leadSources: { id: string; name: string }[] | null;
+  leadStatuses: { id: string; name: string }[] | null;
+  paymentStatuses: { id: string; name: string }[] | null;
 };
 
 export default function GlobalFilterBar() {
@@ -88,9 +88,10 @@ export default function GlobalFilterBar() {
     }
   };
 
-  const makeOptions = (items: {id: string, name: string}[] | undefined, allLabel: string, errorLabel: string) => {
-    if (error) return [{ label: errorLabel, value: "" }];
-    if (loading || !items) return [{ label: "Loading...", value: "" }];
+  const makeOptions = (items: {id: string, name: string}[] | undefined | null, allLabel: string, errorLabel: string) => {
+    if (error) return [{ label: "Unable to load data", value: "" }];
+    if (loading || items === undefined) return [{ label: "Loading...", value: "" }];
+    if (items === null) return [{ label: errorLabel, value: "" }];
     return [{ label: allLabel, value: "" }, ...items.map(item => ({ label: item.name, value: item.id }))];
   };
 
