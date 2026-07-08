@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { useReportFilters } from "../context/ReportFilterContext";
-import FilterDropdown from "@/components/ui/FilterDropdown";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { FilterDropdown } from "@/components/ui/FilterDropdown";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { DateRangeOption } from "../types/report.types";
 
 const DATE_OPTIONS = [
@@ -47,7 +47,7 @@ export default function GlobalFilterBar() {
                   label="Start Date"
                   type="date"
                   value={filters.startDate || ""}
-                  onChange={(e) => updateFilters({ startDate: e.target.value })}
+                  onChange={(e: any) => updateFilters({ startDate: e.target.value })}
                 />
               </div>
               <div>
@@ -55,7 +55,7 @@ export default function GlobalFilterBar() {
                   label="End Date"
                   type="date"
                   value={filters.endDate || ""}
-                  onChange={(e) => updateFilters({ endDate: e.target.value })}
+                  onChange={(e: any) => updateFilters({ endDate: e.target.value })}
                 />
               </div>
             </>
@@ -67,16 +67,16 @@ export default function GlobalFilterBar() {
               label="All Offices"
               options={[]} // TODO: Fetch offices
               value={filters.officeLocationId || ""}
-              onChange={(val) => updateFilters({ officeLocationId: val })}
+              onChange={(val: string) => updateFilters({ officeLocationId: val })}
             />
           </div>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsExpanded(!isExpanded)}>
+          <Button variant="secondary" onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? "Less Filters" : "More Filters"}
           </Button>
-          <Button variant="outline" onClick={resetFilters}>
+          <Button variant="secondary" onClick={resetFilters}>
             Reset
           </Button>
         </div>
@@ -90,7 +90,7 @@ export default function GlobalFilterBar() {
               label="All Departments"
               options={[]} // TODO: Fetch departments
               value={filters.departmentId || ""}
-              onChange={(val) => updateFilters({ departmentId: val })}
+              onChange={(val: string) => updateFilters({ departmentId: val })}
             />
           </div>
           <div>
@@ -99,7 +99,7 @@ export default function GlobalFilterBar() {
               label="All Users"
               options={[]} // TODO: Fetch users
               value={filters.assignedUser || ""}
-              onChange={(val) => updateFilters({ assignedUser: val })}
+              onChange={(val: string) => updateFilters({ assignedUser: val })}
             />
           </div>
           <div>
@@ -112,7 +112,7 @@ export default function GlobalFilterBar() {
                 { value: "Closed", label: "Closed" },
               ]}
               value={filters.leadStatus || ""}
-              onChange={(val) => updateFilters({ leadStatus: val })}
+              onChange={(val: string) => updateFilters({ leadStatus: val })}
             />
           </div>
           <div>
@@ -124,7 +124,7 @@ export default function GlobalFilterBar() {
                 { value: "Completed", label: "Completed" },
               ]}
               value={filters.paymentStatus || ""}
-              onChange={(val) => updateFilters({ paymentStatus: val })}
+              onChange={(val: string) => updateFilters({ paymentStatus: val })}
             />
           </div>
         </div>

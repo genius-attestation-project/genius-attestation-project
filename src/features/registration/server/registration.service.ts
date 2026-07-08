@@ -6,14 +6,8 @@ import type { RegistrationInput } from "@/features/registration/validations/regi
 const registrationInclude = {
   files: {
     orderBy: { uploadedAt: "desc" as const },
-    select: {
-      id: true,
-      registrationId: true,
-      fileName: true,
-      mimeType: true,
-      fileSize: true,
-      fileCategory: true,
-      uploadedAt: true,
+    include: {
+      fileStorage: true,
     },
   },
   auditTrail: { orderBy: { createdAt: "desc" as const } },
@@ -59,8 +53,14 @@ function mapRegistration(registration: RegistrationRecord) {
     updatedAt: registration.updatedAt.toISOString(),
     createdDate: formatDate(registration.createdAt),
     files: registration.files.map((file) => ({
-      ...file,
+      id: file.id,
+      registrationId: file.registrationId,
+      fileCategory: file.fileCategory,
       uploadedAt: file.uploadedAt.toISOString(),
+      fileName: file.fileStorage?.originalName || "Unknown",
+      mimeType: file.fileStorage?.mimeType || "application/octet-stream",
+      fileSize: file.fileStorage?.size || 0,
+      url: file.fileStorage?.url,
     })),
     auditTrail: registration.auditTrail.map((item) => ({
       ...item,
@@ -353,10 +353,7 @@ export async function addRegistrationFile(
   ownerAdminId: string,
   id: string,
   file: {
-    fileName: string;
-    mimeType: string;
-    fileSize: number;
-    fileData: Uint8Array<ArrayBuffer>;
+    fileStorageId: string;
     fileCategory: string;
   },
   performedBy?: string,
@@ -371,12 +368,13 @@ export async function addRegistrationFile(
   await prisma.registrationFile.create({
     data: {
       registrationId: existing.id,
-      fileName: file.fileName,
-      mimeType: file.mimeType,
-      fileSize: file.fileSize,
-      fileData: file.fileData,
+      fileStorageId: file.fileStorageId,
       fileCategory: file.fileCategory,
     },
+  });
+
+  const fileStorage = await prisma.fileStorage.findUnique({
+    where: { id: file.fileStorageId },
   });
 
   const registration = await prisma.registration.update({
@@ -385,7 +383,7 @@ export async function addRegistrationFile(
       auditTrail: {
         create: {
           action: "Document uploaded",
-          description: `${file.fileName} was uploaded.`,
+          description: `${fileStorage?.originalName || "A file"} was uploaded.`,
           performedBy: performedBy ?? null,
         },
       },
@@ -404,13 +402,45 @@ export async function getRegistrationFile(ownerAdminId: string, fileId: string) 
         ownerAdminId,
       },
     },
-    select: {
-      fileName: true,
-      mimeType: true,
-      fileSize: true,
-      fileData: true,
+    include: {
+      fileStorage: true,
     },
   });
+}
+
+export async function deleteRegistrationFile(ownerAdminId: string, fileId: string, performedBy?: string) {
+  const file = await prisma.registrationFile.findFirst({
+    where: {
+      id: fileId,
+      registration: { ownerAdminId }
+    },
+    include: { fileStorage: true }
+  });
+
+  if (!file) return null;
+
+  const registrationId = file.registrationId;
+  const fileName = file.fileStorage?.originalName || "A file";
+
+  await prisma.registrationFile.delete({
+    where: { id: fileId }
+  });
+
+  const registration = await prisma.registration.update({
+    where: { id: registrationId },
+    data: {
+      auditTrail: {
+        create: {
+          action: "Document deleted",
+          description: `${fileName} was deleted.`,
+          performedBy: performedBy ?? null,
+        }
+      }
+    },
+    include: registrationInclude,
+  });
+
+  return { registration, fileStorageId: file.fileStorageId };
 }
 
 export async function setRegistrationApproval(

@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
+import { FileUpload } from "@/components/common/FileUpload";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
@@ -145,7 +146,7 @@ function SelectField({
       <SearchableSelect
         value={value}
         options={toSelectOptions(normalizedOptions)}
-        onChange={(nextValue) => onChange(name, nextValue)}
+        onChange={(nextValue: string) => onChange(name, nextValue)}
         placeholder={required ? "Select" : "Select"}
         name={name}
       />
@@ -316,16 +317,6 @@ function hasUploadedFile(registration: Registration | null, category: string) {
   return Boolean(registration?.files.some((file) => file.fileCategory === category));
 }
 
-const jpgAccept = ".jpg,.jpeg,image/jpeg";
-const jpgMimeTypes = new Set(["image/jpeg"]);
-const jpgExtensions = new Set([".jpg", ".jpeg"]);
-const jpgFileError = "Only JPG files are allowed.";
-
-function isJpgFile(file: File) {
-  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
-  return jpgMimeTypes.has(file.type) && jpgExtensions.has(extension);
-}
-
 export function RegistrationManager({
   currentOfficeLocationName = "",
   initialTrackingNumber = "",
@@ -345,14 +336,9 @@ export function RegistrationManager({
     ...blankForm,
     trackingNumber: initialTrackingNumber,
   });
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
-  const [supportingFile, setSupportingFile] = useState<File | null>(null);
-  const [invalidUploadFields, setInvalidUploadFields] = useState({
-    document: false,
-    invoice: false,
-    supporting: false,
-  });
+  const [documentFileId, setDocumentFileId] = useState<string | null>(null);
+  const [invoiceFileId, setInvoiceFileId] = useState<string | null>(null);
+  const [supportingFileId, setSupportingFileId] = useState<string | null>(null);
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -507,10 +493,9 @@ export function RegistrationManager({
       trackingNumber: initialTrackingNumber,
       regionOfRegistration: currentOfficeLocationName,
     });
-    setDocumentFile(null);
-    setInvoiceFile(null);
-    setSupportingFile(null);
-    setInvalidUploadFields({ document: false, invoice: false, supporting: false });
+    setDocumentFileId(null);
+    setInvoiceFileId(null);
+    setSupportingFileId(null);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -519,10 +504,9 @@ export function RegistrationManager({
   function openEdit(registration: Registration) {
     setSelected(registration);
     setForm(formFromRegistration(registration));
-    setDocumentFile(null);
-    setInvoiceFile(null);
-    setSupportingFile(null);
-    setInvalidUploadFields({ document: false, invoice: false, supporting: false });
+    setDocumentFileId(null);
+    setInvoiceFileId(null);
+    setSupportingFileId(null);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -533,37 +517,30 @@ export function RegistrationManager({
     setDrawerMode("view");
   }
 
-  function updateUploadFile(
-    field: keyof typeof invalidUploadFields,
-    file: File | null,
-    setter: (file: File | null) => void,
-  ) {
-    if (file && !isJpgFile(file)) {
-      setter(null);
-      setInvalidUploadFields((current) => ({ ...current, [field]: true }));
-      setError(jpgFileError);
-      return;
+  async function handleRemoveExistingFile(fileId: string) {
+    if (!selected) return;
+    try {
+      await fetch(`/api/registrations/files/${fileId}`, { method: "DELETE" });
+      setSelected((prev) => (prev ? { ...prev, files: prev.files.filter((f) => f.id !== fileId) } : null));
+      await fetchRegistrations();
+    } catch (e) {
+      console.error(e);
+      setError("Failed to remove file.");
     }
-
-    setter(file);
-    setInvalidUploadFields((current) => ({ ...current, [field]: false }));
-    setError("");
   }
 
   async function uploadSelectedFiles(registrationId: string) {
     const files = [
-      { file: documentFile, category: "DOCUMENT" },
-      { file: invoiceFile, category: "INVOICE" },
-      { file: supportingFile, category: "SUPPORTING_DOCUMENT" },
-    ].filter((item): item is { file: File; category: string } => Boolean(item.file));
+      { fileStorageId: documentFileId, category: "DOCUMENT" },
+      { fileStorageId: invoiceFileId, category: "INVOICE" },
+      { fileStorageId: supportingFileId, category: "SUPPORTING_DOCUMENT" },
+    ].filter((item): item is { fileStorageId: string; category: string } => Boolean(item.fileStorageId));
 
-    for (const { file, category } of files) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("fileCategory", category);
+    for (const { fileStorageId, category } of files) {
       await parseResponse(await fetch(`/api/registrations/${registrationId}/files`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileStorageId, fileCategory: category }),
       }));
     }
   }
@@ -589,21 +566,11 @@ export function RegistrationManager({
       }
 
       if (
-        (needsDocumentFile && !documentFile) ||
-        (needsInvoiceFile && !invoiceFile) ||
-        (needsSupportingFile && !supportingFile)
+        (needsDocumentFile && !documentFileId) ||
+        (needsInvoiceFile && !invoiceFileId) ||
+        (needsSupportingFile && !supportingFileId)
       ) {
         setError("Document, invoice, and supporting document uploads are required.");
-        return;
-      }
-
-      if (Object.values(invalidUploadFields).some(Boolean)) {
-        setError(jpgFileError);
-        return;
-      }
-
-      if ([documentFile, invoiceFile, supportingFile].some((file) => file && !isJpgFile(file))) {
-        setError(jpgFileError);
         return;
       }
 
@@ -868,7 +835,7 @@ export function RegistrationManager({
               <SearchableSelect
                 value={form.deliveryLocation}
                 options={toSelectOptions(deliveryLocationOptions)}
-                onChange={(nextValue) => updateField("deliveryLocation", nextValue)}
+                onChange={(nextValue: string) => updateField("deliveryLocation", nextValue)}
                 placeholder={officeLocationsLoading ? "Loading office locations..." : "Select delivery location"}
                 name="deliveryLocation"
                 loading={officeLocationsLoading}
@@ -877,11 +844,17 @@ export function RegistrationManager({
                 errorMessage={officeLocationsError}
               />
             </label>
-            <Input
+            <FileUpload
               label="Customer Document Upload"
-              type="file"
-              accept={jpgAccept}
-              onChange={(event) => updateUploadFile("document", event.target.files?.[0] ?? null, setDocumentFile)}
+              moduleName="Revenue Registration"
+              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+              onUploadComplete={(id) => setDocumentFileId(id)}
+              onRemove={() => {
+                const existing = selected?.files.find((f) => f.fileCategory === "DOCUMENT");
+                if (existing) handleRemoveExistingFile(existing.id);
+                setDocumentFileId(null);
+              }}
+              existingFile={selected?.files.find((f) => f.fileCategory === "DOCUMENT")}
               required={needsDocumentFile}
             />
           </Section>
@@ -930,18 +903,30 @@ export function RegistrationManager({
               readOnly
               description="Auto-filled from the logged-in user's office location"
             />
-            <Input
+            <FileUpload
               label="Bill Upload"
-              type="file"
-              accept={jpgAccept}
-              onChange={(event) => updateUploadFile("invoice", event.target.files?.[0] ?? null, setInvoiceFile)}
+              moduleName="Revenue Registration"
+              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+              onUploadComplete={(id) => setInvoiceFileId(id)}
+              onRemove={() => {
+                const existing = selected?.files.find((f) => f.fileCategory === "INVOICE");
+                if (existing) handleRemoveExistingFile(existing.id);
+                setInvoiceFileId(null);
+              }}
+              existingFile={selected?.files.find((f) => f.fileCategory === "INVOICE")}
               required={needsInvoiceFile}
             />
-            <Input
+            <FileUpload
               label="Supporting Documents Upload"
-              type="file"
-              accept={jpgAccept}
-              onChange={(event) => updateUploadFile("supporting", event.target.files?.[0] ?? null, setSupportingFile)}
+              moduleName="Revenue Registration"
+              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+              onUploadComplete={(id) => setSupportingFileId(id)}
+              onRemove={() => {
+                const existing = selected?.files.find((f) => f.fileCategory === "SUPPORTING_DOCUMENT");
+                if (existing) handleRemoveExistingFile(existing.id);
+                setSupportingFileId(null);
+              }}
+              existingFile={selected?.files.find((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
               required={needsSupportingFile}
             />
           </Section>

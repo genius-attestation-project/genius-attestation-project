@@ -546,19 +546,43 @@ model AccountStatementEntry {
   @@map("account_statement_entries")
 }
 
+model FileStorage {
+  id           String             @id @default(cuid())
+  module       String
+  recordId     String?            @map("record_id")
+  folder       String
+  originalName String             @map("original_name")
+  storedName   String             @map("stored_name")
+  bucketKey    String             @map("bucket_key")
+  url          String             @db.Text
+  mimeType     String             @map("mime_type")
+  extension    String
+  size         Int
+  uploadedBy   String?            @map("uploaded_by")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  registrationFiles RegistrationFile[]
+
+  @@index([module])
+  @@index([recordId])
+  @@index([folder])
+  @@index([uploadedBy])
+  @@map("file_storage")
+}
+
 model RegistrationFile {
   id             String       @id @default(cuid())
   registrationId String       @map("registration_id")
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  fileName       String       @map("file_name")
-  mimeType       String       @map("mime_type")
-  fileSize       Int          @map("file_size")
-  fileData       Bytes        @map("file_data")
+  fileStorageId  String?      @map("file_storage_id")
+  fileStorage    FileStorage? @relation(fields: [fileStorageId], references: [id], onDelete: Restrict)
   fileCategory   String       @map("file_category")
   uploadedAt     DateTime     @default(now()) @map("uploaded_at")
 
   @@index([registrationId])
   @@index([fileCategory])
+  @@index([fileStorageId])
   @@map("registration_files")
 }
 

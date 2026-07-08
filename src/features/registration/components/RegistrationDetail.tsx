@@ -14,9 +14,9 @@ type RegistrationDetailProps = {
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
   return (
-    <div className="grid min-w-0 gap-1 rounded-2xl border border-[color:var(--border)] bg-white/65 p-4 dark:bg-white/5">
+    <div className="grid min-w-0 gap-1 rounded-2xl border border-(--border) bg-white/65 p-4 dark:bg-white/5">
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{label}</span>
-      <span className="break-words text-sm font-semibold text-[color:var(--text)]">{value || "-"}</span>
+      <span className="wrap-break-word text-sm font-semibold text-(--text)">{value || "-"}</span>
     </div>
   );
 }
@@ -59,11 +59,11 @@ export function RegistrationDetail({
 
   return (
     <div className="grid min-w-0 gap-5">
-      <section className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4 shadow-[var(--shadow-card)] sm:rounded-[28px] sm:p-5 dark:bg-white/5">
+      <section className="rounded-2xl border border-(--border) bg-white/70 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-5 dark:bg-white/5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Tracking</p>
-            <h2 className="mt-2 break-words text-xl font-extrabold sm:text-2xl">{registration.trackingNumber}</h2>
+            <h2 className="mt-2 wrap-break-word text-xl font-extrabold sm:text-2xl">{registration.trackingNumber}</h2>
             <p className="mt-1 text-sm text-soft">{registration.customerName}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -129,26 +129,35 @@ export function RegistrationDetail({
         {registration.files.length ? (
           <div className="grid gap-2">
             {registration.files.map((file) => (
-              <a
+              <div
                 key={file.id}
-                href={`/api/registrations/files/${file.id}`}
-                target="_blank"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
               >
                 <span className="grid min-w-0 gap-1">
                   <span>{file.fileName}</span>
                   <span className="text-xs text-muted">{file.fileCategory.replace(/_/g, " ")}</span>
                 </span>
-                <span className="text-right text-xs text-muted">
-                  {formatFileSize(file.fileSize)}
-                  <br />
-                  {new Date(file.uploadedAt).toLocaleString()}
-                </span>
-              </a>
+                <div className="flex items-center gap-4 text-right">
+                  <span className="text-xs text-muted">
+                    {formatFileSize(file.fileSize)}
+                    <br />
+                    {new Date(file.uploadedAt).toLocaleString()}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => window.open(`/api/registrations/files/${file.id}`, "_blank")}
+                    >
+                      Preview
+                    </Button>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-soft">
+          <p className="rounded-2xl border border-dashed border-(--border) p-4 text-sm text-soft">
             No files uploaded.
           </p>
         )}
@@ -181,7 +190,7 @@ export function RegistrationDetail({
             registration.auditTrail.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4 dark:bg-white/5"
+                className="rounded-2xl border border-(--border) bg-white/70 p-4 dark:bg-white/5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-bold">{item.action}</p>
@@ -192,7 +201,7 @@ export function RegistrationDetail({
               </div>
             ))
           ) : (
-            <p className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-soft">
+            <p className="rounded-2xl border border-dashed border-(--border) p-4 text-sm text-soft">
               No audit trail entries.
             </p>
           )}
