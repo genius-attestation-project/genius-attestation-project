@@ -12,7 +12,8 @@ import {
   Download,
   ChevronDown,
   FileSpreadsheet,
-  FileText,
+  Filter,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -353,7 +354,35 @@ export function RegistrationManager({
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
-  const [exportingAs, setExportingAs] = useState<"excel" | "pdf" | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    fromDate: "",
+    toDate: "",
+    trackingNumber: "",
+    customerName: "",
+    mobile: "",
+    createdBy: "",
+    collectedPerson: "",
+    registeredPerson: "",
+    officeLocation: "",
+    processOffice: "",
+    service: "",
+    documentType: "",
+    documentIssuedCountry: "",
+    customerType: "",
+    processType: "",
+    priority: "",
+    deliveryLocation: "",
+    paymentStatus: "",
+    paymentMode: "",
+    approvalStatus: "",
+    hasBalance: "",
+    minTotalCharge: "",
+    maxTotalCharge: "",
+    minAdvancePaid: "",
+    maxAdvancePaid: "",
+  });
 
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
@@ -387,13 +416,20 @@ export function RegistrationManager({
     return commissionUserOptions;
   }, [commissionUserOptions, form.commissionToEmail, form.commissionToName, form.commissionToUserId]);
 
-  async function fetchRegistrations(search = query) {
+  async function fetchRegistrations(search = query, currentFilters = filters) {
     setLoading(true);
     setError("");
 
     try {
       const params = new URLSearchParams({ pageSize: "50" });
       if (search.trim()) params.set("query", search.trim());
+      
+      Object.entries(currentFilters).forEach(([key, value]) => {
+        if (value && String(value).trim()) {
+          params.set(key, String(value).trim());
+        }
+      });
+      
       const data = await parseResponse(await fetch(`/api/registrations?${params.toString()}`));
       setRegistrations(data.items ?? []);
     } catch (requestError) {
@@ -635,14 +671,13 @@ export function RegistrationManager({
     }
   }
 
-  async function handleExport(type: "excel" | "pdf") {
+  async function handleExport() {
     if (registrations.length === 0) {
       setError("No records available to export.");
       return;
     }
     
-    setExportingAs(type);
-    setIsExportDropdownOpen(false);
+    setIsExporting(true);
     setError("");
     setSuccess("");
 
@@ -650,7 +685,13 @@ export function RegistrationManager({
       const params = new URLSearchParams();
       if (query.trim()) params.set("query", query.trim());
 
-      const response = await fetch(`/api/revenue-registration/export/${type}?${params.toString()}`, {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && String(value).trim()) {
+          params.set(key, String(value).trim());
+        }
+      });
+
+      const response = await fetch(`/api/revenue-registration/export/excel?${params.toString()}`, {
         method: "GET",
       });
 
@@ -664,19 +705,18 @@ export function RegistrationManager({
       const a = document.createElement("a");
       a.href = url;
       const dateStr = new Date().toISOString().split("T")[0];
-      const extension = type === "excel" ? "xlsx" : "pdf";
-      a.download = `Revenue_Registrations_${dateStr}.${extension}`;
+      a.download = `Revenue_Registrations_${dateStr}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess(`Exported to ${type.toUpperCase()} successfully.`);
+      setSuccess(`Exported to EXCEL successfully.`);
     } catch (e: any) {
       console.error(e);
       setError(e.message || "An error occurred while exporting.");
     } finally {
-      setExportingAs(null);
+      setIsExporting(false);
     }
   }
 
@@ -735,50 +775,205 @@ export function RegistrationManager({
             <Button variant="ghost" onClick={() => fetchRegistrations("")}>
               <RefreshCw size={16} /> Refresh
             </Button>
+            <Button
+              variant={showFilters ? "primary" : "secondary"}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={16} /> Filters
+            </Button>
             {hasExportPermission && (
-              <div className="relative">
-                <Button 
-                  variant="secondary" 
-                  disabled={exportingAs !== null}
-                  onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                >
-                  {exportingAs !== null ? (
-                    <RefreshCw size={16} className="animate-spin" />
-                  ) : (
-                    <Download size={16} />
-                  )}
-                  Export
-                  <ChevronDown size={14} className="ml-1 opacity-70" />
-                </Button>
-
-                {isExportDropdownOpen && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsExportDropdownOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-(--border) bg-white p-1 shadow-lg dark:bg-slate-900">
-                      <button
-                        onClick={() => handleExport("excel")}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition hover:bg-slate-100 dark:hover:bg-white/5"
-                      >
-                        <FileSpreadsheet size={16} className="text-green-600" />
-                        Export as Excel (.xlsx)
-                      </button>
-                      <button
-                        onClick={() => handleExport("pdf")}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition hover:bg-slate-100 dark:hover:bg-white/5"
-                      >
-                        <FileText size={16} className="text-red-500" />
-                        Export as PDF (.pdf)
-                      </button>
-                    </div>
-                  </>
+              <Button 
+                variant="secondary" 
+                disabled={isExporting}
+                onClick={handleExport}
+              >
+                {isExporting ? (
+                  <RefreshCw size={16} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={16} className="text-green-600" />
                 )}
-              </div>
+                Export as Excel
+              </Button>
             )}
           </div>
         </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 gap-4 rounded-xl border border-(--border) bg-slate-50 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 dark:bg-slate-900/50">
+            <Input
+              label="From Date"
+              type="date"
+              value={filters.fromDate}
+              onChange={(e) => setFilters(f => ({ ...f, fromDate: e.target.value }))}
+            />
+            <Input
+              label="To Date"
+              type="date"
+              value={filters.toDate}
+              onChange={(e) => setFilters(f => ({ ...f, toDate: e.target.value }))}
+            />
+            <Input
+              label="Tracking Number"
+              placeholder="TRK-..."
+              value={filters.trackingNumber}
+              onChange={(e) => setFilters(f => ({ ...f, trackingNumber: e.target.value }))}
+            />
+            <Input
+              label="Customer Name"
+              placeholder="Name"
+              value={filters.customerName}
+              onChange={(e) => setFilters(f => ({ ...f, customerName: e.target.value }))}
+            />
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Created By</span>
+              <SearchableSelect
+                value={filters.createdBy}
+                onChange={(val) => setFilters(f => ({ ...f, createdBy: val }))}
+                options={commissionUserOptions}
+                placeholder="Select user"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Collected By</span>
+              <SearchableSelect
+                value={filters.collectedPerson}
+                onChange={(val) => setFilters(f => ({ ...f, collectedPerson: val }))}
+                options={toSelectOptions(personOptions)}
+                placeholder="Select person"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Registered Person</span>
+              <SearchableSelect
+                value={filters.registeredPerson}
+                onChange={(val) => setFilters(f => ({ ...f, registeredPerson: val }))}
+                options={toSelectOptions(personOptions)}
+                placeholder="Select person"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Office Location</span>
+              <SearchableSelect
+                value={filters.officeLocation}
+                onChange={(val) => setFilters(f => ({ ...f, officeLocation: val }))}
+                options={toSelectOptions(officeLocationOptions)}
+                placeholder="Select office"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Process Office</span>
+              <SearchableSelect
+                value={filters.processOffice}
+                onChange={(val) => setFilters(f => ({ ...f, processOffice: val }))}
+                options={toSelectOptions(officeLocationOptions)}
+                placeholder="Select office"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Process Type / Service</span>
+              <SearchableSelect
+                value={filters.processType}
+                onChange={(val) => setFilters(f => ({ ...f, processType: val }))}
+                options={toSelectOptions(processTypeOptions)}
+                placeholder="Select process"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Document Type</span>
+              <SearchableSelect
+                value={filters.documentType}
+                onChange={(val) => setFilters(f => ({ ...f, documentType: val }))}
+                options={toSelectOptions(documentTypeOptions)}
+                placeholder="Select document"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Doc Issued Country</span>
+              <SearchableSelect
+                value={filters.documentIssuedCountry}
+                onChange={(val) => setFilters(f => ({ ...f, documentIssuedCountry: val }))}
+                options={toSelectOptions(countryOptions)}
+                placeholder="Select country"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Customer Type</span>
+              <SearchableSelect
+                value={filters.customerType}
+                onChange={(val) => setFilters(f => ({ ...f, customerType: val }))}
+                options={toSelectOptions(["Individual", "Corporate"])}
+                placeholder="Select type"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Priority</span>
+              <SearchableSelect
+                value={filters.priority}
+                onChange={(val) => setFilters(f => ({ ...f, priority: val }))}
+                options={toSelectOptions(priorityOptions)}
+                placeholder="Select priority"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Payment Status</span>
+              <SearchableSelect
+                value={filters.paymentStatus}
+                onChange={(val) => setFilters(f => ({ ...f, paymentStatus: val }))}
+                options={toSelectOptions(paymentStatusOptions)}
+                placeholder="Select status"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Payment Mode</span>
+              <SearchableSelect
+                value={filters.paymentMode}
+                onChange={(val) => setFilters(f => ({ ...f, paymentMode: val }))}
+                options={toSelectOptions(paymentModeOptions)}
+                placeholder="Select mode"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Approval Status</span>
+              <SearchableSelect
+                value={filters.approvalStatus}
+                onChange={(val) => setFilters(f => ({ ...f, approvalStatus: val }))}
+                options={toSelectOptions(["Approved", "Pending", "Rejected"])}
+                placeholder="Select status"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Balance Amount</span>
+              <SearchableSelect
+                value={filters.hasBalance}
+                onChange={(val) => setFilters(f => ({ ...f, hasBalance: val }))}
+                options={[{ label: "Has Balance", value: "true" }, { label: "Fully Paid", value: "false" }]}
+                placeholder="Select balance"
+              />
+            </label>
+            
+            <div className="col-span-full flex justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  const blankFilters = {
+                    fromDate: "", toDate: "", trackingNumber: "", customerName: "", mobile: "",
+                    createdBy: "", collectedPerson: "", registeredPerson: "", officeLocation: "", processOffice: "",
+                    service: "", documentType: "", documentIssuedCountry: "", customerType: "", processType: "",
+                    priority: "", deliveryLocation: "", paymentStatus: "", paymentMode: "", approvalStatus: "",
+                    hasBalance: "", minTotalCharge: "", maxTotalCharge: "", minAdvancePaid: "", maxAdvancePaid: ""
+                  };
+                  setFilters(blankFilters);
+                  fetchRegistrations(query, blankFilters);
+                }}
+              >
+                Clear Filters
+              </Button>
+              <Button onClick={() => fetchRegistrations(query)}>
+                Apply Filters
+              </Button>
+            </div>
+          </div>
+        )}
 
         {error ? (
           <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-200">
@@ -804,6 +999,7 @@ export function RegistrationManager({
                     <th className="px-5 py-4">Tracking Number</th>
                     <th className="px-5 py-4">Customer Name</th>
                     <th className="px-5 py-4">Mobile</th>
+                    <th className="px-5 py-4">Created By</th>
                     <th className="px-5 py-4">Document Type</th>
                     <th className="px-5 py-4">Payment Status</th>
                     <th className="px-5 py-4">Approval Status</th>
@@ -819,6 +1015,9 @@ export function RegistrationManager({
                       </td>
                       <td className="px-5 py-4">{registration.customerName}</td>
                       <td className="px-5 py-4">{registration.mobile}</td>
+                      <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-300">
+                        {(registration as any).createdByName || "-"}
+                      </td>
                       <td className="px-5 py-4">{registration.documentType || "-"}</td>
                       <td className="px-5 py-4">{registration.paymentStatus}</td>
                       <td className="px-5 py-4">{registration.approvalStatus}</td>

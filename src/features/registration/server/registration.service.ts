@@ -66,6 +66,7 @@ function mapRegistration(registration: RegistrationRecord) {
       ...item,
       createdAt: item.createdAt.toISOString(),
     })),
+    createdByName: (registration as any).createdByName || null,
   };
 }
 
@@ -123,26 +124,98 @@ function logRegistrationWorkflow(
 
 export async function listRegistrations(
   ownerAdminId: string,
-  params: { query?: string; page?: number; pageSize?: number },
+  params: { 
+    query?: string; 
+    page?: number; 
+    pageSize?: number;
+    fromDate?: string;
+    toDate?: string;
+    trackingNumber?: string;
+    customerName?: string;
+    mobile?: string;
+    createdBy?: string;
+    collectedPerson?: string;
+    registeredPerson?: string;
+    officeLocation?: string;
+    processOffice?: string;
+    service?: string;
+    documentType?: string;
+    documentIssuedCountry?: string;
+    customerType?: string;
+    processType?: string;
+    priority?: string;
+    deliveryLocation?: string;
+    paymentStatus?: string;
+    paymentMode?: string;
+    approvalStatus?: string;
+    hasBalance?: string;
+    minTotalCharge?: string;
+    maxTotalCharge?: string;
+    minAdvancePaid?: string;
+    maxAdvancePaid?: string;
+  },
 ) {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 100));
   const query = params.query?.trim();
+
   const where: Prisma.RegistrationWhereInput = {
     ownerAdminId,
-    ...(query
-      ? {
-          OR: [
-            { trackingNumber: { contains: query } },
-            { customerName: { contains: query } },
-            { mobile: { contains: query } },
-            { documentType: { contains: query } },
-            { paymentStatus: { contains: query } },
-            { approvalStatus: { contains: query } },
-          ],
-        }
-      : {}),
+    ...(params.trackingNumber ? { trackingNumber: { contains: params.trackingNumber } } : {}),
+    ...(params.customerName ? { customerName: { contains: params.customerName } } : {}),
+    ...(params.mobile ? { mobile: { contains: params.mobile } } : {}),
+    ...(params.createdBy ? { createdBy: params.createdBy } : {}),
+    ...(params.collectedPerson ? { collectedPerson: params.collectedPerson } : {}),
+    ...(params.registeredPerson ? { registeredPerson: params.registeredPerson } : {}),
+    ...(params.officeLocation ? { regionOfRegistration: params.officeLocation } : {}),
+    ...(params.processOffice ? { documentMovements: { some: { currentOfficeId: params.processOffice } } } : {}),
+    ...(params.service ? { processType: params.service } : {}),
+    ...(params.documentType ? { documentType: params.documentType } : {}),
+    ...(params.documentIssuedCountry ? { documentIssuedCountry: params.documentIssuedCountry } : {}),
+    ...(params.customerType ? { customerType: params.customerType } : {}),
+    ...(params.processType ? { processType: params.processType } : {}),
+    ...(params.priority ? { priority: params.priority } : {}),
+    ...(params.deliveryLocation ? { deliveryLocation: params.deliveryLocation } : {}),
+    ...(params.paymentStatus ? { paymentStatus: params.paymentStatus } : {}),
+    ...(params.paymentMode ? { paymentMode: params.paymentMode } : {}),
+    ...(params.approvalStatus ? { approvalStatus: params.approvalStatus } : {}),
   };
+
+  if (params.fromDate || params.toDate) {
+    where.createdAt = {};
+    if (params.fromDate) where.createdAt.gte = new Date(`${params.fromDate}T00:00:00.000Z`);
+    if (params.toDate) where.createdAt.lte = new Date(`${params.toDate}T23:59:59.999Z`);
+  }
+
+  if (params.hasBalance === "true") {
+    where.balanceAmount = { gt: 0 };
+  } else if (params.hasBalance === "false") {
+    where.balanceAmount = { lte: 0 };
+  }
+
+  if (params.minTotalCharge || params.maxTotalCharge) {
+    where.totalCharges = {};
+    if (params.minTotalCharge) where.totalCharges.gte = Number(params.minTotalCharge);
+    if (params.maxTotalCharge) where.totalCharges.lte = Number(params.maxTotalCharge);
+  }
+
+  if (params.minAdvancePaid || params.maxAdvancePaid) {
+    where.advancePaid = {};
+    if (params.minAdvancePaid) where.advancePaid.gte = Number(params.minAdvancePaid);
+    if (params.maxAdvancePaid) where.advancePaid.lte = Number(params.maxAdvancePaid);
+  }
+
+  if (query) {
+    where.OR = [
+      { trackingNumber: { contains: query } },
+      { customerName: { contains: query } },
+      { mobile: { contains: query } },
+      { email: { contains: query } },
+      { documentType: { contains: query } },
+      { paymentStatus: { contains: query } },
+      { approvalStatus: { contains: query } },
+    ];
+  }
 
   const [items, totalItems] = await Promise.all([
     prisma.registration.findMany({
@@ -155,8 +228,18 @@ export async function listRegistrations(
     prisma.registration.count({ where }),
   ]);
 
+  const userIds = Array.from(new Set(items.map((i) => i.createdBy).filter(Boolean))) as string[];
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, email: true },
+  });
+  const userMap = new Map(users.map((u) => [u.id, u.name || u.email || "Unknown"]));
+
   return {
-    items: items.map(mapRegistration),
+    items: items.map((registration) => mapRegistration({
+      ...registration,
+      createdByName: registration.createdBy ? userMap.get(registration.createdBy) || "Unknown" : "Unknown",
+    } as any)),
     pagination: {
       page,
       pageSize,
