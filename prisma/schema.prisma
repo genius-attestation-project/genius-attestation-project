@@ -118,6 +118,7 @@ model User {
   sessions          Session[]
   userRoles         UserRole[]
   createdLeads      Lead[]             @relation("LeadCreator")
+  createdRegistrations Registration[]  @relation("RegistrationCreator")
   attendanceRecords AttendanceRecord[] @relation("UserAttendance")
   attendanceSetting AttendanceSetting? @relation("UserAttendanceSetting")
   attendanceDailySummaries AttendanceDailySummary[] @relation("UserAttendanceDailySummary")
@@ -401,6 +402,7 @@ model Registration {
   bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
   ownerAdminId           String?   @map("owner_admin_id")
   createdBy              String?   @map("created_by")
+  creator                User?     @relation("RegistrationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 

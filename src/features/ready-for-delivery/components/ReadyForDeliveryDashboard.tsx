@@ -130,7 +130,7 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
       </DetailSection>
 
       <DetailSection title="Workflow Information">
-        <Field label="Created By" value={registration.createdBy} />
+        <Field label="Created By" value={registration.createdBy?.name || "Unknown"} />
         <Field label="Office Location" value={registration.officeLocationLabel} />
         <Field label="Accepted By" value={registration.acceptedByName} />
         <Field label="Accepted Date" value={registration.acceptedAt ? new Date(registration.acceptedAt).toLocaleString() : "-"} />

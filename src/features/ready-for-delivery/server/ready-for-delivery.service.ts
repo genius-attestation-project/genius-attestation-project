@@ -159,7 +159,7 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
       CAST(NULL AS CHAR) AS "source",
       CAST(NULL AS CHAR) AS "leadStatus",
       r.customer_type AS "clientType",
-      r.created_by AS "createdBy",
+      COALESCE(creator_user.name, creator_user.email, r.created_by) AS "createdBy",
       COALESCE(dm_accepted_user.name, dm_accepted_user.email, accepted_user.name, accepted_user.email) AS "acceptedBy",
       COALESCE(dm.accepted_at, r.accepted_at) AS "acceptedAt",
       r.created_at AS "createdAt",
@@ -171,6 +171,7 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
     LEFT JOIN office_locations ol ON ol.id = dm.current_office_id
     LEFT JOIN users accepted_user ON accepted_user.id = r.accepted_by
     LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
+    LEFT JOIN users creator_user ON creator_user.id = r.created_by
     WHERE r.owner_admin_id = ${ownerAdminId}
       AND (
         (

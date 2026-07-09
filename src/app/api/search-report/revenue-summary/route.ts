@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     const toDate = searchParams.get("toDate");
     const officeLocation = searchParams.get("officeLocation");
     const staffMember = searchParams.get("staffMember");
+    const staffMemberId = searchParams.get("staffMemberId"); // Let's support an ID parameter if the frontend sends it
     const processType = searchParams.get("processType");
     const paymentStatus = searchParams.get("paymentStatus");
     const approvalStatus = searchParams.get("approvalStatus");
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
           }
         : {}),
       ...(officeLocation ? { regionOfRegistration: officeLocation } : {}),
-      ...(staffMember ? { createdBy: staffMember } : {}),
+      ...(staffMemberId ? { createdBy: staffMemberId } : staffMember ? { createdBy: staffMember } : {}), // Support either
       ...(processType ? { processType } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(approvalStatus ? { approvalStatus } : {}),
@@ -130,8 +131,19 @@ export async function GET(request: Request) {
 
     const distinctStaff = await prisma.user.findMany({
       where: { ownerAdminId },
-      select: { name: true, email: true },
+      select: { id: true, name: true, email: true },
     });
+
+    // Resolve User names for staff and tableData
+    const userIds = new Set<string>();
+    byStaff.forEach((s) => { if (s.createdBy) userIds.add(s.createdBy); });
+    tableData.forEach((t) => { if (t.createdBy) userIds.add(t.createdBy); });
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: Array.from(userIds) } },
+      select: { id: true, name: true, email: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u.name || u.email || "Unknown"]));
 
     return jsonOk({
       kpis: {
@@ -150,7 +162,7 @@ export async function GET(request: Request) {
         balance: Number(o._sum.balanceAmount ?? 0),
       })),
       byStaff: byStaff.map((s) => ({
-        staff: s.createdBy || "Unknown",
+        staff: s.createdBy ? (userMap.get(s.createdBy) || "Unknown") : "Unknown",
         revenue: Number(s._sum.totalCharges ?? 0),
         registrations: s._count.id,
         advancePaid: Number(s._sum.advancePaid ?? 0),
@@ -161,10 +173,13 @@ export async function GET(request: Request) {
         revenue: Number(p._sum.totalCharges ?? 0),
         registrations: p._count.id,
       })),
-      tableData,
+      tableData: tableData.map((t) => ({
+        ...t,
+        createdBy: t.createdBy ? (userMap.get(t.createdBy) || "Unknown") : "Unknown",
+      })),
       options: {
         offices: distinctOffices.map((o) => o.officeName),
-        staff: distinctStaff.map((s) => s.name || s.email),
+        staff: distinctStaff.map((s) => ({ id: s.id, name: s.name || s.email })), // Return objects for options if needed? No, wait.
       },
     });
   } catch (error) {

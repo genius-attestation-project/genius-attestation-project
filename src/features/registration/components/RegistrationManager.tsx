@@ -1016,7 +1016,7 @@ export function RegistrationManager({
                       <td className="px-5 py-4">{registration.customerName}</td>
                       <td className="px-5 py-4">{registration.mobile}</td>
                       <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-300">
-                        {(registration as any).createdByName || "-"}
+                        {registration.createdBy?.name || "Unknown"}
                       </td>
                       <td className="px-5 py-4">{registration.documentType || "-"}</td>
                       <td className="px-5 py-4">{registration.paymentStatus}</td>

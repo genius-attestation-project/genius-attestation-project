@@ -12,6 +12,7 @@ type ExportRecord = {
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
+  createdByName?: string | null;
   registeredPerson: string | null;
   collectedPerson: string | null;
   regionOfRegistration: string | null;
@@ -25,6 +26,7 @@ function mapRecordsToRows(records: ExportRecord[]) {
     record.trackingNumber,
     record.customerName,
     record.mobile,
+    (record as any).createdBy?.name || "Unknown",
     record.processType || "-",
     record.totalCharges,
     record.advancePaid,
@@ -41,6 +43,7 @@ const EXPORT_COLUMNS = [
   "TR Number",
   "Customer Name",
   "Mobile Number",
+  "Created By",
   "Process",
   "Charge",
   "Paid Amount",
@@ -61,6 +64,7 @@ export async function generateExcelBuffer(records: ExportRecord[]): Promise<Buff
   // Add Totals row
   rows.push([
     "Totals",
+    "",
     "",
     "",
     "",
@@ -132,6 +136,7 @@ export async function generatePDFBuffer(records: ExportRecord[], filtersText: st
 
   const totalsRow = [
     "Totals",
+    "",
     "",
     "",
     "",

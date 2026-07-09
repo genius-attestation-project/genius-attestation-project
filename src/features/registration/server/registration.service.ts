@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
 
 const registrationInclude = {
+  creator: {
+    select: { id: true, name: true, email: true },
+  },
   files: {
     orderBy: { uploadedAt: "desc" as const },
     include: {
@@ -66,7 +69,12 @@ function mapRegistration(registration: RegistrationRecord) {
       ...item,
       createdAt: item.createdAt.toISOString(),
     })),
-    createdByName: (registration as any).createdByName || null,
+    createdById: registration.createdBy,
+    createdBy: registration.creator ? {
+      id: registration.creator.id,
+      name: registration.creator.name,
+      email: registration.creator.email,
+    } : null,
   };
 }
 
@@ -228,18 +236,8 @@ export async function listRegistrations(
     prisma.registration.count({ where }),
   ]);
 
-  const userIds = Array.from(new Set(items.map((i) => i.createdBy).filter(Boolean))) as string[];
-  const users = await prisma.user.findMany({
-    where: { id: { in: userIds } },
-    select: { id: true, name: true, email: true },
-  });
-  const userMap = new Map(users.map((u) => [u.id, u.name || u.email || "Unknown"]));
-
   return {
-    items: items.map((registration) => mapRegistration({
-      ...registration,
-      createdByName: registration.createdBy ? userMap.get(registration.createdBy) || "Unknown" : "Unknown",
-    } as any)),
+    items: items.map((registration) => mapRegistration(registration)),
     pagination: {
       page,
       pageSize,
@@ -272,6 +270,7 @@ export async function createRegistration(
   input: RegistrationInput,
   sourceOfficeName: string,
   performedBy?: string,
+  userId?: string,
 ) {
   if (!sourceOfficeName.trim()) {
     throw new Error("Office location is required to create a registration.");
@@ -296,7 +295,7 @@ export async function createRegistration(
       }),
       welcomeCallStatus: "Pending",
       ownerAdminId,
-      createdBy: performedBy ?? null,
+      createdBy: userId ?? null,
       bmStatus: isHomeDelivery ? "Accepted" : "Pending",
       acceptedAt: isHomeDelivery ? new Date() : null,
       acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,

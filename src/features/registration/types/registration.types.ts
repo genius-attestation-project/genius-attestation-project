@@ -55,7 +55,8 @@ export type Registration = {
   welcomeCalledBy: string | null;
   welcomeCalledAt: string | null;
   ownerAdminId?: string | null;
-  createdBy?: string | null;
+  createdBy?: { id: string; name: string | null; email: string | null } | null;
+  createdById?: string | null;
   createdAt: string;
   updatedAt: string;
   createdDate: string;

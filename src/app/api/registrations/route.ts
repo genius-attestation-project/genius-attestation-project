@@ -105,7 +105,8 @@ export async function POST(request: Request) {
     }
 
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const registration = await createRegistration(ownerAdminId, parsed.data, sourceOfficeName, performedBy);
+    const userId = session.user?.id;
+    const registration = await createRegistration(ownerAdminId, parsed.data, sourceOfficeName, performedBy, userId);
     return jsonOk({ registration }, 201);
   } catch (error) {
     if (error instanceof Error && error.message === "Office location is required to create a registration.") {

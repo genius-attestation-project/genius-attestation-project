@@ -71,7 +71,7 @@ type RevenueData = {
   }>;
   options: {
     offices: string[];
-    staff: string[];
+    staff: Array<{ id: string; name: string }>;
   };
 };
 
@@ -209,8 +209,8 @@ export function RevenueSummaryClient() {
             >
               <option value="">All Staff</option>
               {data?.options?.staff.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
