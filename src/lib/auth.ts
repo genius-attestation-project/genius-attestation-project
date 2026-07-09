@@ -210,6 +210,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.legacyRole = access?.legacyRole ?? "USER";
         token.roles = access?.roles ?? [token.role];
         token.permissions = access?.permissions ?? [];
+        token.permissionScopes = access?.permissionScopes ?? {};
         token.isSuperAdmin = access?.isSuperAdmin ?? false;
 
         return token;
@@ -237,6 +238,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             typeof token.officeLocationName === "string" ? token.officeLocationName : undefined;
           session.user.roles = Array.isArray(token.roles) ? token.roles : [];
           session.user.permissions = Array.isArray(token.permissions) ? token.permissions : [];
+          session.user.permissionScopes = typeof token.permissionScopes === "object" && token.permissionScopes !== null ? token.permissionScopes as Record<string, string> : {};
           session.user.isSuperAdmin = typeof token.isSuperAdmin === "boolean" ? token.isSuperAdmin : false;
         }
 

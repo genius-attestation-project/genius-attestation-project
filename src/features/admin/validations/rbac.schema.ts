@@ -16,6 +16,7 @@ export const roleSchema = z.object({
 
 export const rolePermissionSchema = z.object({
   permissionCodes: z.array(z.string().trim()).default([]),
+  permissionScopes: z.record(z.string(), z.string()).optional(),
 });
 
 export const userSchema = z.object({

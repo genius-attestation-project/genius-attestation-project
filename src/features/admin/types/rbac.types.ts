@@ -1,5 +1,18 @@
 import type { LeadFormValues } from "@/features/lead/data/lead.data";
 
+export enum DataScope {
+  None = "None",
+  Own = "Own",
+  Assigned = "Assigned",
+  Created = "Created",
+  ReportingStaff = "Reporting Staff",
+  Department = "Department",
+  Office = "Office",
+  ProcessOffice = "Process Office",
+  Team = "Team",
+  All = "All"
+}
+
 export type AccessRoleRow = {
   id: string;
   name: string;
@@ -7,6 +20,7 @@ export type AccessRoleRow = {
   isActive: boolean;
   userCount: number;
   permissions: string[];
+  permissionScopes: Record<string, string>;
   menuPermissions: string[];
 };
 
@@ -47,6 +61,7 @@ export type SessionAccess = {
   legacyRole: string;
   roles: string[];
   permissions: string[];
+  permissionScopes: Record<string, string>;
   isSuperAdmin: boolean;
 };
 
@@ -58,6 +73,7 @@ export type RolePayload = {
 
 export type RolePermissionPayload = {
   permissionCodes: string[];
+  permissionScopes?: Record<string, string>;
 };
 
 export type UserPayload = {

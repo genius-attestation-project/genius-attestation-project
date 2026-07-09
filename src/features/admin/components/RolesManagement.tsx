@@ -38,6 +38,7 @@ export function RolesManagement() {
   const [selectedRole, setSelectedRole] = useState<AccessRoleRow | null>(null);
   const [formState, setFormState] = useState<FormState>(defaultFormState);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [selectedPermissionScopes, setSelectedPermissionScopes] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const permissionGroups = useMemo(() => {
@@ -96,6 +97,7 @@ export function RolesManagement() {
     setSelectedRole(null);
     setFormState(defaultFormState);
     setSelectedPermissions([]);
+    setSelectedPermissionScopes({});
     setIsDrawerOpen(true);
   }
 
@@ -107,6 +109,7 @@ export function RolesManagement() {
       isActive: role.isActive,
     });
     setSelectedPermissions([...role.permissions, ...role.menuPermissions]);
+    setSelectedPermissionScopes(role.permissionScopes ?? {});
     setIsDrawerOpen(true);
   }
 
@@ -114,6 +117,22 @@ export function RolesManagement() {
     setSelectedPermissions((current) =>
       current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
     );
+  }
+
+  function handlePermissionScopeChange(code: string, checked: boolean, scope: string) {
+    if (checked) {
+      if (!selectedPermissions.includes(code)) {
+        setSelectedPermissions((p) => [...p, code]);
+      }
+      setSelectedPermissionScopes((s) => ({ ...s, [code]: scope }));
+    } else {
+      setSelectedPermissions((p) => p.filter((x) => x !== code));
+      setSelectedPermissionScopes((s) => {
+        const next = { ...s };
+        delete next[code];
+        return next;
+      });
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -138,7 +157,10 @@ export function RolesManagement() {
       const permissionResponse = await fetch(`/api/roles/${rolePayload.role.id}/permissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissionCodes: selectedPermissions }),
+        body: JSON.stringify({ 
+          permissionCodes: selectedPermissions,
+          permissionScopes: selectedPermissionScopes,
+        }),
       });
       const permissionPayload = (await permissionResponse.json()) as {
         message?: string;
@@ -303,12 +325,17 @@ export function RolesManagement() {
                         <p className="font-extrabold">{permission.name}</p>
                         <p className="text-xs text-soft">{permission.code}</p>
                       </td>
-                      {roles.map((role) => (
-                        <PermissionCell
-                          key={`${role.id}-${permission.id}`}
-                          enabled={[...role.permissions, ...role.menuPermissions].includes(permission.code)}
-                        />
-                      ))}
+                      {roles.map((role) => {
+                        const hasPerm = [...role.permissions, ...role.menuPermissions].includes(permission.code);
+                        const scope = role.permissionScopes?.[permission.code] ?? "All";
+                        return (
+                          <PermissionScopeCell
+                            key={`${role.id}-${permission.id}`}
+                            enabled={hasPerm}
+                            scope={hasPerm ? scope : "None"}
+                          />
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -393,12 +420,15 @@ export function RolesManagement() {
                       }
 
                       return (
-                        <PermissionToggle
+                        <PermissionScopeControl
                           key={permission.code}
                           label={toActionLabel(action)}
                           description={permission.code}
+                          action={action}
                           checked={selectedPermissions.includes(permission.code)}
-                          onChange={() => togglePermission(permission.code)}
+                          scope={selectedPermissionScopes[permission.code] ?? "All"}
+                          onChange={(checked) => handlePermissionScopeChange(permission.code, checked, selectedPermissionScopes[permission.code] ?? "All")}
+                          onScopeChange={(scope) => handlePermissionScopeChange(permission.code, true, scope)}
                         />
                       );
                     })}
@@ -440,15 +470,21 @@ export function RolesManagement() {
   );
 }
 
-function PermissionCell({ enabled }: { enabled: boolean }) {
+function PermissionScopeCell({ enabled, scope }: { enabled: boolean; scope: string }) {
+  if (!enabled || scope === "None") {
+    return (
+      <td className="px-4 py-4">
+        <span className="inline-flex h-9 items-center justify-center rounded-2xl bg-slate-500/10 px-3 text-xs font-bold text-slate-500">
+          None
+        </span>
+      </td>
+    );
+  }
+
   return (
     <td className="px-4 py-4">
-      <span
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl ${
-          enabled ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10" : "bg-slate-500/10 text-slate-500"
-        }`}
-      >
-        {enabled ? <Check size={16} /> : <ShieldCheck size={16} />}
+      <span className="inline-flex h-9 items-center justify-center rounded-2xl bg-blue-50 px-3 text-xs font-bold text-blue-600 dark:bg-blue-500/10">
+        {scope}
       </span>
     </td>
   );
@@ -466,18 +502,89 @@ function PermissionToggle({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] p-3">
+    <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="mt-1 h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500"
+        className="mt-1 h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500 cursor-pointer"
       />
       <div>
         <p className="text-sm font-bold">{label}</p>
         <p className="text-xs text-soft">{description}</p>
       </div>
     </label>
+  );
+}
+
+function PermissionScopeControl({
+  label,
+  description,
+  action,
+  checked,
+  scope,
+  onChange,
+  onScopeChange,
+}: {
+  label: string;
+  description: string;
+  action: string;
+  checked: boolean;
+  scope: string;
+  onChange: (checked: boolean) => void;
+  onScopeChange: (scope: string) => void;
+}) {
+  const isCheckboxOnly = ["create", "print"].includes(action);
+
+  if (isCheckboxOnly) {
+    return (
+      <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500 cursor-pointer"
+        />
+        <div>
+          <p className="text-sm font-bold">{label}</p>
+          <p className="text-xs text-soft">{description}</p>
+        </div>
+      </label>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-[color:var(--border)] p-3 hover:border-blue-500/50 transition-colors">
+      <div>
+        <p className="text-sm font-bold">{label}</p>
+        <p className="text-xs text-soft">{description}</p>
+      </div>
+      <select
+        value={checked ? scope : "None"}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === "None") {
+            onChange(false);
+            onScopeChange("None");
+          } else {
+            onChange(true);
+            onScopeChange(val);
+          }
+        }}
+        className="h-9 w-full rounded-xl border border-[color:var(--border)] bg-white/50 px-3 text-sm font-bold outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5 cursor-pointer"
+      >
+        <option value="None">None</option>
+        <option value="Own">Own</option>
+        <option value="Assigned">Assigned</option>
+        <option value="Created">Created</option>
+        <option value="Reporting Staff">Reporting Staff</option>
+        <option value="Department">Department</option>
+        <option value="Office">Office</option>
+        <option value="Process Office">Process Office</option>
+        <option value="Team">Team</option>
+        <option value="All">All</option>
+      </select>
+    </div>
   );
 }
 

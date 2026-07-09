@@ -7,6 +7,7 @@ declare module "next-auth" {
       role: string;
       roles: string[];
       permissions: string[];
+      permissionScopes: Record<string, string>;
       isSuperAdmin: boolean;
       legacyRole: string;
       ownerAdminId?: string;
@@ -23,6 +24,7 @@ declare module "next-auth/jwt" {
     id?: string;
     roles?: string[];
     permissions?: string[];
+    permissionScopes?: Record<string, string>;
     isSuperAdmin?: boolean;
     legacyRole?: string;
     role?: string;

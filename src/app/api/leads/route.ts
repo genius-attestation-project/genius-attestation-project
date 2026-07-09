@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
-    const data = await listLeads(ownerAdminId, {
+    const data = await listLeads(session?.user, ownerAdminId, {
       page: Number(searchParams.get("page") ?? "1"),
       pageSize: Number(searchParams.get("pageSize") ?? "10"),
       query: searchParams.get("query") ?? undefined,

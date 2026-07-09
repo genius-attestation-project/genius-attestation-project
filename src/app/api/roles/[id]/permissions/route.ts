@@ -25,7 +25,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid permissions payload.");
     }
 
-    const role = await setRolePermissions(ownerAdminId, id, parsed.data.permissionCodes);
+    const role = await setRolePermissions(ownerAdminId, id, parsed.data.permissionCodes, parsed.data.permissionScopes);
 
     if (!role) {
       return jsonError("Role not found.", 404);

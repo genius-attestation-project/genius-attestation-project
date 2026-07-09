@@ -43,11 +43,13 @@ function buildSafeSessionAccess(params: {
   role?: string;
   roles?: string[];
   permissions?: string[];
+  permissionScopes?: Record<string, string>;
   isSuperAdmin?: boolean;
 }): SessionAccess {
   const role = params.role ?? (params.legacyRole === "ADMIN" ? "Super Admin" : "User");
   const roles = params.roles ?? (role ? [role] : []);
   const permissions = params.permissions ?? [];
+  const permissionScopes = params.permissionScopes ?? {};
   const isSuperAdmin = params.isSuperAdmin ?? (role === "Super Admin" || role === "Admin");
 
   return {
@@ -58,6 +60,7 @@ function buildSafeSessionAccess(params: {
     legacyRole: params.legacyRole,
     roles,
     permissions,
+    permissionScopes,
     isSuperAdmin,
   };
 }
@@ -252,7 +255,16 @@ async function fetchRolesFromDb(ownerAdminId: string) {
 }
 
 function mapRole(role: RoleRecord): AccessRoleRow {
-  const permissionCodes = role.rolePermissions.map((item: { permission: { code: string } }) => item.permission.code).sort();
+  const permissionCodes: string[] = [];
+  const permissionScopes: Record<string, string> = {};
+
+  for (const item of role.rolePermissions) {
+    const code = item.permission.code;
+    permissionCodes.push(code);
+    permissionScopes[code] = item.scope ?? "All";
+  }
+
+  permissionCodes.sort();
 
   return {
     id: role.id,
@@ -261,6 +273,7 @@ function mapRole(role: RoleRecord): AccessRoleRow {
     isActive: role.isActive,
     userCount: role.users.length,
     permissions: permissionCodes.filter((code: string) => !code.startsWith("menu.")),
+    permissionScopes,
     menuPermissions: permissionCodes.filter((code: string) => code.startsWith("menu.")),
   };
 }
@@ -355,7 +368,7 @@ export async function deleteRole(ownerAdminId: string, roleId: string) {
   return true;
 }
 
-export async function setRolePermissions(ownerAdminId: string, roleId: string, permissionCodes: string[]) {
+export async function setRolePermissions(ownerAdminId: string, roleId: string, permissionCodes: string[], permissionScopes?: Record<string, string>) {
   await ensureAdminRoles(ownerAdminId);
 
   const role = await prisma.accessRole.findFirst({
@@ -367,16 +380,17 @@ export async function setRolePermissions(ownerAdminId: string, roleId: string, p
 
   const permissions = await prisma.permission.findMany({
     where: { code: { in: permissionCodes } },
-    select: { id: true },
+    select: { id: true, code: true },
   });
 
   await prisma.rolePermission.deleteMany({ where: { roleId } });
 
   if (permissions.length > 0) {
     await prisma.rolePermission.createMany({
-      data: permissions.map((permission: { id: string }) => ({
+      data: permissions.map((permission: { id: string; code: string }) => ({
         roleId,
         permissionId: permission.id,
+        scope: permissionScopes?.[permission.code] ?? "All",
       })),
       skipDuplicates: true,
     });
@@ -914,9 +928,15 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   const isSuperAdmin = isOwner || user.role?.name === "Super Admin";
   const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "User");
   
-  const permissions = isSuperAdmin 
-    ? [] // We handle super admin access directly in hasPermission
-    : (user.role?.rolePermissions.map((rp: { permission: { code: string } }) => rp.permission.code) ?? []);
+  const permissions: string[] = [];
+  const permissionScopes: Record<string, string> = {};
+
+  if (!isSuperAdmin && user.role?.rolePermissions) {
+    for (const rp of user.role.rolePermissions) {
+      permissions.push(rp.permission.code);
+      permissionScopes[rp.permission.code] = rp.scope ?? "All";
+    }
+  }
 
   const access = buildSafeSessionAccess({
     userId: user.id,
@@ -926,6 +946,7 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     legacyRole: "USER",
     roles: [roleName],
     permissions,
+    permissionScopes,
     isSuperAdmin,
   });
 
@@ -937,6 +958,13 @@ export function hasPermission(access: SessionAccess | { permissions: string[]; i
     return true;
   }
   return access.permissions.includes(code);
+}
+
+export function getPermissionScope(access: SessionAccess | { isSuperAdmin?: boolean; permissionScopes?: Record<string, string> }, code: string): string {
+  if (access.isSuperAdmin) {
+    return "All";
+  }
+  return access.permissionScopes?.[code] ?? "None";
 }
 
 export function filterNavigationByPermissions(

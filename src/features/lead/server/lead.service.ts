@@ -1,5 +1,7 @@
 import { FollowupActionType, FollowupStatus, LeadStatus, Prisma } from "@prisma/client";
 
+import { buildDataScopeFilter } from "@/lib/data-scope";
+import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
 import {
   createLeadApprovalRequest,
@@ -810,7 +812,7 @@ async function generateLeadCode() {
   return `LD-${String(nextValue).padStart(4, "0")}`;
 }
 
-export async function listLeads(ownerAdminId: string, params: {
+export async function listLeads(user: any, ownerAdminId: string, params: {
   page?: number;
   pageSize?: number;
   query?: string;
@@ -868,36 +870,48 @@ export async function listLeads(ownerAdminId: string, params: {
     }
   }
 
+  const scopeFilter = buildDataScopeFilter(user, "leads.view", {
+    createdByField: "createdById",
+    assignedToField: "assignedUserId",
+    departmentRelation: "creator",
+    officeRelation: "creator",
+  });
+
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
-    ...(status ? { leadStatus: status } : {}),
-    ...(service ? { service: { contains: service } } : {}),
-    ...(createdById ? { createdById } : {}),
-    ...(country ? { country: { equals: country } } : {}),
-    ...(state ? { state: { equals: state } } : {}),
-    ...(source ? { source: { equals: source } } : {}),
-    ...(officeLocationId ? { creator: { officeLocationId } } : {}),
-    ...(assignedUserId
-      ? assignedUserId === "unassigned"
-        ? { assignedUserId: null }
-        : { assignedUserId }
-      : {}),
-    ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
-    ...(Object.keys(nextFollowupAt).length > 0 ? { nextFollowupAt } : {}),
-    ...(query
-      ? {
-          OR: [
-            { leadCode: { contains: query } },
-            { firstName: { contains: query } },
-            { lastName: { contains: query } },
-            { email: { contains: query } },
-            { mobileNumber: { contains: query } },
-            { service: { contains: query } },
-            { assignedUser: { contains: query } },
-            { country: { contains: query } },
-          ],
-        }
-      : {}),
+    AND: [
+      Object.keys(scopeFilter).length > 0 ? scopeFilter : {},
+      {
+        ...(status ? { leadStatus: status } : {}),
+        ...(service ? { service: { contains: service } } : {}),
+        ...(createdById ? { createdById } : {}),
+        ...(country ? { country: { equals: country } } : {}),
+        ...(state ? { state: { equals: state } } : {}),
+        ...(source ? { source: { equals: source } } : {}),
+        ...(officeLocationId ? { creator: { officeLocationId } } : {}),
+        ...(assignedUserId
+          ? assignedUserId === "unassigned"
+            ? { assignedUserId: null }
+            : { assignedUserId }
+          : {}),
+        ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+        ...(Object.keys(nextFollowupAt).length > 0 ? { nextFollowupAt } : {}),
+        ...(query
+          ? {
+              OR: [
+                { leadCode: { contains: query } },
+                { firstName: { contains: query } },
+                { lastName: { contains: query } },
+                { email: { contains: query } },
+                { mobileNumber: { contains: query } },
+                { service: { contains: query } },
+                { assignedUser: { contains: query } },
+                { country: { contains: query } },
+              ],
+            }
+          : {}),
+      }
+    ]
   };
 
   const totalItems = await prisma.lead.count({ where });
@@ -1313,11 +1327,13 @@ export async function deleteLead(ownerAdminId: string, id: string) {
 }
 
 export async function listClosedLeads(ownerAdminId: string) {
-  return listLeads(ownerAdminId, { status: "Closed", pageSize: 50 });
+  // Pass an empty user or handle appropriately if listClosedLeads needs user context.
+  // Assuming listClosedLeads doesn't need user scope, or we can pass a dummy user with All scope.
+  return listLeads({ isSuperAdmin: true }, ownerAdminId, { status: LeadStatus.Closed, pageSize: 50 });
 }
 
 export async function listPendingLeads(ownerAdminId: string) {
-  return listLeads(ownerAdminId, { status: "Pending Approval", pageSize: 50 });
+  return listLeads({ isSuperAdmin: true }, ownerAdminId, { status: LeadStatus.Pending_Approval, pageSize: 50 });
 }
 
 export async function listFollowups(ownerAdminId: string, userId?: string) {
