@@ -395,15 +395,20 @@ function getFollowupTone(
     return "rescheduled";
   }
 
+  if (followupStart.getTime() === todayStart.getTime()) {
+    return "today";
+  }
+
   return "pending";
 }
 
 function getFollowupColor(tone: FollowupTone) {
   const palette: Record<FollowupTone, string> = {
-    pending: "#2563eb",
-    completed: "#16a34a",
-    rescheduled: "#ea580c",
-    missed: "#dc2626",
+    pending: "#2563eb", // blue (upcoming)
+    today: "#16a34a", // green (today)
+    completed: "#64748b", // gray (completed)
+    rescheduled: "#ea580c", // orange
+    missed: "#dc2626", // red (overdue)
   };
 
   return palette[tone];
@@ -411,10 +416,11 @@ function getFollowupColor(tone: FollowupTone) {
 
 function getFollowupStatusLabel(tone: FollowupTone) {
   const labels: Record<FollowupTone, string> = {
-    pending: "Pending",
+    pending: "Upcoming",
+    today: "Today",
     completed: "Completed",
     rescheduled: "Rescheduled",
-    missed: "Missed",
+    missed: "Overdue",
   };
 
   return labels[tone];
@@ -1206,6 +1212,21 @@ export async function updateLead(
       throw new Error("Authenticated user is required to request approval.");
     }
 
+    if (newLeadStatus === LeadStatus.LOB) {
+      const { createLobWorkflowRequest } = await import("./workflow-approval.service");
+      const approval = await createLobWorkflowRequest({
+        ownerAdminId,
+        leadId: existingLead.id,
+        requestedBy: changedByUserId,
+      });
+
+      return {
+        lead: mapLeadRow(lead),
+        approvalRequested: true,
+        message: "LOB Approval Requested",
+      };
+    }
+
     const approval = await createLeadApprovalRequest({
       ownerAdminId,
       leadId: existingLead.id,
@@ -1841,11 +1862,17 @@ export async function completeFollowup(args: {
       id: args.leadId,
       ...userCanReceiveFollowup(args),
     },
-    select: { id: true },
+    select: { id: true, nextFollowupAt: true },
   });
 
   if (!lead) {
     return null;
+  }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  if (lead.nextFollowupAt && lead.nextFollowupAt < todayStart) {
+    throw new Error("This follow-up is overdue and locked pending supervisor approval.");
   }
 
   return completeFollowupWithDescription({
@@ -1877,11 +1904,17 @@ export async function snoozeFollowup(args: {
       id: args.leadId,
       ...userCanReceiveFollowup(args),
     },
-    select: { id: true },
+    select: { id: true, nextFollowupAt: true },
   });
 
   if (!lead) {
     return null;
+  }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  if (lead.nextFollowupAt && lead.nextFollowupAt < todayStart) {
+    throw new Error("This follow-up is overdue and locked pending supervisor approval.");
   }
 
   return snoozeFollowupWithHistory({
@@ -1922,11 +1955,10 @@ export async function requestMoveFollowupToLob(args: {
     return null;
   }
 
-  return createLeadApprovalRequest({
+  const { createLobWorkflowRequest } = await import("./workflow-approval.service");
+  return createLobWorkflowRequest({
     ownerAdminId: args.ownerAdminId,
     leadId: lead.id,
-    currentStatus: lead.leadStatus,
-    requestedStatus: LeadStatus.LOB,
     requestedBy: args.userId,
   });
 }

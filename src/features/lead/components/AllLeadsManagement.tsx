@@ -2,6 +2,7 @@
 
 import { AlertCircle, Eye, FilterX, Pencil, Plus, Trash2, Users, Download, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { ApprovalTimeline } from "./ApprovalTimeline";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
@@ -507,7 +508,7 @@ export function AllLeadsManagement({
           </div>
 
           {isServerFilteredEndpoint ? (
-            <div className="grid gap-3 rounded-2xl border border-[color:var(--border)] bg-slate-50/70 p-3 sm:p-4">
+            <div className="grid gap-3 rounded-2xl border border-(--border) bg-slate-50/70 p-3 sm:p-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <FilterDropdown
                   key={`created-${createdByFilter}`}
@@ -776,6 +777,7 @@ export function AllLeadsManagement({
                 <p className="mt-2 text-sm font-medium text-slate-900 dark:text-white">{value}</p>
               </div>
             ))}
+            <ApprovalTimeline leadId={selectedLead.id} />
           </div>
         ) : null}
       </FormDrawer>
@@ -793,7 +795,7 @@ function DateFilter({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5">
+    <label className="inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5">
       <span className="shrink-0 font-semibold text-soft">{label}</span>
       <input
         type="date"

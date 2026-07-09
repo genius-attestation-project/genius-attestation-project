@@ -117,7 +117,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
+        className="h-12 w-full min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
       >
         {children}
       </select>
@@ -571,7 +571,7 @@ export function AccountUpdateDashboard({
           <div className="grid max-h-[92vh] w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-4 rounded-[28px] border border-(--border) bg-white p-4 shadow-xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="break-words text-base font-extrabold">{receiptPreview.receiptFileName ?? "Transaction Receipt"}</h2>
+                <h2 className="wrap-break-word text-base font-extrabold">{receiptPreview.receiptFileName ?? "Transaction Receipt"}</h2>
                 <p className="text-sm text-soft">
                   {receiptPreview.trackingNumbers.join(", ")} | {receiptPreview.invoiceNumber} | {receiptPreview.paymentDate}
                 </p>
@@ -757,7 +757,7 @@ function StackedValues({ values }: { values: string[] }) {
   return (
     <div className="grid gap-1">
       {values.map((value) => (
-        <span key={value} className="break-words">{value}</span>
+        <span key={value} className="wrap-break-word">{value}</span>
       ))}
     </div>
   );

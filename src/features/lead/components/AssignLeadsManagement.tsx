@@ -210,7 +210,7 @@ export function AssignLeadsManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_42%),linear-gradient(135deg,_#ffffff,_#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
+      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Lead Management</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">Assign Leads</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">

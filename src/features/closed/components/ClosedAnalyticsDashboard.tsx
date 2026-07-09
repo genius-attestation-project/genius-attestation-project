@@ -160,7 +160,7 @@ function MetricCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</p>
-          <strong className="mt-3 block break-words text-2xl font-bold tracking-tight sm:text-3xl">{value}</strong>
+          <strong className="mt-3 block wrap-break-word text-2xl font-bold tracking-tight sm:text-3xl">{value}</strong>
           <p className="mt-1 text-xs opacity-70">{sub}</p>
         </div>
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 shadow-sm">

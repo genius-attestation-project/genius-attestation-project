@@ -40,6 +40,11 @@ export interface ExecutiveSummaryMetrics {
   pendingRevenue: number;   // Balance amount
   totalCustomersHandled: number;
 
+  // Workflow Approvals
+  inactiveLeads: number;
+  lobRequests: number;
+  overdueFollowups: number;
+
   charts: {
     revenueTrend: { date: string; revenue: number }[];
     leadSources: { name: string; value: number }[];

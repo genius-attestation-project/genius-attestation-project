@@ -66,32 +66,32 @@ export function LeaveReportsManagement() {
         <div className="grid gap-3 md:grid-cols-5">
           <label className="grid gap-2 text-sm font-bold">
             <span>User</span>
-            <select className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={query.userId} onChange={(event) => setQuery((current) => ({ ...current, userId: event.target.value }))}>
+            <select className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={query.userId} onChange={(event) => setQuery((current) => ({ ...current, userId: event.target.value }))}>
               <option value="">All users</option>
               {filters.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
             </select>
           </label>
           <label className="grid gap-2 text-sm font-bold">
             <span>Department</span>
-            <select className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={query.departmentId} onChange={(event) => setQuery((current) => ({ ...current, departmentId: event.target.value }))}>
+            <select className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={query.departmentId} onChange={(event) => setQuery((current) => ({ ...current, departmentId: event.target.value }))}>
               <option value="">All departments</option>
               {filters.departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
             </select>
           </label>
           <label className="grid gap-2 text-sm font-bold">
             <span>Office</span>
-            <select className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={query.officeLocationId} onChange={(event) => setQuery((current) => ({ ...current, officeLocationId: event.target.value }))}>
+            <select className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={query.officeLocationId} onChange={(event) => setQuery((current) => ({ ...current, officeLocationId: event.target.value }))}>
               <option value="">All offices</option>
               {filters.officeLocations.map((office) => <option key={office.id} value={office.id}>{office.officeName}</option>)}
             </select>
           </label>
           <label className="grid gap-2 text-sm font-bold">
             <span>Month</span>
-            <input type="number" min="1" max="12" className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={query.month} onChange={(event) => setQuery((current) => ({ ...current, month: event.target.value }))} />
+            <input type="number" min="1" max="12" className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={query.month} onChange={(event) => setQuery((current) => ({ ...current, month: event.target.value }))} />
           </label>
           <label className="grid gap-2 text-sm font-bold">
             <span>Year</span>
-            <input type="number" min="2020" max="2100" className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={query.year} onChange={(event) => setQuery((current) => ({ ...current, year: event.target.value }))} />
+            <input type="number" min="2020" max="2100" className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={query.year} onChange={(event) => setQuery((current) => ({ ...current, year: event.target.value }))} />
           </label>
         </div>
         <div className="mt-4 flex justify-end">

@@ -12,9 +12,9 @@ const variants = {
   primary:
     "border-blue-500/30 bg-linear-to-r from-blue-600 via-blue-500 to-sky-500 text-white hover:shadow-[0_18px_32px_rgba(37,99,235,0.24)]",
   secondary:
-    "border-[color:var(--border)] bg-white/80 text-[color:var(--text)] hover:border-blue-500/35 hover:bg-blue-50 dark:bg-white/5 dark:hover:bg-blue-500/10",
+    "border-(--border) bg-white/80 text-(--text) hover:border-blue-500/35 hover:bg-blue-50 dark:bg-white/5 dark:hover:bg-blue-500/10",
   ghost:
-    "border-transparent bg-transparent text-[color:var(--text)] hover:border-blue-500/25 hover:bg-blue-50 dark:hover:bg-blue-500/10",
+    "border-transparent bg-transparent text-(--text) hover:border-blue-500/25 hover:bg-blue-50 dark:hover:bg-blue-500/10",
   danger:
     "border-rose-500/20 bg-rose-500/10 text-rose-600 hover:border-rose-500/35 hover:bg-rose-500/15",
 };

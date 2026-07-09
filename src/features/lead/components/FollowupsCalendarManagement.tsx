@@ -394,7 +394,7 @@ export function FollowupsCalendarManagement() {
 
   function handleEventClick(info: EventClickArg) {
     const followup = info.event.extendedProps.followup as FollowupItem;
-    void openFollowupDetails(followup);
+    openLeadEditor(followup.id);
   }
 
   function handleDateClick(info: DateClickArg) {
@@ -435,9 +435,10 @@ export function FollowupsCalendarManagement() {
 
   function renderEventContent(eventInfo: EventContentArg) {
     const followup = eventInfo.event.extendedProps.followup as FollowupItem;
+    const hoverText = `${followup.clientName}\nService: ${followup.service}\nDue: ${followup.followupDateTimeLabel}\nStatus: ${followup.followupStatusLabel}\nAssigned: ${followup.assignedUser || "Unassigned"}`;
 
     return (
-      <div className="flex flex-col gap-0.5 overflow-hidden rounded-xl px-2 py-1">
+      <div className="flex flex-col gap-0.5 overflow-hidden rounded-xl px-2 py-1" title={hoverText}>
         <span className="truncate text-[11px] font-semibold">{followup.clientName}</span>
         <span className="truncate text-[10px] opacity-90">{followup.followupTimeLabel}</span>
       </div>
@@ -524,7 +525,7 @@ export function FollowupsCalendarManagement() {
                   className={`rounded-2xl border px-4 py-3 text-left transition ${
                     isActive
                       ? "border-blue-500/35 bg-blue-50 text-blue-700 shadow-sm"
-                      : "border-[color:var(--border)] bg-white/70 text-[color:var(--text)] hover:border-blue-500/25 hover:bg-blue-50/60"
+                      : "border-(--border) bg-white/70 text-(--text) hover:border-blue-500/25 hover:bg-blue-50/60"
                   }`}
                   onClick={() => setActiveFilter(option.value)}
                 >
@@ -543,11 +544,11 @@ export function FollowupsCalendarManagement() {
             Showing {calendarData.items.length} followups for the {activeFilter} queue.
           </p>
 
-          <div className="mt-6 grid gap-4 border-t border-[color:var(--border)] pt-6 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 border-t border-(--border) pt-6 md:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-sm font-semibold">Assigned User</label>
               <select
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={assignedUserFilter}
                 onChange={(e) => setAssignedUserFilter(e.target.value)}
               >
@@ -560,7 +561,7 @@ export function FollowupsCalendarManagement() {
             <div>
               <label className="mb-1.5 block text-sm font-semibold">Office Location</label>
               <select
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={officeLocationFilter}
                 onChange={(e) => setOfficeLocationFilter(e.target.value)}
               >
@@ -573,7 +574,7 @@ export function FollowupsCalendarManagement() {
             <div>
               <label className="mb-1.5 block text-sm font-semibold">Lead Status</label>
               <select
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text)] transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={leadStatusFilter}
                 onChange={(e) => setLeadStatusFilter(e.target.value)}
               >
@@ -614,7 +615,7 @@ export function FollowupsCalendarManagement() {
           ) : (
             <>
               <div className="hidden md:block">
-                <div className="followup-calendar min-w-0 overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-white/85 p-3 shadow-sm sm:rounded-[28px]">
+                <div className="followup-calendar min-w-0 overflow-x-auto rounded-2xl border border-(--border) bg-white/85 p-3 shadow-sm sm:rounded-[28px]">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
@@ -641,7 +642,7 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={item.id}
                     type="button"
-                    className="rounded-[24px] border border-[color:var(--border)] bg-white/80 p-4 text-left shadow-sm transition hover:border-blue-500/25 hover:shadow-md"
+                    className="rounded-[24px] border border-(--border) bg-white/80 p-4 text-left shadow-sm transition hover:border-blue-500/25 hover:shadow-md"
                     onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -688,7 +689,7 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={item.id}
                     type="button"
-                    className="rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
+                    className="rounded-2xl border border-(--border) bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
                     onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -736,7 +737,7 @@ export function FollowupsCalendarManagement() {
               <button
                 key={item.id}
                 type="button"
-                className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 text-left shadow-sm transition hover:border-blue-500/25"
+                className="rounded-[26px] border border-(--border) bg-white/90 p-5 text-left shadow-sm transition hover:border-blue-500/25"
                 onClick={() => void openFollowupDetails(item)}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -771,7 +772,7 @@ export function FollowupsCalendarManagement() {
               </p>
             ) : null}
 
-            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xl font-semibold text-slate-900">{selectedFollowup.clientName}</p>
@@ -837,7 +838,7 @@ export function FollowupsCalendarManagement() {
                 </Button>
                 <a
                   href={selectedFollowup.callLink}
-                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500/35 hover:bg-blue-50"
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-(--border) bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500/35 hover:bg-blue-50"
                 >
                   <Phone size={16} />
                   Call
@@ -854,7 +855,7 @@ export function FollowupsCalendarManagement() {
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
                 <History size={16} className="text-blue-600" />
                 <p className="text-sm font-semibold text-slate-900">Followup History</p>
@@ -923,7 +924,7 @@ export function FollowupsCalendarManagement() {
       >
         {snoozingLead ? (
           <div className="grid gap-6">
-            <div className="rounded-[26px] border border-[color:var(--border)] bg-white/90 p-5 shadow-sm">
+            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
               <p className="text-base font-semibold text-slate-900">{snoozingLead.clientName}</p>
               <p className="mt-1 text-sm text-soft">Current: {snoozingLead.followupDateTimeLabel}</p>
             </div>
@@ -960,7 +961,7 @@ export function FollowupsCalendarManagement() {
       >
         {completionLead ? (
           <div className="grid gap-5">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50/90 p-4 text-sm text-slate-700">
+            <div className="rounded-2xl border border-(--border) bg-slate-50/90 p-4 text-sm text-slate-700">
               <p className="font-semibold text-slate-900">{completionLead.clientName}</p>
               <p className="mt-1">{completionLead.followupDateTimeLabel}</p>
             </div>
@@ -1051,7 +1052,7 @@ function QuickFollowupCard({ item, onOpen }: { item: FollowupItem; onOpen: () =>
   return (
     <button
       type="button"
-      className="rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
+      className="rounded-2xl border border-(--border) bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1069,6 +1070,7 @@ function QuickFollowupCard({ item, onOpen }: { item: FollowupItem; onOpen: () =>
 function FollowupToneBadge({ item }: { item: FollowupItem }) {
   const styles: Record<FollowupItem["statusTone"], string> = {
     pending: "bg-blue-50 text-blue-700",
+    today: "bg-green-50 text-green-700",
     completed: "bg-emerald-50 text-emerald-700",
     rescheduled: "bg-orange-50 text-orange-700",
     missed: "bg-rose-50 text-rose-700",
@@ -1087,7 +1089,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </span>
-      <span className="max-w-full break-words text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">
+      <span className="max-w-full wrap-break-word text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">
         {value}
       </span>
     </div>

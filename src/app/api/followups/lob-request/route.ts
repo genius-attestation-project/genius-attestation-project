@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     return jsonOk({
-      requestId: result.requestId,
+      requestId: result.id,
       message: "LOB request sent for supervisor approval.",
     });
   } catch (error) {

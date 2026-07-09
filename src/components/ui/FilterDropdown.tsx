@@ -27,7 +27,7 @@ export function FilterDropdown({
   const [value, setValue] = useState(defaultValue ?? fallbackValue);
 
   return (
-    <label className={`inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] px-4 text-sm shadow-sm sm:w-auto ${disabled ? 'bg-slate-100 opacity-60 cursor-not-allowed' : 'bg-white/70 dark:bg-white/5'}`}>
+    <label className={`inline-flex h-12 w-full min-w-0 items-center gap-3 rounded-2xl border border-(--border) px-4 text-sm shadow-sm sm:w-auto ${disabled ? 'bg-slate-100 opacity-60 cursor-not-allowed' : 'bg-white/70 dark:bg-white/5'}`}>
       <span className="font-semibold text-soft">{label}</span>
       <select
         value={value}

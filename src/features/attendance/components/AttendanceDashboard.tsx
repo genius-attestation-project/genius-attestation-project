@@ -420,7 +420,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
 
       <DashboardCard title="Monthly Attendance Calendar" description="Browse real attendance and leave data from the database.">
         <div className="grid gap-4">
-          <div className="flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] bg-slate-50/80 p-4 dark:bg-white/5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-(--border) bg-slate-50/80 p-4 dark:bg-white/5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="secondary" size="icon" onClick={() => navigateMonth(-1)} aria-label="Previous month">
                 <ChevronLeft size={16} />
@@ -431,7 +431,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <Button type="button" variant="secondary" size="icon" onClick={() => navigateMonth(1)} aria-label="Next month">
                 <ChevronRight size={16} />
               </Button>
-              <div className="ml-1 rounded-2xl border border-[color:var(--border)] bg-white/90 px-4 py-2 text-base font-bold text-slate-900 shadow-sm dark:bg-white/5 dark:text-white">
+              <div className="ml-1 rounded-2xl border border-(--border) bg-white/90 px-4 py-2 text-base font-bold text-slate-900 shadow-sm dark:bg-white/5 dark:text-white">
                 {currentMonthLabel}
               </div>
             </div>
@@ -440,7 +440,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                 <span>Month</span>
                 <select
-                  className="h-11 rounded-2xl border border-[color:var(--border)] bg-white/90 px-4 text-sm dark:bg-white/5"
+                  className="h-11 rounded-2xl border border-(--border) bg-white/90 px-4 text-sm dark:bg-white/5"
                   value={visibleMonth}
                   onChange={(event) => setVisibleMonth(Number(event.target.value))}
                 >
@@ -454,7 +454,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                 <span>Year</span>
                 <select
-                  className="h-11 rounded-2xl border border-[color:var(--border)] bg-white/90 px-4 text-sm dark:bg-white/5"
+                  className="h-11 rounded-2xl border border-(--border) bg-white/90 px-4 text-sm dark:bg-white/5"
                   value={visibleYear}
                   onChange={(event) => setVisibleYear(Number(event.target.value))}
                 >
@@ -473,7 +473,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <label className="grid gap-2 text-sm font-bold">
                 <span>User</span>
                 <select
-                  className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5"
+                  className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5"
                   value={draftFilters.userId}
                   onChange={(event) => setDraftFilters((current) => ({ ...current, userId: event.target.value }))}
                 >
@@ -488,7 +488,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <label className="grid gap-2 text-sm font-bold">
                 <span>Department</span>
                 <select
-                  className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5"
+                  className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5"
                   value={draftFilters.departmentId}
                   onChange={(event) => setDraftFilters((current) => ({ ...current, departmentId: event.target.value }))}
                 >
@@ -503,7 +503,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               <label className="grid gap-2 text-sm font-bold">
                 <span>Office</span>
                 <select
-                  className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5"
+                  className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5"
                   value={draftFilters.officeLocationId}
                   onChange={(event) => setDraftFilters((current) => ({ ...current, officeLocationId: event.target.value }))}
                 >
@@ -528,7 +528,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
 
           <div className="grid gap-3 md:grid-cols-4">
             {summaryCards.map((card) => (
-              <div key={card.label} className="rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm dark:bg-white/5">
+              <div key={card.label} className="rounded-2xl border border-(--border) bg-white/80 p-4 shadow-sm dark:bg-white/5">
                 <div className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${card.bg} ${card.color}`}>
                   <CalendarDays size={18} />
                 </div>
@@ -539,7 +539,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-            <div className="relative min-w-0 overflow-hidden rounded-3xl border border-[color:var(--border)] bg-white/90 p-4 dark:bg-white/5">
+            <div className="relative min-w-0 overflow-hidden rounded-3xl border border-(--border) bg-white/90 p-4 dark:bg-white/5">
               {calendarError ? (
                 <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10">
                   <span>{calendarError}</span>
@@ -550,7 +550,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               ) : null}
 
               {initialLoading ? (
-                <div className="flex h-[680px] items-center justify-center rounded-3xl border border-dashed border-[color:var(--border)] bg-slate-50/60 text-sm text-soft dark:bg-white/5">
+                <div className="flex h-[680px] items-center justify-center rounded-3xl border border-dashed border-(--border) bg-slate-50/60 text-sm text-soft dark:bg-white/5">
                   <Loader2 className="mr-2 animate-spin" size={18} /> Loading calendar...
                 </div>
               ) : calendarData && calendarCells.length > 0 ? (
@@ -565,7 +565,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                     {calendarCells.map((cell) => {
                       const selected = cell.date === selectedDate;
                       const cellTone = "bg-white/95";
-                      const selectionTone = selected ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-[color:var(--border)]";
+                      const selectionTone = selected ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-(--border)";
                       const mutedTone = cell.inMonth ? "" : "opacity-45";
                       return (
                         <button
@@ -610,7 +610,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
                   </div>
                 </div>
               ) : (
-                <div className="flex h-[680px] items-center justify-center rounded-3xl border border-dashed border-[color:var(--border)] bg-slate-50/60 text-sm text-soft dark:bg-white/5">
+                <div className="flex h-[680px] items-center justify-center rounded-3xl border border-dashed border-(--border) bg-slate-50/60 text-sm text-soft dark:bg-white/5">
                   No attendance records found for {currentMonthLabel}.
                 </div>
               )}
@@ -633,7 +633,7 @@ export function AttendanceDashboard({ canViewAll }: Props) {
               ) : (
                 <div className="grid gap-3">
                   {selectedDay.details.map((detail) => (
-                    <div key={`${detail.userId}-${detail.date}`} className="rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm dark:bg-white/5">
+                    <div key={`${detail.userId}-${detail.date}`} className="rounded-2xl border border-(--border) bg-white/80 p-4 shadow-sm dark:bg-white/5">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-white">{detail.userName}</p>

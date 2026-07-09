@@ -64,6 +64,19 @@ enum SalaryPayrollStatus {
   Paid
 }
 
+enum ApprovalRequestType {
+  INACTIVE_LEAD
+  LOB_REQUEST
+  OVERDUE_FOLLOWUP
+}
+
+enum WorkflowApprovalStatus {
+  Pending
+  Approved
+  Rejected
+  Returned
+}
+
 model User {
   id                   String          @id @default(cuid())
   name                 String?
@@ -110,6 +123,7 @@ model User {
   attendanceDailySummaries AttendanceDailySummary[] @relation("UserAttendanceDailySummary")
   leaveRequests     LeaveRequest[]     @relation("UserLeaveRequests")
   salaryPayrolls    SalaryPayroll[]    @relation("UserSalaryPayroll")
+  notifications     Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -237,6 +251,7 @@ model Lead {
   assignmentHistory LeadAssignmentHistory[]
   approvalRequests  LeadStatusApproval[]
   followupHistory   LeadFollowupHistory[]
+  workflowApprovals LeadWorkflowApproval[]
 
   @@index([leadStatus])
   @@index([createdAt])
@@ -952,4 +967,69 @@ model AttendanceDailySummary {
   @@index([ownerAdminId])
   @@index([summaryDate])
   @@map("attendance_daily_summaries")
+}
+
+model LeadWorkflowApproval {
+  id              String                 @id @default(cuid())
+  leadId          String                 @map("lead_id")
+  lead            Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  requestType     ApprovalRequestType    @map("request_type")
+  requestedBy     String?                @map("requested_by")
+  supervisorId    String                 @map("supervisor_id")
+  status          WorkflowApprovalStatus @default(Pending)
+  requestedAt     DateTime               @default(now()) @map("requested_at")
+  approvedBy      String?                @map("approved_by")
+  approvedAt      DateTime?              @map("approved_at")
+  approvalRemarks String?                @map("approval_remarks")
+  returnRemarks   String?                @map("return_remarks")
+  rejectRemarks   String?                @map("reject_remarks")
+  metadata        Json?                  // to store days inactive, overdue days, etc.
+  ownerAdminId    String?                @map("owner_admin_id")
+
+  auditLogs       ApprovalAuditLog[]
+
+  @@index([leadId])
+  @@index([supervisorId])
+  @@index([status])
+  @@index([requestType])
+  @@index([ownerAdminId])
+  @@map("lead_workflow_approvals")
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+  type          String   // "APPROVAL", "REMINDER", "SYSTEM"
+  isRead        Boolean  @default(false) @map("is_read")
+  referenceId   String?  @map("reference_id") // ID of the approval or lead
+  referenceType String?  @map("reference_type") // "LEAD", "APPROVAL"
+  ownerAdminId  String?  @map("owner_admin_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([ownerAdminId])
+  @@map("notifications")
+}
+
+model ApprovalAuditLog {
+  id                 String               @id @default(cuid())
+  approvalId         String               @map("approval_id")
+  workflowApproval   LeadWorkflowApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  leadId             String               @map("lead_id")
+  action             String               // "Created", "Approved", "Rejected", "Returned"
+  performedBy        String               @map("performed_by")
+  remarks            String?
+  ipAddress          String?              @map("ip_address")
+  ownerAdminId       String?              @map("owner_admin_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+
+  @@index([approvalId])
+  @@index([leadId])
+  @@index([performedBy])
+  @@index([ownerAdminId])
+  @@map("approval_audit_logs")
 }

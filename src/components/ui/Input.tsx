@@ -25,7 +25,7 @@ export function Input({
       <input
         id={inputId}
         className={cn(
-          "h-12 w-full min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5",
+          "h-12 w-full min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-(--text) outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5",
           className,
         )}
         {...props}

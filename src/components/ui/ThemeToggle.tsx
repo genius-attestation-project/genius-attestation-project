@@ -47,7 +47,7 @@ export function ThemeToggle() {
       aria-label="Toggle theme"
       onClick={toggleTheme}
       className={cn(
-        "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-white/80 text-[color:var(--text)] transition hover:-translate-y-0.5 hover:border-blue-500/35 hover:text-blue-600 dark:bg-white/5",
+        "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-(--border) bg-white/80 text-(--text) transition hover:-translate-y-0.5 hover:border-blue-500/35 hover:text-blue-600 dark:bg-white/5",
         !mounted && "opacity-0",
       )}
     >

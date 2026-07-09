@@ -23,7 +23,7 @@ export function DataTable<T extends Record<string, unknown>>({
   className,
 }: DataTableProps<T>) {
   return (
-    <div className={cn("min-w-0 overflow-hidden rounded-2xl border border-[color:var(--border)] sm:rounded-[28px]", className)}>
+    <div className={cn("min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]", className)}>
       <div className="overflow-x-auto">
         <table className="min-w-[760px] text-left text-sm">
           <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">

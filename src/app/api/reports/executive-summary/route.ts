@@ -113,6 +113,17 @@ export async function GET(request: Request) {
       where: finalProcessWhere,
     });
 
+    // Workflow Approvals (Pending)
+    const inactiveLeads = await prisma.leadWorkflowApproval.count({
+      where: { requestType: "INACTIVE_LEAD", status: "Pending" }
+    });
+    const lobRequests = await prisma.leadWorkflowApproval.count({
+      where: { requestType: "LOB_REQUEST", status: "Pending" }
+    });
+    const overdueFollowups = await prisma.leadWorkflowApproval.count({
+      where: { requestType: "OVERDUE_FOLLOWUP", status: "Pending" }
+    });
+
     // 6. Chart Data - Revenue Trend (Last 7 Days)
     const now = new Date();
     const last7Days = new Date(now);
@@ -191,6 +202,9 @@ export async function GET(request: Request) {
         processActions,
         documentsDelivered,
         totalCustomersHandled,
+        inactiveLeads,
+        lobRequests,
+        overdueFollowups,
         charts: {
           revenueTrend,
           leadSources

@@ -243,7 +243,7 @@ export function RolesManagement() {
               {roles.map((role) => (
                 <div
                   key={role.id}
-                  className="min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/60 p-4 sm:rounded-[24px] dark:bg-white/5"
+                  className="min-w-0 rounded-2xl border border-(--border) bg-white/60 p-4 sm:rounded-[24px] dark:bg-white/5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -267,13 +267,13 @@ export function RolesManagement() {
                     {role.permissions.slice(0, 8).map((permission) => (
                       <span
                         key={permission}
-                        className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs font-bold text-soft"
+                        className="rounded-full border border-(--border) px-3 py-1 text-xs font-bold text-soft"
                       >
                         {permission}
                       </span>
                     ))}
                     {role.permissions.length > 8 ? (
-                      <span className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs font-bold text-soft">
+                      <span className="rounded-full border border-(--border) px-3 py-1 text-xs font-bold text-soft">
                         +{role.permissions.length - 8} more
                       </span>
                     ) : null}
@@ -366,7 +366,7 @@ export function RolesManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, description: event.target.value }))
               }
-              className="min-h-28 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 py-3 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="min-h-28 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 py-3 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
               placeholder="Describe what this role can access."
             />
           </label>
@@ -377,7 +377,7 @@ export function RolesManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, isActive: event.target.checked }))
               }
-              className="h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500"
             />
             Active Role
           </label>
@@ -403,7 +403,7 @@ export function RolesManagement() {
               return (
                 <div
                   key={moduleDefinition.key}
-                  className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4 dark:bg-white/5"
+                  className="rounded-2xl border border-(--border) bg-white/70 p-4 dark:bg-white/5"
                 >
                   <div className="mb-4">
                     <p className="font-extrabold">{moduleDefinition.label}</p>
@@ -437,7 +437,7 @@ export function RolesManagement() {
               );
             })}
 
-            <div className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4 dark:bg-white/5">
+            <div className="rounded-2xl border border-(--border) bg-white/70 p-4 dark:bg-white/5">
               <div className="mb-4">
                 <p className="font-extrabold">Menu Visibility</p>
                 <p className="text-sm text-soft">Control sidebar and submenu visibility.</p>
@@ -502,12 +502,12 @@ function PermissionToggle({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
+    <label className="flex items-start gap-3 rounded-2xl border border-(--border) p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="mt-1 h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500 cursor-pointer"
+        className="mt-1 h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
       />
       <div>
         <p className="text-sm font-bold">{label}</p>
@@ -538,12 +538,12 @@ function PermissionScopeControl({
 
   if (isCheckboxOnly) {
     return (
-      <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
+      <label className="flex items-start gap-3 rounded-2xl border border-(--border) p-3 cursor-pointer hover:border-blue-500/50 transition-colors">
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-1 h-4 w-4 rounded border-[color:var(--border)] text-blue-600 focus:ring-blue-500 cursor-pointer"
+          className="mt-1 h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
         />
         <div>
           <p className="text-sm font-bold">{label}</p>
@@ -554,7 +554,7 @@ function PermissionScopeControl({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-[color:var(--border)] p-3 hover:border-blue-500/50 transition-colors">
+    <div className="flex flex-col gap-2 rounded-2xl border border-(--border) p-3 hover:border-blue-500/50 transition-colors">
       <div>
         <p className="text-sm font-bold">{label}</p>
         <p className="text-xs text-soft">{description}</p>
@@ -571,7 +571,7 @@ function PermissionScopeControl({
             onScopeChange(val);
           }
         }}
-        className="h-9 w-full rounded-xl border border-[color:var(--border)] bg-white/50 px-3 text-sm font-bold outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5 cursor-pointer"
+        className="h-9 w-full rounded-xl border border-(--border) bg-white/50 px-3 text-sm font-bold outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5 cursor-pointer"
       >
         <option value="None">None</option>
         <option value="Own">Own</option>

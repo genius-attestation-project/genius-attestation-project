@@ -26,7 +26,13 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export const permissionActions = ["view", "create", "edit", "delete", "manage", "export"] as const;
+export const permissionActions = [
+  "view", "create", "edit", "delete", "manage", "export",
+  "approve", "reject", "return", "request",
+  "bulkApprove", "bulkReject", "bulkReturn",
+  "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
+  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups"
+] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
 
@@ -372,6 +378,42 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "attendance.summary", label: "Daily Summary", description: "Attendance daily summary access." },
   { key: "leave", label: "Leave", description: "Apply for and review leave requests." },
   { key: "salary", label: "Salary", description: "Payroll calculation, approval, and reporting access." },
+  { 
+    key: "pendingApproval", 
+    label: "Pending Approval Workflow", 
+    description: "General Pending Approval access.", 
+    actions: ["view", "approve", "reject", "return", "bulkApprove", "bulkReject", "bulkReturn"] 
+  },
+  { 
+    key: "inactiveLead", 
+    label: "Inactive Lead Workflow", 
+    description: "Inactive Lead Approval access.", 
+    actions: ["view", "approve", "reject", "return"] 
+  },
+  { 
+    key: "lobApproval", 
+    label: "LOB Approval Workflow", 
+    description: "LOB Approval access.", 
+    actions: ["view", "request", "approve", "reject", "return"] 
+  },
+  { 
+    key: "overdueFollowup", 
+    label: "Overdue Followup Workflow", 
+    description: "Overdue Followup Approval access.", 
+    actions: ["view", "approve", "reject", "return"] 
+  },
+  { 
+    key: "calendar", 
+    label: "Calendar Enhancements", 
+    description: "Calendar advanced viewing and management.", 
+    actions: ["viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups"] 
+  },
+  { 
+    key: "reports", 
+    label: "Extended Reports", 
+    description: "Extended Reports for Pending Approvals.", 
+    actions: ["pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "view", "export"] 
+  },
 ];
 
 export const defaultRoleDefinitions = [
@@ -547,7 +589,7 @@ export const defaultRoleDefinitions = [
 
 export function buildPermissionCatalog() {
   const permissionEntries = permissionModules.flatMap((moduleDefinition) =>
-    permissionActions.map((action) => ({
+    (moduleDefinition.actions || ["view", "create", "edit", "delete", "manage", "export"]).map((action) => ({
       code: `${moduleDefinition.key}.${action}`,
       name: `${moduleDefinition.label} ${action[0].toUpperCase()}${action.slice(1)}`,
       module: moduleDefinition.label,

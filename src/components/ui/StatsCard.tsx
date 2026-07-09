@@ -27,7 +27,7 @@ export function StatsCard({
   tone = "blue",
 }: StatsCardProps) {
   return (
-    <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 dark:bg-white/5">
+    <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-(--border) bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 dark:bg-white/5">
       <div
         className={cn(
           "absolute inset-0 bg-linear-to-br opacity-100 transition group-hover:opacity-80",
@@ -37,7 +37,7 @@ export function StatsCard({
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-soft">{label}</p>
-          <strong className="mt-3 block break-words text-xl font-semibold tracking-tight sm:text-2xl">{value}</strong>
+          <strong className="mt-3 block wrap-break-word text-xl font-semibold tracking-tight sm:text-2xl">{value}</strong>
         </div>
         <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-white/90 dark:border-white/10 dark:bg-white/5">
           <Icon size={18} />

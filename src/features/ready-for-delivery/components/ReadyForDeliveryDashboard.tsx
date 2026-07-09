@@ -60,7 +60,7 @@ function Field({ label, value }: { label: string; value?: string | number | null
   return (
     <div className="grid gap-1 rounded-2xl border border-(--border) bg-white/70 p-4">
       <span className="text-xs font-semibold uppercase tracking-[0.14em] text-soft">{label}</span>
-      <span className="break-words text-sm font-semibold text-slate-900">{value || "-"}</span>
+      <span className="wrap-break-word text-sm font-semibold text-slate-900">{value || "-"}</span>
     </div>
   );
 }
@@ -87,7 +87,7 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Ready For Delivery</p>
-            <h2 className="mt-2 break-words text-2xl font-extrabold text-slate-900">{registration.trackingNumber}</h2>
+            <h2 className="mt-2 wrap-break-word text-2xl font-extrabold text-slate-900">{registration.trackingNumber}</h2>
             <p className="mt-2 text-sm text-slate-600">{registration.customerName}</p>
           </div>
           <div className="grid gap-2 text-right text-sm">

@@ -377,7 +377,7 @@ export function SalaryManagement({ mode }: SalaryModuleProps) {
               <select
                 value={selectedUserId}
                 onChange={(event) => setSelectedUserId(event.target.value)}
-                className="h-12 min-w-0 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+                className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
               >
                 <option value="">Select employee</option>
                 {users.map((user) => (

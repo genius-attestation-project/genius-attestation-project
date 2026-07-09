@@ -206,7 +206,7 @@ export function SearchBar({
 
   return (
     <div ref={containerRef} className={cn("relative min-w-0", className)}>
-      <label className="flex h-12 min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5">
+      <label className="flex h-12 min-w-0 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm shadow-sm dark:bg-white/5">
         <Search size={17} className="text-muted" />
         <input
           value={value}
@@ -223,7 +223,7 @@ export function SearchBar({
               setOpen(Boolean(event.target.value.trim()));
             }
           }}
-          className="h-full min-w-0 flex-1 bg-transparent text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+          className="h-full min-w-0 flex-1 bg-transparent text-(--text) outline-none placeholder:text-[color:var(--text-muted)]"
           placeholder={placeholder}
           autoComplete="off"
         />

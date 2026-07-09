@@ -13,7 +13,9 @@ import {
   FileText,
   Activity,
   CheckCircle,
-  Truck
+  Truck,
+  ShieldCheck,
+  Download
 } from "lucide-react";
 import { Loader } from "@/components/ui/Loader";
 import {
@@ -74,6 +76,47 @@ export default function ExecutiveSummary() {
 
   return (
     <div className="space-y-8">
+      {/* Workflow Approvals */}
+      <section>
+        <div className="flex justify-between items-end border-b pb-2 mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">Pending Workflow Approvals</h2>
+          <button 
+            type="button"
+            className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
+            onClick={() => window.open('/api/reports/workflow-approvals/export', '_blank')}
+          >
+            <Download size={16} />
+            Export Approvals (CSV)
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard
+            label="Inactive Leads"
+            value={data.inactiveLeads?.toString() || "0"}
+            delta="Pending"
+            description="Leads inactive for 10+ days"
+            icon={ShieldCheck}
+            tone="amber"
+          />
+          <StatsCard
+            label="LOB Requests"
+            value={data.lobRequests?.toString() || "0"}
+            delta="Pending"
+            description="Loss of Business requests"
+            icon={ShieldCheck}
+            tone="slate"
+          />
+          <StatsCard
+            label="Overdue Follow-ups"
+            value={data.overdueFollowups?.toString() || "0"}
+            delta="Pending"
+            description="Follow-ups passed deadline"
+            icon={ShieldCheck}
+            tone="amber"
+          />
+        </div>
+      </section>
+
       {/* Overview Section */}
       <section>
         <div className="flex justify-between items-end border-b pb-2 mb-4">

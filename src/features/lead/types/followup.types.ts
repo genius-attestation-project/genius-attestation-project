@@ -2,7 +2,7 @@ import type { LeadRow } from "@/features/lead/types/lead.types";
 
 export type FollowupFilter = "all" | "today" | "upcoming" | "missed" | "completed";
 
-export type FollowupTone = "pending" | "completed" | "rescheduled" | "missed";
+export type FollowupTone = "pending" | "completed" | "rescheduled" | "missed" | "today";
 
 export type FollowupHistoryItem = {
   id: string;

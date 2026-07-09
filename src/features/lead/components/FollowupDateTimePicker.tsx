@@ -141,7 +141,7 @@ export function FollowupDateTimePicker({
           </p>
           {description ? <p className="mt-1 text-xs text-soft">{description}</p> : null}
         </div>
-        <div className="inline-flex rounded-full border border-[color:var(--border)] bg-white/80 p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-full border border-(--border) bg-white/80 p-1 text-xs font-semibold">
           <button
             type="button"
             className={cn(
@@ -165,9 +165,9 @@ export function FollowupDateTimePicker({
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-[color:var(--border)] bg-white/85 p-4 shadow-sm">
+      <div className="rounded-[26px] border border-(--border) bg-white/85 p-4 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-slate-50 px-2 py-1">
+          <div className="inline-flex items-center gap-2 rounded-full border border-(--border) bg-slate-50 px-2 py-1">
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 transition hover:bg-white hover:text-slate-900"
@@ -256,14 +256,14 @@ export function FollowupDateTimePicker({
               value={selectedTime}
               min={selectedIsToday ? currentTime : undefined}
               onChange={(event) => updateTime(event.target.value)}
-              className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
+              className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
             />
           ) : (
             <div className="grid grid-cols-3 gap-3">
               <select
                 value={String(hour12)}
                 onChange={(event) => update12Hour(event.target.value, selectedMinute, meridiem)}
-                className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
               >
                 {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((hour) => (
                   <option key={hour} value={hour}>
@@ -274,7 +274,7 @@ export function FollowupDateTimePicker({
               <select
                 value={selectedMinute}
                 onChange={(event) => update12Hour(String(hour12), event.target.value, meridiem)}
-                className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
               >
                 {MINUTE_OPTIONS.map((minute) => (
                   <option
@@ -289,7 +289,7 @@ export function FollowupDateTimePicker({
               <select
                 value={meridiem}
                 onChange={(event) => update12Hour(String(hour12), selectedMinute, event.target.value)}
-                className="h-12 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
               >
                 <option value="AM">AM</option>
                 <option value="PM">PM</option>
@@ -305,7 +305,7 @@ export function FollowupDateTimePicker({
               const nextValue = event.target.value;
               onChange(nextValue < minimumDateTime ? minimumDateTime : nextValue);
             }}
-            className="h-12 rounded-2xl border border-dashed border-[color:var(--border)] bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500/35"
+            className="h-12 rounded-2xl border border-dashed border-(--border) bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500/35"
           />
         </div>
       </div>

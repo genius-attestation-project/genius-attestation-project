@@ -20,7 +20,7 @@ export function DashboardCard({
   return (
     <section
       className={cn(
-        "surface-panel min-w-0 rounded-2xl border border-[color:var(--border)] p-4 sm:p-5 md:p-6",
+        "surface-panel min-w-0 rounded-2xl border border-(--border) p-4 sm:p-5 md:p-6",
         className,
       )}
     >

@@ -61,7 +61,7 @@ export function ApplyLeaveManagement() {
       <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
         <label className="grid gap-2 text-sm font-bold">
           <span>Leave Type</span>
-          <select className="h-12 rounded-2xl border border-[color:var(--border)] bg-white/80 px-4 text-sm dark:bg-white/5" value={form.leaveType} onChange={(event) => setForm((current) => ({ ...current, leaveType: event.target.value }))}>
+          <select className="h-12 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm dark:bg-white/5" value={form.leaveType} onChange={(event) => setForm((current) => ({ ...current, leaveType: event.target.value }))}>
             {LEAVE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
         </label>
