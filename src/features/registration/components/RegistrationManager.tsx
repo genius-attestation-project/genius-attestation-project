@@ -9,6 +9,10 @@ import {
   Save,
   Search,
   Trash2,
+  Download,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -37,6 +41,7 @@ type RegistrationManagerProps = {
   currentOfficeLocationName?: string;
   initialTrackingNumber?: string;
   initialOpen?: boolean;
+  hasExportPermission?: boolean;
 };
 
 const blankForm: RegistrationFormState = {
@@ -320,6 +325,7 @@ export function RegistrationManager({
   currentOfficeLocationName = "",
   initialTrackingNumber = "",
   initialOpen = false,
+  hasExportPermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -345,6 +351,9 @@ export function RegistrationManager({
   const [officeLocationOptions, setOfficeLocationOptions] = useState<string[]>([]);
   const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
   const [officeLocationsError, setOfficeLocationsError] = useState("");
+  
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+  const [exportingAs, setExportingAs] = useState<"excel" | "pdf" | null>(null);
 
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
@@ -626,6 +635,51 @@ export function RegistrationManager({
     }
   }
 
+  async function handleExport(type: "excel" | "pdf") {
+    if (registrations.length === 0) {
+      setError("No records available to export.");
+      return;
+    }
+    
+    setExportingAs(type);
+    setIsExportDropdownOpen(false);
+    setError("");
+    setSuccess("");
+
+    try {
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("query", query.trim());
+
+      const response = await fetch(`/api/revenue-registration/export/${type}?${params.toString()}`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message ?? "Export failed.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateStr = new Date().toISOString().split("T")[0];
+      const extension = type === "excel" ? "xlsx" : "pdf";
+      a.download = `Revenue_Registrations_${dateStr}.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setSuccess(`Exported to ${type.toUpperCase()} successfully.`);
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || "An error occurred while exporting.");
+    } finally {
+      setExportingAs(null);
+    }
+  }
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
@@ -681,6 +735,48 @@ export function RegistrationManager({
             <Button variant="ghost" onClick={() => fetchRegistrations("")}>
               <RefreshCw size={16} /> Refresh
             </Button>
+            {hasExportPermission && (
+              <div className="relative">
+                <Button 
+                  variant="secondary" 
+                  disabled={exportingAs !== null}
+                  onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                >
+                  {exportingAs !== null ? (
+                    <RefreshCw size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Export
+                  <ChevronDown size={14} className="ml-1 opacity-70" />
+                </Button>
+
+                {isExportDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsExportDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-(--border) bg-white p-1 shadow-lg dark:bg-slate-900">
+                      <button
+                        onClick={() => handleExport("excel")}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition hover:bg-slate-100 dark:hover:bg-white/5"
+                      >
+                        <FileSpreadsheet size={16} className="text-green-600" />
+                        Export as Excel (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => handleExport("pdf")}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition hover:bg-slate-100 dark:hover:bg-white/5"
+                      >
+                        <FileText size={16} className="text-red-500" />
+                        Export as PDF (.pdf)
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

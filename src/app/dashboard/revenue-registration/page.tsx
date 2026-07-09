@@ -2,6 +2,7 @@ import { AccessDenied } from "@/components/shared/AccessDenied";
 import { RegistrationManager } from "@/features/registration/components/RegistrationManager";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requirePermission } from "@/middleware/auth.middleware";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 export default async function RevenueRegistrationPage() {
   const session = await requirePermission(
@@ -9,7 +10,7 @@ export default async function RevenueRegistrationPage() {
     "/dashboard/revenue-registration",
   );
 
-  if (!session) {
+  if (!session || !session.user) {
     return <AccessDenied description="Your role cannot access revenue registration." />;
   }
 
@@ -19,5 +20,12 @@ export default async function RevenueRegistrationPage() {
     officeLocationName: session.user.officeLocationName,
   });
 
-  return <RegistrationManager currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
+  const hasExportPermission = hasPermission(session.user, "revenue_registration.export");
+
+  return (
+    <RegistrationManager 
+      currentOfficeLocationName={currentOfficeLocationName ?? ""} 
+      hasExportPermission={hasExportPermission} 
+    />
+  );
 }

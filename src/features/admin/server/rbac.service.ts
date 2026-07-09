@@ -261,7 +261,7 @@ function mapRole(role: RoleRecord): AccessRoleRow {
   for (const item of role.rolePermissions) {
     const code = item.permission.code;
     permissionCodes.push(code);
-    permissionScopes[code] = item.scope ?? "All";
+    permissionScopes[code] = (item as any).scope ?? "All";
   }
 
   permissionCodes.sort();
@@ -934,7 +934,7 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   if (!isSuperAdmin && user.role?.rolePermissions) {
     for (const rp of user.role.rolePermissions) {
       permissions.push(rp.permission.code);
-      permissionScopes[rp.permission.code] = rp.scope ?? "All";
+      permissionScopes[rp.permission.code] = (rp as any).scope ?? "All";
     }
   }
 
