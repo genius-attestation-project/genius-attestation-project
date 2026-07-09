@@ -20,6 +20,7 @@ export default function DetailedReports() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const fetchDetailedReport = async (page: number = 1) => {
     setLoading(true);
@@ -166,7 +167,37 @@ export default function DetailedReports() {
     doc.save(`Genius_${activeTab}_Report${titleSuffix.replace(' - ', '_').replace(/ /g, '_')}.pdf`);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    if (activeTab === "leads") {
+      setIsExportingExcel(true);
+      try {
+        const queryParams = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) queryParams.append(key, String(value));
+        });
+        
+        const res = await fetch(`/api/reports/detailed/leads/export/excel?${queryParams.toString()}`);
+        if (!res.ok) throw new Error("Failed to export leads");
+        
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const dateStr = new Date().toISOString().split("T")[0];
+        const titleSuffix = filters.userName && filters.userName !== "All Users" ? `_${filters.userName.replace(/ /g, '_')}` : "";
+        a.download = `Reports_Leads_Export${titleSuffix}_${dateStr}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err: any) {
+        setError(err.message || "An error occurred while exporting.");
+      } finally {
+        setIsExportingExcel(false);
+      }
+      return;
+    }
+
     const cols = getColumns();
     const exportData = data.map(row => {
       const obj: any = {};
@@ -254,8 +285,9 @@ export default function DetailedReports() {
         <Button variant="secondary" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
           <Download className="w-4 h-4" /> Export PDF
         </Button>
-        <Button variant="secondary" size="sm" onClick={handleExportExcel} className="flex items-center gap-2">
-          <FileSpreadsheet className="w-4 h-4" /> Export Excel
+        <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={isExportingExcel} className="flex items-center gap-2">
+          <FileSpreadsheet className={`w-4 h-4 ${isExportingExcel ? 'animate-pulse' : ''}`} /> 
+          {isExportingExcel ? "Exporting..." : "Export Excel"}
         </Button>
       </div>
 

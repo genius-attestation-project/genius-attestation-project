@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Eye, FilterX, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { AlertCircle, Eye, FilterX, Pencil, Plus, Trash2, Users, Download, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -82,6 +82,8 @@ export function AllLeadsManagement({
   });
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   const isServerFilteredEndpoint = endpoint === "/api/leads";
 
@@ -371,6 +373,46 @@ export function AllLeadsManagement({
     }
   }
 
+  async function handleExportExcel() {
+    if (leadData.items.length === 0) {
+      setExportError("No records available to export.");
+      return;
+    }
+    
+    setIsExporting(true);
+    setExportError("");
+
+    try {
+      const searchParams = buildLeadSearchParams();
+      // Remove pagination to ensure backend exports everything that matches
+      searchParams.delete("page");
+      searchParams.delete("pageSize");
+
+      const response = await fetch(`/api/leads/export/excel?${searchParams.toString()}`);
+
+      if (!response.ok) {
+        throw new Error("Export failed.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateStr = new Date().toISOString().split("T")[0];
+      a.download = `Leads_Export_${dateStr}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+    } catch (e: any) {
+      console.error(e);
+      setExportError(e.message || "An error occurred while exporting.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   function toFormValues(lead: LeadRow): LeadFormValues {
     const followupDate = toLocalDateTimeInput(lead.nextFollowupAt);
 
@@ -524,7 +566,12 @@ export function AllLeadsManagement({
                 <DateFilter label="Created From" value={createdFromFilter} onChange={setCreatedFromFilter} />
                 <DateFilter label="Created To" value={createdToFilter} onChange={setCreatedToFilter} />
               </div>
-              <div className="flex justify-end">
+              {exportError && <div className="text-sm text-red-500 mt-2">{exportError}</div>}
+              <div className="flex justify-end gap-2 mt-2">
+                <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                  {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+                  Export Excel
+                </Button>
                 <Button variant="ghost" size="sm" onClick={resetFilters}>
                   <FilterX size={16} />
                   Clear Filters
