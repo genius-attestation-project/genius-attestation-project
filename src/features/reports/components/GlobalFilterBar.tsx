@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { useReportFilters } from "../context/ReportFilterContext";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { Input } from "@/components/ui/Input";
@@ -24,6 +26,7 @@ export default function GlobalFilterBar() {
   const [localFilters, setLocalFilters] = useState(filters);
   const [resetKey, setResetKey] = useState(0);
   const [dateError, setDateError] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [metadata, setMetadata] = useState<FilterMetadata | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,10 +174,20 @@ export default function GlobalFilterBar() {
   };
 
   return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col gap-5">
-      {/* Row 1 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
+    <div className="surface-panel p-5 rounded-2xl shadow-[var(--shadow-card)] ring-1 ring-slate-900/5 dark:ring-white/10 mb-6 flex flex-col gap-5 bg-white dark:bg-white/5 transition-all duration-300">
+      
+      {/* Primary Filters (Always Visible) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+        <div className="lg:col-span-5">
+          <Input
+            label="Global Search"
+            placeholder="Registration / Lead / Customer / Phone / Email"
+            value={localFilters.search || ""}
+            onChange={(e) => handleUpdate("search", e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+        <div className="lg:col-span-2">
           <Input
             label="From Date"
             type="date"
@@ -182,7 +195,7 @@ export default function GlobalFilterBar() {
             onChange={(e) => handleUpdate("fromDate", e.target.value)}
           />
         </div>
-        <div>
+        <div className="lg:col-span-2">
           <Input
             label="To Date"
             type="date"
@@ -190,141 +203,142 @@ export default function GlobalFilterBar() {
             onChange={(e) => handleUpdate("toDate", e.target.value)}
           />
         </div>
-        <div key={`office-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Office Location</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.officeLocations, "All Offices", "Unable to load Offices")}
-            defaultValue={localFilters.officeId || ""}
-            onChange={(val) => handleUpdate("officeId", val)}
-          />
-        </div>
-        <div key={`dept-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Department</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.departments, "All Departments", "Unable to load Departments")}
-            defaultValue={localFilters.departmentId || ""}
-            onChange={(val) => handleUpdate("departmentId", val)}
-          />
-        </div>
-      </div>
-      {dateError && <p className="text-red-500 text-sm font-medium -mt-2">{dateError}</p>}
-
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-        <div key={`mainuser-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">User</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.users, "All Users", "Unable to load Users")}
-            defaultValue={metadata?.users?.length === 1 ? metadata.users[0].id : (localFilters.userId || "")}
-            onChange={(val) => {
-              handleUpdate("userId", val);
-              const userObj = metadata?.users?.find(u => u.id === val);
-              handleUpdate("userName", userObj ? userObj.name : "All Users");
-            }}
-            disabled={metadata?.users?.length === 1}
-          />
-        </div>
-        <div key={`user-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Assigned User</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.users, "All Users", "Unable to load Users")}
-            defaultValue={localFilters.assignedUserId || ""}
-            onChange={(val) => handleUpdate("assignedUserId", val)}
-          />
-        </div>
-        <div key={`lstatus-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Lead Status</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.leadStatuses, "All Lead Statuses", "Error")}
-            defaultValue={localFilters.leadStatus || ""}
-            onChange={(val) => handleUpdate("leadStatus", val)}
-          />
-        </div>
-        <div key={`pstatus-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Status</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.paymentStatuses, "All Payment Statuses", "Error")}
-            defaultValue={localFilters.paymentStatus || ""}
-            onChange={(val) => handleUpdate("paymentStatus", val)}
-          />
-        </div>
-        <div key={`lsource-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Lead Source</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.leadSources, "All Lead Sources", "Error")}
-            defaultValue={localFilters.leadSourceId || ""}
-            onChange={(val) => handleUpdate("leadSourceId", val)}
-          />
-        </div>
-      </div>
-
-      {/* Row 3 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div key={`country-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Country</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.countries, "All Countries", "Error")}
-            defaultValue={localFilters.countryId || ""}
-            onChange={(val) => handleUpdate("countryId", val)}
-          />
-        </div>
-        <div key={`service-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Service</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.services, "All Services", "Error")}
-            defaultValue={localFilters.serviceId || ""}
-            onChange={(val) => handleUpdate("serviceId", val)}
-          />
-        </div>
-        <div key={`doctype-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Document Type</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.documentTypes, "All Document Types", "Error")}
-            defaultValue={localFilters.documentTypeId || ""}
-            onChange={(val) => handleUpdate("documentTypeId", val)}
-          />
-        </div>
-        <div key={`poffice-${resetKey}`}>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Process Office</label>
-          <FilterDropdown
-            label=""
-            options={makeOptions(metadata?.processOffices, "All Process Offices", "Unable to load Process Offices")}
-            defaultValue={localFilters.processOfficeId || ""}
-            onChange={(val) => handleUpdate("processOfficeId", val)}
-          />
-        </div>
-      </div>
-
-      {/* Row 4 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-        <div>
-          <Input
-            label="Search"
-            placeholder="Registration / Lead / Customer / Phone / Email"
-            value={localFilters.search || ""}
-            onChange={(e) => handleUpdate("search", e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-        </div>
-        <div className="flex justify-end gap-3 h-12">
-          <Button variant="secondary" onClick={handleReset}>
-            Clear Filters
+        <div className="lg:col-span-3 flex justify-end gap-3 h-12">
+          <Button variant="secondary" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full sm:w-auto px-4">
+            <Filter size={16} className="mr-2 text-blue-600 dark:text-blue-400" />
+            Advanced
+            {showAdvanced ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
           </Button>
-          <Button variant="primary" onClick={handleApply}>
-            Apply Filters
+          <Button variant="primary" onClick={handleApply} className="w-full sm:w-auto">
+            Search
           </Button>
         </div>
       </div>
+      {dateError && <p className="text-rose-500 text-sm font-medium -mt-2">{dateError}</p>}
+
+      {/* Advanced Filters (Collapsible) */}
+      <AnimatePresence>
+        {showAdvanced && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div key={`office-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Office Location</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.officeLocations, "All Offices", "Unable to load Offices")}
+                  defaultValue={localFilters.officeId || ""}
+                  onChange={(val) => handleUpdate("officeId", val)}
+                />
+              </div>
+              <div key={`dept-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Department</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.departments, "All Departments", "Unable to load Departments")}
+                  defaultValue={localFilters.departmentId || ""}
+                  onChange={(val) => handleUpdate("departmentId", val)}
+                />
+              </div>
+              <div key={`mainuser-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">User</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.users, "All Users", "Unable to load Users")}
+                  defaultValue={metadata?.users?.length === 1 ? metadata.users[0].id : (localFilters.userId || "")}
+                  onChange={(val) => {
+                    handleUpdate("userId", val);
+                    const userObj = metadata?.users?.find(u => u.id === val);
+                    handleUpdate("userName", userObj ? userObj.name : "All Users");
+                  }}
+                  disabled={metadata?.users?.length === 1}
+                />
+              </div>
+              <div key={`user-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Assigned User</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.users, "All Users", "Unable to load Users")}
+                  defaultValue={localFilters.assignedUserId || ""}
+                  onChange={(val) => handleUpdate("assignedUserId", val)}
+                />
+              </div>
+              <div key={`lstatus-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Lead Status</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.leadStatuses, "All Lead Statuses", "Error")}
+                  defaultValue={localFilters.leadStatus || ""}
+                  onChange={(val) => handleUpdate("leadStatus", val)}
+                />
+              </div>
+              <div key={`pstatus-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Status</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.paymentStatuses, "All Payment Statuses", "Error")}
+                  defaultValue={localFilters.paymentStatus || ""}
+                  onChange={(val) => handleUpdate("paymentStatus", val)}
+                />
+              </div>
+              <div key={`lsource-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Lead Source</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.leadSources, "All Lead Sources", "Error")}
+                  defaultValue={localFilters.leadSourceId || ""}
+                  onChange={(val) => handleUpdate("leadSourceId", val)}
+                />
+              </div>
+              <div key={`country-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Country</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.countries, "All Countries", "Error")}
+                  defaultValue={localFilters.countryId || ""}
+                  onChange={(val) => handleUpdate("countryId", val)}
+                />
+              </div>
+              <div key={`service-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Service</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.services, "All Services", "Error")}
+                  defaultValue={localFilters.serviceId || ""}
+                  onChange={(val) => handleUpdate("serviceId", val)}
+                />
+              </div>
+              <div key={`doctype-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Type</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.documentTypes, "All Document Types", "Error")}
+                  defaultValue={localFilters.documentTypeId || ""}
+                  onChange={(val) => handleUpdate("documentTypeId", val)}
+                />
+              </div>
+              <div key={`poffice-${resetKey}`}>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Process Office</label>
+                <FilterDropdown
+                  label=""
+                  options={makeOptions(metadata?.processOffices, "All Process Offices", "Unable to load Process Offices")}
+                  defaultValue={localFilters.processOfficeId || ""}
+                  onChange={(val) => handleUpdate("processOfficeId", val)}
+                />
+              </div>
+              <div className="flex items-end lg:col-span-4 justify-end mt-2">
+                <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto text-slate-500 hover:text-slate-900 dark:hover:text-white">
+                  Reset All Filters
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
