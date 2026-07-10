@@ -427,17 +427,17 @@ export function LobAnalyticsDashboard() {
         </div>
       ) : null}
 
-      <DashboardCard className="overflow-hidden rounded-3xl border-violet-100 bg-gradient-to-br from-white via-violet-50/70 to-sky-50/70 dark:border-violet-500/20 dark:from-slate-950 dark:via-violet-950/20 dark:to-slate-950">
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="sm:col-span-2 xl:col-span-1">
-              <div className="flex h-full items-center gap-3 rounded-3xl border border-violet-200/70 bg-white/80 p-4 shadow-sm dark:border-violet-500/20 dark:bg-slate-950/60">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-200">
+      <DashboardCard className="overflow-visible z-10 !p-4 sm:!p-5">
+        <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+          <div className="grid gap-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex h-[56px] min-w-[200px] items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">
                   <Filter size={18} />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-soft">Active View</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                <div className="pr-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active View</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">
                     {dateRange === "all"
                       ? "All time"
                       : dateRange === "week"
@@ -446,81 +446,93 @@ export function LobAnalyticsDashboard() {
                           ? "This month"
                           : "Today"}
                   </p>
-                  <p className="text-xs text-soft">
-                    {lastUpdatedAt ? `Updated ${formatDateTime(lastUpdatedAt)}` : "Waiting for first sync"}
-                  </p>
                 </div>
+              </div>
+
+              <div className="flex-1 min-w-[160px]">
+                <FilterSelect
+                  label="Service"
+                  value={serviceFilter}
+                  onChange={setServiceFilter}
+                  options={filterOptions.services}
+                  placeholder="All services"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px]">
+                <FilterSelect
+                  label="Assigned User"
+                  value={assignedUserFilter}
+                  onChange={setAssignedUserFilter}
+                  options={filterOptions.assignedUsers}
+                  placeholder="All owners"
+                />
               </div>
             </div>
 
-            <FilterSelect
-              label="Service"
-              value={serviceFilter}
-              onChange={setServiceFilter}
-              options={filterOptions.services}
-              placeholder="All services"
-            />
-            <FilterSelect
-              label="Assigned User"
-              value={assignedUserFilter}
-              onChange={setAssignedUserFilter}
-              options={filterOptions.assignedUsers}
-              placeholder="All owners"
-            />
-            <FilterSelect
-              label="Previous Status"
-              value={previousStatusFilter}
-              onChange={setPreviousStatusFilter}
-              options={filterOptions.previousStatuses}
-              placeholder="All previous statuses"
-            />
-            <FilterSelect
-              label="Country"
-              value={countryFilter}
-              onChange={setCountryFilter}
-              options={filterOptions.countries}
-              placeholder="All countries"
-            />
-            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
-              Office Location
-              <select
-                value={officeLocationFilter}
-                onChange={(event) => setOfficeLocationFilter(event.target.value)}
-                className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              >
-                <option value="">All offices</option>
-                {filterOptions.officeLocations.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft sm:col-span-2">
-              Search
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
-                <Search size={15} className="text-soft" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Lead name, mobile, email, service, assigned user"
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[160px]">
+                <FilterSelect
+                  label="Previous Status"
+                  value={previousStatusFilter}
+                  onChange={setPreviousStatusFilter}
+                  options={filterOptions.previousStatuses}
+                  placeholder="All previous statuses"
                 />
               </div>
-            </label>
+              <div className="flex-1 min-w-[160px]">
+                <FilterSelect
+                  label="Country"
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  options={filterOptions.countries}
+                  placeholder="All countries"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px]">
+                <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
+                  Office Location
+                  <select
+                    value={officeLocationFilter}
+                    onChange={(event) => setOfficeLocationFilter(event.target.value)}
+                    className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    <option value="">All offices</option>
+                    {filterOptions.officeLocations.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-1">
+              <label className="grid min-w-0 gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-soft">
+                Search
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
+                  <Search size={15} className="text-soft" />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Lead name, mobile, email, service, assigned user"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                  />
+                </div>
+              </label>
+            </div>
           </div>
 
-          <div className="grid gap-4">
-            <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white/80 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-950/60">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-1 rounded-[20px] border border-slate-200 bg-slate-50/80 p-1.5 dark:border-white/10 dark:bg-white/5">
               {(["today", "week", "month", "all"] as const).map((value) => (
                 <button
                   key={value}
                   onClick={() => setDateRange(value)}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                  className={`relative flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold transition ${
                     dateRange === value
-                      ? "bg-violet-600 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
+                      ? "bg-violet-600 text-white shadow-sm dark:bg-violet-500"
+                      : "text-slate-600 hover:bg-slate-200/50 dark:text-slate-300 dark:hover:bg-white/10"
                   }`}
                 >
                   {value === "all"
@@ -534,15 +546,15 @@ export function LobAnalyticsDashboard() {
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white/80 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-950/60">
+            <div className="flex flex-wrap items-center gap-1 rounded-[20px] border border-slate-200 bg-slate-50/80 p-1.5 dark:border-white/10 dark:bg-white/5">
               {(["daily", "weekly", "monthly"] as const).map((value) => (
                 <button
                   key={value}
                   onClick={() => setTrendInterval(value)}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold capitalize transition ${
+                  className={`relative flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold capitalize transition ${
                     trendInterval === value
                       ? "bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
+                      : "text-slate-600 hover:bg-slate-200/50 dark:text-slate-300 dark:hover:bg-white/10"
                   }`}
                 >
                   {value}
