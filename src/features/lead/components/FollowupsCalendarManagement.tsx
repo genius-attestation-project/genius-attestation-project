@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -544,46 +545,36 @@ export function FollowupsCalendarManagement() {
             Showing {calendarData.items.length} followups for the {activeFilter} queue.
           </p>
 
-          <div className="mt-6 grid gap-4 border-t border-(--border) pt-6 md:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold">Assigned User</label>
-              <select
-                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={assignedUserFilter}
-                onChange={(e) => setAssignedUserFilter(e.target.value)}
-              >
-                <option value="">All Users</option>
-                {apiFilterOptions?.assignedTo?.map((o: any) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+          <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-white/10 pt-5 md:flex-row">
+            <div className="flex-1">
+              <FilterDropdown
+                label="Assigned User"
+                options={[{label: "All Users", value: ""}, ...(apiFilterOptions?.assignedTo || [])]}
+                defaultValue={assignedUserFilter}
+                onChange={setAssignedUserFilter}
+              />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold">Office Location</label>
-              <select
-                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={officeLocationFilter}
-                onChange={(e) => setOfficeLocationFilter(e.target.value)}
-              >
-                <option value="">All Locations</option>
-                {apiFilterOptions?.officeLocations?.map((o: any) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+            <div className="flex-1">
+              <FilterDropdown
+                label="Office Location"
+                options={[{label: "All Locations", value: ""}, ...(apiFilterOptions?.officeLocations || [])]}
+                defaultValue={officeLocationFilter}
+                onChange={setOfficeLocationFilter}
+              />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold">Lead Status</label>
-              <select
-                className="w-full rounded-xl border border-(--border) bg-white/70 px-3 py-2 text-sm text-(--text) transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={leadStatusFilter}
-                onChange={(e) => setLeadStatusFilter(e.target.value)}
-              >
-                <option value="">All Statuses</option>
-                <option value="New">New</option>
-                <option value="Followup">Followup</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Potential_Qualified">Potential Qualified</option>
-              </select>
+            <div className="flex-1">
+              <FilterDropdown
+                label="Lead Status"
+                options={[
+                  {label: "All Statuses", value: ""},
+                  {label: "New", value: "New"},
+                  {label: "Followup", value: "Followup"},
+                  {label: "Assigned", value: "Assigned"},
+                  {label: "Potential Qualified", value: "Potential_Qualified"}
+                ]}
+                defaultValue={leadStatusFilter}
+                onChange={setLeadStatusFilter}
+              />
             </div>
           </div>
         </div>
