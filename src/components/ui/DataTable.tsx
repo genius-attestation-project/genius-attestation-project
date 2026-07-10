@@ -23,7 +23,7 @@ export function DataTable<T extends Record<string, unknown>>({
   className,
 }: DataTableProps<T>) {
   return (
-    <div className={cn("min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]", className)}>
+    <div className={cn("min-w-0 overflow-hidden rounded-2xl ring-1 ring-slate-900/5 shadow-sm dark:ring-white/10", className)}>
       <div className="overflow-x-auto">
         <table className="min-w-[760px] text-left text-sm">
           <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
@@ -35,9 +35,9 @@ export function DataTable<T extends Record<string, unknown>>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[color:var(--border)] bg-white/70 dark:bg-white/5">
+          <tbody className="divide-y divide-[color:var(--border)] bg-white dark:bg-white/5">
             {rows.map((row) => (
-              <tr key={String(row[keyField])} className="transition hover:bg-blue-50 dark:hover:bg-blue-500/5">
+              <tr key={String(row[keyField])} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5">
                 {columns.map((column) => (
                   <td key={String(column.key)} className={cn("px-4 py-3 align-middle sm:px-5 sm:py-4", column.className)}>
                     {column.render ? column.render(row) : String(row[column.key as keyof T] ?? "-")}

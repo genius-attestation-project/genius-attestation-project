@@ -13,9 +13,9 @@ type StatsCardProps = {
 };
 
 const toneStyles = {
-  blue: "from-blue-500/18 via-blue-500/6 to-transparent text-blue-600",
-  slate: "from-slate-500/18 via-slate-500/6 to-transparent text-slate-600",
-  amber: "from-amber-500/18 via-amber-500/6 to-transparent text-amber-600",
+  blue: "bg-blue-50 text-blue-600 ring-blue-100 dark:bg-blue-500/10 dark:ring-blue-500/20",
+  slate: "bg-slate-50 text-slate-600 ring-slate-100 dark:bg-slate-500/10 dark:ring-slate-500/20",
+  amber: "bg-amber-50 text-amber-600 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20",
 };
 
 export function StatsCard({
@@ -27,20 +27,14 @@ export function StatsCard({
   tone = "blue",
 }: StatsCardProps) {
   return (
-    <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-(--border) bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5 dark:bg-white/5">
-      <div
-        className={cn(
-          "absolute inset-0 bg-linear-to-br opacity-100 transition group-hover:opacity-80",
-          toneStyles[tone],
-        )}
-      />
+    <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-4 ring-1 ring-slate-900/5 surface-panel transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5 dark:ring-white/10">
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-soft">{label}</p>
-          <strong className="mt-3 block wrap-break-word text-xl font-semibold tracking-tight sm:text-2xl">{value}</strong>
+          <strong className="mt-3 block wrap-break-word text-2xl font-bold tracking-tight sm:text-3xl text-slate-900 dark:text-white">{value}</strong>
         </div>
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-white/90 dark:border-white/10 dark:bg-white/5">
-          <Icon size={18} />
+        <span className={cn("inline-flex h-12 w-12 items-center justify-center rounded-xl ring-1", toneStyles[tone])}>
+          <Icon size={20} />
         </span>
       </div>
       <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3">

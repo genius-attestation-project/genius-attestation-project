@@ -20,7 +20,7 @@ export function Navbar({ userName, userEmail }: NavbarProps) {
   }).format(new Date());
 
   return (
-    <header className="glass-panel sticky top-0 z-30 flex min-h-[64px] min-w-0 flex-col gap-3 rounded-2xl border border-(--border) px-3 py-3 sm:px-4 md:px-5 xl:flex-row xl:items-center xl:justify-between">
+    <header className="glass-panel sticky top-0 z-30 flex min-h-[64px] min-w-0 flex-col gap-3 rounded-2xl bg-white/60 px-3 py-3 shadow-sm backdrop-blur-2xl sm:px-4 md:px-5 xl:flex-row xl:items-center xl:justify-between dark:bg-[#020617]/60">
       <div className="flex min-w-0 flex-1 items-center">
         <SearchBar
           placeholder="Search modules, reports, or records"
@@ -30,14 +30,14 @@ export function Navbar({ userName, userEmail }: NavbarProps) {
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 xl:justify-end">
-        <div className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-(--border) bg-white/80 px-3 py-2 text-sm font-semibold text-soft dark:bg-white/5">
+        <div className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-white/50 px-3 py-2 text-sm font-semibold text-soft shadow-[0_2px_10px_rgba(0,0,0,0.02)] dark:bg-white/5">
           <CalendarDays size={16} className="text-blue-600" />
           <span className="whitespace-nowrap">{currentDate}</span>
         </div>
         <NotificationBell />
         <ThemeToggle />
-        <div className="hidden items-center gap-3 rounded-2xl border border-(--border) bg-white/80 px-3 py-2 dark:bg-white/5 md:flex">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 text-sm font-extrabold text-white">
+        <div className="hidden items-center gap-3 rounded-2xl bg-white/50 px-3 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.02)] dark:bg-white/5 md:flex">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-sky-500 text-sm font-extrabold text-white shadow-sm shadow-blue-500/20">
             {getInitials(userName, userEmail)}
           </div>
           <div className="max-w-44">

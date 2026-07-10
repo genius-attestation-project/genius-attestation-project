@@ -142,10 +142,10 @@ export function AppSidebar({
                 setAccordionOpen((value) => !value);
               }}
               className={cn(
-                "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm font-medium transition",
+                "group relative flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition duration-200",
                 isActive || accordionOpen
-                  ? "border-blue-100 bg-blue-100 text-blue-700 shadow-sm dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-white"
-                  : "border-transparent text-slate-700 hover:bg-blue-50 hover:text-slate-900 dark:text-white/72 dark:hover:border-white/10 dark:hover:bg-white/6 dark:hover:text-white",
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-white"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/5 dark:hover:text-white",
               )}
             >
               <item.icon size={18} />
@@ -179,10 +179,10 @@ export function AppSidebar({
                             href={link.href}
                             onClick={() => setMobileOpen(false)}
                             className={cn(
-                              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition",
+                              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition duration-200",
                               isSubActive
-                                ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200"
-                                : "text-slate-600 hover:bg-blue-50 hover:text-slate-900 dark:text-white/62 dark:hover:bg-white/6 dark:hover:text-white",
+                                ? "bg-blue-50/80 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
+                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white",
                             )}
                           >
                             <link.icon size={16} />
@@ -205,10 +205,10 @@ export function AppSidebar({
           href={item.href}
           onClick={() => setMobileOpen(false)}
           className={cn(
-            "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition",
+            "group relative flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition duration-200",
             isActive
-              ? "border-blue-100 bg-blue-100 text-blue-700 shadow-sm dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-white"
-              : "border-transparent text-slate-700 hover:bg-blue-50 hover:text-slate-900 dark:text-white/72 dark:hover:border-white/10 dark:hover:bg-white/6 dark:hover:text-white",
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-white"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/5 dark:hover:text-white",
           )}
         >
           <item.icon size={18} />
@@ -302,7 +302,7 @@ function SidebarPanel({
   children,
 }: SidebarPanelProps) {
   return (
-    <div className="flex h-full flex-col gap-6 border-r border-slate-100 bg-white px-4 py-5 text-slate-900 dark:border-white/8 dark:bg-[var(--bg-sidebar)] dark:text-white">
+    <div className="flex h-full flex-col gap-6 bg-[var(--bg-sidebar)] px-4 py-5 text-slate-900 shadow-[2px_0_24px_rgba(15,23,42,0.02)] dark:border-r dark:border-white/5 dark:text-white">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 overflow-hidden">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
@@ -318,8 +318,8 @@ function SidebarPanel({
       </div>
 
       {!collapsed ? (
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-white/8 dark:bg-white/5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-white/45">
+        <div className="rounded-2xl border border-slate-100/60 bg-slate-50/50 p-4 dark:border-white/5 dark:bg-white/5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/45">
             Signed in
           </p>
           <p className="mt-3 font-semibold text-slate-900 dark:text-white">{userName}</p>
