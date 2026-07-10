@@ -35,7 +35,7 @@ export function DataTable<T extends Record<string, unknown>>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[color:var(--border)] bg-white dark:bg-white/5">
+          <tbody className="divide-y divide-(--border) bg-white dark:bg-white/5">
             {rows.map((row) => (
               <tr key={String(row[keyField])} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5">
                 {columns.map((column) => (

@@ -174,7 +174,7 @@ export default function GlobalFilterBar() {
   };
 
   return (
-    <div className="surface-panel p-5 rounded-2xl shadow-[var(--shadow-card)] ring-1 ring-slate-900/5 dark:ring-white/10 mb-6 flex flex-col gap-5 bg-white dark:bg-white/5 transition-all duration-300">
+    <div className="surface-panel p-5 rounded-2xl shadow-(--shadow-card) ring-1 ring-slate-900/5 dark:ring-white/10 mb-6 flex flex-col gap-5 bg-white dark:bg-white/5 transition-all duration-300">
       
       {/* Primary Filters (Always Visible) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">

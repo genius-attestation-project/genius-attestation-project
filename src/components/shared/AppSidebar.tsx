@@ -302,7 +302,7 @@ function SidebarPanel({
   children,
 }: SidebarPanelProps) {
   return (
-    <div className="flex h-full flex-col gap-6 bg-[var(--bg-sidebar)] px-4 py-5 text-slate-900 shadow-[2px_0_24px_rgba(15,23,42,0.02)] dark:border-r dark:border-white/5 dark:text-white">
+    <div className="flex h-full flex-col gap-6 bg-(--bg-sidebar) px-4 py-5 text-slate-900 shadow-[2px_0_24px_rgba(15,23,42,0.02)] dark:border-r dark:border-white/5 dark:text-white">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 overflow-hidden">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
