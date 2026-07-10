@@ -524,17 +524,17 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={option.value}
                     type="button"
-                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                    className={`relative flex flex-col items-start rounded-2xl border p-4 text-left transition overflow-hidden ${
                       isActive
                         ? "border-blue-500/35 bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30"
                         : "border-slate-200 bg-white/70 text-slate-700 hover:border-blue-500/25 hover:bg-blue-50/60 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                     }`}
                     onClick={() => setActiveFilter(option.value)}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold shadow-sm ${
-                        isActive ? "bg-white text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" : "bg-white/90 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="text-sm font-bold leading-tight">{option.label}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold shadow-sm ${
+                        isActive ? "bg-white text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
                       }`}>
                         {calendarData.counts[option.value as keyof typeof calendarData.counts]}
                       </span>
