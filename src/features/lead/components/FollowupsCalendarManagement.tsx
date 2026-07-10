@@ -514,39 +514,43 @@ export function FollowupsCalendarManagement() {
         })}
       </div>
 
-      <DashboardCard>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {filterOptions.map((option) => {
-              const isActive = activeFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`rounded-2xl border px-4 py-3 text-left transition ${
-                    isActive
-                      ? "border-blue-500/35 bg-blue-50 text-blue-700 shadow-sm"
-                      : "border-(--border) bg-white/70 text-(--text) hover:border-blue-500/25 hover:bg-blue-50/60"
-                  }`}
-                  onClick={() => setActiveFilter(option.value)}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold">{option.label}</span>
-                    <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                      {calendarData.counts[option.value as keyof typeof calendarData.counts]}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-soft">{option.helper}</p>
-                </button>
-              );
-            })}
+      <DashboardCard className="overflow-visible z-10">
+        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+          <div className="flex flex-col gap-4 flex-1 min-w-0">
+            <div className="grid min-w-0 gap-3 grid-cols-2 lg:grid-cols-5">
+              {filterOptions.map((option) => {
+                const isActive = activeFilter === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      isActive
+                        ? "border-blue-500/35 bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30"
+                        : "border-slate-200 bg-white/70 text-slate-700 hover:border-blue-500/25 hover:bg-blue-50/60 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                    }`}
+                    onClick={() => setActiveFilter(option.value)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold">{option.label}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold shadow-sm ${
+                        isActive ? "bg-white text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" : "bg-white/90 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                      }`}>
+                        {calendarData.counts[option.value as keyof typeof calendarData.counts]}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs opacity-75">{option.helper}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Showing {calendarData.items.length} followups for the {activeFilter} queue.
+            </p>
           </div>
-          <p className="text-sm text-soft">
-            Showing {calendarData.items.length} followups for the {activeFilter} queue.
-          </p>
 
-          <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-white/10 pt-5 md:flex-row">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row xl:flex-col 2xl:flex-row gap-4 w-full xl:w-auto shrink-0 border-t border-slate-100 dark:border-white/10 pt-5 xl:border-t-0 xl:pt-0">
+            <div className="flex-1 min-w-[200px]">
               <FilterDropdown
                 label="Assigned User"
                 options={[{label: "All Users", value: ""}, ...(apiFilterOptions?.assignedTo || [])]}
@@ -554,7 +558,7 @@ export function FollowupsCalendarManagement() {
                 onChange={setAssignedUserFilter}
               />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[200px]">
               <FilterDropdown
                 label="Office Location"
                 options={[{label: "All Locations", value: ""}, ...(apiFilterOptions?.officeLocations || [])]}
@@ -562,7 +566,7 @@ export function FollowupsCalendarManagement() {
                 onChange={setOfficeLocationFilter}
               />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[200px]">
               <FilterDropdown
                 label="Lead Status"
                 options={[
