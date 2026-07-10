@@ -515,9 +515,9 @@ export function FollowupsCalendarManagement() {
       </div>
 
       <DashboardCard className="overflow-visible z-10">
-        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
-          <div className="flex flex-col gap-4 flex-1 min-w-0">
-            <div className="grid min-w-0 gap-3 grid-cols-2 lg:grid-cols-5">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 min-w-0">
+            <div className="grid min-w-0 gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               {filterOptions.map((option) => {
                 const isActive = activeFilter === option.value;
                 return (
@@ -547,8 +547,8 @@ export function FollowupsCalendarManagement() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row xl:flex-col 2xl:flex-row gap-4 w-full xl:w-auto shrink-0 border-t border-slate-100 dark:border-white/10 pt-5 xl:border-t-0 xl:pt-0">
-            <div className="flex-1 min-w-[200px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-slate-100 dark:border-white/10 pt-5">
+            <div className="min-w-0">
               <FilterDropdown
                 label="Assigned User"
                 options={[{label: "All Users", value: ""}, ...(apiFilterOptions?.assignedTo || [])]}
@@ -556,7 +556,7 @@ export function FollowupsCalendarManagement() {
                 onChange={setAssignedUserFilter}
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="min-w-0">
               <FilterDropdown
                 label="Office Location"
                 options={[{label: "All Locations", value: ""}, ...(apiFilterOptions?.officeLocations || [])]}
@@ -564,7 +564,7 @@ export function FollowupsCalendarManagement() {
                 onChange={setOfficeLocationFilter}
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="min-w-0">
               <FilterDropdown
                 label="Lead Status"
                 options={[
