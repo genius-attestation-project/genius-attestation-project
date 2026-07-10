@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertCircle, BriefcaseBusiness, Edit3, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, BriefcaseBusiness, Edit3, Plus, Trash2, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
@@ -9,6 +10,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
+import { SearchBar } from "@/components/ui/SearchBar";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { DepartmentRow } from "@/features/admin/types/rbac.types";
@@ -21,6 +23,13 @@ export function DepartmentManagement() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredDepartments = useMemo(() => {
+    if (!searchQuery.trim()) return departments;
+    const lowerQuery = searchQuery.toLowerCase();
+    return departments.filter((d) => String(d.name).toLowerCase().includes(lowerQuery));
+  }, [departments, searchQuery]);
 
   useEffect(() => {
     void loadDepartments();
@@ -154,7 +163,11 @@ export function DepartmentManagement() {
         </DashboardCard>
       ) : null}
 
-      <DashboardCard title="Department Directory" description="Database-backed departments for this workspace.">
+      <DashboardCard 
+        title="Department Directory" 
+        description="Database-backed departments for this workspace."
+        action={<SearchBar placeholder="Search departments..." onSearch={setSearchQuery} className="w-full sm:min-w-[280px]" />}
+      >
         {loading ? (
           <div className="grid gap-3">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -175,52 +188,65 @@ export function DepartmentManagement() {
             description="Departments created for this workspace will appear here."
             action={<Button onClick={openCreateDrawer}>Add Department</Button>}
           />
+        ) : filteredDepartments.length === 0 ? (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <EmptyState
+              icon={Search}
+              title="No results found"
+              description={`No departments match "${searchQuery}".`}
+              action={<Button variant="ghost" onClick={() => setSearchQuery("")}>Clear search</Button>}
+            />
+          </motion.div>
         ) : (
-          <DataTable
-            keyField="id"
-            rows={departments}
-            columns={[
-              {
-                key: "name",
-                label: "Department Name",
-                render: (row) => (
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/10">
-                      <BriefcaseBusiness size={18} />
-                    </span>
-                    <p className="font-extrabold">{String(row.name)}</p>
-                  </div>
-                ),
-              },
-              { key: "createdDate", label: "Created Date" },
-              {
-                key: "actions",
-                label: "Actions",
-                render: (row) => {
-                  const department = row as DepartmentRow;
-
-                  return (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDrawer(department)}
-                      >
-                        <Edit3 size={16} />
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="icon"
-                        onClick={() => void handleDelete(department)}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <DataTable
+              keyField="id"
+              rows={filteredDepartments}
+              columns={[
+                {
+                  key: "name",
+                  label: "Department Name",
+                  render: (row) => (
+                    <div className="group flex items-center gap-3">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-transform duration-300 group-hover:scale-110 group-hover:bg-blue-100 group-hover:shadow-md dark:bg-blue-500/10 dark:group-hover:bg-blue-500/20">
+                        <BriefcaseBusiness size={18} />
+                      </span>
+                      <p className="font-extrabold text-slate-900 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300">{String(row.name)}</p>
                     </div>
-                  );
+                  ),
                 },
-              },
-            ]}
-          />
+                { key: "createdDate", label: "Created Date" },
+                {
+                  key: "actions",
+                  label: "Actions",
+                  render: (row) => {
+                    const department = row as DepartmentRow;
+
+                    return (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDrawer(department)}
+                          className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                        >
+                          <Edit3 size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDelete(department)}
+                          className="text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    );
+                  },
+                },
+              ]}
+            />
+          </motion.div>
         )}
       </DashboardCard>
 
