@@ -524,22 +524,20 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={option.value}
                     type="button"
-                    className={`relative flex flex-col items-start rounded-2xl border p-4 text-left transition overflow-hidden ${
+                    className={`relative flex flex-col items-start justify-center rounded-2xl border p-4 text-left transition overflow-hidden ${
                       isActive
                         ? "border-blue-500/35 bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30"
                         : "border-slate-200 bg-white/70 text-slate-700 hover:border-blue-500/25 hover:bg-blue-50/60 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                     }`}
                     onClick={() => setActiveFilter(option.value)}
                   >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <span className="text-sm font-bold leading-tight">{option.label}</span>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold shadow-sm ${
-                        isActive ? "bg-white text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                      }`}>
-                        {calendarData.counts[option.value as keyof typeof calendarData.counts]}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs opacity-75">{option.helper}</p>
+                    <span className="text-sm font-bold leading-tight pr-8">{option.label}</span>
+                    <span className={`absolute right-3 top-3 flex h-6 min-w-[24px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${
+                      isActive ? "bg-white text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                    }`}>
+                      {calendarData.counts[option.value as keyof typeof calendarData.counts]}
+                    </span>
+                    <p className="mt-1.5 text-[11px] opacity-75 leading-tight">{option.helper}</p>
                   </button>
                 );
               })}
