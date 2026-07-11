@@ -126,7 +126,7 @@ export function ProcessDashboard() {
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
           <div className="overflow-x-auto">
-            <table className="min-w-[1020px] text-left text-sm">
+            <table className="w-full min-w-[1020px] text-left text-sm">
               <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                 <tr>
                   <th className="px-5 py-4">Tracking Number</th>
