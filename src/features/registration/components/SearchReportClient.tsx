@@ -8,6 +8,8 @@ import type { FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
+import { Route } from "lucide-react";
+import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import type { Registration } from "@/features/registration/types/registration.types";
 
@@ -29,6 +31,7 @@ export function SearchReportClient() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,7 +102,24 @@ export function SearchReportClient() {
         ) : null}
       </section>
 
-      {registration ? <RegistrationDetail registration={registration} /> : null}
+      {registration ? (
+        <RegistrationDetail 
+          registration={registration} 
+          actionButton={
+            <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}>
+              <Route size={16} /> Timeline
+            </Button>
+          }
+        />
+      ) : null}
+
+      {timelineTrackingNumber && (
+        <LiveTimelineModal
+          isOpen={!!timelineTrackingNumber}
+          onClose={() => setTimelineTrackingNumber(null)}
+          trackingNumber={timelineTrackingNumber}
+        />
+      )}
 
       {searched && !loading && !registration && !error ? (
         <EmptyState

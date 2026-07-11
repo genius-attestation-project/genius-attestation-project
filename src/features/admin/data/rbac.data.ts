@@ -367,10 +367,10 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
   { 
-    key: "branch_movement", 
-    label: "Branch Movement", 
-    description: "Branch movement history access.",
-    actions: ["viewTimeline"] 
+    key: "document_movement", 
+    label: "Document Movement", 
+    description: "Unified document movement history access.",
+    actions: ["view"] 
   },
   { key: "process", label: "Process Module", description: "Process Module tracking access." },
   { key: "account_update", label: "Account Update", description: "Account update access." },
@@ -495,7 +495,7 @@ export const defaultRoleDefinitions = [
       "attendance.summary.view",
       "attendance.summary.create",
       "attendance.summary.edit",
-      "branch_movement.viewTimeline",
+      "document_movement.view",
     ],
   },
   {
@@ -520,6 +520,7 @@ export const defaultRoleDefinitions = [
       "menu.attendance.daily-summary",
       "attendance.summary.create",
       "attendance.summary.edit",
+      "document_movement.view",
     ],
   },
   {
@@ -555,6 +556,7 @@ export const defaultRoleDefinitions = [
       "menu.attendance.daily-summary",
       "attendance.summary.create",
       "attendance.summary.edit",
+      "document_movement.view",
     ],
   },
   {
@@ -590,6 +592,7 @@ export const defaultRoleDefinitions = [
       "menu.attendance.daily-summary",
       "attendance.summary.create",
       "attendance.summary.edit",
+      "document_movement.view",
     ],
   },
 ] as const;

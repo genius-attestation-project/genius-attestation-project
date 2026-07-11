@@ -9,6 +9,7 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
+import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -173,8 +174,8 @@ export function ProcessDashboard() {
       )}
 
       {timelineOpen && timelineTracking && (
-        <ProcessHistoryTimeline
-          open={timelineOpen}
+        <LiveTimelineModal
+          isOpen={timelineOpen}
           onClose={() => setTimelineOpen(false)}
           trackingNumber={timelineTracking}
         />

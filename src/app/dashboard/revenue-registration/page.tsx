@@ -21,7 +21,7 @@ export default async function RevenueRegistrationPage() {
   });
 
   const hasExportPermission = hasPermission(session.user, "revenue_registration.export");
-  const hasTimelinePermission = hasPermission(session.user, "branch_movement.viewTimeline");
+  const hasTimelinePermission = hasPermission(session.user, "document_movement.view");
 
   return (
     <RegistrationManager 

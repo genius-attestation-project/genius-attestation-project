@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
 import type { BmReportItem, BmReportResponse, BmReportStats } from "@/features/bm-report/types/bm-report.types";
 import { SendToProcessModal } from "./SendToProcessModal";
+import { Route } from "lucide-react";
+import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 
 type BmReportDashboardProps = {
   currentOfficeLocationName: string;
@@ -56,6 +58,7 @@ function BmTable({
   onAccept,
   onSendProcess,
   onReady,
+  onViewTimeline,
 }: {
   activeTab: TabKey;
   items: BmReportItem[];
@@ -63,6 +66,7 @@ function BmTable({
   onAccept: (id: string) => Promise<void>;
   onSendProcess?: (item: BmReportItem) => void;
   onReady?: (id: string) => Promise<void>;
+  onViewTimeline?: (trackingNumber: string) => void;
 }) {
   if (!items.length) {
     return (
@@ -138,7 +142,7 @@ function BmTable({
                     </Button>
                   </td>
                 ) : activeTab === "home" ? (
-                  <td className="px-5 py-4 text-right">
+                  <td className="px-5 py-4 text-right flex gap-2 justify-end">
                     {onSendProcess && (
                       <Button
                         size="sm"
@@ -148,10 +152,19 @@ function BmTable({
                         Send to Process
                       </Button>
                     )}
+                    {onViewTimeline && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onViewTimeline(item.registrationNumber)}
+                      >
+                        <Route size={16} /> Timeline
+                      </Button>
+                    )}
                     {onReady && (
                       <Button
                         size="sm"
-                        className="ml-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         onClick={() => onReady(item.id)}
                         disabled={acceptingId === item.id}
                       >
@@ -183,6 +196,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   const [sendProcessOpen, setSendProcessOpen] = useState(false);
   const [selectedProcessItem, setSelectedProcessItem] = useState<BmReportItem | null>(null);
   const [isProcessOffice, setIsProcessOffice] = useState(false);
+  const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
 
   async function loadBmReport() {
     if (!currentOfficeLocationName) {
@@ -372,7 +386,8 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             setSelectedProcessItem(item);
             setSendProcessOpen(true);
           }}
-          onReady={handleReady}
+          onReady={isProcessOffice ? handleReady : undefined}
+          onViewTimeline={setTimelineTrackingNumber}
         />
       ) : (
         <EmptyState
@@ -394,6 +409,13 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           onSuccess={() => {
             loadBmReport();
           }}
+        />
+      )}
+      {timelineTrackingNumber && (
+        <LiveTimelineModal
+          isOpen={!!timelineTrackingNumber}
+          onClose={() => setTimelineTrackingNumber(null)}
+          trackingNumber={timelineTrackingNumber}
         />
       )}
     </div>
