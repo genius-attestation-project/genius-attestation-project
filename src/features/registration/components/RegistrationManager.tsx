@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   Filter,
   X,
+  Route,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +29,7 @@ import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { FileUpload } from "@/components/common/FileUpload";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
+import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   documentTypeOptions,
@@ -43,6 +45,7 @@ type RegistrationManagerProps = {
   initialTrackingNumber?: string;
   initialOpen?: boolean;
   hasExportPermission?: boolean;
+  hasTimelinePermission?: boolean;
 };
 
 const blankForm: RegistrationFormState = {
@@ -327,6 +330,7 @@ export function RegistrationManager({
   initialTrackingNumber = "",
   initialOpen = false,
   hasExportPermission = false,
+  hasTimelinePermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -352,6 +356,7 @@ export function RegistrationManager({
   const [officeLocationOptions, setOfficeLocationOptions] = useState<string[]>([]);
   const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
   const [officeLocationsError, setOfficeLocationsError] = useState("");
+  const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
   
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -1024,6 +1029,16 @@ export function RegistrationManager({
                       <td className="px-5 py-4">{registration.createdDate}</td>
                       <td className="px-5 py-4">
                         <div className="flex gap-2">
+                          {hasTimelinePermission && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              title="View Branch Movement"
+                              onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
+                            >
+                              <Route size={16} className="text-blue-600" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => openView(registration)}>
                             <Eye size={16} />
                           </Button>
@@ -1254,9 +1269,24 @@ export function RegistrationManager({
             approving={approving}
             onApprove={() => changeApproval("approve")}
             onReject={() => changeApproval("reject")}
+            actionButton={
+              hasTimelinePermission && (
+                <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(selected.trackingNumber)}>
+                  <Route size={16} /> Timeline
+                </Button>
+              )
+            }
           />
         ) : null}
       </FormDrawer>
+
+      {timelineTrackingNumber && (
+        <LiveTimelineModal
+          isOpen={!!timelineTrackingNumber}
+          onClose={() => setTimelineTrackingNumber(null)}
+          trackingNumber={timelineTrackingNumber}
+        />
+      )}
     </div>
   );
 }

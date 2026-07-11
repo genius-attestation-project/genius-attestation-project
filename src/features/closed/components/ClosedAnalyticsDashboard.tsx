@@ -417,7 +417,7 @@ export function ClosedAnalyticsDashboard() {
         </div>
       ) : null}
 
-      <DashboardCard className="overflow-visible z-10 !p-4 sm:!p-5">
+      <DashboardCard className="overflow-visible z-10 p-4! sm:p-5!">
         <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
           <div className="grid gap-4">
             <div className="flex flex-wrap items-end gap-4">

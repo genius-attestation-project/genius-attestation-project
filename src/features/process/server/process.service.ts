@@ -157,6 +157,20 @@ export async function moveProcessAssignment(params: {
       },
     });
 
+    if (params.action === "SEND_TO_OFFICE") {
+      await tx.branchMovementRecord.create({
+        data: {
+          trackingNumber: movement.trackingNumber,
+          sourceOffice: params.officeLocationName,
+          destinationOffice: nextOffice?.officeName,
+          transferredBy: params.userId,
+          movementStatus: "In Transit",
+          remarks: params.remarks,
+          ownerAdminId: params.ownerAdminId,
+        },
+      });
+    }
+
     return updated;
   });
 }

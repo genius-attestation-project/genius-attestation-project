@@ -1035,3 +1035,27 @@ model ApprovalAuditLog {
   @@index([ownerAdminId])
   @@map("approval_audit_logs")
 }
+
+
+model BranchMovementRecord {
+  id                String    @id @default(cuid())
+  trackingNumber    String    @map("tracking_number")
+  sourceOffice      String?   @map("source_office")
+  destinationOffice String?   @map("destination_office")
+  transferredBy     String?   @map("transferred_by")
+  receivedBy        String?   @map("received_by")
+  transferDateTime  DateTime  @default(now()) @map("transfer_date_time")
+  receiveDateTime   DateTime? @map("receive_date_time")
+  movementStatus    String    @map("movement_status") // Completed, In Transit, Pending Receive, Returned, Cancelled
+  courierNumber     String?   @map("courier_number")
+  remarks           String?
+  ownerAdminId      String    @map("owner_admin_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([ownerAdminId])
+  @@index([transferDateTime])
+  @@map("branch_movement_records")
+}
+

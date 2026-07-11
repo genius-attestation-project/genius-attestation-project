@@ -76,6 +76,18 @@ export async function sendToOffice(
       remarks,
     },
   });
+
+  await prisma.branchMovementRecord.create({
+    data: {
+      trackingNumber,
+      sourceOffice: fromOffice?.officeName,
+      destinationOffice: toOffice?.officeName,
+      transferredBy: performedBy,
+      movementStatus: "In Transit",
+      remarks,
+      ownerAdminId,
+    },
+  });
 }
 
 export async function acceptDocument(
@@ -114,4 +126,25 @@ export async function acceptDocument(
       remarks,
     },
   });
+
+  // Find the most recent pending BranchMovementRecord and mark it Completed
+  const latestMovement = await prisma.branchMovementRecord.findFirst({
+    where: {
+      trackingNumber,
+      ownerAdminId,
+      movementStatus: "In Transit",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (latestMovement) {
+    await prisma.branchMovementRecord.update({
+      where: { id: latestMovement.id },
+      data: {
+        movementStatus: "Completed",
+        receivedBy: performedBy,
+        receiveDateTime: new Date(),
+      },
+    });
+  }
 }

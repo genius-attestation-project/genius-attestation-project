@@ -196,6 +196,26 @@ export async function acceptBmRegistration(params: {
       },
     });
 
+    const latestMovement = await tx.branchMovementRecord.findFirst({
+      where: {
+        trackingNumber: movement.trackingNumber,
+        ownerAdminId: params.ownerAdminId,
+        movementStatus: "In Transit",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (latestMovement) {
+      await tx.branchMovementRecord.update({
+        where: { id: latestMovement.id },
+        data: {
+          movementStatus: "Completed",
+          receivedBy: params.acceptedByName ?? params.acceptedByUserId,
+          receiveDateTime: new Date(),
+        },
+      });
+    }
+
     return updated;
   });
 }

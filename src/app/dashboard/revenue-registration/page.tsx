@@ -21,11 +21,13 @@ export default async function RevenueRegistrationPage() {
   });
 
   const hasExportPermission = hasPermission(session.user, "revenue_registration.export");
+  const hasTimelinePermission = hasPermission(session.user, "branch_movement.viewTimeline");
 
   return (
     <RegistrationManager 
       currentOfficeLocationName={currentOfficeLocationName ?? ""} 
       hasExportPermission={hasExportPermission} 
+      hasTimelinePermission={hasTimelinePermission}
     />
   );
 }

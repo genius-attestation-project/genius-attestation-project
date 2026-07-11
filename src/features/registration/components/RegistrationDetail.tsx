@@ -10,6 +10,7 @@ type RegistrationDetailProps = {
   onApprove?: () => void;
   onReject?: () => void;
   approving?: boolean;
+  actionButton?: React.ReactNode;
 };
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
@@ -46,6 +47,7 @@ export function RegistrationDetail({
   onApprove,
   onReject,
   approving = false,
+  actionButton,
 }: RegistrationDetailProps) {
   const commissionTo = registration.commissionToName && registration.commissionToEmail
     ? `${registration.commissionToName} (${registration.commissionToEmail})`
@@ -67,6 +69,7 @@ export function RegistrationDetail({
             <p className="mt-1 text-sm text-soft">{registration.customerName}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {actionButton}
             <StatusPill value={registration.paymentStatus} />
             <StatusPill value={registration.approvalStatus} tone={approvalTone} />
             <StatusPill value={registration.trackingStatus} />

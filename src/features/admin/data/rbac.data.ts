@@ -31,7 +31,7 @@ export const permissionActions = [
   "approve", "reject", "return", "request",
   "bulkApprove", "bulkReject", "bulkReturn",
   "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
-  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups"
+  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -366,6 +366,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
+  { 
+    key: "branch_movement", 
+    label: "Branch Movement", 
+    description: "Branch movement history access.",
+    actions: ["viewTimeline"] 
+  },
   { key: "process", label: "Process Module", description: "Process Module tracking access." },
   { key: "account_update", label: "Account Update", description: "Account update access." },
   { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
@@ -489,6 +495,7 @@ export const defaultRoleDefinitions = [
       "attendance.summary.view",
       "attendance.summary.create",
       "attendance.summary.edit",
+      "branch_movement.viewTimeline",
     ],
   },
   {
