@@ -1,12 +1,17 @@
 import { z } from "zod";
 
 export const documentTypeOptions = [
-  "Education",
-  "Degree",
+  "Education Documents",
+  "Non-Education Documents",
+  "Commercial Documents",
+  "PCC Documents",
+  "One and Same Documents",
+  "Single Status Documents",
+  "Visa Documents",
+  "WES Documents",
+  "POA Documents",
+  "Marriage Documents",
   "Birth Certificate",
-  "Non-Education",
-  "Commercial",
-  "Other",
 ] as const;
 
 export const processTypeOptions = ["Apostille", "Attestation", "Translation", "Embassy"] as const;
