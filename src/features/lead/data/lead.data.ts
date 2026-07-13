@@ -52,11 +52,17 @@ export const services = [
 export const sources = ["Website", "WhatsApp", "Walk-in", "Referral", "Instagram", "Google"];
 export const clientTypes = ["Individual", "Corporate", "Travel Agency", "HR Partner"];
 export const docTypes = [
-  "Degree Certificate",
+  "Education Documents",
+  "Non-Education Documents",
+  "Commercial Documents",
+  "PCC Documents",
+  "One and Same Documents",
+  "Single Status Documents",
+  "Visa Documents",
+  "WES Documents",
+  "POA Documents",
+  "Marriage Documents",
   "Birth Certificate",
-  "Marriage Certificate",
-  "Commercial Document",
-  "Police Clearance",
 ];
 export const defaultLeadValues: LeadFormValues = {
   firstName: "",
