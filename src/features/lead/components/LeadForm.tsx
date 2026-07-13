@@ -20,6 +20,7 @@ import {
   leadFormStatuses,
   type LeadFormValues,
   sources,
+  services,
 } from "@/features/lead/data/lead.data";
 import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import type { LeadAssignableUser } from "@/features/lead/types/lead.types";
@@ -395,13 +396,13 @@ export function LeadForm({
 
       <LeadSection title="Service Information">
         <FieldWrapper error={errors.service}>
-          <Input
-            label="Service"
+          <SearchableSelect
+            label="Service Type"
             name="service"
             value={values.service}
-            onChange={(event) => updateField("service", event.target.value)}
-            placeholder="Enter service"
-            autoComplete="off"
+            onChange={(value) => updateField("service", value)}
+            options={mapToOptions(services)}
+            placeholder="Select service type"
           />
         </FieldWrapper>
         <FieldWrapper>
