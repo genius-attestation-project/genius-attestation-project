@@ -256,7 +256,7 @@ export async function checkOut(
   try {
     const existing = await prisma.attendanceRecord.findUnique({
       where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
-      select: { id: true, checkinTime: true, status: true, ownerAdminId: true },
+      select: { id: true, checkinTime: true, status: true, ownerAdminId: true, checkoutTime: true },
     });
 
     if (!existing) {
@@ -265,6 +265,25 @@ export async function checkOut(
 
     if (existing.status === "Leave") {
       throw new Error("Approved leave exists for today. Check-out is unavailable.");
+    }
+
+    if (existing.checkoutTime) {
+      throw new Error("You have already checked out today.");
+    }
+
+    const setting = await prisma.attendanceSetting.findUnique({
+      where: { userId },
+      select: { expectedCheckoutTime: true }
+    });
+    
+    const expectedCheckoutTime = setting?.expectedCheckoutTime || "18:00";
+    const now = new Date();
+    const currentH = String(now.getHours()).padStart(2, "0");
+    const currentM = String(now.getMinutes()).padStart(2, "0");
+    const currentTimeStr = `${currentH}:${currentM}`;
+    
+    if (currentTimeStr < expectedCheckoutTime) {
+      throw new Error(`Checkout is only allowed after expected checkout time (${expectedCheckoutTime}).`);
     }
 
     const checkoutTime = opts.checkoutTime ? new Date(opts.checkoutTime) : new Date();

@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { signOut } from "@/lib/auth";
 import { getInitials } from "@/utils/format";
+import { HeaderCheckoutButton } from "@/components/shared/HeaderCheckoutButton";
 
 type NavbarProps = {
   userName?: string | null;
@@ -45,6 +46,7 @@ export function Navbar({ userName, userEmail }: NavbarProps) {
             <p className="truncate text-xs text-soft">{userEmail}</p>
           </div>
         </div>
+        <HeaderCheckoutButton />
         <form
           action={async () => {
             "use server";
