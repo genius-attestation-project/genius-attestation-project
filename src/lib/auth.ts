@@ -212,6 +212,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.officeLocationId = dbUser.officeLocationId;
         token.officeLocationName = dbUser.officeLocationName;
 
+        token.roles = access?.roles ?? [];
+        token.permissions = access?.permissions ?? [];
+
         return token;
       } catch (error) {
         console.error("[auth] jwt callback failed", { email: token.email, error });
@@ -224,14 +227,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.id = String(token.id);
         }
 
+        if (session.user) {
+          session.user.role =
+            typeof token.role === "string" ? token.role : "User";
 
-        session.user.role = typeof token.role === "string" ? token.role : "User";
-        session.user.legacyRole = typeof token.legacyRole === "string" ? token.legacyRole : "USER";
-        session.user.isSuperAdmin =
-          typeof token.isSuperAdmin === "boolean"
-            ? token.isSuperAdmin
-            : false;
+          session.user.legacyRole =
+            typeof token.legacyRole === "string"
+              ? token.legacyRole
+              : "USER";
 
+          session.user.isSuperAdmin =
+            typeof token.isSuperAdmin === "boolean"
+              ? token.isSuperAdmin
+              : false;
+
+          // ADD THESE
+          session.user.roles = Array.isArray(token.roles)
+            ? token.roles
+            : [];
+
+          session.user.permissions = Array.isArray(token.permissions)
+            ? token.permissions
+            : [];
+        }
 
         return session;
       } catch (error) {
