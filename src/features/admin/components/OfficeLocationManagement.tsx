@@ -11,8 +11,9 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { OfficeLocationRow } from "@/features/admin/types/rbac.types";
-import timezones from "timezones-list";
+import { Country } from "country-state-city";
 
 type OfficeLocationFormState = {
   officeName: string;
@@ -30,8 +31,10 @@ const defaultFormState: OfficeLocationFormState = {
   isProcessOffice: false,
 };
 
-const timezoneOptions = timezones.map((timezone) => timezone.tzCode);
-
+const countryOptions = Country.getAllCountries().map((c) => ({
+  label: c.name,
+  value: c.name,
+}));
 export function OfficeLocationManagement() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [officeLocations, setOfficeLocations] = useState<OfficeLocationRow[]>([]);
@@ -42,8 +45,20 @@ export function OfficeLocationManagement() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const sortedTimezoneOptions = useMemo(() => [...timezoneOptions].sort(), []);
+  const availableTimezones = useMemo(() => {
+    const selectedCountry = Country.getAllCountries().find(c => c.name === formState.location);
+    return selectedCountry?.timezones ? selectedCountry.timezones.map(tz => tz.zoneName) : [];
+  }, [formState.location]);
 
+  useEffect(() => {
+    if (availableTimezones.length === 1) {
+      setFormState(f => ({ ...f, timezone: availableTimezones[0] }));
+    } else if (availableTimezones.length > 1 && formState.timezone && !availableTimezones.includes(formState.timezone)) {
+      setFormState(f => ({ ...f, timezone: "" }));
+    } else if (availableTimezones.length === 0) {
+      setFormState(f => ({ ...f, timezone: "" }));
+    }
+  }, [availableTimezones, formState.timezone]);
   useEffect(() => {
     void loadOfficeLocations();
   }, []);
@@ -98,6 +113,28 @@ export function OfficeLocationManagement() {
     setSubmitting(true);
     setError("");
     setMessage("");
+
+    if (!formState.location) {
+      setError("Country is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!formState.timezone) {
+      setError("Timezone is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (officeLocations.some(o => 
+      o.officeName.toLowerCase().trim() === formState.officeName.toLowerCase().trim() && 
+      o.location === formState.location && 
+      o.id !== editingOfficeLocation?.id
+    )) {
+      setError("An office with this name already exists in the selected country.");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -265,36 +302,39 @@ export function OfficeLocationManagement() {
             onChange={(event) => setFormState((current) => ({ ...current, officeName: event.target.value }))}
             placeholder="Kochi HQ"
           />
-          <Input
-            label="Location"
-            name="location"
-            value={formState.location}
-            onChange={(event) => setFormState((current) => ({ ...current, location: event.target.value }))}
-            placeholder="Kochi, India"
-          />
-          <Input
-            label="Timezone"
-            list="office-timezone-options"
-            name="timezone"
-            value={formState.timezone}
-            onChange={(event) => setFormState((current) => ({ ...current, timezone: event.target.value }))}
-            placeholder="Search timezone"
-          />
-          <datalist id="office-timezone-options">
-            {sortedTimezoneOptions.map((timezone) => (
-              <option key={timezone} value={timezone} />
-            ))}
-          </datalist>
-          <Input
-            label="Employees"
-            name="employees"
-            type="number"
-            min={0}
-            step={1}
-            value={formState.employees}
-            onChange={(event) => setFormState((current) => ({ ...current, employees: event.target.value }))}
-            placeholder="0"
-          />
+          <div className="grid gap-2">
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              Country
+            </label>
+            <SearchableSelect
+              value={formState.location}
+              onChange={(val) => setFormState((current) => ({ ...current, location: val }))}
+              options={countryOptions}
+              placeholder="Select country"
+            />
+          </div>
+          {availableTimezones.length <= 1 ? (
+            <Input
+              label="Timezone"
+              name="timezone"
+              value={formState.timezone}
+              readOnly
+              placeholder={availableTimezones.length === 0 ? "Select a country first" : ""}
+              onChange={() => {}}
+            />
+          ) : (
+            <div className="grid gap-2">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                Timezone
+              </label>
+              <SearchableSelect
+                value={formState.timezone}
+                onChange={(val) => setFormState((current) => ({ ...current, timezone: val }))}
+                options={availableTimezones.map(tz => ({ label: tz, value: tz }))}
+                placeholder="Select timezone"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
