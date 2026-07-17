@@ -168,7 +168,7 @@ function parseLeadStatus(status?: string): LeadStatus | undefined {
   if (status === "Pending Approval") {
     return LeadStatus.Pending_Approval;
   }
-  
+
   if (status === "Potential Qualified") {
     return LeadStatus.Potential_Qualified;
   }
@@ -213,9 +213,8 @@ function formatRelativeTime(date: Date) {
   }
 
   const diffDays = Math.round(diffHours / 24);
-  return `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} ${
-    diffDays >= 0 ? "from now" : "ago"
-  }`;
+  return `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} ${diffDays >= 0 ? "from now" : "ago"
+    }`;
 }
 
 function mapLeadRow(lead: LeadRecord): LeadRow {
@@ -911,17 +910,17 @@ export async function listLeads(user: any, ownerAdminId: string, params: {
         ...(Object.keys(nextFollowupAt).length > 0 ? { nextFollowupAt } : {}),
         ...(query
           ? {
-              OR: [
-                { leadCode: { contains: query } },
-                { firstName: { contains: query } },
-                { lastName: { contains: query } },
-                { email: { contains: query } },
-                { mobileNumber: { contains: query } },
-                { service: { contains: query } },
-                { assignedUser: { contains: query } },
-                { country: { contains: query } },
-              ],
-            }
+            OR: [
+              { leadCode: { contains: query } },
+              { firstName: { contains: query } },
+              { lastName: { contains: query } },
+              { email: { contains: query } },
+              { mobileNumber: { contains: query } },
+              { service: { contains: query } },
+              { assignedUser: { contains: query } },
+              { country: { contains: query } },
+            ],
+          }
           : {}),
       }
     ]
@@ -1011,13 +1010,13 @@ export async function createLead(ownerAdminId: string, input: LeadInput, created
   const assignedUser =
     input.assignedUserId
       ? await prisma.user.findFirst({
-          where: {
-            id: input.assignedUserId,
-            isActive: true,
-            OR: [{ ownerAdminId }, { id: ownerAdminId }],
-          },
-          select: { id: true, name: true, email: true },
-        })
+        where: {
+          id: input.assignedUserId,
+          isActive: true,
+          OR: [{ ownerAdminId }, { id: ownerAdminId }],
+        },
+        select: { id: true, name: true, email: true },
+      })
       : null;
 
   if (input.assignedUserId && !assignedUser) {
@@ -1039,17 +1038,17 @@ export async function createLead(ownerAdminId: string, input: LeadInput, created
       createdById: createdById ?? ownerAdminId,
       ...(input.nextFollowupAt
         ? {
-            followupHistory: {
-              create: {
-                actionType: FollowupActionType.Created,
-                oldDate: null,
-                newDate: input.nextFollowupAt,
-                description: "Initial followup scheduled.",
-                userId: assignedUser?.id ?? null,
-                ownerAdminId,
-              },
+          followupHistory: {
+            create: {
+              actionType: FollowupActionType.Created,
+              oldDate: null,
+              newDate: input.nextFollowupAt,
+              description: "Initial followup scheduled.",
+              userId: assignedUser?.id ?? null,
+              ownerAdminId,
             },
-          }
+          },
+        }
         : {}),
     },
     select: leadSelect,
@@ -1100,20 +1099,33 @@ export async function updateLead(
 
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
   const statusChanged = existingLead.leadStatus !== newLeadStatus;
-  const needsApproval = statusChanged && requiresLeadApproval(newLeadStatus);
+  
+  let isSelfSupervisor = false;
+  if (changedByUserId) {
+    const requesterUser = await prisma.user.findUnique({
+      where: { id: changedByUserId },
+      select: { supervisorUserId: true }
+    });
+    // Check if the user is their own supervisor (or if they are explicitly resolved as such)
+    if (requesterUser && (requesterUser.supervisorUserId === changedByUserId)) {
+      isSelfSupervisor = true;
+    }
+  }
+  
+  const needsApproval = statusChanged && requiresLeadApproval(newLeadStatus) && !isSelfSupervisor;
   if (needsApproval && !changedByUserId) {
     throw new Error("Authenticated user is required to request approval.");
   }
   const assignedUser =
     input.assignedUserId
       ? await prisma.user.findFirst({
-          where: {
-            id: input.assignedUserId,
-            isActive: true,
-            OR: [{ ownerAdminId }, { id: ownerAdminId }],
-          },
-          select: { id: true, name: true, email: true },
-        })
+        where: {
+          id: input.assignedUserId,
+          isActive: true,
+          OR: [{ ownerAdminId }, { id: ownerAdminId }],
+        },
+        select: { id: true, name: true, email: true },
+      })
       : null;
 
   if (input.assignedUserId && !assignedUser) {
@@ -1169,48 +1181,48 @@ export async function updateLead(
         ),
         ...(assignmentChanged
           ? {
-              assignmentHistory: {
-                create: {
-                  oldUserId: existingLead.assignedUserId ?? null,
-                  newUserId: nextAssignedUserId,
-                  changedBy: changedBy ?? null,
-                  ownerAdminId,
-                },
+            assignmentHistory: {
+              create: {
+                oldUserId: existingLead.assignedUserId ?? null,
+                newUserId: nextAssignedUserId,
+                changedBy: changedBy ?? null,
+                ownerAdminId,
               },
-            }
+            },
+          }
           : {}),
         ...(followupChanged && followupActionType
           ? {
-              followupHistory: {
-                create: {
-                  actionType: followupActionType,
-                  oldDate: existingLead.nextFollowupAt,
-                  newDate: nextFollowupAt,
-                  description:
-                    followupActionType === FollowupActionType.Created
-                      ? "Followup scheduled from lead form."
-                      : "Followup schedule updated from lead form.",
-                  userId: changedByUserId ?? null,
-                  ownerAdminId,
-                },
+            followupHistory: {
+              create: {
+                actionType: followupActionType,
+                oldDate: existingLead.nextFollowupAt,
+                newDate: nextFollowupAt,
+                description:
+                  followupActionType === FollowupActionType.Created
+                    ? "Followup scheduled from lead form."
+                    : "Followup schedule updated from lead form.",
+                userId: changedByUserId ?? null,
+                ownerAdminId,
               },
-            }
+            },
+          }
           : {}),
       },
       select: leadSelect,
     }),
     ...(!needsApproval && statusChanged
       ? [
-          prisma.leadStatusHistory.create({
-            data: {
-              leadId: existingLead.id,
-              previousStatus: existingLead.leadStatus,
-              newStatus: newLeadStatus,
-              changedBy: changedBy ?? null,
-              ownerAdminId: ownerAdminId,
-            },
-          }),
-        ]
+        prisma.leadStatusHistory.create({
+          data: {
+            leadId: existingLead.id,
+            previousStatus: existingLead.leadStatus,
+            newStatus: newLeadStatus,
+            changedBy: changedBy ?? null,
+            ownerAdminId: ownerAdminId,
+          },
+        }),
+      ]
       : []),
   ]);
 
