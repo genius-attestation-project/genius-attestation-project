@@ -228,6 +228,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (session.user) {
+          session.user.name =
+            typeof token.name === "string" ? token.name : session.user.name;
+
+          session.user.email =
+            typeof token.email === "string" ? token.email : session.user.email;
+
+          session.user.image =
+            typeof token.picture === "string" ? token.picture : session.user.image;
+
           session.user.role =
             typeof token.role === "string" ? token.role : "User";
 
@@ -236,12 +245,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               ? token.legacyRole
               : "USER";
 
-          session.user.isSuperAdmin =
-            typeof token.isSuperAdmin === "boolean"
-              ? token.isSuperAdmin
-              : false;
+          session.user.ownerAdminId =
+            typeof token.ownerAdminId === "string"
+              ? token.ownerAdminId
+              : undefined;
 
-          // ADD THESE
+          session.user.officeLocationId =
+            typeof token.officeLocationId === "string"
+              ? token.officeLocationId
+              : undefined;
+
+          session.user.officeLocationName =
+            typeof token.officeLocationName === "string"
+              ? token.officeLocationName
+              : undefined;
+
           session.user.roles = Array.isArray(token.roles)
             ? token.roles
             : [];
@@ -249,6 +267,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.permissions = Array.isArray(token.permissions)
             ? token.permissions
             : [];
+
+          session.user.isSuperAdmin =
+            typeof token.isSuperAdmin === "boolean"
+              ? token.isSuperAdmin
+              : false;
         }
 
         return session;
