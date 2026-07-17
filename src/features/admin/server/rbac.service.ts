@@ -641,9 +641,7 @@ export async function updateUser(ownerAdminId: string, userId: string, payload: 
   assertScopedLookup(officeLocation, "Office location", payload.officeLocationId);
   assertScopedLookup(supervisor, "Supervisor", payload.supervisorUserId);
 
-  if (payload.supervisorUserId && payload.supervisorUserId === userId) {
-    throw new Error("A user cannot be their own supervisor.");
-  }
+
 
   await prisma.user.update({
     where: { id: userId },
