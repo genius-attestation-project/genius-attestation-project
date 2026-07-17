@@ -6,6 +6,7 @@ import { requirePermission } from "@/middleware/auth.middleware";
 type RevenueRegistrationNewPageProps = {
   searchParams?: Promise<{
     trackingNumber?: string;
+    leadId?: string;
   }>;
 };
 
@@ -33,6 +34,7 @@ export default async function RevenueRegistrationNewPage({
       currentOfficeLocationName={currentOfficeLocationName ?? ""}
       initialOpen
       initialTrackingNumber={params.trackingNumber ? decodeURIComponent(params.trackingNumber) : ""}
+      initialLeadId={params.leadId ? decodeURIComponent(params.leadId) : ""}
     />
   );
 }

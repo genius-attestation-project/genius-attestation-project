@@ -54,6 +54,7 @@ export type Registration = {
   welcomeCallStatus: string;
   welcomeCalledBy: string | null;
   welcomeCalledAt: string | null;
+  leadId?: string | null;
   ownerAdminId?: string | null;
   createdBy?: { id: string; name: string | null; email: string | null } | null;
   createdById?: string | null;
@@ -93,4 +94,5 @@ export type RegistrationFormState = {
   regionOfRegistration: string;
   approvalStatus: string;
   trackingStatus: string;
+  leadId?: string;
 };

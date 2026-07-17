@@ -44,6 +44,7 @@ type RegistrationManagerProps = {
   currentOfficeLocationName?: string;
   initialTrackingNumber?: string;
   initialOpen?: boolean;
+  initialLeadId?: string;
   hasExportPermission?: boolean;
   hasTimelinePermission?: boolean;
 };
@@ -77,6 +78,7 @@ const blankForm: RegistrationFormState = {
   regionOfRegistration: "",
   approvalStatus: "Pending",
   trackingStatus: "Registered",
+  leadId: "",
 };
 
 const countryOptions = [
@@ -124,6 +126,7 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     regionOfRegistration: registration.regionOfRegistration ?? "",
     approvalStatus: registration.approvalStatus,
     trackingStatus: registration.trackingStatus,
+    leadId: registration.leadId ?? "",
   };
 }
 
@@ -329,6 +332,7 @@ export function RegistrationManager({
   currentOfficeLocationName = "",
   initialTrackingNumber = "",
   initialOpen = false,
+  initialLeadId = "",
   hasExportPermission = false,
   hasTimelinePermission = false,
 }: RegistrationManagerProps) {
@@ -446,7 +450,30 @@ export function RegistrationManager({
 
   useEffect(() => {
     fetchRegistrations("");
-    if (initialOpen) {
+    
+    if (initialLeadId) {
+      setDrawerMode("form");
+      fetch(`/api/leads/${initialLeadId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.lead) {
+            const lead = data.lead;
+            setForm((prev) => ({
+              ...prev,
+              leadId: lead.id,
+              customerName: [lead.firstName, lead.lastName].filter(Boolean).join(" "),
+              mobile: `${lead.countryCode}${lead.mobileNumber}`,
+              email: lead.email || "",
+              country: lead.country || "",
+              state: lead.state || "",
+              documentType: lead.docType || "",
+              documentIssuedCountry: lead.documentIssuedCountry || "",
+              processType: lead.service || "",
+            }));
+          }
+        })
+        .catch(console.error);
+    } else if (initialOpen) {
       setDrawerMode("form");
     }
   }, []);

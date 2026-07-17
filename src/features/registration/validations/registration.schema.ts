@@ -96,6 +96,7 @@ export const registrationInputSchema = z.object({
   regionOfRegistration: optionalText,
   approvalStatus: z.enum(approvalStatusOptions).optional().default("Pending"),
   trackingStatus: optionalText,
+  leadId: optionalText,
 }).refine((data) => data.advancePaid <= data.totalCharges, {
   message: "Advance Paid cannot exceed Total Charges.",
   path: ["advancePaid"],

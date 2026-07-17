@@ -44,6 +44,7 @@ export type ClosedLeadRow = {
   closedDate: string;
   previousStatus: string | null;
   createdDate: string;
+  registrationTrackingNumber: string | null;
 };
 
 export type ClosedTrendPoint = {
@@ -99,6 +100,11 @@ type ClosedLeadSnapshot = Prisma.LeadGetPayload<{
         newStatus: true;
         changedBy: true;
         createdAt: true;
+      };
+    };
+    registrations: {
+      select: {
+        trackingNumber: true;
       };
     };
   };
@@ -310,6 +316,11 @@ async function listCurrentClosedSnapshots(
       assignedUser: true,
       createdAt: true,
       closedAt: true,
+      registrations: {
+        select: {
+          trackingNumber: true,
+        },
+      },
     },
   });
 
@@ -572,6 +583,7 @@ export async function getClosedLeadsTable(
         ? formatLeadStatusLabel(snapshot.statusHistory[0].previousStatus)
         : null,
       createdDate: snapshot.createdAt.toISOString(),
+      registrationTrackingNumber: snapshot.registrations?.[0]?.trackingNumber ?? null,
     }));
 
   const totalItems = rows.length;

@@ -248,6 +248,8 @@ model Lead {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
+  registrations          Registration[]
+
   statusHistory     LeadStatusHistory[]
   assignmentHistory LeadAssignmentHistory[]
   approvalRequests  LeadStatusApproval[]
@@ -400,6 +402,8 @@ model Registration {
   bmExtensionReason      String?   @map("bm_extension_reason")
   bmExtensionApprovedBy  String?   @map("bm_extension_approved_by")
   bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
+  leadId                 String?   @map("lead_id")
+  lead                   Lead?     @relation(fields: [leadId], references: [id])
   ownerAdminId           String?   @map("owner_admin_id")
   createdBy              String?   @map("created_by")
   creator                User?     @relation("RegistrationCreator", fields: [createdBy], references: [id], onDelete: SetNull)

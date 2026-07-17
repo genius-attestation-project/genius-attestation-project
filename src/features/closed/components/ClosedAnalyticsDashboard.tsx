@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import Link from "next/link";
 import {
   AlertCircle,
   Calendar,
@@ -26,6 +27,9 @@ import {
   Search,
   TrendingUp,
   User,
+  Eye,
+  Pencil,
+  FileCheck2,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -67,6 +71,7 @@ type ClosedLeadRow = {
   closedDate: string;
   previousStatus: string | null;
   createdDate: string;
+  registrationTrackingNumber: string | null;
 };
 
 type TrendPoint = { date: string; label: string; count: number };
@@ -688,7 +693,7 @@ export function ClosedAnalyticsDashboard() {
                 <table className="w-full min-w-[1180px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-white/10">
-                      {["Lead Name", "Mobile", "Email", "Service", "Country", "Amount", "Assigned User", "Closed Date", "Previous Status", "Created Date"].map((heading) => (
+                      {["Lead Name", "Mobile", "Email", "Service", "Country", "Amount", "Assigned User", "Closed Date", "Previous Status", "Created Date", "Actions"].map((heading) => (
                         <th key={heading} className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                           {heading}
                         </th>
@@ -711,6 +716,27 @@ export function ClosedAnalyticsDashboard() {
                         <td className="py-3 pr-4 text-soft">{formatDateTime(lead.closedDate)}</td>
                         <td className="py-3 pr-4"><TransitionBadge from={lead.previousStatus} /></td>
                         <td className="py-3 pr-4 text-soft">{formatDate(lead.createdDate)}</td>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2">
+                            <Link href={`/dashboard/leads?id=${lead.id}&view=true`} className="text-soft transition hover:text-white" title="View Lead">
+                              <Eye size={16} />
+                            </Link>
+                            <Link href={`/dashboard/leads?id=${lead.id}&edit=true`} className="text-soft transition hover:text-white" title="Edit Lead">
+                              <Pencil size={16} />
+                            </Link>
+                            {lead.registrationTrackingNumber ? (
+                              <Link href={`/dashboard/revenue-registration?trackingNumber=${lead.registrationTrackingNumber}`} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20" title="View Registration">
+                                <FileCheck2 size={12} />
+                                {lead.registrationTrackingNumber}
+                              </Link>
+                            ) : (
+                              <Link href={`/dashboard/revenue-registration/new?leadId=${lead.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-400 hover:shadow" title="Register Revenue">
+                                <FileCheck2 size={14} />
+                                Register Revenue
+                              </Link>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

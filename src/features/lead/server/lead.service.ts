@@ -807,15 +807,22 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
 }
 
 async function generateLeadCode() {
+  const now = new Date();
+  const year = String(now.getFullYear()).slice(2);
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const datePrefix = `${year}${month}${day}`;
+
   const latestLead = await prisma.lead.findFirst({
+    where: { leadCode: { startsWith: `LD${datePrefix}` } },
     orderBy: { createdAt: "desc" },
     select: { leadCode: true },
   });
 
-  const latestSequence = latestLead?.leadCode.match(/\d+$/)?.[0];
-  const nextValue = latestSequence ? Number.parseInt(latestSequence, 10) + 1 : 1001;
+  const latestSequence = latestLead?.leadCode.slice(8);
+  const nextValue = latestSequence ? Number.parseInt(latestSequence, 10) + 1 : 1;
 
-  return `LD-${String(nextValue).padStart(4, "0")}`;
+  return `LD${datePrefix}${String(nextValue).padStart(3, "0")}`;
 }
 
 export async function listLeads(user: any, ownerAdminId: string, params: {
@@ -2006,81 +2013,31 @@ export async function getLobSummary(ownerAdminId: string, officeLocationId?: str
 }
 
 async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
-  const customerPaymentCredits = await prisma.accountStatementEntry.findMany({
+  const registrations = await prisma.registration.findMany({
     where: {
       ownerAdminId,
-      reversedAt: null,
-      sourceType: "PaymentUpdate",
-      entryType: "Credit",
-      credit: { gt: 0 },
-      paymentUpdate: {
-        approvalStatus: "Approved",
+      lead: {
+        leadStatus: LeadStatus.Closed,
       },
     },
-    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     select: {
-      date: true,
+      id: true,
       createdAt: true,
-      credit: true,
+      totalCharges: true,
+      advancePaid: true,
+      balanceAmount: true,
+      leadId: true,
       trackingNumber: true,
-      registration: {
-        select: {
-          trackingNumber: true,
-          email: true,
-          mobile: true,
-        },
-      },
     },
+    orderBy: { createdAt: "asc" },
   });
 
-  if (customerPaymentCredits.length === 0) {
-    return [];
-  }
-
-  const leadCodes = customerPaymentCredits
-    .map((item) => item.trackingNumber ?? item.registration?.trackingNumber)
-    .filter((value): value is string => Boolean(value));
-  const emails = customerPaymentCredits
-    .map((item) => item.registration?.email)
-    .filter((value): value is string => Boolean(value));
-  const mobiles = customerPaymentCredits
-    .map((item) => item.registration?.mobile)
-    .filter((value): value is string => Boolean(value));
-
-  const closedLeadFilters: Prisma.LeadWhereInput[] = [
-    ...(leadCodes.length ? [{ leadCode: { in: leadCodes } }] : []),
-    ...(emails.length ? [{ email: { in: emails } }] : []),
-    ...(mobiles.length ? [{ mobileNumber: { in: mobiles } }] : []),
-  ];
-
-  if (closedLeadFilters.length === 0) {
-    return [];
-  }
-
-  const closedLeads = await prisma.lead.findMany({
-    where: {
-      ownerAdminId,
-      leadStatus: LeadStatus.Closed,
-      OR: closedLeadFilters,
-    },
-    select: {
-      leadCode: true,
-      email: true,
-      mobileNumber: true,
-    },
-  });
-
-  const closedLeadCodes = new Set(closedLeads.map((lead) => lead.leadCode));
-  const closedEmails = new Set(closedLeads.map((lead) => lead.email));
-  const closedMobiles = new Set(closedLeads.map((lead) => lead.mobileNumber));
-
-  return customerPaymentCredits.filter(
-    (entry) =>
-      Boolean(entry.trackingNumber && closedLeadCodes.has(entry.trackingNumber)) ||
-      Boolean(entry.registration?.trackingNumber && closedLeadCodes.has(entry.registration.trackingNumber)) ||
-      Boolean(entry.registration?.email && closedEmails.has(entry.registration.email)) ||
-      Boolean(entry.registration?.mobile && closedMobiles.has(entry.registration.mobile)),
-  );
+  return registrations.map(reg => ({
+    credit: reg.totalCharges,
+    date: reg.createdAt,
+    createdAt: reg.createdAt,
+    trackingNumber: reg.trackingNumber,
+  }));
 }
 
 export async function getDashboardStats(ownerAdminId: string): Promise<DashboardStatsResponse> {

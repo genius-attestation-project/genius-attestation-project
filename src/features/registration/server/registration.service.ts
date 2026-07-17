@@ -109,6 +109,7 @@ function buildRegistrationData(input: RegistrationInput) {
     paymentMode: input.paymentMode || null,
     paymentStatus: input.paymentStatus,
     collectedPerson: input.collectedPerson || null,
+    leadId: input.leadId || null,
     ...(hasCommissionTarget
       ? {
           commissionToUserId: input.commissionToUserId || null,
