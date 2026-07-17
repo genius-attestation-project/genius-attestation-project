@@ -154,10 +154,10 @@ export function AttendanceCheckoutForm({ serverTimeStr }: Props) {
               <button
                 type="submit"
                 disabled={submitting || !isValid}
-                className="group relative flex items-center gap-2 overflow-hidden rounded-2xl bg-slate-900 px-8 py-4 text-sm font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-slate-800 hover:shadow-xl hover:shadow-orange-500/20 active:scale-95 disabled:pointer-events-none disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                className="group relative flex items-center gap-2 overflow-hidden rounded-2xl bg-slate-900 px-8 py-4 text-sm font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
               >
-                <div className="absolute inset-0 bg-linear-to-r from-orange-500 to-amber-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
-                <span className="relative z-10">{submitting ? "Processing..." : "Complete Check Out"}</span>
+                <div className="absolute inset-0 bg-linear-to-r from-[#e85d4e] via-[#2c64f8] to-[#e0a325] opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+                <span className="relative z-10 transition-colors duration-300 group-hover:text-white">{submitting ? "Processing..." : "Complete Check Out"}</span>
                 {!submitting && (
                   <svg className="relative z-10 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />

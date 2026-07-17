@@ -66,7 +66,7 @@ export function HeaderCheckoutButton() {
     return (
       <Button 
         onClick={() => router.push("/dashboard/attendance/check-out")}
-        className="bg-linear-to-r from-orange-500 to-amber-400 text-white shadow-orange-500/25 hover:from-orange-600 hover:to-amber-500"
+        className="rounded-full border-0 bg-linear-to-r from-[#e85d4e] via-[#2c64f8] to-[#e0a325] text-white shadow-lg transition-opacity hover:opacity-90"
       >
         <Clock3 size={16} className="mr-2" />
         Check Out
