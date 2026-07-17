@@ -338,6 +338,8 @@ export function RegistrationManager({
 }: RegistrationManagerProps) {
   const router = useRouter();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -425,12 +427,15 @@ export function RegistrationManager({
     return commissionUserOptions;
   }, [commissionUserOptions, form.commissionToEmail, form.commissionToName, form.commissionToUserId]);
 
-  async function fetchRegistrations(search = query, currentFilters = filters) {
+  async function fetchRegistrations(search = query, currentFilters = filters, currentPage = page, currentPageSize = pageSize) {
     setLoading(true);
     setError("");
 
     try {
-      const params = new URLSearchParams({ pageSize: "50" });
+      const params = new URLSearchParams({ 
+        page: String(currentPage),
+        pageSize: String(currentPageSize) 
+      });
       if (search.trim()) params.set("query", search.trim());
       
       Object.entries(currentFilters).forEach(([key, value]) => {
@@ -1028,6 +1033,7 @@ export function RegistrationManager({
               <table className="min-w-[920px] text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
                   <tr>
+                    <th className="px-5 py-4">SL No.</th>
                     <th className="px-5 py-4">Tracking Number</th>
                     <th className="px-5 py-4">Customer Name</th>
                     <th className="px-5 py-4">Mobile</th>
@@ -1040,8 +1046,11 @@ export function RegistrationManager({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
-                  {registrations.map((registration) => (
+                  {registrations.map((registration, index) => (
                     <tr key={registration.id} className="transition hover:bg-blue-50 dark:hover:bg-blue-500/5">
+                      <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                        {((page - 1) * pageSize) + index + 1}
+                      </td>
                       <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
                         {registration.trackingNumber}
                       </td>
@@ -1081,6 +1090,28 @@ export function RegistrationManager({
                   ))}
                 </tbody>
               </table>
+            </div>
+            
+            <div className="flex items-center justify-end border-t border-(--border) bg-white/50 p-4 dark:bg-white/5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-soft">Rows per page:</span>
+                <select
+                  className="h-9 rounded-md border border-(--border) bg-transparent px-3 text-sm outline-none dark:bg-white/5"
+                  value={pageSize}
+                  onChange={(e) => {
+                    const newSize = Number(e.target.value);
+                    setPageSize(newSize);
+                    setPage(1);
+                    fetchRegistrations(query, filters, 1, newSize);
+                  }}
+                >
+                  {[10, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         ) : (
