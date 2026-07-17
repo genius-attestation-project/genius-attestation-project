@@ -483,7 +483,7 @@ export function UsersManagement() {
             <select
               value={formState.roleId}
               onChange={(event) => setFormState((current) => ({ ...current, roleId: event.target.value }))}
-              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
             >
               <option value="">Select role</option>
               {roles.map((role) => (
@@ -500,7 +500,7 @@ export function UsersManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, departmentId: event.target.value }))
               }
-              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
             >
               <option value="">Select department</option>
               {departments.map((department) => (
@@ -517,7 +517,7 @@ export function UsersManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, officeLocationId: event.target.value }))
               }
-              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
             >
               <option value="">Select office location</option>
               {officeLocations.map((officeLocation) => (
@@ -534,7 +534,7 @@ export function UsersManagement() {
               onChange={(event) =>
                 setFormState((current) => ({ ...current, supervisorUserId: event.target.value }))
               }
-              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)] dark:bg-white/5"
+              className="h-12 min-w-0 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm outline-none focus:border-blue-500/35 focus:ring-4 focus:ring-(--ring) dark:bg-white/5"
             >
               <option value="">Select supervisor</option>
               {users
