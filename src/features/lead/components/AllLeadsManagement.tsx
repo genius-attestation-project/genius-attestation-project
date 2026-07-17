@@ -83,6 +83,7 @@ export function AllLeadsManagement({
   });
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
 
@@ -130,6 +131,7 @@ export function AllLeadsManagement({
     createdToFilter,
     officeLocationFilter,
     endpoint,
+    pageSize,
   ]);
 
   useEffect(() => {
@@ -217,7 +219,7 @@ export function AllLeadsManagement({
 
         if (isServerFilteredEndpoint) {
           searchParams.set("page", String(page));
-          searchParams.set("pageSize", "10");
+          searchParams.set("pageSize", String(pageSize));
 
           if (query.trim()) {
             searchParams.set("query", query.trim());
@@ -259,7 +261,7 @@ export function AllLeadsManagement({
             items: [],
             pagination: {
               page: 1,
-              pageSize: 10,
+              pageSize,
               totalItems: 0,
               totalPages: 1,
             },
@@ -294,6 +296,7 @@ export function AllLeadsManagement({
     createdFromFilter,
     createdToFilter,
     officeLocationFilter,
+    pageSize,
   ]);
 
   async function refreshLeads() {
@@ -318,7 +321,7 @@ export function AllLeadsManagement({
     }
 
     searchParams.set("page", String(page));
-    searchParams.set("pageSize", "10");
+    searchParams.set("pageSize", String(pageSize));
     if (query.trim()) searchParams.set("query", query.trim());
     if (allowStatusFilter && statusFilter !== "all") searchParams.set("status", statusFilter);
     if (createdByFilter !== "all") searchParams.set("createdById", createdByFilter);
@@ -613,8 +616,12 @@ export function AllLeadsManagement({
           <>
             <DataTable
               keyField="id"
-              rows={filteredLeads}
+              rows={filteredLeads.map((row, index) => ({
+                ...row,
+                serialNumber: ((page - 1) * pageSize) + index + 1
+              }))}
               columns={[
+                { key: "serialNumber", label: "SL No." },
                 { key: "clientName", label: "Lead Name" },
                 { key: "mobile", label: "Mobile" },
                 { key: "service", label: "Service" },
@@ -684,26 +691,18 @@ export function AllLeadsManagement({
                   Pagination: {leadData.pagination.page} of {leadData.pagination.totalPages}
                 </p>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={leadData.pagination.page <= 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  <span className="text-sm font-medium">Rows per page:</span>
+                  <select
+                    className="h-9 rounded-md border border-(--border) bg-transparent px-3 text-sm outline-none dark:bg-white/5"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
                   >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={leadData.pagination.page >= leadData.pagination.totalPages}
-                    onClick={() =>
-                      setPage((current) =>
-                        Math.min(leadData.pagination.totalPages, current + 1),
-                      )
-                    }
-                  >
-                    Next
-                  </Button>
+                    {[10, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ) : null}
