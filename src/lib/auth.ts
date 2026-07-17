@@ -84,11 +84,11 @@ const providers = [
   }),
   ...(env.googleClientId && env.googleClientSecret
     ? [
-        Google({
-          clientId: env.googleClientId,
-          clientSecret: env.googleClientSecret,
-        }),
-      ]
+      Google({
+        clientId: env.googleClientId,
+        clientSecret: env.googleClientSecret,
+      }),
+    ]
     : []),
 ];
 
@@ -173,9 +173,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const isInitialSignIn = !!user;
       const isUpdate = trigger === "update";
-      const missingPermissions = !token.permissions || !token.id;
+      const needsRefresh = !token.id;
 
-      if (!isInitialSignIn && !isUpdate && !missingPermissions) {
+      if (!isInitialSignIn && !isUpdate && !needsRefresh) {
         return token;
       }
 
@@ -203,15 +203,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.name = dbUser.name;
         token.email = dbUser.email;
         token.picture = dbUser.image;
-        token.ownerAdminId = dbUser.ownerAdminId || undefined;
-        token.officeLocationId = dbUser.officeLocationId || undefined;
-        token.officeLocationName = dbUser.officeLocationName || undefined;
+
         token.role = access?.role ?? "User";
         token.legacyRole = access?.legacyRole ?? "USER";
-        token.roles = access?.roles ?? [token.role];
-        token.permissions = access?.permissions ?? [];
-        token.permissionScopes = access?.permissionScopes ?? {};
         token.isSuperAdmin = access?.isSuperAdmin ?? false;
+
+        token.ownerAdminId = dbUser.ownerAdminId;
+        token.officeLocationId = dbUser.officeLocationId;
+        token.officeLocationName = dbUser.officeLocationName;
 
         return token;
       } catch (error) {
@@ -225,22 +224,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.id = String(token.id);
         }
 
-        if (session.user) {
-          session.user.role = typeof token.role === "string" ? token.role : "User";
-          session.user.legacyRole = typeof token.legacyRole === "string" ? token.legacyRole : "USER";
-          session.user.name = typeof token.name === "string" ? token.name : session.user.name;
-          session.user.email = typeof token.email === "string" ? token.email : session.user.email;
-          session.user.image = typeof token.picture === "string" ? token.picture : session.user.image;
-          session.user.ownerAdminId = typeof token.ownerAdminId === "string" ? token.ownerAdminId : undefined;
-          session.user.officeLocationId =
-            typeof token.officeLocationId === "string" ? token.officeLocationId : undefined;
-          session.user.officeLocationName =
-            typeof token.officeLocationName === "string" ? token.officeLocationName : undefined;
-          session.user.roles = Array.isArray(token.roles) ? token.roles : [];
-          session.user.permissions = Array.isArray(token.permissions) ? token.permissions : [];
-          session.user.permissionScopes = typeof token.permissionScopes === "object" && token.permissionScopes !== null ? token.permissionScopes as Record<string, string> : {};
-          session.user.isSuperAdmin = typeof token.isSuperAdmin === "boolean" ? token.isSuperAdmin : false;
-        }
+
+        session.user.role = typeof token.role === "string" ? token.role : "User";
+        session.user.legacyRole = typeof token.legacyRole === "string" ? token.legacyRole : "USER";
+        session.user.isSuperAdmin =
+          typeof token.isSuperAdmin === "boolean"
+            ? token.isSuperAdmin
+            : false;
+
 
         return session;
       } catch (error) {
