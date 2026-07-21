@@ -53,6 +53,7 @@ export async function DashboardOverview({
       description: "All leads",
       icon: Users,
       tone: "blue",
+      href: "/dashboard/lead-management/all-leads",
     });
     cards.push({
       label: "Active Leads",
@@ -61,6 +62,7 @@ export async function DashboardOverview({
       description: "Open pipeline",
       icon: UserCheck,
       tone: "slate",
+      href: "/dashboard/lead-management/all-leads?status=ACTIVE",
     });
   }
 
@@ -72,6 +74,7 @@ export async function DashboardOverview({
       description: "Approved revenue",
       icon: BadgeDollarSign,
       tone: "blue",
+      href: "/dashboard/revenue-registration",
     });
   }
 
@@ -83,6 +86,7 @@ export async function DashboardOverview({
       description: "Due followups",
       icon: LoaderCircle,
       tone: "amber",
+      href: "/dashboard/lead-management/followups",
     });
   }
 
@@ -94,6 +98,7 @@ export async function DashboardOverview({
       description: "Completed leads",
       icon: BadgeCheck,
       tone: "slate",
+      href: "/dashboard/lead-management/closed",
     });
   }
 
@@ -105,6 +110,7 @@ export async function DashboardOverview({
       description: "Awaiting review",
       icon: ClipboardList,
       tone: "amber",
+      href: "/dashboard/lead-management/pending-approval",
     });
   }
 

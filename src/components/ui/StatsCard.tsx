@@ -1,6 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import Link from "next/link";
 import { cn } from "@/utils/cn";
 
 type StatsCardProps = {
@@ -10,6 +11,7 @@ type StatsCardProps = {
   description: string;
   icon: LucideIcon;
   tone?: "blue" | "slate" | "amber";
+  href?: string;
 };
 
 const toneStyles = {
@@ -25,8 +27,9 @@ export function StatsCard({
   description,
   icon: Icon,
   tone = "blue",
+  href,
 }: StatsCardProps) {
-  return (
+  const content = (
     <article className="group relative flex h-full min-h-[156px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-4 ring-1 ring-slate-900/5 surface-panel transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5 dark:ring-white/10">
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -46,4 +49,14 @@ export function StatsCard({
       </div>
     </article>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block h-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl transition-transform">
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
 }

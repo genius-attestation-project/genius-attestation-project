@@ -34,6 +34,7 @@ export type DashboardStat = {
   description: string;
   icon: LucideIcon;
   tone?: "blue" | "slate" | "amber";
+  href?: string;
 };
 
 export const sidebarItems: SidebarItem[] = [
