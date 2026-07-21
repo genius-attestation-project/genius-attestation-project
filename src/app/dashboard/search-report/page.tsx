@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AccessDenied } from "@/components/shared/AccessDenied";
 import { SearchReportClient } from "@/features/registration/components/SearchReportClient";
 import { requirePermission } from "@/middleware/auth.middleware";
@@ -9,5 +10,9 @@ export default async function SearchReportPage() {
     return <AccessDenied description="Your role cannot access search and reports." />;
   }
 
-  return <SearchReportClient />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-soft">Loading search...</div>}>
+      <SearchReportClient />
+    </Suspense>
+  );
 }

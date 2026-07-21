@@ -1,8 +1,8 @@
 "use client";
 
 import { FileSearch, Plus, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -25,6 +25,9 @@ async function parseResponse(response: Response) {
 
 export function SearchReportClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryTrackingNumber = searchParams.get("trackingNumber");
+  
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedValue, setSearchedValue] = useState("");
   const [registration, setRegistration] = useState<Registration | null>(null);
@@ -33,9 +36,7 @@ export function SearchReportClient() {
   const [error, setError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = trackingNumber.trim();
+  const performSearch = useCallback(async (value: string) => {
     if (!value) {
       setError("Tracking number is required.");
       return;
@@ -61,7 +62,19 @@ export function SearchReportClient() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await performSearch(trackingNumber.trim());
   }
+
+  useEffect(() => {
+    if (queryTrackingNumber) {
+      setTrackingNumber(queryTrackingNumber);
+      performSearch(queryTrackingNumber.trim());
+    }
+  }, [queryTrackingNumber, performSearch]);
 
   function createNewRegistration() {
     router.push(
