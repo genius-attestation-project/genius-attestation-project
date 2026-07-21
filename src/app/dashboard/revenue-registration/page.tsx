@@ -22,12 +22,14 @@ export default async function RevenueRegistrationPage() {
 
   const hasExportPermission = hasPermission(session.user, "revenue_registration.export");
   const hasTimelinePermission = hasPermission(session.user, "document_movement.view");
+  const hasImportPermission = hasPermission(session.user, "revenue_registration.import");
 
   return (
     <RegistrationManager 
       currentOfficeLocationName={currentOfficeLocationName ?? ""} 
       hasExportPermission={hasExportPermission} 
       hasTimelinePermission={hasTimelinePermission}
+      hasImportPermission={hasImportPermission}
     />
   );
 }

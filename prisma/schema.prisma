@@ -114,17 +114,17 @@ model User {
   unlockedAt           DateTime?       @map("unlocked_at")
   lastLoginAt          DateTime?
 
-  accounts          Account[]
-  sessions          Session[]
-  userRoles         UserRole[]
-  createdLeads      Lead[]             @relation("LeadCreator")
-  createdRegistrations Registration[]  @relation("RegistrationCreator")
-  attendanceRecords AttendanceRecord[] @relation("UserAttendance")
-  attendanceSetting AttendanceSetting? @relation("UserAttendanceSetting")
+  accounts                 Account[]
+  sessions                 Session[]
+  userRoles                UserRole[]
+  createdLeads             Lead[]                   @relation("LeadCreator")
+  createdRegistrations     Registration[]           @relation("RegistrationCreator")
+  attendanceRecords        AttendanceRecord[]       @relation("UserAttendance")
+  attendanceSetting        AttendanceSetting?       @relation("UserAttendanceSetting")
   attendanceDailySummaries AttendanceDailySummary[] @relation("UserAttendanceDailySummary")
-  leaveRequests     LeaveRequest[]     @relation("UserLeaveRequests")
-  salaryPayrolls    SalaryPayroll[]    @relation("UserSalaryPayroll")
-  notifications     Notification[]
+  leaveRequests            LeaveRequest[]           @relation("UserLeaveRequests")
+  salaryPayrolls           SalaryPayroll[]          @relation("UserSalaryPayroll")
+  notifications            Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -248,7 +248,7 @@ model Lead {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
-  registrations          Registration[]
+  registrations Registration[]
 
   statusHistory     LeadStatusHistory[]
   assignmentHistory LeadAssignmentHistory[]
@@ -407,6 +407,11 @@ model Registration {
   ownerAdminId           String?   @map("owner_admin_id")
   createdBy              String?   @map("created_by")
   creator                User?     @relation("RegistrationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  importBatchId          String?   @map("import_batch_id")
+  importFileName         String?   @map("import_file_name")
+  importedBy             String?   @map("imported_by")
+  importedAt             DateTime? @map("imported_at")
+  originalRowNumber      Int?      @map("original_row_number")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -568,20 +573,20 @@ model AccountStatementEntry {
 }
 
 model FileStorage {
-  id           String             @id @default(cuid())
+  id           String   @id @default(cuid())
   module       String
-  recordId     String?            @map("record_id")
+  recordId     String?  @map("record_id")
   folder       String
-  originalName String             @map("original_name")
-  storedName   String             @map("stored_name")
-  bucketKey    String             @map("bucket_key")
-  url          String             @db.Text
-  mimeType     String             @map("mime_type")
+  originalName String   @map("original_name")
+  storedName   String   @map("stored_name")
+  bucketKey    String   @map("bucket_key")
+  url          String   @db.Text
+  mimeType     String   @map("mime_type")
   extension    String
   size         Int
-  uploadedBy   String?            @map("uploaded_by")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  uploadedBy   String?  @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   registrationFiles RegistrationFile[]
 
@@ -695,8 +700,8 @@ model AttendanceRecord {
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
 
-  user         User          @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
-  leaveRequest LeaveRequest? @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  user               User                    @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  leaveRequest       LeaveRequest?           @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
   dailySummaryRecord AttendanceDailySummary? @relation("AttendanceRecordSummary")
 
   @@unique([userId, attendanceDate])
@@ -965,8 +970,8 @@ model AttendanceDailySummary {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  user         User             @relation("UserAttendanceDailySummary", fields: [userId], references: [id], onDelete: Cascade)
-  attendance   AttendanceRecord @relation("AttendanceRecordSummary", fields: [attendanceId], references: [id], onDelete: Cascade)
+  user       User             @relation("UserAttendanceDailySummary", fields: [userId], references: [id], onDelete: Cascade)
+  attendance AttendanceRecord @relation("AttendanceRecordSummary", fields: [attendanceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, summaryDate])
   @@index([userId])
@@ -989,10 +994,10 @@ model LeadWorkflowApproval {
   approvalRemarks String?                @map("approval_remarks")
   returnRemarks   String?                @map("return_remarks")
   rejectRemarks   String?                @map("reject_remarks")
-  metadata        Json?                  // to store days inactive, overdue days, etc.
+  metadata        Json? // to store days inactive, overdue days, etc.
   ownerAdminId    String?                @map("owner_admin_id")
 
-  auditLogs       ApprovalAuditLog[]
+  auditLogs ApprovalAuditLog[]
 
   @@index([leadId])
   @@index([supervisorId])
@@ -1008,7 +1013,7 @@ model Notification {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title         String
   message       String
-  type          String   // "APPROVAL", "REMINDER", "SYSTEM"
+  type          String // "APPROVAL", "REMINDER", "SYSTEM"
   isRead        Boolean  @default(false) @map("is_read")
   referenceId   String?  @map("reference_id") // ID of the approval or lead
   referenceType String?  @map("reference_type") // "LEAD", "APPROVAL"
@@ -1022,16 +1027,16 @@ model Notification {
 }
 
 model ApprovalAuditLog {
-  id                 String               @id @default(cuid())
-  approvalId         String               @map("approval_id")
-  workflowApproval   LeadWorkflowApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
-  leadId             String               @map("lead_id")
-  action             String               // "Created", "Approved", "Rejected", "Returned"
-  performedBy        String               @map("performed_by")
-  remarks            String?
-  ipAddress          String?              @map("ip_address")
-  ownerAdminId       String?              @map("owner_admin_id")
-  createdAt          DateTime             @default(now()) @map("created_at")
+  id               String               @id @default(cuid())
+  approvalId       String               @map("approval_id")
+  workflowApproval LeadWorkflowApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  leadId           String               @map("lead_id")
+  action           String // "Created", "Approved", "Rejected", "Returned"
+  performedBy      String               @map("performed_by")
+  remarks          String?
+  ipAddress        String?              @map("ip_address")
+  ownerAdminId     String?              @map("owner_admin_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
 
   @@index([approvalId])
   @@index([leadId])
@@ -1039,7 +1044,6 @@ model ApprovalAuditLog {
   @@index([ownerAdminId])
   @@map("approval_audit_logs")
 }
-
 
 model BranchMovementRecord {
   id                String    @id @default(cuid())
@@ -1063,3 +1067,21 @@ model BranchMovementRecord {
   @@map("branch_movement_records")
 }
 
+model ImportHistory {
+  id             String   @id @default(cuid())
+  batchId        String   @unique @map("batch_id")
+  module         String
+  fileName       String   @map("file_name")
+  totalRows      Int      @map("total_rows")
+  successfulRows Int      @map("successful_rows")
+  failedRows     Int      @map("failed_rows")
+  skippedRows    Int      @map("skipped_rows")
+  reportFileUrl  String?  @map("report_file_url")
+  importedBy     String   @map("imported_by")
+  ownerAdminId   String   @map("owner_admin_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([ownerAdminId])
+  @@index([importedBy])
+  @@map("import_history")
+}

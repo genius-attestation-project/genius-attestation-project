@@ -31,7 +31,8 @@ export const permissionActions = [
   "approve", "reject", "return", "request",
   "bulkApprove", "bulkReject", "bulkReturn",
   "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
-  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline"
+  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline",
+  "import", "downloadTemplate", "viewImportHistory"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -368,7 +369,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "pending_approval", label: "Pending Approval", description: "Pending approval access." },
   { key: "lob", label: "LOB", description: "Line of business access." },
   { key: "closed_leads", label: "Closed Leads", description: "Closed lead access." },
-  { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access." },
+  { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access.", actions: ["view", "create", "edit", "delete", "manage", "export", "import", "downloadTemplate", "viewImportHistory"] },
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
@@ -463,6 +464,10 @@ export const defaultRoleDefinitions = [
       "search_report.export",
       "revenue_summary.view",
       "revenue_summary.export",
+      "revenue_registration.view",
+      "revenue_registration.import",
+      "revenue_registration.downloadTemplate",
+      "revenue_registration.viewImportHistory",
       "account_update.view",
       "ready_for_delivery.view",
       "welcome_call.view",
@@ -551,6 +556,9 @@ export const defaultRoleDefinitions = [
       "search_report.export",
       "revenue_summary.view",
       "revenue_summary.export",
+      "revenue_registration.import",
+      "revenue_registration.downloadTemplate",
+      "revenue_registration.viewImportHistory",
       "leave.view",
       "leave.create",
       "menu.dashboard",

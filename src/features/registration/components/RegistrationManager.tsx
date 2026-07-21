@@ -30,6 +30,7 @@ import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableS
 import { FileUpload } from "@/components/common/FileUpload";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   documentTypeOptions,
@@ -47,6 +48,7 @@ type RegistrationManagerProps = {
   initialLeadId?: string;
   hasExportPermission?: boolean;
   hasTimelinePermission?: boolean;
+  hasImportPermission?: boolean;
 };
 
 const blankForm: RegistrationFormState = {
@@ -335,6 +337,7 @@ export function RegistrationManager({
   initialLeadId = "",
   hasExportPermission = false,
   hasTimelinePermission = false,
+  hasImportPermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -364,6 +367,8 @@ export function RegistrationManager({
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
   
+  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
+
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -779,9 +784,16 @@ export function RegistrationManager({
               </p>
             )}
           </div>
-          <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
-            <Plus size={18} /> Add Registration
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {hasImportPermission && (
+              <Button variant="secondary" onClick={() => setIsImportWizardOpen(true)}>
+                <FileSpreadsheet size={18} className="mr-2" /> Import
+              </Button>
+            )}
+            <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
+              <Plus size={18} /> Add Registration
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -792,6 +804,13 @@ export function RegistrationManager({
       ) : null}
 
       <section className="grid min-w-0 gap-4 rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-5 dark:bg-white/5">
+        
+        <ImportRegistrationWizard 
+          open={isImportWizardOpen}
+          onOpenChange={setIsImportWizardOpen}
+          onSuccess={() => fetchRegistrations()}
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 text-sm sm:min-w-[16rem] dark:bg-white/5">
             <Search size={17} className="text-muted" />
