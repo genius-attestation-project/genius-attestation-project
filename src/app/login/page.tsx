@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <section className="grid min-h-screen overflow-x-hidden bg-white lg:grid-cols-[1.05fr_0.95fr]">
       <div className="relative min-h-56 overflow-hidden bg-neutral-950 sm:min-h-64 lg:min-h-full">
         <Image
-          src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=80"
+          src="/uploads/login.jpg"
           alt="Workspace desk with laptop and notes"
           fill
           sizes="(min-width: 1024px) 55vw, 100vw"
