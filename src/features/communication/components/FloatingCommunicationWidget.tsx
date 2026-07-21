@@ -14,15 +14,8 @@ type Conversation = {
   trackingNumber: string;
   customerName: string;
   message: string;
-  senderOfficeName: string;
-  receiverOfficeName: string;
   createdAt: string;
   unreadCount: number;
-};
-
-type Office = {
-  id: string;
-  officeName: string;
 };
 
 type Message = {
@@ -30,17 +23,14 @@ type Message = {
   trackingNumber: string;
   message: string;
   createdAt: string;
-  senderUser: { name: string | null };
-  senderOffice: { officeName: string } | null;
-  receiverOffice: { officeName: string } | null;
-  parent: { message: string; senderOffice: { officeName: string } | null } | null;
+  senderUser: { name: string | null; role?: { name: string | null } } | null;
+  parent: { message: string; senderUser: { name: string | null } | null } | null;
 };
 
 export function FloatingCommunicationWidget() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [inbox, setInbox] = useState<Conversation[]>([]);
-  const [offices, setOffices] = useState<Office[]>([]);
   const [loading, setLoading] = useState(false);
   
   // View state: 'inbox' | 'thread'
@@ -53,7 +43,6 @@ export function FloatingCommunicationWidget() {
   
   // Compose state
   const [newMessage, setNewMessage] = useState("");
-  const [selectedOfficeId, setSelectedOfficeId] = useState("");
   const [sending, setSending] = useState(false);
 
   // Search state
@@ -63,7 +52,6 @@ export function FloatingCommunicationWidget() {
 
   useEffect(() => {
     fetchInbox();
-    fetchOffices();
     // Refresh inbox periodically every minute
     const interval = setInterval(fetchInbox, 60000);
     return () => clearInterval(interval);
@@ -81,24 +69,11 @@ export function FloatingCommunicationWidget() {
     }
   }
 
-  async function fetchOffices() {
-    try {
-      const res = await fetch("/api/communication/offices");
-      if (res.ok) {
-        const data = await res.json();
-        setOffices(data.offices || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch offices", error);
-    }
-  }
-
   async function openThread(trackingNumber: string) {
     setActiveTrackingNumber(trackingNumber);
     setView('thread');
     setLoadingThread(true);
     setNewMessage("");
-    setSelectedOfficeId("");
     
     try {
       // Mark as read
@@ -122,7 +97,7 @@ export function FloatingCommunicationWidget() {
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedOfficeId || !activeTrackingNumber) return;
+    if (!newMessage.trim() || !activeTrackingNumber) return;
 
     setSending(true);
     try {
@@ -133,7 +108,6 @@ export function FloatingCommunicationWidget() {
           trackingNumber: activeTrackingNumber,
           message: newMessage.trim(),
           type: "Comment",
-          receiverOfficeId: selectedOfficeId,
         }),
       });
 
@@ -212,7 +186,7 @@ export function FloatingCommunicationWidget() {
                         className="group flex w-full items-start gap-3 rounded-xl border border-transparent bg-transparent p-3 text-left transition-all hover:bg-white hover:shadow-sm dark:hover:bg-slate-800"
                       >
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-tr from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-inner">
-                          {conv.senderOfficeName.charAt(0)}
+                          {conv.customerName.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col">
                           <div className="flex items-center justify-between gap-2">
@@ -223,7 +197,7 @@ export function FloatingCommunicationWidget() {
                           </div>
                           <p className="text-xs font-semibold tracking-wide text-blue-600 dark:text-blue-400">#{conv.trackingNumber}</p>
                           <p className="mt-1 truncate text-xs text-slate-500">
-                            <span className="font-medium text-slate-700 dark:text-slate-300">{conv.senderOfficeName}:</span> {conv.message}
+                            {conv.message}
                           </p>
                         </div>
                         {conv.unreadCount > 0 && (
@@ -267,25 +241,22 @@ export function FloatingCommunicationWidget() {
                     {threadMessages.map((msg) => (
                       <div key={msg.id} className="group flex gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-700 shadow-sm dark:from-slate-700 dark:to-slate-800 dark:text-slate-200">
-                          {msg.senderOffice?.officeName?.charAt(0) || "S"}
+                          {msg.senderUser?.name?.charAt(0).toUpperCase() || "U"}
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex items-baseline gap-2">
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                              {msg.senderOffice?.officeName || "System"} <span className="font-medium text-slate-500">({msg.senderUser?.name})</span>
+                              {msg.senderUser?.name || "System"} <span className="font-medium text-slate-500">{msg.senderUser?.role?.name ? `(${msg.senderUser.role.name})` : ""}</span>
                             </span>
                             <span className="text-[10px] text-slate-400">{new Date(msg.createdAt).toLocaleString()}</span>
                           </div>
                           <div className="relative inline-block max-w-[90%] self-start rounded-2xl rounded-tl-sm bg-white p-3 shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900">
                             {msg.parent && (
                               <div className="mb-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-500 border-l-2 border-slate-300 dark:bg-white/5 dark:border-slate-700">
-                                Replying to {msg.parent.senderOffice?.officeName}: "{msg.parent.message}"
+                                Replying to {msg.parent.senderUser?.name || "System"}: "{msg.parent.message}"
                               </div>
                             )}
                             <p className="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{msg.message}</p>
-                          </div>
-                          <div className="text-[10px] font-medium text-slate-400">
-                            Sent to: {msg.receiverOffice?.officeName || "Unknown"}
                           </div>
                         </div>
                       </div>
@@ -296,20 +267,6 @@ export function FloatingCommunicationWidget() {
 
               <div className="border-t border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
                 <form onSubmit={sendMessage} className="relative flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
-                    <span className="pl-2 text-xs font-semibold text-slate-400">To:</span>
-                    <select
-                      className="flex-1 appearance-none bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-300"
-                      value={selectedOfficeId}
-                      onChange={(e) => setSelectedOfficeId(e.target.value)}
-                      required
-                    >
-                      <option value="" disabled>Select Office...</option>
-                      {offices.map((o) => (
-                        <option key={o.id} value={o.id}>{o.officeName}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="flex items-end gap-2">
                     <textarea 
                       placeholder="Type your message..." 
@@ -321,7 +278,7 @@ export function FloatingCommunicationWidget() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
-                          if (newMessage.trim() && selectedOfficeId) sendMessage(e);
+                          if (newMessage.trim()) sendMessage(e);
                         }
                       }}
                     />
@@ -329,7 +286,7 @@ export function FloatingCommunicationWidget() {
                       type="submit" 
                       size="icon" 
                       className="mb-1 h-8 w-8 shrink-0 rounded-full"
-                      disabled={sending || !newMessage.trim() || !selectedOfficeId}
+                      disabled={sending || !newMessage.trim()}
                     >
                       <Send size={14} className={sending ? "opacity-50" : "mr-0.5"} />
                     </Button>

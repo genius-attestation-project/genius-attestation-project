@@ -126,6 +126,7 @@ model User {
   salaryPayrolls           SalaryPayroll[]          @relation("UserSalaryPayroll")
   notifications            Notification[]
   sentCommunications       DocumentCommunication[]  @relation("MessageSender")
+  documentReadStates       DocumentReadState[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -166,9 +167,6 @@ model OfficeLocation {
   documentMovementsFrom    DocumentMovement[] @relation("FromOfficeRelation")
   documentMovementsTo      DocumentMovement[] @relation("ToOfficeRelation")
   documentMovementsCurrent DocumentMovement[] @relation("CurrentOfficeRelation")
-
-  sentCommunications       DocumentCommunication[] @relation("MessageSenderOffice")
-  receivedCommunications   DocumentCommunication[] @relation("MessageReceiverOffice")
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -1103,18 +1101,25 @@ model DocumentCommunication {
   replies          DocumentCommunication[] @relation("ThreadReplies")
   senderUserId     String   @map("sender_user_id")
   senderUser       User     @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
-  senderOfficeId   String?  @map("sender_office_id")
-  senderOffice     OfficeLocation? @relation("MessageSenderOffice", fields: [senderOfficeId], references: [id], onDelete: SetNull)
-  receiverOfficeId String?  @map("receiver_office_id")
-  receiverOffice   OfficeLocation? @relation("MessageReceiverOffice", fields: [receiverOfficeId], references: [id], onDelete: SetNull)
-  isRead           Boolean  @default(false) @map("is_read")
-  readAt           DateTime? @map("read_at")
   ownerAdminId     String   @map("owner_admin_id")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([trackingNumber])
-  @@index([receiverOfficeId, isRead])
   @@index([ownerAdminId])
   @@map("document_communication")
+}
+
+model DocumentReadState {
+  id             String   @id @default(cuid())
+  trackingNumber String   @map("tracking_number")
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime @default(now()) @map("last_read_at")
+  ownerAdminId   String   @map("owner_admin_id")
+
+  @@unique([trackingNumber, userId])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@map("document_read_state")
 }

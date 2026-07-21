@@ -27,13 +27,11 @@ export async function GET(
         createdAt: "asc",
       },
       include: {
-        senderUser: { select: { name: true } },
-        senderOffice: { select: { officeName: true } },
-        receiverOffice: { select: { officeName: true } },
+        senderUser: { select: { name: true, role: { select: { name: true } } } },
         parent: {
           select: {
             message: true,
-            senderOffice: { select: { officeName: true } }
+            senderUser: { select: { name: true } }
           }
         }
       },
@@ -60,30 +58,30 @@ export async function PUT(
     }
 
     const { user } = session;
-    const officeId = user.officeLocationId;
-    
-    if (!officeId) {
-      return NextResponse.json({ message: "No office assigned to user." }, { status: 400 });
-    }
 
     const { trackingNumber } = await params;
     if (!trackingNumber) {
       return NextResponse.json({ message: "Tracking number is required." }, { status: 400 });
     }
 
-    // Mark as read any unread message sent TO this office for this tracking number
+    // Mark all as read for this user on this document
     // @ts-ignore: Stale IDE cache
-    await prisma.documentCommunication.updateMany({
+    await prisma.documentReadState.upsert({
       where: {
+        trackingNumber_userId: {
+          trackingNumber,
+          userId: user.id,
+        }
+      },
+      create: {
         trackingNumber,
-        receiverOfficeId: officeId,
-        isRead: false,
-        ownerAdminId: user.ownerAdminId,
+        userId: user.id,
+        ownerAdminId: user.ownerAdminId!,
+        lastReadAt: new Date(),
       },
-      data: {
-        isRead: true,
-        readAt: new Date(),
-      },
+      update: {
+        lastReadAt: new Date(),
+      }
     });
 
     return NextResponse.json({ success: true });

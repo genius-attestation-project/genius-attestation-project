@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { trackingNumber, message, type, receiverOfficeId, parentId } = body;
+    const { trackingNumber, message, type, parentId } = body;
 
     if (!trackingNumber || !message || !type) {
       return NextResponse.json({ message: "Missing required fields." }, { status: 400 });
@@ -26,10 +26,6 @@ export async function POST(request: Request) {
 
     if (type !== "Comment" && type !== "Reply" && type !== "Forward") {
       return NextResponse.json({ message: "Invalid message type." }, { status: 400 });
-    }
-
-    if (!receiverOfficeId) {
-      return NextResponse.json({ message: "Receiver office is required." }, { status: 400 });
     }
 
     // Attempt to find Registration to link it
@@ -50,10 +46,28 @@ export async function POST(request: Request) {
         type,
         parentId: parentId || null,
         senderUserId: user.id,
-        senderOfficeId,
-        receiverOfficeId,
         ownerAdminId: user.ownerAdminId!,
       },
+    });
+
+    // Mark as read for the sender
+    // @ts-ignore: Stale IDE cache
+    await prisma.documentReadState.upsert({
+      where: {
+        trackingNumber_userId: {
+          trackingNumber,
+          userId: user.id,
+        }
+      },
+      create: {
+        trackingNumber,
+        userId: user.id,
+        ownerAdminId: user.ownerAdminId!,
+        lastReadAt: new Date(),
+      },
+      update: {
+        lastReadAt: new Date(),
+      }
     });
 
     return NextResponse.json({ success: true, communication: newCommunication });

@@ -8,10 +8,8 @@ type Message = {
   trackingNumber: string;
   message: string;
   createdAt: string;
-  senderUser: { name: string | null };
-  senderOffice: { officeName: string } | null;
-  receiverOffice: { officeName: string } | null;
-  parent: { message: string; senderOffice: { officeName: string } | null } | null;
+  senderUser: { name: string | null; role?: { name: string | null } } | null;
+  parent: { message: string; senderUser: { name: string | null } | null } | null;
 };
 
 export function CommunicationTimeline({ trackingNumber }: { trackingNumber: string }) {
@@ -53,18 +51,17 @@ export function CommunicationTimeline({ trackingNumber }: { trackingNumber: stri
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-bold text-blue-600 dark:text-blue-400">
-                  {msg.senderOffice?.officeName || "System"} 
-                  <span className="text-soft font-normal text-xs ml-2">to {msg.receiverOffice?.officeName || "Unknown"}</span>
+                  {msg.senderUser?.name || "System"} 
+                  <span className="text-soft font-normal text-xs ml-2">{msg.senderUser?.role?.name ? `(${msg.senderUser.role.name})` : ""}</span>
                 </p>
                 <p className="text-xs text-muted">{new Date(msg.createdAt).toLocaleString()}</p>
               </div>
               {msg.parent && (
                 <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-soft border-l-2 border-slate-300 dark:bg-white/5 dark:border-slate-700">
-                  Replying to {msg.parent.senderOffice?.officeName}: "{msg.parent.message}"
+                  Replying to {msg.parent.senderUser?.name || "System"}: "{msg.parent.message}"
                 </div>
               )}
               <p className="mt-2 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{msg.message}</p>
-              <p className="mt-2 text-xs text-muted">Sent by {msg.senderUser?.name}</p>
             </div>
           ))
         ) : (

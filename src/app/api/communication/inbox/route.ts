@@ -16,67 +16,65 @@ export async function GET() {
       return NextResponse.json({ message: "No office assigned to user." }, { status: 400 });
     }
 
-    // 1. Fetch unread counts by tracking number
+    // 1. Fetch the user's read states for fast unread comparison
     // @ts-ignore: Stale IDE cache
-    const unreadGroups = await prisma.documentCommunication.groupBy({
-      by: ["trackingNumber"],
+    const readStates = await prisma.documentReadState.findMany({
       where: {
-        receiverOfficeId: officeId,
-        isRead: false,
+        userId: user.id,
         ownerAdminId: user.ownerAdminId,
       },
-      _count: {
-        id: true,
+      select: {
+        trackingNumber: true,
+        lastReadAt: true,
       },
     });
 
-    const unreadMap = new Map(
-      unreadGroups.map((g: { trackingNumber: string; _count: { id: number } }) => [g.trackingNumber, g._count.id])
+    const readStateMap = new Map(
+      readStates.map((rs: { trackingNumber: string; lastReadAt: Date }) => [rs.trackingNumber, rs.lastReadAt])
     );
 
-    // 2. Fetch the latest messages for this office (either sent or received)
-    // To get the latest per tracking number, we can fetch the most recent N messages and filter in code, 
-    // or use a raw query. We'll use a Prisma workaround: fetch top 100 recent messages for the office.
+    // 2. Fetch recent unique conversations for this tenant
     // @ts-ignore: Stale IDE cache
     const recentMessages = await prisma.documentCommunication.findMany({
       where: {
         ownerAdminId: user.ownerAdminId,
-        OR: [
-          { receiverOfficeId: officeId },
-          { senderOfficeId: officeId },
-        ],
       },
       orderBy: {
         createdAt: "desc",
       },
       take: 200,
       include: {
-        senderOffice: { select: { officeName: true } },
-        receiverOffice: { select: { officeName: true } },
         registration: { select: { customerName: true } },
       },
     });
 
-    // Group in memory to get the latest per tracking number
+    // Group in memory to get the latest per tracking number and count unreads
     const uniqueTrackingNumbers = new Set<string>();
-    const conversations = [];
+    const conversationsMap = new Map<string, any>();
 
     for (const msg of recentMessages) {
+      const lastRead = readStateMap.get(msg.trackingNumber) || new Date(0);
+      const isUnread = msg.createdAt > lastRead && msg.senderUserId !== user.id;
+
       if (!uniqueTrackingNumbers.has(msg.trackingNumber)) {
         uniqueTrackingNumbers.add(msg.trackingNumber);
         
-        conversations.push({
+        conversationsMap.set(msg.trackingNumber, {
           id: msg.id,
           trackingNumber: msg.trackingNumber,
           customerName: msg.registration?.customerName ?? "Unknown",
           message: msg.message,
-          senderOfficeName: msg.senderOffice?.officeName ?? "Unknown Office",
-          receiverOfficeName: msg.receiverOffice?.officeName ?? "Unknown Office",
           createdAt: msg.createdAt,
-          unreadCount: unreadMap.get(msg.trackingNumber) || 0,
+          unreadCount: isUnread ? 1 : 0,
         });
+      } else if (isUnread) {
+        // Increment unread count for this conversation
+        const conv = conversationsMap.get(msg.trackingNumber);
+        conv.unreadCount += 1;
       }
     }
+
+    const conversations = Array.from(conversationsMap.values());
 
     return NextResponse.json({ conversations });
   } catch (error) {
