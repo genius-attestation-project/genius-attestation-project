@@ -41,6 +41,7 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,9 +65,31 @@ export function SearchableSelect({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [searchTerm]);
+
   const filteredOptions = options.filter((opt) =>
     `${opt.label} ${opt.description ?? ""}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev + 1 < filteredOptions.length ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredOptions[activeIndex]) {
+        onChange(filteredOptions[activeIndex].value);
+        setIsOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  };
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
@@ -123,6 +146,7 @@ export function SearchableSelect({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={handleKeyDown}
               />
             </div>
             <div className="max-h-48 overflow-y-auto py-1">
@@ -133,12 +157,16 @@ export function SearchableSelect({
               ) : filteredOptions.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-slate-500">{emptyMessage}</div>
               ) : (
-                filteredOptions.map((option) => (
+                filteredOptions.map((option, index) => (
                   <button
                     key={option.value}
                     type="button"
                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
-                      value === option.value ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
+                      value === option.value ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
+                    } ${
+                      index === activeIndex ? "bg-slate-50 dark:bg-slate-800/50" : ""
+                    } ${
+                      value === option.value && index === activeIndex ? "bg-blue-50 dark:bg-blue-500/10" : ""
                     }`}
                     onClick={() => {
                       onChange(option.value);

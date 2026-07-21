@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { processTypesMasterList } from "@/config/process-types";
 
 export const documentTypeOptions = [
   "Education Documents",
@@ -14,7 +15,7 @@ export const documentTypeOptions = [
   "Birth Certificate",
 ] as const;
 
-export const processTypeOptions = ["Apostille", "Attestation", "Translation", "Embassy"] as const;
+export const processTypeOptions = Array.from(new Set(processTypesMasterList.filter(s => s.trim() !== ""))).sort((a, b) => a.localeCompare(b)) as readonly string[];
 export const priorityOptions = ["Normal", "Express", "Super Fast"] as const;
 export const paymentModeOptions = ["Cash", "UPI", "Bank Transfer", "Card", "Corporate"] as const;
 export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as const;
