@@ -6,6 +6,7 @@ import { Navbar } from "@/components/shared/Navbar";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { requireAuth } from "@/middleware/auth.middleware";
 import { FOLLOWUP_LOCK_MESSAGE } from "@/features/lead/server/followup-lock.service";
+import { FloatingCommunicationWidget } from "@/features/communication/components/FloatingCommunicationWidget";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireAuth("/dashboard");
@@ -33,6 +34,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
       <AttendanceGuard userId={session.user.id} />
       <FollowupReminderProvider userId={session.user.id} ownerAdminId={ownerAdminId} />
+      <FloatingCommunicationWidget />
       <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
         <Sidebar
           userName={userName}

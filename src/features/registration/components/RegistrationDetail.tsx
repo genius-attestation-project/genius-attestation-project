@@ -4,6 +4,7 @@ import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle } from 
 
 import { Button } from "@/components/ui/Button";
 import type { Registration } from "@/features/registration/types/registration.types";
+import { CommunicationTimeline } from "@/features/communication/components/CommunicationTimeline";
 
 type RegistrationDetailProps = {
   registration: Registration;
@@ -183,6 +184,8 @@ export function RegistrationDetail({
           ) : null}
         </div>
       </section>
+
+      <CommunicationTimeline trackingNumber={registration.trackingNumber} />
 
       <section className="grid gap-3">
         <h3 className="flex items-center gap-2 text-lg font-extrabold">

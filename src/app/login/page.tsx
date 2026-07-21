@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           className="object-cover"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-neutral-950/75 via-neutral-950/25 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-tr from-neutral-950/75 via-neutral-950/25 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-10 lg:p-12">
           <p className="max-w-md text-2xl font-black leading-tight sm:text-4xl">
             Genius Attestions

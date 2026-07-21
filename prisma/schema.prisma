@@ -125,6 +125,7 @@ model User {
   leaveRequests            LeaveRequest[]           @relation("UserLeaveRequests")
   salaryPayrolls           SalaryPayroll[]          @relation("UserSalaryPayroll")
   notifications            Notification[]
+  sentCommunications       DocumentCommunication[]  @relation("MessageSender")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -165,6 +166,9 @@ model OfficeLocation {
   documentMovementsFrom    DocumentMovement[] @relation("FromOfficeRelation")
   documentMovementsTo      DocumentMovement[] @relation("ToOfficeRelation")
   documentMovementsCurrent DocumentMovement[] @relation("CurrentOfficeRelation")
+
+  sentCommunications       DocumentCommunication[] @relation("MessageSenderOffice")
+  receivedCommunications   DocumentCommunication[] @relation("MessageReceiverOffice")
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -421,6 +425,7 @@ model Registration {
   accountStatementEntries AccountStatementEntry[]
   processAssignments      ProcessAssignment[]
   documentMovements       DocumentMovement[]
+  communications          DocumentCommunication[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -1084,4 +1089,32 @@ model ImportHistory {
   @@index([ownerAdminId])
   @@index([importedBy])
   @@map("import_history")
+}
+
+model DocumentCommunication {
+  id               String   @id @default(cuid())
+  trackingNumber   String   @map("tracking_number")
+  registrationId   String?  @map("registration_id")
+  registration     Registration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  message          String   @db.Text
+  type             String   @default("Comment") // Comment, Reply, Forward
+  parentId         String?  @map("parent_id")
+  parent           DocumentCommunication? @relation("ThreadReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          DocumentCommunication[] @relation("ThreadReplies")
+  senderUserId     String   @map("sender_user_id")
+  senderUser       User     @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  senderOfficeId   String?  @map("sender_office_id")
+  senderOffice     OfficeLocation? @relation("MessageSenderOffice", fields: [senderOfficeId], references: [id], onDelete: SetNull)
+  receiverOfficeId String?  @map("receiver_office_id")
+  receiverOffice   OfficeLocation? @relation("MessageReceiverOffice", fields: [receiverOfficeId], references: [id], onDelete: SetNull)
+  isRead           Boolean  @default(false) @map("is_read")
+  readAt           DateTime? @map("read_at")
+  ownerAdminId     String   @map("owner_admin_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([receiverOfficeId, isRead])
+  @@index([ownerAdminId])
+  @@map("document_communication")
 }

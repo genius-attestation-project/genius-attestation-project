@@ -32,7 +32,8 @@ export const permissionActions = [
   "bulkApprove", "bulkReject", "bulkReturn",
   "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
   "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline",
-  "import", "downloadTemplate", "viewImportHistory"
+  "import", "downloadTemplate", "viewImportHistory",
+  "comment", "reply", "forward", "inbox"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -426,8 +427,14 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { 
     key: "reports", 
     label: "Extended Reports", 
-    description: "Extended Reports for Pending Approvals.", 
+    description: "Extended Reports for Pending Approvals.",
     actions: ["pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "view", "export"] 
+  },
+  {
+    key: "communication",
+    label: "Document Communication",
+    description: "Office to office document communication access.",
+    actions: ["view", "comment", "reply", "forward", "inbox"]
   },
 ];
 
@@ -511,6 +518,11 @@ export const defaultRoleDefinitions = [
       "attendance.summary.edit",
       "attendance.checkout.create",
       "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
     ],
   },
   {
@@ -538,6 +550,9 @@ export const defaultRoleDefinitions = [
       "attendance.summary.edit",
       "attendance.checkout.create",
       "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
     ],
   },
   {
@@ -579,6 +594,11 @@ export const defaultRoleDefinitions = [
       "attendance.summary.edit",
       "attendance.checkout.create",
       "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
     ],
   },
   {
@@ -617,6 +637,11 @@ export const defaultRoleDefinitions = [
       "attendance.summary.edit",
       "attendance.checkout.create",
       "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
     ],
   },
 ] as const;
