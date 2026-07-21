@@ -10,6 +10,8 @@ import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { services } from "@/features/lead/data/lead.data";
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -36,7 +38,12 @@ export function ProcessDashboard() {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
 
-  const availableProcessTypes = ["All", "UAE Embassy", "Qatar Embassy", "Apostille", "HRD Attestation", "MEA", "WES", "Others"];
+  const availableProcessTypes = [
+    { label: "All", value: "All" },
+    ...Array.from(new Set(services.filter((s) => s.trim() !== "")))
+      .sort((a, b) => a.localeCompare(b))
+      .map(service => ({ label: service, value: service }))
+  ];
 
   async function loadData() {
     setLoading(true);
@@ -91,15 +98,14 @@ export function ProcessDashboard() {
               Manage attestation workflows, track status, and coordinate with the delivery office.
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2 z-10 w-full sm:w-72">
             <label className="text-xs font-semibold uppercase text-slate-500">Filter by Process</label>
-            <select 
+            <SearchableSelect
+              options={availableProcessTypes}
               value={processType}
-              onChange={(e) => setProcessType(e.target.value)}
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm shadow-sm"
-            >
-              {availableProcessTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+              onChange={setProcessType}
+              placeholder="Select a Process Type"
+            />
           </div>
         </div>
       </section>
