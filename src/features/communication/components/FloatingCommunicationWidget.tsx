@@ -184,18 +184,20 @@ export function FloatingCommunicationWidget() {
         <div className="flex h-[calc(100vh-180px)] flex-col gap-4">
           {view === 'inbox' ? (
             <>
-              <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                <Input 
-                  label="Search"
-                  placeholder="Search Tracking Number or Name..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" variant="secondary"><Search size={18} /></Button>
+              <form onSubmit={handleSearchSubmit} className="relative mb-4 flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search Tracking Number or Name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900"
+                  />
+                </div>
               </form>
 
-              <div className="flex-1 overflow-y-auto rounded-xl border border-(--border) bg-slate-50/50 p-2 dark:bg-white/5">
+              <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50/30 p-2 dark:border-slate-800 dark:bg-slate-900/30">
                 {filteredInbox.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center text-soft">
                     <SearchX size={32} className="mb-3 opacity-20" />
@@ -207,25 +209,28 @@ export function FloatingCommunicationWidget() {
                       <button
                         key={conv.id}
                         onClick={() => openThread(conv.trackingNumber)}
-                        className="flex flex-col gap-2 rounded-lg border border-(--border) bg-white p-3 text-left shadow-sm transition-colors hover:border-blue-500/30 hover:bg-blue-50/50 dark:bg-white/5 dark:hover:bg-white/10"
+                        className="group flex w-full items-start gap-3 rounded-xl border border-transparent bg-transparent p-3 text-left transition-all hover:bg-white hover:shadow-sm dark:hover:bg-slate-800"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-xs font-bold text-blue-600">{conv.trackingNumber}</p>
-                            <p className="text-sm font-semibold">{conv.customerName}</p>
-                          </div>
-                          <div className="flex flex-col items-end text-xs text-soft">
-                            <span className="whitespace-nowrap">{new Date(conv.createdAt).toLocaleDateString()}</span>
-                            {conv.unreadCount > 0 && (
-                              <span className="mt-1 rounded-full bg-rose-500 px-2 py-0.5 font-bold text-white">
-                                {conv.unreadCount} New
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-tr from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-inner">
+                          {conv.senderOfficeName.charAt(0)}
                         </div>
-                        <p className="line-clamp-1 text-sm text-soft">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">{conv.senderOfficeName}:</span> {conv.message}
-                        </p>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{conv.customerName}</p>
+                            <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                              {new Date(conv.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold tracking-wide text-blue-600 dark:text-blue-400">#{conv.trackingNumber}</p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">{conv.senderOfficeName}:</span> {conv.message}
+                          </p>
+                        </div>
+                        {conv.unreadCount > 0 && (
+                          <div className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                            {conv.unreadCount}
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -260,21 +265,28 @@ export function FloatingCommunicationWidget() {
                 ) : (
                   <div className="flex flex-col gap-4">
                     {threadMessages.map((msg) => (
-                      <div key={msg.id} className="flex flex-col rounded-lg bg-white p-3 shadow-sm border border-(--border) dark:bg-white/5">
-                        <div className="flex items-center justify-between text-xs text-soft mb-1">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {msg.senderOffice?.officeName || "System"} ({msg.senderUser?.name})
-                          </span>
-                          <span>{new Date(msg.createdAt).toLocaleString()}</span>
+                      <div key={msg.id} className="group flex gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-700 shadow-sm dark:from-slate-700 dark:to-slate-800 dark:text-slate-200">
+                          {msg.senderOffice?.officeName?.charAt(0) || "S"}
                         </div>
-                        {msg.parent && (
-                          <div className="mb-2 rounded bg-slate-100 p-2 text-xs text-soft border-l-2 border-slate-300 dark:bg-white/5 dark:border-slate-700">
-                            Replying to {msg.parent.senderOffice?.officeName}: "{msg.parent.message}"
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {msg.senderOffice?.officeName || "System"} <span className="font-medium text-slate-500">({msg.senderUser?.name})</span>
+                            </span>
+                            <span className="text-[10px] text-slate-400">{new Date(msg.createdAt).toLocaleString()}</span>
                           </div>
-                        )}
-                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                        <div className="mt-2 text-right text-[10px] text-soft">
-                          To: {msg.receiverOffice?.officeName || "Unknown"}
+                          <div className="relative inline-block max-w-[90%] self-start rounded-2xl rounded-tl-sm bg-white p-3 shadow-sm border border-slate-100 dark:border-slate-800 dark:bg-slate-900">
+                            {msg.parent && (
+                              <div className="mb-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-500 border-l-2 border-slate-300 dark:bg-white/5 dark:border-slate-700">
+                                Replying to {msg.parent.senderOffice?.officeName}: "{msg.parent.message}"
+                              </div>
+                            )}
+                            <p className="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{msg.message}</p>
+                          </div>
+                          <div className="text-[10px] font-medium text-slate-400">
+                            Sent to: {msg.receiverOffice?.officeName || "Unknown"}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -282,32 +294,44 @@ export function FloatingCommunicationWidget() {
                 )}
               </div>
 
-              <div className="border-t border-(--border) bg-white p-3 dark:bg-white/5">
-                <form onSubmit={sendMessage} className="flex flex-col gap-2">
-                  <div className="flex gap-2">
+              <div className="border-t border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                <form onSubmit={sendMessage} className="relative flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
+                    <span className="pl-2 text-xs font-semibold text-slate-400">To:</span>
                     <select
-                      className="w-1/3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                      className="flex-1 appearance-none bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-300"
                       value={selectedOfficeId}
                       onChange={(e) => setSelectedOfficeId(e.target.value)}
                       required
                     >
-                      <option value="" disabled>Send to Office...</option>
+                      <option value="" disabled>Select Office...</option>
                       {offices.map((o) => (
                         <option key={o.id} value={o.id}>{o.officeName}</option>
                       ))}
                     </select>
-                    <Textarea 
-                      label="Message"
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <textarea 
                       placeholder="Type your message..." 
-                      className="flex-1 min-h-[40px] py-2"
+                      className="max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       required
+                      rows={1}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (newMessage.trim() && selectedOfficeId) sendMessage(e);
+                        }
+                      }}
                     />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={sending || !newMessage.trim() || !selectedOfficeId}>
-                      <Send size={16} className="mr-2" /> Send Message
+                    <Button 
+                      type="submit" 
+                      size="icon" 
+                      className="mb-1 h-8 w-8 shrink-0 rounded-full"
+                      disabled={sending || !newMessage.trim() || !selectedOfficeId}
+                    >
+                      <Send size={14} className={sending ? "opacity-50" : "mr-0.5"} />
                     </Button>
                   </div>
                 </form>
