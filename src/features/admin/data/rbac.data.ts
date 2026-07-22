@@ -23,6 +23,7 @@ import {
   FileClock,
   ListChecks,
   BarChart3,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -111,6 +112,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         href: "/dashboard/master-configuration/document-types",
         icon: ClipboardList,
         menuPermission: "menu.master-configuration.document-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Document Issued Country",
+        href: "/dashboard/master-configuration/document-issued-country",
+        icon: Globe,
+        menuPermission: "menu.master-configuration.document-issued-country",
         pagePermission: "master_configuration.view",
       },
       {

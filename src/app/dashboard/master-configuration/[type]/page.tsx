@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 // Map URL slugs to human-readable titles
 const pageTitles: Record<string, string> = {
   "document-types": "Document Types",
+  "document-issued-country": "Document Issued Country",
   "process-types": "Process Types",
   "customer-types": "Customer Types",
   "lead-sources": "Lead Sources",
