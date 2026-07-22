@@ -185,6 +185,7 @@ export default function MasterConfigurationDynamicPage({
       <FormDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        placement="center"
         title={editingItem ? `Edit ${title} Entry` : `Add New ${title} Entry`}
         description={`Fill out the details below to ${editingItem ? "update" : "create"} a ${title.toLowerCase()} entry.`}
       >
