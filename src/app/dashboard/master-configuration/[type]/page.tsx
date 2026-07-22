@@ -189,31 +189,48 @@ export default function MasterConfigurationDynamicPage({
         description={`Fill out the details below to ${editingItem ? "update" : "create"} a ${title.toLowerCase()} entry.`}
       >
         <form onSubmit={handleFormSubmit} className="flex h-full flex-col">
-          <div className="flex-1 space-y-6 overflow-y-auto p-6">
-            <Input
-              label="Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <Input
-              label="Description (Optional)"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          <div className="flex-1 space-y-7 overflow-y-auto pt-2 pb-6 px-1">
+            <div className="space-y-4">
+              <Input
+                label="Name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
               />
-              Is Active
-            </label>
+              <Input
+                label="Description (Optional)"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
+              />
+            </div>
+            
+            <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
+              <label className="flex cursor-pointer items-start gap-3">
+                <div className="flex h-6 items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500/20 dark:border-white/20 dark:bg-white/5"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Active Status</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Toggle to enable or disable this record globally.</span>
+                </div>
+              </label>
+            </div>
           </div>
-          <div className="border-t p-6">
-            <Button type="submit" className="w-full" disabled={formLoading}>
-              {formLoading ? "Saving..." : "Save"}
+          
+          <div className="mt-auto border-t border-slate-200/60 pt-6 dark:border-white/10">
+            <Button 
+              type="submit" 
+              disabled={formLoading}
+              className="w-full rounded-xl bg-blue-600 py-6 text-[15px] font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700 hover:shadow-blue-500/40"
+            >
+              {formLoading ? "Saving Changes..." : "Save Changes"}
             </Button>
           </div>
         </form>

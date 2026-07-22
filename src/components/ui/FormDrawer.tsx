@@ -32,7 +32,7 @@ export function FormDrawer({
           <motion.button
             type="button"
             aria-label="Close drawer"
-            className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -45,8 +45,8 @@ export function FormDrawer({
             transition={{ type: "spring", stiffness: 220, damping: 28 }}
             className={
               isCenter
-                ? "fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100vw-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-(--border) bg-[var(--bg-panel)] p-4 shadow-2xl sm:w-[calc(100vw-2rem)] sm:p-6"
-                : "fixed inset-y-0 right-0 z-50 w-full max-w-2xl overflow-y-auto border-l border-(--border) bg-[var(--bg-panel)] p-4 shadow-2xl sm:p-6"
+                ? "fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100vw-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-slate-200/60 bg-white p-4 shadow-[0_8px_40px_rgba(0,0,0,0.12)] sm:w-[calc(100vw-2rem)] sm:p-7 dark:border-white/10 dark:bg-[#0f1115]"
+                : "fixed inset-y-0 right-0 z-50 w-full max-w-2xl overflow-y-auto border-l border-slate-200/60 bg-white p-4 shadow-[0_0_40px_rgba(0,0,0,0.08)] sm:p-7 dark:border-white/10 dark:bg-[#0f1115]"
             }
           >
             <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
