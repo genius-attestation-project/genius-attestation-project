@@ -115,13 +115,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
-        label: "Document Issued Country",
-        href: "/dashboard/master-configuration/document-issued-country",
-        icon: Globe,
-        menuPermission: "menu.master-configuration.document-issued-country",
-        pagePermission: "master_configuration.view",
-      },
-      {
         label: "Process Types",
         href: "/dashboard/master-configuration/process-types",
         icon: Layers3,
