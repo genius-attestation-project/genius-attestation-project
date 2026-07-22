@@ -189,8 +189,8 @@ export default function MasterConfigurationDynamicPage({
         title={editingItem ? `Edit ${title} Entry` : `Add New ${title} Entry`}
         description={`Fill out the details below to ${editingItem ? "update" : "create"} a ${title.toLowerCase()} entry.`}
       >
-        <form onSubmit={handleFormSubmit} className="flex h-full flex-col">
-          <div className="flex-1 space-y-7 overflow-y-auto pt-2 pb-6 px-1">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6 pt-2">
+          <div className="space-y-6">
             <div className="space-y-4">
               <Input
                 label="Name"
@@ -207,7 +207,7 @@ export default function MasterConfigurationDynamicPage({
               />
             </div>
             
-            <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
+            <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 transition-colors hover:bg-slate-50/80 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
               <label className="flex cursor-pointer items-start gap-3">
                 <div className="flex h-6 items-center">
                   <input
@@ -225,15 +225,13 @@ export default function MasterConfigurationDynamicPage({
             </div>
           </div>
           
-          <div className="mt-auto border-t border-slate-200/60 pt-6 dark:border-white/10">
-            <Button 
-              type="submit" 
-              disabled={formLoading}
-              className="w-full rounded-xl bg-blue-600 py-6 text-[15px] font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700 hover:shadow-blue-500/40"
-            >
-              {formLoading ? "Saving Changes..." : "Save Changes"}
-            </Button>
-          </div>
+          <Button 
+            type="submit" 
+            disabled={formLoading}
+            className="w-full rounded-xl bg-blue-600 py-6 text-[15px] font-bold text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] dark:shadow-[0_4px_14px_0_rgb(59,130,246,0.39)]"
+          >
+            {formLoading ? "Saving Changes..." : "Save Changes"}
+          </Button>
         </form>
       </FormDrawer>
     </>
