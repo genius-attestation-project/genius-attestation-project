@@ -59,6 +59,7 @@ export function AppSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(pathname.startsWith("/dashboard/admin-management"));
   const [leadOpen, setLeadOpen] = useState(pathname.startsWith("/dashboard/lead-management"));
+  const [masterConfigOpen, setMasterConfigOpen] = useState(pathname.startsWith("/dashboard/master-configuration"));
   const [attendanceOpen, setAttendanceOpen] = useState(pathname.startsWith("/dashboard/attendance"));
   const [leaveOpen, setLeaveOpen] = useState(pathname.startsWith("/dashboard/leave-management"));
   const [salaryOpen, setSalaryOpen] = useState(pathname.startsWith("/dashboard/salary-management"));
@@ -83,6 +84,10 @@ export function AppSidebar({
       setLeadOpen(true);
     }
 
+    if (pathname.startsWith("/dashboard/master-configuration")) {
+      setMasterConfigOpen(true);
+    }
+
     if (pathname.startsWith("/dashboard/attendance")) {
       setAttendanceOpen(true);
     }
@@ -99,6 +104,7 @@ export function AppSidebar({
   function renderNavItems(showLabels: boolean) {
     return visibleNavigation.map((item) => {
       const isAdmin = item.href === "/dashboard/admin-management";
+      const isMasterConfig = item.href === "/dashboard/master-configuration";
       const isLead = item.href === "/dashboard/lead-management";
       const isAttendance = item.href === "/dashboard/attendance";
       const isLeave = item.href === "/dashboard/leave-management";
@@ -108,25 +114,29 @@ export function AppSidebar({
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
-      if ((isAdmin || isLead || isAttendance || isLeave || isSalary) && item.children?.length) {
+      if ((isAdmin || isMasterConfig || isLead || isAttendance || isLeave || isSalary) && item.children?.length) {
         const accordionOpen = isAdmin
           ? adminOpen
-          : isLead
-            ? leadOpen
-            : isAttendance
-              ? attendanceOpen
-              : isLeave
-                ? leaveOpen
-                : salaryOpen;
+          : isMasterConfig
+            ? masterConfigOpen
+            : isLead
+              ? leadOpen
+              : isAttendance
+                ? attendanceOpen
+                : isLeave
+                  ? leaveOpen
+                  : salaryOpen;
         const setAccordionOpen = isAdmin
           ? setAdminOpen
-          : isLead
-            ? setLeadOpen
-            : isAttendance
-              ? setAttendanceOpen
-              : isLeave
-                ? setLeaveOpen
-                : setSalaryOpen;
+          : isMasterConfig
+            ? setMasterConfigOpen
+            : isLead
+              ? setLeadOpen
+              : isAttendance
+                ? setAttendanceOpen
+                : isLeave
+                  ? setLeaveOpen
+                  : setSalaryOpen;
 
         return (
           <div key={item.href} className="grid gap-2">

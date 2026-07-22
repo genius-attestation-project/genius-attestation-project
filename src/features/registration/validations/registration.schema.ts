@@ -1,23 +1,7 @@
 import { z } from "zod";
-import { processTypesMasterList } from "@/config/process-types";
 
-export const documentTypeOptions = [
-  "Education Documents",
-  "Non-Education Documents",
-  "Commercial Documents",
-  "PCC Documents",
-  "One and Same Documents",
-  "Single Status Documents",
-  "Visa Documents",
-  "WES Documents",
-  "POA Documents",
-  "Marriage Documents",
-  "Birth Certificate",
-] as const;
-
-export const processTypeOptions = Array.from(new Set(processTypesMasterList.filter(s => s.trim() !== ""))).sort((a, b) => a.localeCompare(b)) as readonly string[];
-export const priorityOptions = ["Normal", "Express", "Super Fast"] as const;
-export const paymentModeOptions = ["Cash", "UPI", "Bank Transfer", "Card", "Corporate"] as const;
+// We keep system-level status options as enums because they drive hardcoded logic.
+// Master data options (Process Types, Document Types, etc.) are now fetched dynamically from the DB via the API.
 export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as const;
 export const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
 

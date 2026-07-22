@@ -13,14 +13,10 @@ import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
 import {
-  clientTypes,
   countryCodes,
   defaultLeadValues,
-  docTypes,
   leadFormStatuses,
   type LeadFormValues,
-  sources,
-  services,
 } from "@/features/lead/data/lead.data";
 import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import type { LeadAssignableUser } from "@/features/lead/types/lead.types";
@@ -70,6 +66,10 @@ export function LeadForm({
   const [assignableUsers, setAssignableUsers] = useState<LeadAssignableUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
+  const [docTypes, setDocTypes] = useState<string[]>([]);
+  const [services, setServices] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+  const [clientTypes, setClientTypes] = useState<string[]>([]);
 
   const allCountries = useMemo(() => 
     Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
@@ -126,7 +126,29 @@ export function LeadForm({
       }
     }
 
+    async function loadMasterData() {
+      async function fetchMaster(slug: string, setter: (val: string[]) => void) {
+        try {
+          const res = await fetch(`/api/master-data/${slug}?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            setter(data.items.map((i: any) => i.name));
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ${slug}`, e);
+        }
+      }
+      
+      if (!ignore) {
+        fetchMaster("document-types", setDocTypes);
+        fetchMaster("process-types", setServices);
+        fetchMaster("lead-sources", setSources);
+        fetchMaster("customer-types", setClientTypes);
+      }
+    }
+
     void loadAssignableUsers();
+    void loadMasterData();
 
     return () => {
       ignore = true;

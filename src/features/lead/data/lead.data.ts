@@ -43,22 +43,7 @@ export const leadFormStatuses = [
 ] as const;
 
 export const countryCodes = ["+91", "+971", "+968", "+974", "+965", "+973", "+966", "+1", "+44", "+61"];
-export const services = processTypesMasterList;
-export const sources = ["Website", "WhatsApp", "Walk-in", "Referral", "Instagram", "Google"];
-export const clientTypes = ["Individual", "Corporate", "Travel Agency", "HR Partner"];
-export const docTypes = [
-  "Education Documents",
-  "Non-Education Documents",
-  "Commercial Documents",
-  "PCC Documents",
-  "One and Same Documents",
-  "Single Status Documents",
-  "Visa Documents",
-  "WES Documents",
-  "POA Documents",
-  "Marriage Documents",
-  "Birth Certificate",
-];
+// Note: services, sources, clientTypes, and docTypes have been migrated to the database and are now fetched dynamically via the Master Data API.
 export const defaultLeadValues: LeadFormValues = {
   firstName: "",
   lastName: "",

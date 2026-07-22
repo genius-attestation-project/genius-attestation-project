@@ -33,11 +33,7 @@ import { LiveTimelineModal } from "@/features/registration/components/LiveTimeli
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
-  documentTypeOptions,
-  paymentModeOptions,
   paymentStatusOptions,
-  priorityOptions,
-  processTypeOptions,
   registrationInputSchema,
 } from "@/features/registration/validations/registration.schema";
 
@@ -83,20 +79,7 @@ const blankForm: RegistrationFormState = {
   leadId: "",
 };
 
-const countryOptions = [
-  "India",
-  "United Arab Emirates",
-  "Saudi Arabia",
-  "Qatar",
-  "Oman",
-  "Kuwait",
-  "Bahrain",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Other",
-];
+// countryOptions will be loaded dynamically
 
 function formFromRegistration(registration: Registration): RegistrationFormState {
   return {
@@ -367,6 +350,13 @@ export function RegistrationManager({
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
   
+  const [documentTypeOptions, setDocumentTypeOptions] = useState<string[]>([]);
+  const [processTypeOptions, setProcessTypeOptions] = useState<string[]>([]);
+  const [priorityOptions, setPriorityOptions] = useState<string[]>(["Normal", "Express", "Super Fast"]); // Fallback
+  const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>([]);
+  const [customerTypeOptions, setCustomerTypeOptions] = useState<string[]>(["Individual", "Corporate"]); // Fallback
+  const [countryOptions, setCountryOptions] = useState<string[]>([]);
+
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
 
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -503,6 +493,24 @@ export function RegistrationManager({
       setUsersError("");
       setOfficeLocationsLoading(true);
       setOfficeLocationsError("");
+
+      async function fetchMaster(slug: string, setter: (val: string[]) => void) {
+        try {
+          const res = await fetch(`/api/master-data/${slug}?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            setter(data.items.map((i: any) => i.name));
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ${slug}`, e);
+        }
+      }
+
+      fetchMaster("document-types", setDocumentTypeOptions);
+      fetchMaster("process-types", setProcessTypeOptions);
+      fetchMaster("payment-modes", setPaymentModeOptions);
+      fetchMaster("customer-types", setCustomerTypeOptions);
+      fetchMaster("countries", setCountryOptions);
 
       const [usersResponse, officeLocationsResponse] = await Promise.allSettled([
         fetch("/api/users?active=true", { cache: "no-store" }),
@@ -957,7 +965,7 @@ export function RegistrationManager({
               <SearchableSelect
                 value={filters.customerType}
                 onChange={(val) => setFilters(f => ({ ...f, customerType: val }))}
-                options={toSelectOptions(["Individual", "Corporate"])}
+                options={toSelectOptions(customerTypeOptions)}
                 placeholder="Select type"
               />
             </label>
@@ -1049,7 +1057,7 @@ export function RegistrationManager({
         ) : registrations.length ? (
           <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
             <div className="overflow-x-auto">
-              <table className="min-w-[920px] text-left text-sm">
+              <table className="w-full min-w-230 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
                   <tr>
                     <th className="px-5 py-4">SL No.</th>

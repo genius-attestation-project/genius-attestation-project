@@ -1123,3 +1123,88 @@ model DocumentReadState {
   @@index([ownerAdminId])
   @@map("document_read_state")
 }
+
+model MasterData {
+  id           String   @id @default(cuid())
+  type         String
+  name         String
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdBy    String?  @map("created_by")
+  updatedBy    String?  @map("updated_by")
+  deletedBy    String?  @map("deleted_by")
+  deletedAt    DateTime? @map("deleted_at")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([type, name, ownerAdminId])
+  @@index([type])
+  @@index([isActive])
+  @@index([ownerAdminId])
+  @@map("master_data")
+}
+
+model SlaConfiguration {
+  id           String   @id @default(cuid())
+  processType  String   @map("process_type")
+  days         Int      @default(0)
+  hours        Int      @default(0)
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([processType, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("sla_configurations")
+}
+
+model HolidayCalendar {
+  id           String   @id @default(cuid())
+  holidayDate  DateTime @map("holiday_date") @db.Date
+  title        String
+  isWeekend    Boolean  @default(false) @map("is_weekend")
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([holidayDate, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("holiday_calendar")
+}
+
+model CommunicationTemplate {
+  id           String   @id @default(cuid())
+  type         String   // Email, SMS, WhatsApp
+  name         String
+  subject      String?
+  body         String   @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([type, name, ownerAdminId])
+  @@index([type])
+  @@index([ownerAdminId])
+  @@map("communication_templates")
+}
+
+model GeneralSetting {
+  id           String   @id @default(cuid())
+  settingKey   String   @map("setting_key")
+  settingValue String   @db.Text @map("setting_value")
+  description  String?
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([settingKey, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("general_settings")
+}

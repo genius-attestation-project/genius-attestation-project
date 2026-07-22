@@ -22,7 +22,6 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { Input } from "@/components/ui/Input";
 import {
-  processTypeOptions,
   paymentStatusOptions,
   approvalStatusOptions,
 } from "@/features/registration/validations/registration.schema";
@@ -78,6 +77,7 @@ type RevenueData = {
 export function RevenueSummaryClient() {
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [processTypeOptions, setProcessTypeOptions] = useState<string[]>([]);
 
   const [filters, setFilters] = useState({
     fromDate: "",
@@ -114,6 +114,19 @@ export function RevenueSummaryClient() {
 
   useEffect(() => {
     fetchData();
+    
+    async function fetchProcessTypes() {
+      try {
+        const res = await fetch("/api/master-data/process-types?active=true");
+        if (res.ok) {
+          const data = await res.json();
+          setProcessTypeOptions(data.items.map((i: any) => i.name));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchProcessTypes();
   }, [fetchData]);
 
   const handleExportCSV = () => {
@@ -223,7 +236,7 @@ export function RevenueSummaryClient() {
               onChange={(e) => setFilters({ ...filters, processType: e.target.value })}
             >
               <option value="">All Processes</option>
-              {processTypeOptions.map((p) => (
+              {processTypeOptions.map((p: string) => (
                 <option key={p} value={p}>
                   {p}
                 </option>

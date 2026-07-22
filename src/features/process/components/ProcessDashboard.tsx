@@ -11,7 +11,6 @@ import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { services } from "@/features/lead/data/lead.data";
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -38,12 +37,25 @@ export function ProcessDashboard() {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
 
-  const availableProcessTypes = [
-    { label: "All", value: "All" },
-    ...Array.from(new Set(services.filter((s) => s.trim() !== "")))
-      .sort((a, b) => a.localeCompare(b))
-      .map(service => ({ label: service, value: service }))
-  ];
+  const [availableProcessTypes, setAvailableProcessTypes] = useState<{label: string, value: string}[]>([
+    { label: "All", value: "All" }
+  ]);
+
+  useEffect(() => {
+    async function fetchProcessTypes() {
+      try {
+        const res = await fetch("/api/master-data/process-types?active=true");
+        if (res.ok) {
+          const data = await res.json();
+          const types = data.items.map((i: any) => ({ label: i.name, value: i.name }));
+          setAvailableProcessTypes([{ label: "All", value: "All" }, ...types]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchProcessTypes();
+  }, []);
 
   async function loadData() {
     setLoading(true);

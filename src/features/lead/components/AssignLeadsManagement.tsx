@@ -8,7 +8,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { StatsCard } from "@/components/ui/StatsCard";
-import { services } from "@/features/lead/data/lead.data";
 import type {
   LeadAssignableUser,
   LeadListResponse,
@@ -45,6 +44,7 @@ function formatAssignableUser(user: LeadAssignableUser) {
 }
 
 export function AssignLeadsManagement() {
+  const [services, setServices] = useState<string[]>([]);
   const [users, setUsers] = useState<LeadAssignableUser[]>([]);
   const [items, setItems] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +76,18 @@ export function AssignLeadsManagement() {
       await fetch("/api/leads/assignable-users", { cache: "no-store" }),
     );
     setUsers(data.users ?? []);
+  }
+
+  async function loadServices() {
+    try {
+      const res = await fetch("/api/master-data/process-types?active=true", { cache: "no-store" });
+      if (res.ok) {
+        const payload = await res.json();
+        setServices(payload.items.map((i: any) => i.name));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function loadLeads(nextFilters = filters) {
@@ -111,7 +123,7 @@ export function AssignLeadsManagement() {
     async function bootstrap() {
       setLoading(true);
       try {
-        await Promise.all([loadUsers(), loadLeads()]);
+        await Promise.all([loadUsers(), loadLeads(), loadServices()]);
       } catch (requestError) {
         setError(requestError instanceof Error ? requestError.message : "Unable to load assignment data.");
       } finally {
@@ -210,7 +222,7 @@ export function AssignLeadsManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
+      <section className="overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Lead Management</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">Assign Leads</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
@@ -286,7 +298,7 @@ export function AssignLeadsManagement() {
 
       <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[280px] flex-1">
+          <div className="min-w-70 flex-1">
             <SearchableSelect
               label="Reassign To"
               value={reassignTo}
@@ -330,7 +342,7 @@ export function AssignLeadsManagement() {
         ) : (
           <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
             <div className="overflow-x-auto">
-              <table className="min-w-[1120px] text-left text-sm">
+              <table className="min-w-280 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                   <tr>
                     <th className="px-5 py-4">
