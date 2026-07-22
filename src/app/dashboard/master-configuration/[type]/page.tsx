@@ -21,7 +21,6 @@ const pageTitles: Record<string, string> = {
   "services": "Services",
   "payment-modes": "Payment Modes",
   "payment-status": "Payment Status",
-  "delivery-locations": "Delivery Locations",
   "document-status": "Document Status",
   "process-status": "Process Status",
   "bm-status": "BM Status",

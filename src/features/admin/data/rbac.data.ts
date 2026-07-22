@@ -184,13 +184,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
-        label: "Delivery Locations",
-        href: "/dashboard/master-configuration/delivery-locations",
-        icon: Truck,
-        menuPermission: "menu.master-configuration.delivery-locations",
-        pagePermission: "master_configuration.view",
-      },
-      {
         label: "SLA Configuration",
         href: "/dashboard/master-configuration/sla",
         icon: Clock3,
