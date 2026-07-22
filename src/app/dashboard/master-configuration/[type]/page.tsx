@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
 import { MasterLayout } from "@/features/master-configuration/components/MasterLayout";
 import { MasterDataTable } from "@/features/master-configuration/components/MasterDataTable";
@@ -32,10 +32,10 @@ const pageTitles: Record<string, string> = {
 export default function MasterConfigurationDynamicPage({
   params,
 }: {
-  params: { type: string };
+  params: Promise<{ type: string }>;
 }) {
   const router = useRouter();
-  const slug = params.type;
+  const { type: slug } = use(params);
   
   // If it's one of the specific complex configurations (SLA, Holiday, etc.), 
   // they should have their own static page instead of hitting this dynamic generic one.
