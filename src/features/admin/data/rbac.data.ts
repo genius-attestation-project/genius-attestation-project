@@ -162,13 +162,7 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         menuPermission: "menu.master-configuration.payment-status",
         pagePermission: "master_configuration.view",
       },
-      {
-        label: "SLA Configuration",
-        href: "/dashboard/master-configuration/sla",
-        icon: Clock3,
-        menuPermission: "menu.master-configuration.sla",
-        pagePermission: "master_configuration.view",
-      },
+
       {
         label: "Holiday Calendar",
         href: "/dashboard/master-configuration/holiday-calendar",
