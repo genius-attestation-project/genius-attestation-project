@@ -20,9 +20,7 @@ const pageTitles: Record<string, string> = {
   "payment-status": "Payment Status",
   "document-status": "Document Status",
   "process-status": "Process Status",
-  "bm-status": "BM Status",
   "approval-status": "Approval Status",
-  "user-designations": "User Designations",
 };
 
 export default function MasterConfigurationDynamicPage({
