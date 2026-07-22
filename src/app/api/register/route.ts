@@ -4,8 +4,9 @@ import { ensureAdminRoles, ensureRbacBootstrap, setUserRole } from "@/features/a
 import { registerSchema } from "@/features/auth/validations/auth.schema";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
 

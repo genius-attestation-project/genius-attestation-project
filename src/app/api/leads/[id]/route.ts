@@ -2,6 +2,7 @@ import { deleteLead, getLeadById, updateLead } from "@/features/lead/server/lead
 import { leadInputSchema } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -9,7 +10,7 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -29,7 +30,7 @@ export async function GET(_: Request, context: RouteContext) {
   }
 }
 
-export async function PUT(request: Request, context: RouteContext) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -71,7 +72,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_: Request, context: RouteContext) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

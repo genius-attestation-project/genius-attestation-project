@@ -9,12 +9,13 @@ import {
   updateRegistration,
 } from "@/features/registration/server/registration.service";
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
@@ -32,7 +33,7 @@ export async function GET(_: Request, context: RouteContext) {
   }
 }
 
-export async function PUT(request: Request, context: RouteContext) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const body = await request.json().catch(() => null);
 
   try {
@@ -76,7 +77,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_: Request, context: RouteContext) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

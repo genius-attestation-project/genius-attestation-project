@@ -3,6 +3,7 @@ import { buildReportFilters, applyFiltersToLead } from "@/features/reports/serve
 import { generateLeadExcelBuffer } from "@/features/lead/server/export.service";
 import type { LeadRow } from "@/features/lead/types/lead.types";
 import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -12,7 +13,7 @@ function formatDate(date: Date) {
   }).format(date);
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {

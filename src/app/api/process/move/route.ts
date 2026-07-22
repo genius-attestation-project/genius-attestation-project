@@ -4,8 +4,9 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { moveProcessSchema } from "@/features/process/types/process.types";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const denied = await requireApiPermission("process.move");
   if (denied) return denied;
 

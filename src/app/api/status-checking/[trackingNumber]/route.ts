@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 import { requireApiAuth } from "@/middleware/auth.middleware";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request, { params }: { params: Promise<{ trackingNumber: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ trackingNumber: string }> }) {
+    const params = await context.params;
   try {
     const session = await requireApiAuth();
     const { trackingNumber } = await params;

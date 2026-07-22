@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { uploadFile } from "@/services/storage/upload";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const performedBy = session?.user?.name || session?.user?.email;

@@ -2,8 +2,9 @@ import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { getAccountStatement } from "@/features/account-update/server/account-update.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const denied = await requireApiPermission("account_update.view");
   if (denied) return denied;
 

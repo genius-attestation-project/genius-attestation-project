@@ -4,6 +4,7 @@ import { createLeadApprovalRequest } from "@/features/lead/server/lead-approval.
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const payloadSchema = z.object({
   leadId: z.string().trim().min(1, "Lead is required."),
@@ -29,7 +30,7 @@ const payloadSchema = z.object({
   ]),
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

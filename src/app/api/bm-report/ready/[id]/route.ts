@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { resolveOfficeLocationName } from "@/lib/office-location";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("bmReport.accept"); // same perm for now
   if (denied) return denied;
 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { getUnreadNotificationCount, listNotifications, markAllNotificationsAsRead, markNotificationAsRead } from "@/features/notifications/server/notification.service";
 import { auth } from "@/lib/auth";
 
@@ -19,7 +19,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

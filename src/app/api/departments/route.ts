@@ -5,6 +5,7 @@ import { departmentSchema } from "@/features/admin/validations/rbac.schema";
 import { auth } from "@/lib/auth";
 import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 export async function GET() {
   const denied = await requireAnyApiPermission(["departments.view", "revenue_registration.create", "revenue_registration.view"]);
@@ -23,7 +24,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const denied = await requireApiPermission("departments.create");
   if (denied) return denied;
 

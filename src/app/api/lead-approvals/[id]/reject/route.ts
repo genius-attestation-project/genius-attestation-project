@@ -4,6 +4,7 @@ import { rejectLeadApproval } from "@/features/lead/server/lead-approval.service
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const payloadSchema = z.object({
   reason: z.string().trim().min(1, "Rejection reason is required."),
@@ -13,7 +14,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("pending_approval.edit");
   if (denied) return denied;
 

@@ -2,8 +2,10 @@ import { auth } from "@/lib/auth";
 import { cancelLeaveRequest } from "@/features/leave/server/leave.service";
 import { leaveCancelSchema } from "@/features/leave/validations/leave.schema";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+    const params = await context.params;
   try {
     const session = await auth();
     if (!session?.user?.id) return jsonError("Authentication required.", 401);

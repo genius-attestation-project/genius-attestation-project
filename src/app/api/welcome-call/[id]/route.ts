@@ -6,12 +6,13 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { updateWelcomeCallStatus } from "@/features/welcome-call/server/welcome-call.service";
 import { welcomeCallStatuses } from "@/features/welcome-call/types/welcome-call.types";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const payloadSchema = z.object({
   status: z.enum(welcomeCallStatuses),
 });
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("welcome_call.edit");
   if (denied) return denied;
 

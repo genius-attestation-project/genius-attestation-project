@@ -3,8 +3,9 @@ import { jsonError } from "@/utils/response";
 import { listRegistrations } from "@/features/registration/server/registration.service";
 import { generateExcelBuffer } from "@/features/registration/server/export.service";
 import { hasPermission } from "@/features/admin/server/rbac.service";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

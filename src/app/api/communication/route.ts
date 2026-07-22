@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/middleware/auth.middleware";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Basic auth check
     const session = await requirePermission("communication.comment", `/api/communication`);

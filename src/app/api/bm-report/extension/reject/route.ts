@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 import { requireApiAuth } from "@/middleware/auth.middleware";
 import { rejectBmExtension } from "@/features/bm-report/server/bm-lock.service";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await requireApiAuth();
     const body = await req.json();

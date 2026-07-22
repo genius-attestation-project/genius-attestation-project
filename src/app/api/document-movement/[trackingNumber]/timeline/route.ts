@@ -6,8 +6,9 @@ import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ trackingNumber: string }> }
+  context: { params: Promise<{ trackingNumber: string }> }
 ) {
+    const params = await context.params;
   const denied = await requireApiPermission("document_movement.view");
   if (denied) return denied;
 

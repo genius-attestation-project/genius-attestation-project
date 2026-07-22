@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 function leadCreatorWhere(ownerAdminId: string, userId: string): Prisma.LeadWhereInput {
   return {
@@ -14,7 +15,7 @@ function leadCreatorWhere(ownerAdminId: string, userId: string): Prisma.LeadWher
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

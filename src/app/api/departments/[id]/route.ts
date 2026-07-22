@@ -5,12 +5,13 @@ import { departmentSchema } from "@/features/admin/validations/rbac.schema";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function PUT(request: Request, context: RouteContext) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("departments.edit");
   if (denied) return denied;
 
@@ -48,7 +49,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_: Request, context: RouteContext) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("departments.delete");
   if (denied) return denied;
 

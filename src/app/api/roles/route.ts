@@ -3,6 +3,7 @@ import { roleSchema } from "@/features/admin/validations/rbac.schema";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 export async function GET() {
   console.log("[GET /api/roles] Request initiated.");
@@ -45,7 +46,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   console.log("[POST /api/roles] Request initiated.");
   try {
     const session = await auth();

@@ -3,8 +3,9 @@ import { hasPermission } from "@/features/admin/server/rbac.service";
 import { generateSalaryPayrolls } from "@/features/salary/server/salary.service";
 import { salaryGenerateSchema } from "@/features/salary/validations/salary.schema";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

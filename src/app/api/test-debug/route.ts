@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listRegistrations } from "@/features/registration/server/registration.service";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const adminUser = await prisma.user.findFirst({
         where: { role: { name: "OWNER_ADMIN" } }

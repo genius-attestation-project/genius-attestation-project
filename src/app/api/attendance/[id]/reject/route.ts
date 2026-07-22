@@ -2,11 +2,13 @@ import { auth } from "@/lib/auth";
 import { rejectAttendance } from "@/features/attendance/server/attendance.service";
 import { rejectSchema } from "@/features/attendance/validations/attendance.schema";
 import { hasPermission } from "@/features/admin/server/rbac.service";
+import { NextRequest } from "next/server";
 
 export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> },
 ) {
+    const params = await context.params;
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ message: "Authentication required." }, { status: 401 });

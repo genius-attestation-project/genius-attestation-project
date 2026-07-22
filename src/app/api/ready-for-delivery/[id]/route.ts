@@ -3,12 +3,13 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { getReadyForDeliveryById } from "@/features/ready-for-delivery/server/ready-for-delivery.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("ready_for_delivery.view");
   if (denied) return denied;
 

@@ -3,8 +3,9 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { listReadyForDelivery } from "@/features/ready-for-delivery/server/ready-for-delivery.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const denied = await requireApiPermission("ready_for_delivery.view");
   if (denied) return denied;
 

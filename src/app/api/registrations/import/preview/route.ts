@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +10,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 const normalizeStr = (str: any) => (str ? String(str).trim().toLowerCase() : "");
 const capitalizeStr = (str: any) => (str ? String(str).trim() : "");
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const sessionResponse = await requireApiPermission("revenue_registration.import");
     if (sessionResponse instanceof NextResponse) return sessionResponse; // Access denied

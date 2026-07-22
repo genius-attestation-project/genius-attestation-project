@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { checkOut } from "@/features/attendance/server/attendance.service";
 import { checkoutSchema } from "@/features/attendance/validations/attendance.schema";
+import { NextRequest } from "next/server";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

@@ -2,8 +2,9 @@ import { sendToOffice } from "@/features/document-movement/server/document-movem
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationId } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

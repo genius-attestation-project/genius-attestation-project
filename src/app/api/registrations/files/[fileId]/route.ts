@@ -2,12 +2,13 @@ import { auth } from "@/lib/auth";
 import { getRegistrationFile, deleteRegistrationFile } from "@/features/registration/server/registration.service";
 import { deleteFile } from "@/services/storage/delete";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ fileId: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ fileId: string }> }) {
   const session = await auth();
   const ownerAdminId = session?.user?.ownerAdminId;
 
@@ -25,7 +26,7 @@ export async function GET(_: Request, context: RouteContext) {
   return Response.redirect(file.fileStorage.url);
 }
 
-export async function DELETE(_: Request, context: RouteContext) {
+export async function DELETE(_: NextRequest, context: { params: Promise<{ fileId: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

@@ -2,12 +2,13 @@ import { getProcessHistory } from "@/features/process/server/process.service";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ trackingNumber: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ trackingNumber: string }> }) {
   const denied = await requireApiPermission("process.view");
   if (denied) return denied;
 

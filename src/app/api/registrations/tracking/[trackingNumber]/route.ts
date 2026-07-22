@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { getRegistrationByTrackingNumber } from "@/features/registration/server/registration.service";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ trackingNumber: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ trackingNumber: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

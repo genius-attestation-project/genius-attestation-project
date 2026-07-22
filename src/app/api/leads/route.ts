@@ -2,8 +2,9 @@ import { createLead, listLeads } from "@/features/lead/server/lead.service";
 import { leadInputSchema } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

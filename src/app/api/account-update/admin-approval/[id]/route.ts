@@ -5,12 +5,14 @@ import {
   resetPaymentApproval,
 } from "@/features/account-update/server/account-update.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(request: Request, { params }: RouteContext) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+    const params = await context.params;
   try {
     const session = await auth();
 

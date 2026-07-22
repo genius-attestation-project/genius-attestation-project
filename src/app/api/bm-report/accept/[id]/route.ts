@@ -3,12 +3,13 @@ import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(_: Request, context: RouteContext) {
+export async function POST(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("bm_report.view");
   if (denied) return denied;
 

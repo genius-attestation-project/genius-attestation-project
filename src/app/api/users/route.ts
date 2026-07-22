@@ -3,8 +3,9 @@ import { userSchema } from "@/features/admin/validations/rbac.schema";
 import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const denied = await requireAnyApiPermission(["users.view", "revenue_registration.create", "revenue_registration.view"]);
   if (denied) return denied;
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const denied = await requireApiPermission("users.create");
   if (denied) return denied;
 

@@ -3,13 +3,14 @@ import { z } from "zod";
 import { bulkAssignLeads } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const payloadSchema = z.object({
   leadIds: z.array(z.string().trim().min(1)).min(1, "Select at least one lead."),
   assignedUserId: z.string().trim().min(1, "Assigned user is required."),
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

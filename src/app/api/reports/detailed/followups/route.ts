@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildReportFilters, applyFiltersToLead, applyFiltersToFollowup } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {

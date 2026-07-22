@@ -2,10 +2,11 @@ import { getFollowupCalendar } from "@/features/lead/server/lead.service";
 import type { FollowupFilter } from "@/features/lead/types/followup.types";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const validFilters: FollowupFilter[] = ["all", "today", "upcoming", "missed", "completed"];
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

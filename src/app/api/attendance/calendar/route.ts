@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { getAttendanceCalendar } from "@/features/attendance/server/attendance.service";
+import { NextRequest } from "next/server";
 
 function parseOptionalInt(value: string | null) {
   if (!value) return undefined;
@@ -8,7 +9,7 @@ function parseOptionalInt(value: string | null) {
   return Number.isInteger(parsed) ? parsed : undefined;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

@@ -3,6 +3,7 @@ import { LeadStatus } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type SearchItem = {
   id: string;
@@ -78,7 +79,7 @@ function matchesModule(item: SearchItem, query: string) {
   return normalized.includes(query.toLowerCase());
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

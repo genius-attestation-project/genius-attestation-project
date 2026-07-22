@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 import { LeadStatus, Prisma } from "@prisma/client";
+import { NextRequest } from "next/server";
 
 function parseFilters(url: string): ClosedFilters {
   const { searchParams } = new URL(url);
@@ -90,7 +91,7 @@ async function getFallbackClosedAnalyticsCards(ownerAdminId: string) {
   };
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   let ownerAdminId: string | undefined;
 
   try {

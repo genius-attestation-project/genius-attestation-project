@@ -3,8 +3,9 @@ import { hasPermission } from "@/features/admin/server/rbac.service";
 import { applyLeaveRequest, listLeaveRequests } from "@/features/leave/server/leave.service";
 import { applyLeaveSchema } from "@/features/leave/validations/leave.schema";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) return jsonError("Authentication required.", 401);
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) return jsonError("Authentication required.", 401);

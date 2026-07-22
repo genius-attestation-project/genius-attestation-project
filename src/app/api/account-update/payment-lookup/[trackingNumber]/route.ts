@@ -2,12 +2,14 @@ import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { findRegistrationForPayment } from "@/features/account-update/server/account-update.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ trackingNumber: string }>;
 };
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(_request: NextRequest, context: { params: Promise<{ trackingNumber: string }> }) {
+    const params = await context.params;
   const denied = await requireApiPermission("account_update.view");
   if (denied) return denied;
 

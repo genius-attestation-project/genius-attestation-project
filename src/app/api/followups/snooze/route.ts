@@ -2,8 +2,9 @@ import { snoozeFollowupWithHistory } from "@/features/lead/server/lead.service";
 import { snoozeFollowupSchema } from "@/features/lead/validations/followup.schema";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

@@ -2,8 +2,9 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { getLeaveReport } from "@/features/leave/server/leave.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) return jsonError("Authentication required.", 401);

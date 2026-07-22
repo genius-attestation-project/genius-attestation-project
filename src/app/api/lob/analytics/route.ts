@@ -2,6 +2,7 @@ import { getLobAnalyticsCards } from "@/features/lob/server/lob.service";
 import type { LobFilters } from "@/features/lob/server/lob.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 function parseFilters(url: string): LobFilters {
   const { searchParams } = new URL(url);
@@ -29,7 +30,7 @@ function parseFilters(url: string): LobFilters {
   return filters;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

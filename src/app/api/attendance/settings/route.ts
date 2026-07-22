@@ -5,6 +5,7 @@ import {
 } from "@/features/attendance/server/attendance.service";
 import { attendanceSettingSchema } from "@/features/attendance/validations/attendance.schema";
 import { hasPermission } from "@/features/admin/server/rbac.service";
+import { NextRequest } from "next/server";
 
 export async function GET() {
   try {
@@ -32,7 +33,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

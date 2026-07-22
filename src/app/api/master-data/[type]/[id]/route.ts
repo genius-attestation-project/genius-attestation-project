@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { type: string; id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ type: string; id: string }> }
 ) {
+    const params = await context.params;
   try {
     const session = await requirePermission("admin_management.view", `/api/master-data/${params.type}/${params.id}`);
     if (!session) {
@@ -49,9 +50,10 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { type: string; id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ type: string; id: string }> }
 ) {
+    const params = await context.params;
   try {
     const session = await requirePermission("admin_management.view", `/api/master-data/${params.type}/${params.id}`);
     if (!session) {

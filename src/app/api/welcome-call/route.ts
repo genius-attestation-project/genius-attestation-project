@@ -3,8 +3,9 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { listWelcomeCalls } from "@/features/welcome-call/server/welcome-call.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const denied = await requireApiPermission("welcome_call.view");
   if (denied) return denied;
 

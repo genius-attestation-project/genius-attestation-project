@@ -3,12 +3,13 @@ import { userRoleSchema } from "@/features/admin/validations/rbac.schema";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("users.manage");
   if (denied) return denied;
 

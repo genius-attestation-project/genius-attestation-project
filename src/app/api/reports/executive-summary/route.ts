@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { 
   buildReportFilters, 
@@ -11,7 +11,7 @@ import {
 } from "@/features/reports/server/report-filters";
 import { auth } from "@/lib/auth";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   let session: any;
   let searchParams: URLSearchParams | undefined;
   

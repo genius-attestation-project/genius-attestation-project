@@ -5,8 +5,9 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
 import { createRegistration, listRegistrations } from "@/features/registration/server/registration.service";
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   console.log("[GET /api/registrations] Request received:", request.url);
   try {
     const session = await auth();
@@ -77,7 +78,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
 
   try {

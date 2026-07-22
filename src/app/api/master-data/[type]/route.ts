@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/middleware/auth.middleware";
 
 export async function GET(
-  request: Request,
-  { params }: { params: { type: string } }
+  request: NextRequest,
+  context: { params: Promise<{ type: string }> }
 ) {
+    const params = await context.params;
   try {
     const session = await requirePermission("dashboard.view", `/api/master-data/${params.type}`);
     if (!session) {
@@ -78,9 +79,10 @@ export async function GET(
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { type: string } }
+  request: NextRequest,
+  context: { params: Promise<{ type: string }> }
 ) {
+    const params = await context.params;
   try {
     const session = await requirePermission("admin_management.view", `/api/master-data/${params.type}`);
     if (!session) {

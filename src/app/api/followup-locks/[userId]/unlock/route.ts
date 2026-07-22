@@ -4,6 +4,7 @@ import { unlockMissedFollowupUser } from "@/features/lead/server/followup-lock.s
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 const payloadSchema = z.object({
   reason: z.string().trim().min(1, "Unlock reason is required."),
@@ -13,7 +14,7 @@ type RouteContext = {
   params: Promise<{ userId: string }>;
 };
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
   const denied = await requireApiPermission("pending_approval.edit");
   if (denied) return denied;
 

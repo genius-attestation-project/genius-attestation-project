@@ -2,8 +2,9 @@ import { listLeads } from "@/features/lead/server/lead.service";
 import { generateLeadExcelBuffer } from "@/features/lead/server/export.service";
 import { auth } from "@/lib/auth";
 import { jsonError } from "@/utils/response";
+import { NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

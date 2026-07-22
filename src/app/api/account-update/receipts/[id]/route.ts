@@ -1,12 +1,14 @@
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { getPaymentReceiptForApproval } from "@/features/account-update/server/account-update.service";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+    const params = await context.params;
   const session = await auth();
 
   if (!session?.user) {

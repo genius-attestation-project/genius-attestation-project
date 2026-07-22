@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { listAttendanceRecords } from "@/features/attendance/server/attendance.service";
 import { hasPermission } from "@/features/admin/server/rbac.service";
+import { NextRequest } from "next/server";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

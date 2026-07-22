@@ -5,6 +5,7 @@ import {
   getPaymentUpdates,
 } from "@/features/account-update/server/account-update.service";
 import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
 
 export async function GET() {
   const denied = await requireApiPermission("account_update.view");
@@ -52,7 +53,7 @@ async function readUpload(formData: FormData, fieldName: string) {
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const denied = await requireApiPermission("account_update.edit");
   if (denied) return denied;
 

@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { listRegistrationAuditTrail } from "@/features/registration/server/registration.service";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { addRegistrationFile } from "@/features/registration/server/registration.service";
+import { NextRequest } from "next/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -8,7 +9,7 @@ type RouteContext = {
 
 const fileCategories = new Set(["DOCUMENT", "INVOICE", "SUPPORTING_DOCUMENT"]);
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

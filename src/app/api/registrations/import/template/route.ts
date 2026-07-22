@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import * as XLSX from "xlsx";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await requireApiPermission("revenue_registration.downloadTemplate");
     if (session instanceof NextResponse) return session; // Access denied
