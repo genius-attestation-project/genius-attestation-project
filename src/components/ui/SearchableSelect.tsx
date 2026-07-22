@@ -99,7 +99,7 @@ export function SearchableSelect({
         </label>
       )}
       <div
-        className={`flex min-h-[42px] w-full items-center justify-between rounded-xl border bg-white px-3 py-2 text-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:bg-slate-900 ${
+        className={`flex min-h-10.5 w-full items-center justify-between rounded-xl border bg-white px-3 py-2 text-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:bg-slate-900 ${
           error ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
         } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
