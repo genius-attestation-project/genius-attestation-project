@@ -18,9 +18,32 @@ export async function GET(req: NextRequest) {
     const logs = await prisma.approvalAuditLog.findMany({
       where: { leadId },
       orderBy: { createdAt: "desc" },
+      include: {
+        workflowApproval: {
+          select: { requestType: true }
+        }
+      }
     });
 
-    return NextResponse.json({ items: logs });
+    const userIds = Array.from(new Set(logs.map(log => log.performedBy)));
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true }
+    });
+    
+    const userMap = new Map(users.map(u => [u.id, u.name || u.email || "Unknown User"]));
+
+    const items = logs.map(log => ({
+      id: log.id,
+      requestType: log.workflowApproval?.requestType || "UNKNOWN",
+      action: log.action,
+      actorId: log.performedBy,
+      actorName: userMap.get(log.performedBy) || "Unknown User",
+      remarks: log.remarks,
+      createdAt: log.createdAt
+    }));
+
+    return NextResponse.json({ items });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to fetch audit logs" }, { status: 500 });
   }
