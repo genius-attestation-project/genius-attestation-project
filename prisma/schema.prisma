@@ -365,6 +365,7 @@ model Registration {
   documentType           String?   @map("document_type")
   documentIssuedCountry  String?   @map("document_issued_country")
   processType            String?   @map("process_type")
+  subPackage             String?   @map("sub_package")
   externalProcess        String?   @map("external_process")
   priority               String?
   committedDuration      String?   @map("committed_duration")
@@ -1128,6 +1129,7 @@ model MasterData {
   id           String   @id @default(cuid())
   type         String
   name         String
+  category     String   @default("General")
   description  String?
   isActive     Boolean  @default(true) @map("is_active")
   isArchived   Boolean  @default(false) @map("is_archived")
@@ -1140,11 +1142,29 @@ model MasterData {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  subPackages  SubPackage[] @relation("ProcessTypeSubPackages")
+
   @@unique([type, name, ownerAdminId])
   @@index([type])
   @@index([isActive])
   @@index([ownerAdminId])
   @@map("master_data")
+}
+
+model SubPackage {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean      @default(true) @map("is_active")
+  ownerAdminId String       @map("owner_admin_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  processTypes MasterData[] @relation("ProcessTypeSubPackages")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("sub_packages")
 }
 
 model SlaConfiguration {

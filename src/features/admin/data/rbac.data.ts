@@ -122,6 +122,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
+        label: "Sub Packages",
+        href: "/dashboard/master-configuration/sub-packages",
+        icon: Layers3,
+        menuPermission: "menu.master-configuration.sub-packages",
+        pagePermission: "master_configuration.view",
+      },
+      {
         label: "Customer Types",
         href: "/dashboard/master-configuration/customer-types",
         icon: Users,
@@ -477,6 +484,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "admin_management", label: "Admin Management", description: "Admin workspace access." },
   { key: "users", label: "Users", description: "User management access." },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
+  { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
   { key: "roles", label: "Roles", description: "Role and RBAC access." },
   { key: "departments", label: "Department", description: "Department administration." },
   { key: "office_locations", label: "Office Location", description: "Office location administration." },

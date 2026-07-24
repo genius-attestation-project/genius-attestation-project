@@ -51,10 +51,10 @@ export async function GET() {
         distinct: ['country', 'service', 'source'],
       }),
       // Fetch distinct values from Registration
-      prisma.registration.findMany({
+      (prisma as any).registration.findMany({
         where: { ownerAdminId },
-        select: { documentType: true, processType: true },
-        distinct: ['documentType', 'processType'],
+        select: { documentType: true, processType: true, subPackage: true },
+        distinct: ['documentType', 'processType', 'subPackage'],
       })
     ]);
 
@@ -93,10 +93,11 @@ export async function GET() {
     const countries = leads ? Array.from(new Set(leads.map(l => l.country).filter(Boolean))) : null;
     const services = (leads || registrations) ? Array.from(new Set([
       ...(leads ? leads.map(l => l.service) : []),
-      ...(registrations ? registrations.map(r => r.processType) : [])
+      ...(registrations ? registrations.map((r: any) => r.processType) : [])
     ].filter(Boolean))) : null;
     const leadSources = leads ? Array.from(new Set(leads.map(l => l.source).filter(Boolean))) : null;
-    const documentTypes = registrations ? Array.from(new Set(registrations.map(r => r.documentType).filter(Boolean))) : null;
+    const documentTypes = registrations ? Array.from(new Set(registrations.map((r: any) => r.documentType).filter(Boolean))) : null;
+    const subPackages = registrations ? Array.from(new Set(registrations.map((r: any) => r.subPackage).filter(Boolean))) : null;
 
     return NextResponse.json({
       officeLocations: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
@@ -106,6 +107,7 @@ export async function GET() {
       countries: countries ? countries.map(c => ({ id: c, name: c })) : null,
       services: services ? services.map(s => ({ id: s, name: s })) : null,
       documentTypes: documentTypes ? documentTypes.map(d => ({ id: d, name: d })) : null,
+      subPackages: subPackages ? subPackages.map(sp => ({ id: sp, name: sp })) : null,
       leadSources: leadSources ? leadSources.map(s => ({ id: s, name: s })) : null,
       leadStatuses: [
         "New", "Followup", "Assigned", "Pending_Approval", 

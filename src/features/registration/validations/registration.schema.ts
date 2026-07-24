@@ -65,6 +65,7 @@ export const registrationInputSchema = z.object({
   documentType: requiredText("Document type"),
   documentIssuedCountry: requiredText("Document issued country"),
   processType: requiredText("Process type"),
+  subPackage: optionalText,
   externalProcess: requiredText("Address process"),
   priority: requiredText("Special processing priority"),
   committedDuration: requiredText("Committed duration / SLA"),

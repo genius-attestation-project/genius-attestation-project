@@ -8,7 +8,9 @@ type ExportRecord = {
   trackingNumber: string;
   customerName: string;
   mobile: string;
+  documentType?: string | null;
   processType: string | null;
+  subPackage?: string | null;
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
@@ -26,8 +28,9 @@ function mapRecordsToRows(records: ExportRecord[]) {
     record.trackingNumber,
     record.customerName,
     record.mobile,
-    (record as any).createdBy?.name || "Unknown",
+    record.documentType || "-",
     record.processType || "-",
+    record.subPackage || "-",
     record.totalCharges,
     record.advancePaid,
     record.balanceAmount,
@@ -43,8 +46,9 @@ const EXPORT_COLUMNS = [
   "TR Number",
   "Customer Name",
   "Mobile Number",
-  "Created By",
+  "Document Type",
   "Process",
+  "Sub Package",
   "Charge",
   "Paid Amount",
   "Pending Amount",
@@ -69,6 +73,7 @@ export async function generateExcelBuffer(records: ExportRecord[]): Promise<Buff
     "",
     "",
     "",
+    "",
     totalCharge,
     totalPaid,
     totalPending,
@@ -80,17 +85,14 @@ export async function generateExcelBuffer(records: ExportRecord[]): Promise<Buff
 
   const worksheet = XLSX.utils.aoa_to_sheet([EXPORT_COLUMNS, ...rows]);
 
-  // Apply bold headers (simple approach: XLSX library doesn't support complex styles in the free version, 
-  // but we can set cell properties or just leave it as standard and adjust column widths)
   const colWidths = EXPORT_COLUMNS.map((col) => ({ wch: Math.max(col.length, 12) }));
   
-  // Adjust widths based on data
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     for (let j = 0; j < row.length; j++) {
       const cellValue = row[j] !== null && row[j] !== undefined ? String(row[j]) : "";
       if (cellValue.length > colWidths[j].wch) {
-        colWidths[j].wch = Math.min(cellValue.length + 2, 50); // cap width at 50
+        colWidths[j].wch = Math.min(cellValue.length + 2, 50);
       }
     }
   }
@@ -99,7 +101,6 @@ export async function generateExcelBuffer(records: ExportRecord[]): Promise<Buff
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue Registrations");
 
-  // Write to buffer
   const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   return excelBuffer;
 }
@@ -141,6 +142,7 @@ export async function generatePDFBuffer(records: ExportRecord[], filtersText: st
     "",
     "",
     "",
+    "",
     totalCharge.toFixed(2),
     totalPaid.toFixed(2),
     totalPending.toFixed(2),
@@ -150,7 +152,7 @@ export async function generatePDFBuffer(records: ExportRecord[], filtersText: st
     "",
   ];
 
-  // @ts-ignore - jspdf-autotable extends jsPDF but typings sometimes clash
+  // @ts-ignore
   doc.autoTable({
     startY: 48,
     head: [EXPORT_COLUMNS],
@@ -161,7 +163,6 @@ export async function generatePDFBuffer(records: ExportRecord[], filtersText: st
     footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 2 },
     didDrawPage: (data: any) => {
-      // Page number
       const pageCount = doc.getNumberOfPages();
       doc.setFontSize(8);
       doc.text(

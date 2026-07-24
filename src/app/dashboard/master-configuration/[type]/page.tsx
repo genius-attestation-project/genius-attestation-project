@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 const pageTitles: Record<string, string> = {
   "document-types": "Document Types",
   "process-types": "Process Types",
+  "sub-packages": "Sub Packages",
   "customer-types": "Customer Types",
   "lead-sources": "Lead Sources",
   "embassy-list": "Embassy List",
@@ -31,9 +32,9 @@ export default function MasterConfigurationDynamicPage({
   const router = useRouter();
   const { type: slug } = use(params);
   
-  // If it's one of the specific complex configurations (SLA, Holiday, etc.), 
-  // they should have their own static page instead of hitting this dynamic generic one.
-  // We'll render this generic one for the simple master tables.
+  const isDocumentType = slug === "document-types";
+  const isProcessType = slug === "process-types";
+  const isSubPackage = slug === "sub-packages";
   const title = pageTitles[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
   const [data, setData] = useState<any[]>([]);
@@ -45,7 +46,12 @@ export default function MasterConfigurationDynamicPage({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   
-  const [formData, setFormData] = useState({ name: "", description: "", isActive: true, sortOrder: 0 });
+  // Available Sub Packages for Process Types selection
+  const [availableSubPackages, setAvailableSubPackages] = useState<any[]>([]);
+  const [selectedSubPackageIds, setSelectedSubPackageIds] = useState<string[]>([]);
+  const [subPackageSearch, setSubPackageSearch] = useState("");
+
+  const [formData, setFormData] = useState({ name: "", category: "General", description: "", isActive: true, sortOrder: 0 });
   const [formLoading, setFormLoading] = useState(false);
 
   const fetchRecords = async (query = "") => {
@@ -69,7 +75,13 @@ export default function MasterConfigurationDynamicPage({
 
   useEffect(() => {
     fetchRecords();
-  }, [slug]);
+    if (isProcessType) {
+      fetch("/api/master-data/sub-packages?active=true")
+        .then((res) => res.json())
+        .then((json) => setAvailableSubPackages(json.items || []))
+        .catch(console.error);
+    }
+  }, [slug, isProcessType]);
 
   // Debounced search
   useEffect(() => {
@@ -81,7 +93,8 @@ export default function MasterConfigurationDynamicPage({
 
   const handleAdd = () => {
     setEditingItem(null);
-    setFormData({ name: "", description: "", isActive: true, sortOrder: 0 });
+    setFormData({ name: "", category: isDocumentType ? "" : "General", description: "", isActive: true, sortOrder: 0 });
+    setSelectedSubPackageIds([]);
     setDrawerOpen(true);
   };
 
@@ -89,10 +102,16 @@ export default function MasterConfigurationDynamicPage({
     setEditingItem(item);
     setFormData({
       name: item.name,
+      category: item.category || "General",
       description: item.description || "",
       isActive: item.isActive,
       sortOrder: item.sortOrder || 0,
     });
+    if (isProcessType && Array.isArray(item.subPackages)) {
+      setSelectedSubPackageIds(item.subPackages.map((sp: any) => sp.id));
+    } else {
+      setSelectedSubPackageIds([]);
+    }
     setDrawerOpen(true);
   };
 
@@ -128,10 +147,26 @@ export default function MasterConfigurationDynamicPage({
         : `/api/master-data/${slug}`;
       const method = editingItem ? "PUT" : "POST";
       
+      const payload: any = {
+        ...formData,
+        name: formData.name.trim(),
+        category: isDocumentType ? formData.category.trim() : (formData.category || "General").trim(),
+      };
+
+      if (isProcessType) {
+        payload.subPackageIds = selectedSubPackageIds;
+      }
+
+      if (isDocumentType && !payload.category) {
+        alert("Category is required.");
+        setFormLoading(false);
+        return;
+      }
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -148,10 +183,64 @@ export default function MasterConfigurationDynamicPage({
     }
   };
 
-  const columns = useMemo(() => [
-    { header: "Name", accessorKey: "name" },
-    { header: "Description", accessorKey: "description", cell: (item: any) => item.description || "-" },
-  ], []);
+  const filteredAvailableSubPackages = useMemo(() => {
+    if (!subPackageSearch.trim()) return availableSubPackages;
+    const term = subPackageSearch.toLowerCase().trim();
+    return availableSubPackages.filter((sp) => sp.name.toLowerCase().includes(term));
+  }, [availableSubPackages, subPackageSearch]);
+
+  const columns = useMemo(() => {
+    const cols: Array<{ header: string; accessorKey: string; cell?: (item: any) => React.ReactNode }> = [
+      { header: isSubPackage ? "Sub Package Name" : isProcessType ? "Process Type" : "Name", accessorKey: "name" },
+    ];
+
+    if (isDocumentType) {
+      cols.push({
+        header: "Category",
+        accessorKey: "category",
+        cell: (item: any) => (
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+            {item.category || "General"}
+          </span>
+        ),
+      });
+    }
+
+    if (isProcessType) {
+      cols.push({
+        header: "Sub Packages",
+        accessorKey: "subPackages",
+        cell: (item: any) => {
+          const subs = item.subPackages || [];
+          if (subs.length === 0) return <span className="text-xs text-slate-400">-</span>;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {subs.map((sp: any) => (
+                <span
+                  key={sp.id}
+                  className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                >
+                  {sp.name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      });
+    }
+
+    cols.push({ header: "Description", accessorKey: "description", cell: (item: any) => item.description || "-" });
+
+    if (isSubPackage) {
+      cols.push({
+        header: "Created Date",
+        accessorKey: "createdAt",
+        cell: (item: any) => (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"),
+      });
+    }
+
+    return cols;
+  }, [isDocumentType, isProcessType, isSubPackage]);
 
   return (
     <>
@@ -187,12 +276,72 @@ export default function MasterConfigurationDynamicPage({
           <div className="space-y-6">
             <div className="space-y-4">
               <Input
-                label="Name"
+                label={isSubPackage ? "Sub Package Name" : "Name"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
+                maxLength={100}
                 className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
               />
+
+              {isDocumentType && (
+                <Input
+                  label="Category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="e.g. Education, Personal, Police, Commercial"
+                  required
+                  maxLength={100}
+                  className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
+                />
+              )}
+
+              {isProcessType && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-slate-900 dark:text-white">
+                    Sub Packages
+                  </label>
+                  <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/5">
+                    <input
+                      type="text"
+                      placeholder="Search sub packages..."
+                      value={subPackageSearch}
+                      onChange={(e) => setSubPackageSearch(e.target.value)}
+                      className="mb-2.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                    />
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                      {filteredAvailableSubPackages.length === 0 ? (
+                        <p className="py-2 text-center text-xs text-slate-400">No active sub packages found.</p>
+                      ) : (
+                        filteredAvailableSubPackages.map((sp) => {
+                          const isChecked = selectedSubPackageIds.includes(sp.id);
+                          return (
+                            <label
+                              key={sp.id}
+                              className="flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors hover:bg-slate-200/50 dark:hover:bg-white/10"
+                            >
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">{sp.name}</span>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSubPackageIds([...selectedSubPackageIds, sp.id]);
+                                  } else {
+                                    setSelectedSubPackageIds(selectedSubPackageIds.filter((id) => id !== sp.id));
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                              />
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Input
                 label="Description (Optional)"
                 value={formData.description}

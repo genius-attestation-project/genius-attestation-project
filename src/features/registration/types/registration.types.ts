@@ -31,6 +31,7 @@ export type Registration = {
   documentType: string | null;
   documentIssuedCountry: string | null;
   processType: string | null;
+  subPackage: string | null;
   externalProcess: string | null;
   priority: string | null;
   committedDuration: string | null;
@@ -78,6 +79,7 @@ export type RegistrationFormState = {
   documentType: string;
   documentIssuedCountry: string;
   processType: string;
+  subPackage: string;
   externalProcess: string;
   priority: string;
   committedDuration: string;

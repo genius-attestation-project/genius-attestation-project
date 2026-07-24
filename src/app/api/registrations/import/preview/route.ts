@@ -44,24 +44,30 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Master Data Preparation ---
-    const [existingUsers, existingRegistrations, existingOffices] = await Promise.all([
+    const [existingUsers, existingRegistrations, existingOffices, existingDocTypes] = await Promise.all([
       prisma.user.findMany({ where: { ownerAdminId, isActive: true }, select: { id: true, name: true, email: true } }),
       prisma.registration.findMany({ where: { ownerAdminId }, select: { trackingNumber: true } }),
-      prisma.officeLocation.findMany({ where: { ownerAdminId }, select: { id: true, officeName: true } })
+      prisma.officeLocation.findMany({ where: { ownerAdminId }, select: { id: true, officeName: true } }),
+      (prisma as any).masterData.findMany({ where: { ownerAdminId, type: "DOCUMENT_TYPES", isArchived: false }, select: { name: true, category: true } }),
     ]);
 
     const userMap = new Map<string, string>(); // normalized name -> user id
-    existingUsers.forEach(u => {
+    existingUsers.forEach((u: { id: string; name: string | null; email: string | null }) => {
       if (u.name) userMap.set(normalizeStr(u.name), u.id);
       if (u.email) userMap.set(normalizeStr(u.email), u.id);
     });
 
     const officeMap = new Map<string, string>(); // normalized office -> office name
-    existingOffices.forEach(o => {
+    existingOffices.forEach((o: { id: string; officeName: string }) => {
       officeMap.set(normalizeStr(o.officeName), o.officeName);
     });
 
-    const existingTrackingNumbers = new Set(existingRegistrations.map(r => r.trackingNumber));
+    const docTypeSet = new Set<string>();
+    existingDocTypes.forEach((dt: { name: string; category: string }) => {
+      docTypeSet.add(dt.name.replace(/\s+/g, "").toLowerCase());
+    });
+
+    const existingTrackingNumbers = new Set(existingRegistrations.map((r: { trackingNumber: string }) => r.trackingNumber));
 
     // --- Processing Rows ---
     const processedRows = [];
@@ -71,7 +77,8 @@ export async function POST(req: NextRequest) {
     const newMasterData = {
       offices: new Set<string>(),
       processTypes: new Set<string>(),
-      documentTypes: new Set<string>()
+      documentTypes: new Set<string>(),
+      documentTypesMap: {} as Record<string, string>
     };
 
     for (let i = 0; i < rawData.length; i++) {
@@ -83,9 +90,11 @@ export async function POST(req: NextRequest) {
       const customerName = capitalizeStr(row["Customer Name*"] || row["customer_name"] || row["Customer Name"]);
       const mobileNumber = capitalizeStr(row["Mobile Number*"] || row["mobile_number"] || row["Mobile Number"] || row["mobile"]);
       const serviceProcessType = capitalizeStr(row["Service/Process Type*"] || row["process_type"] || row["Service/Process Type"]);
+      const subPackage = capitalizeStr(row["Sub Package"] || row["sub_package"]);
       const totalCharges = Number(row["Total Charges*"] || row["total_charges"] || row["Total Charges"] || 0);
       const trackingNumber = capitalizeStr(row["Tracking Number"] || row["tracking_number"]);
       const documentType = capitalizeStr(row["Document Type"]);
+      const documentCategory = capitalizeStr(row["Document Category"] || row["Category"] || row["Document Category*"] || "General");
       const deliveryLocation = capitalizeStr(row["Delivery Location"]); // This can be Office Name
 
       if (!customerName) errors.push("Customer Name is required.");
@@ -103,7 +112,13 @@ export async function POST(req: NextRequest) {
 
       // Master Data Matching
       if (serviceProcessType) newMasterData.processTypes.add(serviceProcessType);
-      if (documentType) newMasterData.documentTypes.add(documentType);
+      if (documentType) {
+        newMasterData.documentTypes.add(documentType);
+        const normDoc = documentType.replace(/\s+/g, "").toLowerCase();
+        if (!docTypeSet.has(normDoc)) {
+          newMasterData.documentTypesMap[documentType] = documentCategory || "General";
+        }
+      }
 
       // Office Matching (Assuming Delivery Location is an Office)
       let resolvedDeliveryLocation = deliveryLocation;
@@ -141,6 +156,7 @@ export async function POST(req: NextRequest) {
           "Customer Name*": customerName,
           "Mobile Number*": mobileNumber,
           "Service/Process Type*": serviceProcessType,
+          "Sub Package": subPackage,
           "Total Charges*": totalCharges,
           "Delivery Location": resolvedDeliveryLocation,
           "Tracking Number": trackingNumber,
@@ -163,7 +179,8 @@ export async function POST(req: NextRequest) {
         duplicateCount,
         newOffices: Array.from(newMasterData.offices),
         newProcessTypes: Array.from(newMasterData.processTypes),
-        newDocumentTypes: Array.from(newMasterData.documentTypes)
+        newDocumentTypes: Array.from(newMasterData.documentTypes),
+        newDocumentTypesMap: newMasterData.documentTypesMap
       },
       rows: processedRows
     });

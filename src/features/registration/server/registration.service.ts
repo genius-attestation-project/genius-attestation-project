@@ -46,6 +46,7 @@ function mapRegistration(registration: RegistrationRecord) {
     advancePaid: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
     balanceReceivedAmount: Number(financeRegistration.balanceReceivedAmount ?? 0),
+    subPackage: registration.subPackage ?? null,
     acceptedAt: registration.acceptedAt?.toISOString() ?? null,
     submittedAt: financeRegistration.submittedAt?.toISOString() ?? null,
     approvedAt: financeRegistration.approvedAt?.toISOString() ?? null,
@@ -99,6 +100,7 @@ function buildRegistrationData(input: RegistrationInput) {
     documentType: input.documentType || null,
     documentIssuedCountry: input.documentIssuedCountry || null,
     processType: input.processType || null,
+    subPackage: input.subPackage || null,
     externalProcess: input.externalProcess || null,
     priority: input.priority || null,
     committedDuration: input.committedDuration || null,
@@ -152,6 +154,7 @@ export async function listRegistrations(
     documentIssuedCountry?: string;
     customerType?: string;
     processType?: string;
+    subPackage?: string;
     priority?: string;
     deliveryLocation?: string;
     paymentStatus?: string;
@@ -183,6 +186,7 @@ export async function listRegistrations(
     ...(params.documentIssuedCountry ? { documentIssuedCountry: params.documentIssuedCountry } : {}),
     ...(params.customerType ? { customerType: params.customerType } : {}),
     ...(params.processType ? { processType: params.processType } : {}),
+    ...(params.subPackage ? { subPackage: params.subPackage } : {}),
     ...(params.priority ? { priority: params.priority } : {}),
     ...(params.deliveryLocation ? { deliveryLocation: params.deliveryLocation } : {}),
     ...(params.paymentStatus ? { paymentStatus: params.paymentStatus } : {}),
@@ -220,6 +224,8 @@ export async function listRegistrations(
       { customerName: { contains: query } },
       { mobile: { contains: query } },
       { email: { contains: query } },
+      { processType: { contains: query } },
+      { subPackage: { contains: query } },
       { documentType: { contains: query } },
       { paymentStatus: { contains: query } },
       { approvalStatus: { contains: query } },

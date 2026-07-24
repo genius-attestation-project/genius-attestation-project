@@ -40,6 +40,87 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 1b. Create New Document Types
+    const newDocTypes = summary?.newDocumentTypes || [];
+    const newDocTypesMap = summary?.newDocumentTypesMap || {};
+    for (const docName of newDocTypes) {
+      const trimmedName = String(docName).trim();
+      if (!trimmedName) continue;
+      
+      const category = (newDocTypesMap[docName] || "General").trim().slice(0, 100) || "General";
+
+      const existingDoc = await (prisma as any).masterData.findFirst({
+        where: {
+          type: "DOCUMENT_TYPES",
+          ownerAdminId,
+          isArchived: false,
+          name: { equals: trimmedName },
+        },
+      });
+
+      if (!existingDoc) {
+        await (prisma as any).masterData.create({
+          data: {
+            type: "DOCUMENT_TYPES",
+            name: trimmedName,
+            category,
+            ownerAdminId,
+            createdBy: importedBy,
+          },
+        });
+      }
+    }
+
+    // 1c. Create & Link Sub Packages
+    for (const rowObj of rows) {
+      if (rowObj.status === "Error" || rowObj.resolutionAction === "Skip") continue;
+      const data = rowObj.data;
+      const subPkgName = String(data["Sub Package"] || data["sub_package"] || "").trim();
+      const procTypeName = String(data["Service/Process Type*"] || data["Service/Process Type"] || "").trim();
+      
+      if (!subPkgName) continue;
+
+      let subPkg = await (prisma as any).subPackage.findFirst({
+        where: {
+          ownerAdminId,
+          name: { equals: subPkgName },
+        },
+      });
+
+      if (!subPkg) {
+        subPkg = await (prisma as any).subPackage.create({
+          data: {
+            name: subPkgName,
+            ownerAdminId,
+          },
+        });
+      }
+
+      if (procTypeName) {
+        const procType = await (prisma as any).masterData.findFirst({
+          where: {
+            type: "PROCESS_TYPES",
+            ownerAdminId,
+            isArchived: false,
+            name: { equals: procTypeName },
+          },
+          include: { subPackages: true },
+        });
+
+        if (procType) {
+          const alreadyLinked = (procType as any).subPackages.some((sp: any) => sp.id === subPkg!.id);
+          if (!alreadyLinked) {
+            await (prisma as any).masterData.update({
+              where: { id: procType.id },
+              data: {
+                subPackages: { connect: { id: subPkg.id } },
+              },
+            });
+          }
+        }
+      }
+    }
+
     let successfulRows = 0;
     let failedRows = 0;
     let skippedRows = 0;
@@ -67,6 +148,7 @@ export async function POST(req: NextRequest) {
         documentType: data["Document Type"] || null,
         documentIssuedCountry: data["Document Issued Country"] || null,
         processType: data["Service/Process Type*"] || data["Service/Process Type"] || null,
+        subPackage: data["Sub Package"] || data["sub_package"] || null,
         externalProcess: data["External Process"] || null,
         priority: data["Priority"] || null,
         committedDuration: data["Committed Duration"] || null,

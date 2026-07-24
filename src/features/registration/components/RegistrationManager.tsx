@@ -76,6 +76,7 @@ const blankForm: RegistrationFormState = {
   regionOfRegistration: "",
   approvalStatus: "Pending",
   trackingStatus: "Registered",
+  subPackage: "",
   leadId: "",
 };
 
@@ -111,6 +112,7 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     regionOfRegistration: registration.regionOfRegistration ?? "",
     approvalStatus: registration.approvalStatus,
     trackingStatus: registration.trackingStatus,
+    subPackage: (registration as any).subPackage ?? "",
     leadId: registration.leadId ?? "",
   };
 }
@@ -350,8 +352,8 @@ export function RegistrationManager({
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
   
-  const [documentTypeOptions, setDocumentTypeOptions] = useState<string[]>([]);
-  const [processTypeOptions, setProcessTypeOptions] = useState<string[]>([]);
+  const [documentTypeOptions, setDocumentTypeOptions] = useState<SelectOption[]>([]);
+  const [processTypeOptions, setProcessTypeOptions] = useState<SelectOption[]>([]);
   const [priorityOptions, setPriorityOptions] = useState<string[]>(["Normal", "Express", "Super Fast"]); // Fallback
   const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>([]);
   const [customerTypeOptions, setCustomerTypeOptions] = useState<string[]>(["Individual", "Corporate"]); // Fallback
@@ -378,6 +380,7 @@ export function RegistrationManager({
     documentIssuedCountry: "",
     customerType: "",
     processType: "",
+    subPackage: "",
     priority: "",
     deliveryLocation: "",
     paymentStatus: "",
@@ -421,6 +424,35 @@ export function RegistrationManager({
 
     return commissionUserOptions;
   }, [commissionUserOptions, form.commissionToEmail, form.commissionToName, form.commissionToUserId]);
+
+  const documentTypeSelectOptions = useMemo(() => {
+    if (form.documentType && !documentTypeOptions.some((opt) => opt.value === form.documentType)) {
+      return [
+        { label: form.documentType, value: form.documentType, description: "General", category: "General" },
+        ...documentTypeOptions,
+      ];
+    }
+    return documentTypeOptions;
+  }, [documentTypeOptions, form.documentType]);
+
+  const processTypeSelectOptions = useMemo(() => {
+    if (form.processType && !processTypeOptions.some((opt) => opt.value === form.processType)) {
+      return [
+        { label: form.processType, value: form.processType },
+        ...processTypeOptions,
+      ];
+    }
+    return processTypeOptions;
+  }, [processTypeOptions, form.processType]);
+
+  const selectedProcessTypeOption = useMemo(() => {
+    return processTypeOptions.find((opt: any) => opt.value === form.processType);
+  }, [processTypeOptions, form.processType]);
+
+  const availableSubPackageOptions = useMemo(() => {
+    const subs = (selectedProcessTypeOption as any)?.subPackages || [];
+    return subs.map((sp: string) => ({ label: sp, value: sp }));
+  }, [selectedProcessTypeOption]);
 
   async function fetchRegistrations(search = query, currentFilters = filters, currentPage = page, currentPageSize = pageSize) {
     setLoading(true);
@@ -506,8 +538,47 @@ export function RegistrationManager({
         }
       }
 
-      fetchMaster("document-types", setDocumentTypeOptions);
-      fetchMaster("process-types", setProcessTypeOptions);
+      async function fetchDocumentTypes() {
+        try {
+          const res = await fetch(`/api/master-data/document-types?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            const opts: SelectOption[] = (data.items || []).map((i: any) => ({
+              label: i.name,
+              value: i.name,
+              description: i.category || "General",
+              category: i.category || "General",
+            }));
+            setDocumentTypeOptions(opts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch document-types", e);
+        }
+      }
+
+      async function fetchProcessTypes() {
+        try {
+          const res = await fetch(`/api/master-data/process-types?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            const opts: SelectOption[] = (data.items || []).map((i: any) => {
+              const subs = (i.subPackages || []).map((sp: any) => sp.name);
+              return {
+                label: i.name,
+                value: i.name,
+                description: subs.length > 0 ? subs.join(", ") : undefined,
+                subPackages: subs,
+              };
+            });
+            setProcessTypeOptions(opts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch process-types", e);
+        }
+      }
+
+      fetchDocumentTypes();
+      fetchProcessTypes();
       fetchMaster("payment-modes", setPaymentModeOptions);
       fetchMaster("customer-types", setCustomerTypeOptions);
       fetchMaster("countries", setCountryOptions);
@@ -938,17 +1009,24 @@ export function RegistrationManager({
               <SearchableSelect
                 value={filters.processType}
                 onChange={(val) => setFilters(f => ({ ...f, processType: val }))}
-                options={toSelectOptions(processTypeOptions)}
+                options={processTypeSelectOptions}
                 placeholder="Select process"
               />
             </label>
+            <Input
+              label="Sub Package"
+              placeholder="Sub Package"
+              value={filters.subPackage}
+              onChange={(e) => setFilters(f => ({ ...f, subPackage: e.target.value }))}
+            />
             <label className="grid gap-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Document Type</span>
               <SearchableSelect
                 value={filters.documentType}
                 onChange={(val) => setFilters(f => ({ ...f, documentType: val }))}
-                options={toSelectOptions(documentTypeOptions)}
+                options={documentTypeSelectOptions}
                 placeholder="Select document"
+                groupByCategory={true}
               />
             </label>
             <label className="grid gap-2">
@@ -1023,6 +1101,7 @@ export function RegistrationManager({
                     fromDate: "", toDate: "", trackingNumber: "", customerName: "", mobile: "",
                     createdBy: "", collectedPerson: "", registeredPerson: "", officeLocation: "", processOffice: "",
                     service: "", documentType: "", documentIssuedCountry: "", customerType: "", processType: "",
+                    subPackage: "",
                     priority: "", deliveryLocation: "", paymentStatus: "", paymentMode: "", approvalStatus: "",
                     hasBalance: "", minTotalCharge: "", maxTotalCharge: "", minAdvancePaid: "", maxAdvancePaid: ""
                   };
@@ -1206,7 +1285,17 @@ export function RegistrationManager({
           </Section>
 
           <Section title="Section 2: Document Upload">
-            <SelectField label="Document Type" name="documentType" value={form.documentType} options={documentTypeOptions} onChange={updateField} required />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Document Type</span>
+              <SearchableSelect
+                value={form.documentType}
+                options={documentTypeSelectOptions}
+                onChange={(nextValue: string) => updateField("documentType", nextValue)}
+                placeholder="Select document type"
+                name="documentType"
+                groupByCategory={true}
+              />
+            </label>
             <SelectField
               label="Document Issued Country"
               name="documentIssuedCountry"
@@ -1215,7 +1304,31 @@ export function RegistrationManager({
               onChange={updateField}
               required
             />
-            <SelectField label="Process Type" name="processType" value={form.processType} options={processTypeOptions} onChange={updateField} required />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Process Type</span>
+              <SearchableSelect
+                value={form.processType}
+                options={processTypeSelectOptions}
+                onChange={(nextValue: string) => {
+                  updateField("processType", nextValue);
+                  updateField("subPackage", "");
+                }}
+                placeholder="Select process type"
+                name="processType"
+              />
+            </label>
+            {availableSubPackageOptions.length > 0 && (
+              <label className="grid gap-2">
+                <span className="text-sm font-bold">Sub Package</span>
+                <SearchableSelect
+                  value={form.subPackage}
+                  options={availableSubPackageOptions}
+                  onChange={(nextValue: string) => updateField("subPackage", nextValue)}
+                  placeholder="Select sub package"
+                  name="subPackage"
+                />
+              </label>
+            )}
             <Input
               label="Address Process"
               value={form.externalProcess}

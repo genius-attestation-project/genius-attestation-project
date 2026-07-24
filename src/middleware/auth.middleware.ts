@@ -34,8 +34,14 @@ export const requireAuth = cache(async (callbackUrl = "/dashboard") => {
 
   try {
     session = await auth();
-  } catch (error) {
-    if (isDynamicUsageError(error)) {
+  } catch (error: any) {
+    // Next.js internal errors (like redirects, not-found, or dynamic usage) must be re-thrown
+    if (
+      error?.digest === "DYNAMIC_SERVER_USAGE" ||
+      error?.message?.includes("DYNAMIC_SERVER_USAGE") ||
+      error?.digest?.startsWith("NEXT_REDIRECT") ||
+      error?.message?.includes("NEXT_REDIRECT")
+    ) {
       throw error;
     }
 
@@ -84,7 +90,13 @@ export async function requireApiPermission(permission: string) {
   try {
     session = await auth();
   } catch (error) {
-    if (isDynamicUsageError(error)) {
+    const errObj = error as any;
+    if (
+      errObj?.digest === "DYNAMIC_SERVER_USAGE" ||
+      errObj?.message?.includes("DYNAMIC_SERVER_USAGE") ||
+      errObj?.digest?.startsWith("NEXT_REDIRECT") ||
+      errObj?.message?.includes("NEXT_REDIRECT")
+    ) {
       throw error;
     }
 
@@ -127,7 +139,12 @@ export async function requireAnyApiPermission(permissions: string[]) {
   try {
     session = await auth();
   } catch (error) {
-    if (isDynamicUsageError(error)) {
+    if (
+      (error as any)?.digest === "DYNAMIC_SERVER_USAGE" ||
+      (error as any)?.message?.includes("DYNAMIC_SERVER_USAGE") ||
+      (error as any)?.digest?.startsWith("NEXT_REDIRECT") ||
+      (error as any)?.message?.includes("NEXT_REDIRECT")
+    ) {
       throw error;
     }
 
@@ -172,7 +189,12 @@ export async function requireApiAuth() {
   try {
     session = await auth();
   } catch (error) {
-    if (isDynamicUsageError(error)) {
+    if (
+      (error as any)?.digest === "DYNAMIC_SERVER_USAGE" ||
+      (error as any)?.message?.includes("DYNAMIC_SERVER_USAGE") ||
+      (error as any)?.digest?.startsWith("NEXT_REDIRECT") ||
+      (error as any)?.message?.includes("NEXT_REDIRECT")
+    ) {
       throw error;
     }
     console.error("[auth] Failed to resolve session in requireApiAuth.", { error });

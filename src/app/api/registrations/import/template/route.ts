@@ -17,8 +17,10 @@ export async function GET(req: NextRequest) {
       "City",
       "Customer Type",
       "Document Type",
+      "Document Category",
       "Document Issued Country",
       "Service/Process Type*",
+      "Sub Package",
       "External Process",
       "Priority",
       "Committed Duration",
@@ -52,8 +54,10 @@ export async function GET(req: NextRequest) {
         "Kochi", // City
         "Retail", // Customer Type
         "Degree Certificate", // Document Type
+        "Education", // Document Category
         "India", // Document Issued Country
         "Apostille", // Service/Process Type
+        "Express", // Sub Package
         "MEA", // External Process
         "Normal", // Priority
         "15 Days", // Committed Duration

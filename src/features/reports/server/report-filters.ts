@@ -23,6 +23,7 @@ export function buildReportFilters(searchParams: URLSearchParams, ownerAdminId: 
     documentTypeId: searchParams.get("documentTypeId") || undefined,
     processOfficeId: searchParams.get("processOfficeId") || undefined,
     leadSourceId: searchParams.get("leadSourceId") || undefined,
+    subPackage: searchParams.get("subPackage") || undefined,
     search: searchParams.get("search") || undefined,
   };
 }
@@ -57,7 +58,8 @@ export function applyFiltersToRegistration(baseWhere: any, filters: any) {
     ...(filters.paymentStatus ? { paymentStatus: filters.paymentStatus } : {}),
     ...(filters.countryId ? { country: filters.countryId } : {}),
     ...(filters.serviceId ? { processType: filters.serviceId } : {}),
-    ...(filters.documentTypeId ? { documentType: filters.documentTypeId } : {})
+    ...(filters.documentTypeId ? { documentType: filters.documentTypeId } : {}),
+    ...(filters.subPackage ? { subPackage: filters.subPackage } : {}),
   };
   
   if (filters.search) {
@@ -66,6 +68,8 @@ export function applyFiltersToRegistration(baseWhere: any, filters: any) {
       { customerName: { contains: filters.search } },
       { email: { contains: filters.search } },
       { mobile: { contains: filters.search } },
+      { processType: { contains: filters.search } },
+      { subPackage: { contains: filters.search } },
     ];
   }
   return where;
