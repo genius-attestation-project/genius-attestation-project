@@ -18,9 +18,6 @@ const pageTitles: Record<string, string> = {
   "lead-sources": "Lead Sources",
   "embassy-list": "Embassy List",
   "services": "Services",
-  "payment-modes": "Payment Modes",
-  "payment-status": "Payment Status",
-  "document-status": "Document Status",
   "process-status": "Process Status",
   "approval-status": "Approval Status",
 };
