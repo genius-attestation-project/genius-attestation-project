@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
+import { authConfig } from "@/auth.config";
 import { getSessionAccess } from "@/features/admin/server/rbac.service";
 import { env } from "@/config/env";
 import { loginSchema } from "@/features/auth/validations/auth.schema";
@@ -33,7 +34,7 @@ const providers = [
           return null;
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await (prisma as any).user.findUnique({
           where: { email: parsed.data.email },
         });
 
@@ -60,7 +61,7 @@ const providers = [
           return null;
         }
 
-        await prisma.user.update({
+        await (prisma as any).user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
         });
@@ -93,16 +94,14 @@ const providers = [
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // adapter: PrismaAdapter(prisma),
+  ...authConfig,
   session: { strategy: "jwt" },
   secret: env.authSecret,
   trustHost: true,
   debug: process.env.NODE_ENV === "development",
-  pages: {
-    signIn: "/login",
-  },
   providers,
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user, account }) {
       try {
         if (account?.provider === "google") {

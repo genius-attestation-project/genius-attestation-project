@@ -8,6 +8,7 @@ import {
   lockUsersWithMissedFollowups,
 } from "@/features/lead/server/followup-lock.service";
 import { auth } from "@/lib/auth";
+import { logServerError } from "@/lib/logger";
 
 function isDynamicUsageError(error: unknown) {
   return (
