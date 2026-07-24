@@ -1143,6 +1143,8 @@ model MasterData {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   subPackages  SubPackage[] @relation("ProcessTypeSubPackages")
+  categoryId   String?               @map("category_id")
+  categoryRel  DocumentTypeCategory? @relation("CategoryDocumentTypes", fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@unique([type, name, ownerAdminId])
   @@index([type])
@@ -1165,6 +1167,22 @@ model SubPackage {
   @@unique([name, ownerAdminId])
   @@index([ownerAdminId])
   @@map("sub_packages")
+}
+
+model DocumentTypeCategory {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean      @default(true) @map("is_active")
+  ownerAdminId String       @map("owner_admin_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  documentTypes MasterData[] @relation("CategoryDocumentTypes")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("document_type_categories")
 }
 
 model SlaConfiguration {

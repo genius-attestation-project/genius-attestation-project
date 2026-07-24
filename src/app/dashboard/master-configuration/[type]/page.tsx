@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 // Map URL slugs to human-readable titles
 const pageTitles: Record<string, string> = {
   "document-types": "Document Types",
+  "document-type-categories": "Document Type Categories",
   "process-types": "Process Types",
   "sub-packages": "Sub Packages",
   "customer-types": "Customer Types",
@@ -33,6 +34,7 @@ export default function MasterConfigurationDynamicPage({
   const { type: slug } = use(params);
   
   const isDocumentType = slug === "document-types";
+  const isDocumentTypeCategory = slug === "document-type-categories";
   const isProcessType = slug === "process-types";
   const isSubPackage = slug === "sub-packages";
   const title = pageTitles[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -51,7 +53,10 @@ export default function MasterConfigurationDynamicPage({
   const [selectedSubPackageIds, setSelectedSubPackageIds] = useState<string[]>([]);
   const [subPackageSearch, setSubPackageSearch] = useState("");
 
-  const [formData, setFormData] = useState({ name: "", category: "General", description: "", isActive: true, sortOrder: 0 });
+  // Available Categories for Document Types selection
+  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+
+  const [formData, setFormData] = useState({ name: "", category: "General", categoryId: "", description: "", isActive: true, sortOrder: 0 });
   const [formLoading, setFormLoading] = useState(false);
 
   const fetchRecords = async (query = "") => {
@@ -81,7 +86,13 @@ export default function MasterConfigurationDynamicPage({
         .then((json) => setAvailableSubPackages(json.items || []))
         .catch(console.error);
     }
-  }, [slug, isProcessType]);
+    if (isDocumentType) {
+      fetch("/api/master-data/document-type-categories?active=true")
+        .then((res) => res.json())
+        .then((json) => setAvailableCategories(json.items || []))
+        .catch(console.error);
+    }
+  }, [slug, isProcessType, isDocumentType]);
 
   // Debounced search
   useEffect(() => {
@@ -93,7 +104,7 @@ export default function MasterConfigurationDynamicPage({
 
   const handleAdd = () => {
     setEditingItem(null);
-    setFormData({ name: "", category: isDocumentType ? "" : "General", description: "", isActive: true, sortOrder: 0 });
+    setFormData({ name: "", category: isDocumentType ? "" : "General", categoryId: "", description: "", isActive: true, sortOrder: 0 });
     setSelectedSubPackageIds([]);
     setDrawerOpen(true);
   };
@@ -103,6 +114,7 @@ export default function MasterConfigurationDynamicPage({
     setFormData({
       name: item.name,
       category: item.category || "General",
+      categoryId: item.categoryId || item.categoryRel?.id || "",
       description: item.description || "",
       isActive: item.isActive,
       sortOrder: item.sortOrder || 0,
@@ -118,7 +130,12 @@ export default function MasterConfigurationDynamicPage({
   const handleDelete = async (item: any) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
     try {
-      await fetch(`/api/master-data/${slug}/${item.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/master-data/${slug}/${item.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.message || "Failed to delete item.");
+        return;
+      }
       fetchRecords(searchQuery);
     } catch (e) {
       console.error(e);
@@ -151,13 +168,14 @@ export default function MasterConfigurationDynamicPage({
         ...formData,
         name: formData.name.trim(),
         category: isDocumentType ? formData.category.trim() : (formData.category || "General").trim(),
+        categoryId: isDocumentType ? formData.categoryId : undefined,
       };
 
       if (isProcessType) {
         payload.subPackageIds = selectedSubPackageIds;
       }
 
-      if (isDocumentType && !payload.category) {
+      if (isDocumentType && !payload.category && !payload.categoryId) {
         alert("Category is required.");
         setFormLoading(false);
         return;
@@ -191,7 +209,16 @@ export default function MasterConfigurationDynamicPage({
 
   const columns = useMemo(() => {
     const cols: Array<{ header: string; accessorKey: string; cell?: (item: any) => React.ReactNode }> = [
-      { header: isSubPackage ? "Sub Package Name" : isProcessType ? "Process Type" : "Name", accessorKey: "name" },
+      { 
+        header: isSubPackage 
+          ? "Sub Package Name" 
+          : isDocumentTypeCategory
+          ? "Category Name"
+          : isProcessType 
+          ? "Process Type" 
+          : "Name", 
+        accessorKey: "name" 
+      },
     ];
 
     if (isDocumentType) {
@@ -200,7 +227,7 @@ export default function MasterConfigurationDynamicPage({
         accessorKey: "category",
         cell: (item: any) => (
           <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
-            {item.category || "General"}
+            {item.categoryRel?.name || item.category || "General"}
           </span>
         ),
       });
@@ -231,7 +258,7 @@ export default function MasterConfigurationDynamicPage({
 
     cols.push({ header: "Description", accessorKey: "description", cell: (item: any) => item.description || "-" });
 
-    if (isSubPackage) {
+    if (isSubPackage || isDocumentTypeCategory) {
       cols.push({
         header: "Created Date",
         accessorKey: "createdAt",
@@ -240,7 +267,7 @@ export default function MasterConfigurationDynamicPage({
     }
 
     return cols;
-  }, [isDocumentType, isProcessType, isSubPackage]);
+  }, [isDocumentType, isDocumentTypeCategory, isProcessType, isSubPackage]);
 
   return (
     <>
@@ -276,7 +303,7 @@ export default function MasterConfigurationDynamicPage({
           <div className="space-y-6">
             <div className="space-y-4">
               <Input
-                label={isSubPackage ? "Sub Package Name" : "Name"}
+                label={isSubPackage ? "Sub Package Name" : isDocumentTypeCategory ? "Category Name" : "Name"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -285,15 +312,32 @@ export default function MasterConfigurationDynamicPage({
               />
 
               {isDocumentType && (
-                <Input
-                  label="Category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="e.g. Education, Personal, Police, Commercial"
-                  required
-                  maxLength={100}
-                  className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
-                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-bold text-slate-900 dark:text-white">
+                    Category *
+                  </label>
+                  <select
+                    value={formData.categoryId || ""}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const cat = availableCategories.find(c => c.id === selectedId);
+                      setFormData({
+                        ...formData,
+                        categoryId: selectedId,
+                        category: cat ? cat.name : formData.category,
+                      });
+                    }}
+                    required
+                    className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 p-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  >
+                    <option value="">Select Category...</option>
+                    {availableCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               {isProcessType && (
@@ -318,9 +362,8 @@ export default function MasterConfigurationDynamicPage({
                           return (
                             <label
                               key={sp.id}
-                              className="flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors hover:bg-slate-200/50 dark:hover:bg-white/10"
+                              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 cursor-pointer dark:text-slate-200 dark:hover:bg-white/10"
                             >
-                              <span className="font-semibold text-slate-800 dark:text-slate-200">{sp.name}</span>
                               <input
                                 type="checkbox"
                                 checked={isChecked}
@@ -331,8 +374,9 @@ export default function MasterConfigurationDynamicPage({
                                     setSelectedSubPackageIds(selectedSubPackageIds.filter((id) => id !== sp.id));
                                   }
                                 }}
-                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                               />
+                              {sp.name}
                             </label>
                           );
                         })
@@ -343,38 +387,40 @@ export default function MasterConfigurationDynamicPage({
               )}
 
               <Input
-                label="Description (Optional)"
+                label="Description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="rounded-xl border-slate-200/60 bg-slate-50/50 shadow-sm focus:bg-white dark:border-white/10 dark:bg-white/5"
               />
-            </div>
-            
-            <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 transition-colors hover:bg-slate-50/80 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
-              <label className="flex cursor-pointer items-start gap-3">
-                <div className="flex h-6 items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500/20 dark:border-white/20 dark:bg-white/5"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">Active Status</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Toggle to enable or disable this record globally.</span>
-                </div>
-              </label>
+
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Active Status
+                </label>
+              </div>
             </div>
           </div>
-          
-          <Button 
-            type="submit" 
-            disabled={formLoading}
-            className="w-full rounded-xl bg-blue-600 py-6 text-[15px] font-bold text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] dark:shadow-[0_4px_14px_0_rgb(59,130,246,0.39)]"
-          >
-            {formLoading ? "Saving Changes..." : "Save Changes"}
-          </Button>
+
+          <div className="mt-auto flex items-center justify-end gap-3 border-t border-slate-200/60 pt-4 dark:border-white/10">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDrawerOpen(false)}
+              disabled={formLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={formLoading}>
+              {formLoading ? "Saving..." : editingItem ? "Save Changes" : "Create Entry"}
+            </Button>
+          </div>
         </form>
       </FormDrawer>
     </>

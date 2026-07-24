@@ -99,6 +99,11 @@ export async function GET() {
     const documentTypes = registrations ? Array.from(new Set(registrations.map((r: any) => r.documentType).filter(Boolean))) : null;
     const subPackages = registrations ? Array.from(new Set(registrations.map((r: any) => r.subPackage).filter(Boolean))) : null;
 
+    const documentTypeCategoriesResult = await prisma.documentTypeCategory.findMany({
+      where: { ownerAdminId, isActive: true },
+      select: { id: true, name: true },
+    });
+
     return NextResponse.json({
       officeLocations: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
       processOffices: officeLocationsResult ? officeLocationsResult.filter(o => o.isProcessOffice).map(o => ({ id: o.id, name: o.officeName })) : null,
@@ -107,6 +112,7 @@ export async function GET() {
       countries: countries ? countries.map(c => ({ id: c, name: c })) : null,
       services: services ? services.map(s => ({ id: s, name: s })) : null,
       documentTypes: documentTypes ? documentTypes.map(d => ({ id: d, name: d })) : null,
+      documentTypeCategories: documentTypeCategoriesResult.map(c => ({ id: c.name, name: c.name })),
       subPackages: subPackages ? subPackages.map(sp => ({ id: sp, name: sp })) : null,
       leadSources: leadSources ? leadSources.map(s => ({ id: s, name: s })) : null,
       leadStatuses: [

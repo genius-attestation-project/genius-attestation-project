@@ -25,6 +25,46 @@ export async function GET(
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const skip = (page - 1) * pageSize;
 
+    // Dedicated handler for Document Type Categories
+    if (rawSlug === "document-type-categories" || type === "DOCUMENT_TYPE_CATEGORIES") {
+      const whereClause: any = { ownerAdminId };
+      if (activeOnly) whereClause.isActive = true;
+      if (query) {
+        whereClause.OR = [
+          { name: { contains: query } },
+          { description: { contains: query } },
+        ];
+      }
+
+      const [items, total] = await Promise.all([
+        prisma.documentTypeCategory.findMany({
+          where: whereClause,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: pageSize,
+        }),
+        prisma.documentTypeCategory.count({ where: whereClause }),
+      ]);
+
+      const groupStats = await prisma.documentTypeCategory.groupBy({
+        by: ["isActive"],
+        where: { ownerAdminId },
+        _count: { id: true },
+      });
+
+      const activeCount = groupStats.find((s: any) => s.isActive)?._count.id || 0;
+      const inactiveCount = groupStats.find((s: any) => !s.isActive)?._count.id || 0;
+
+      return NextResponse.json({
+        items,
+        total,
+        activeCount,
+        inactiveCount,
+        page,
+        pageSize,
+      });
+    }
+
     // Dedicated handler for Sub Packages
     if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
       const whereClause: any = { ownerAdminId };
@@ -85,11 +125,15 @@ export async function GET(
     }
 
     const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
+    const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
 
     const [items, total] = await Promise.all([
       prisma.masterData.findMany({
         where: whereClause,
-        include: isProcessType ? { subPackages: true } : undefined,
+        include: {
+          subPackages: isProcessType,
+          categoryRel: isDocumentType,
+        },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
         skip,
         take: pageSize,
@@ -138,11 +182,36 @@ export async function POST(
     const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const body = await request.json();
-    const { name, category, description, isActive, sortOrder, subPackageIds } = body;
+    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds } = body;
 
     const trimmedName = (name || "").trim().slice(0, 100);
     if (!trimmedName) {
       return NextResponse.json({ message: "Name is required" }, { status: 400 });
+    }
+
+    // Dedicated handler for Document Type Categories
+    if (rawSlug === "document-type-categories" || type === "DOCUMENT_TYPE_CATEGORIES") {
+      const existing = await prisma.documentTypeCategory.findMany({
+        where: { ownerAdminId },
+        select: { name: true },
+      });
+
+      const targetNorm = normalizeName(trimmedName);
+      const isDuplicate = existing.some(r => normalizeName(r.name) === targetNorm);
+      if (isDuplicate) {
+        return NextResponse.json({ message: "A category with this name already exists." }, { status: 409 });
+      }
+
+      const newItem = await prisma.documentTypeCategory.create({
+        data: {
+          name: trimmedName,
+          description: (description || "").trim() || null,
+          isActive: isActive !== undefined ? Boolean(isActive) : true,
+          ownerAdminId,
+        },
+      });
+
+      return NextResponse.json({ item: newItem }, { status: 201 });
     }
 
     // Dedicated handler for Sub Packages
@@ -172,10 +241,37 @@ export async function POST(
 
     // Generic MasterData handler
     const isDocumentType = type === "DOCUMENT_TYPES" || type === "DOCUMENT_TYPE";
-    const trimmedCategory = (category || "").trim().slice(0, 100);
+    let finalCategoryId: string | null = categoryId || null;
+    let finalCategoryName = (category || "").trim().slice(0, 100);
 
-    if (isDocumentType && !trimmedCategory) {
-      return NextResponse.json({ message: "Category is required" }, { status: 400 });
+    if (isDocumentType) {
+      if (finalCategoryId) {
+        const catRecord = await prisma.documentTypeCategory.findUnique({
+          where: { id: finalCategoryId },
+        });
+        if (catRecord) {
+          finalCategoryName = catRecord.name;
+        }
+      } else if (finalCategoryName) {
+        // Find or create category record by name
+        let catRecord = await prisma.documentTypeCategory.findFirst({
+          where: {
+            ownerAdminId,
+            name: { equals: finalCategoryName },
+          },
+        });
+        if (!catRecord) {
+          catRecord = await prisma.documentTypeCategory.create({
+            data: {
+              name: finalCategoryName,
+              ownerAdminId,
+            },
+          });
+        }
+        finalCategoryId = catRecord.id;
+      } else {
+        return NextResponse.json({ message: "Category is required" }, { status: 400 });
+      }
     }
 
     const existingRecords = await prisma.masterData.findMany({
@@ -200,7 +296,8 @@ export async function POST(
       data: {
         type,
         name: trimmedName,
-        category: trimmedCategory || "General",
+        category: finalCategoryName || "General",
+        categoryId: finalCategoryId,
         description: (description || "").trim() || null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
         sortOrder: sortOrder || 0,
@@ -210,7 +307,10 @@ export async function POST(
           connect: idsToConnect.map((id: string) => ({ id }))
         } : undefined,
       },
-      include: isProcessType ? { subPackages: true } : undefined,
+      include: {
+        subPackages: isProcessType,
+        categoryRel: isDocumentType,
+      },
     });
 
     return NextResponse.json({ item: newItem }, { status: 201 });

@@ -546,8 +546,8 @@ export function RegistrationManager({
             const opts: SelectOption[] = (data.items || []).map((i: any) => ({
               label: i.name,
               value: i.name,
-              description: i.category || "General",
-              category: i.category || "General",
+              description: i.categoryRel?.name || i.category || "General",
+              category: i.categoryRel?.name || i.category || "General",
             }));
             setDocumentTypeOptions(opts);
           }

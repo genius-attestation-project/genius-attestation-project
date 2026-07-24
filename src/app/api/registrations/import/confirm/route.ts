@@ -47,7 +47,23 @@ export async function POST(req: NextRequest) {
       const trimmedName = String(docName).trim();
       if (!trimmedName) continue;
       
-      const category = (newDocTypesMap[docName] || "General").trim().slice(0, 100) || "General";
+      const categoryName = (newDocTypesMap[docName] || "General").trim().slice(0, 100) || "General";
+
+      let categoryRecord = await (prisma as any).documentTypeCategory.findFirst({
+        where: {
+          ownerAdminId,
+          name: { equals: categoryName },
+        },
+      });
+
+      if (!categoryRecord) {
+        categoryRecord = await (prisma as any).documentTypeCategory.create({
+          data: {
+            name: categoryName,
+            ownerAdminId,
+          },
+        });
+      }
 
       const existingDoc = await (prisma as any).masterData.findFirst({
         where: {
@@ -63,7 +79,8 @@ export async function POST(req: NextRequest) {
           data: {
             type: "DOCUMENT_TYPES",
             name: trimmedName,
-            category,
+            category: categoryName,
+            categoryId: categoryRecord.id,
             ownerAdminId,
             createdBy: importedBy,
           },

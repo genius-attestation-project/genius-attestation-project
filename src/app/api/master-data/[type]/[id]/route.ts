@@ -19,7 +19,68 @@ export async function PUT(
     const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const body = await request.json();
-    const { name, category, description, isActive, sortOrder, subPackageIds } = body;
+    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds } = body;
+
+    // Dedicated handler for Document Type Categories
+    if (rawSlug === "document-type-categories" || type === "DOCUMENT_TYPE_CATEGORIES") {
+      const existing = await prisma.documentTypeCategory.findUnique({
+        where: { id: params.id },
+      });
+
+      if (!existing || existing.ownerAdminId !== ownerAdminId) {
+        return NextResponse.json({ message: "Record not found" }, { status: 404 });
+      }
+
+      let trimmedName = existing.name;
+      if (name !== undefined) {
+        trimmedName = String(name).trim().slice(0, 100);
+        if (!trimmedName) {
+          return NextResponse.json({ message: "Name is required" }, { status: 400 });
+        }
+
+        const otherRecords = await prisma.documentTypeCategory.findMany({
+          where: {
+            ownerAdminId,
+            NOT: { id: params.id },
+          },
+          select: { name: true },
+        });
+
+        const targetNorm = normalizeName(trimmedName);
+        const isDuplicate = otherRecords.some(r => normalizeName(r.name) === targetNorm);
+        if (isDuplicate) {
+          return NextResponse.json({ message: "A category with this name already exists." }, { status: 409 });
+        }
+      }
+
+      const updatedItem = await prisma.documentTypeCategory.update({
+        where: { id: params.id },
+        data: {
+          name: trimmedName,
+          description: description !== undefined ? (String(description).trim() || null) : existing.description,
+          isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
+        },
+      });
+
+      // Update string category on linked MasterData records if name changed
+      if (existing.name !== trimmedName) {
+        await prisma.masterData.updateMany({
+          where: {
+            type: "DOCUMENT_TYPES",
+            ownerAdminId,
+            OR: [
+              { categoryId: params.id },
+              { category: existing.name },
+            ],
+          },
+          data: {
+            category: trimmedName,
+          },
+        });
+      }
+
+      return NextResponse.json({ item: updatedItem });
+    }
 
     // Dedicated handler for Sub Packages
     if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
@@ -101,17 +162,38 @@ export async function PUT(
       }
     }
 
-    let trimmedCategory = existing.category;
-    if (category !== undefined) {
-      trimmedCategory = String(category).trim().slice(0, 100);
-      if (isDocumentType && !trimmedCategory) {
-        return NextResponse.json({ message: "Category is required" }, { status: 400 });
+    let finalCategoryId: string | null = existing.categoryId;
+    let finalCategoryName = existing.category;
+
+    if (isDocumentType) {
+      if (categoryId !== undefined) {
+        finalCategoryId = categoryId || null;
+        if (finalCategoryId) {
+          const catRecord = await prisma.documentTypeCategory.findUnique({
+            where: { id: finalCategoryId },
+          });
+          if (catRecord) {
+            finalCategoryName = catRecord.name;
+          }
+        }
+      } else if (category !== undefined) {
+        finalCategoryName = String(category).trim().slice(0, 100);
+        if (!finalCategoryName) {
+          return NextResponse.json({ message: "Category is required" }, { status: 400 });
+        }
+        const catRecord = await prisma.documentTypeCategory.findFirst({
+          where: { ownerAdminId, name: { equals: finalCategoryName } },
+        });
+        if (catRecord) {
+          finalCategoryId = catRecord.id;
+        }
       }
     }
 
     const updateData: any = {
       name: trimmedName,
-      category: trimmedCategory || "General",
+      category: finalCategoryName || "General",
+      categoryId: finalCategoryId,
       description: description !== undefined ? (String(description).trim() || null) : existing.description,
       isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
       sortOrder: sortOrder !== undefined ? sortOrder : existing.sortOrder,
@@ -127,7 +209,10 @@ export async function PUT(
     const updatedItem = await prisma.masterData.update({
       where: { id: params.id },
       data: updateData,
-      include: isProcessType ? { subPackages: true } : undefined,
+      include: {
+        subPackages: isProcessType,
+        categoryRel: isDocumentType,
+      },
     });
 
     return NextResponse.json({ item: updatedItem });
@@ -158,6 +243,44 @@ export async function DELETE(
     const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
 
+    // Dedicated handler for Document Type Categories
+    if (rawSlug === "document-type-categories" || type === "DOCUMENT_TYPE_CATEGORIES") {
+      const existing = await prisma.documentTypeCategory.findUnique({
+        where: { id: params.id },
+      });
+
+      if (!existing || existing.ownerAdminId !== ownerAdminId) {
+        return NextResponse.json({ message: "Record not found" }, { status: 404 });
+      }
+
+      // Check if category contains document types
+      const linkedCount = await prisma.masterData.count({
+        where: {
+          type: "DOCUMENT_TYPES",
+          isArchived: false,
+          ownerAdminId,
+          OR: [
+            { categoryId: params.id },
+            { category: existing.name },
+          ],
+        },
+      });
+
+      if (linkedCount > 0) {
+        return NextResponse.json(
+          { message: "This category cannot be deleted because it contains Document Types." },
+          { status: 400 }
+        );
+      }
+
+      await prisma.documentTypeCategory.delete({
+        where: { id: params.id },
+      });
+
+      return NextResponse.json({ success: true, message: "Category deleted." });
+    }
+
+    // Dedicated handler for Sub Packages
     if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
       const existing = await prisma.subPackage.findUnique({
         where: { id: params.id },

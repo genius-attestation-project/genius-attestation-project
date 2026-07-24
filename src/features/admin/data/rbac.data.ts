@@ -24,6 +24,7 @@ import {
   ListChecks,
   BarChart3,
   Globe,
+  FolderTree,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -112,6 +113,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         href: "/dashboard/master-configuration/document-types",
         icon: ClipboardList,
         menuPermission: "menu.master-configuration.document-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Document Type Categories",
+        href: "/dashboard/master-configuration/document-type-categories",
+        icon: FolderTree,
+        menuPermission: "menu.master-configuration.document-type-categories",
         pagePermission: "master_configuration.view",
       },
       {
@@ -485,6 +493,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "users", label: "Users", description: "User management access." },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
+  { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
   { key: "roles", label: "Roles", description: "Role and RBAC access." },
   { key: "departments", label: "Department", description: "Department administration." },
   { key: "office_locations", label: "Office Location", description: "Office location administration." },
