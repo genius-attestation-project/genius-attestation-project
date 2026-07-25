@@ -459,11 +459,11 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "bm_report", label: "BM Report", description: "BM reporting access." },
-  { 
-    key: "document_movement", 
-    label: "Document Movement", 
+  {
+    key: "document_movement",
+    label: "Document Movement",
     description: "Unified document movement history access.",
-    actions: ["view"] 
+    actions: ["view"]
   },
   { key: "process", label: "Process Module", description: "Process Module tracking access." },
   { key: "account_update", label: "Account Update", description: "Account update access." },
@@ -478,41 +478,41 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "attendance.checkout", label: "Check Out", description: "Attendance checkout access.", actions: ["create"] },
   { key: "leave", label: "Leave", description: "Apply for and review leave requests." },
   { key: "salary", label: "Salary", description: "Payroll calculation, approval, and reporting access." },
-  { 
-    key: "pendingApproval", 
-    label: "Pending Approval Workflow", 
-    description: "General Pending Approval access.", 
-    actions: ["view", "approve", "reject", "return", "bulkApprove", "bulkReject", "bulkReturn"] 
+  {
+    key: "pendingApproval",
+    label: "Pending Approval Workflow",
+    description: "General Pending Approval access.",
+    actions: ["view", "approve", "reject", "return", "bulkApprove", "bulkReject", "bulkReturn"]
   },
-  { 
-    key: "inactiveLead", 
-    label: "Inactive Lead Workflow", 
-    description: "Inactive Lead Approval access.", 
-    actions: ["view", "approve", "reject", "return"] 
+  {
+    key: "inactiveLead",
+    label: "Inactive Lead Workflow",
+    description: "Inactive Lead Approval access.",
+    actions: ["view", "approve", "reject", "return"]
   },
-  { 
-    key: "lobApproval", 
-    label: "LOB Approval Workflow", 
-    description: "LOB Approval access.", 
-    actions: ["view", "request", "approve", "reject", "return"] 
+  {
+    key: "lobApproval",
+    label: "LOB Approval Workflow",
+    description: "LOB Approval access.",
+    actions: ["view", "request", "approve", "reject", "return"]
   },
-  { 
-    key: "overdueFollowup", 
-    label: "Overdue Followup Workflow", 
-    description: "Overdue Followup Approval access.", 
-    actions: ["view", "approve", "reject", "return"] 
+  {
+    key: "overdueFollowup",
+    label: "Overdue Followup Workflow",
+    description: "Overdue Followup Approval access.",
+    actions: ["view", "approve", "reject", "return"]
   },
-  { 
-    key: "calendar", 
-    label: "Calendar Enhancements", 
-    description: "Calendar advanced viewing and management.", 
-    actions: ["viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups"] 
+  {
+    key: "calendar",
+    label: "Calendar Enhancements",
+    description: "Calendar advanced viewing and management.",
+    actions: ["viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups"]
   },
-  { 
-    key: "reports", 
-    label: "Extended Reports", 
+  {
+    key: "reports",
+    label: "Extended Reports",
     description: "Extended Reports for Pending Approvals.",
-    actions: ["pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "view", "export"] 
+    actions: ["pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "view", "export"]
   },
   {
     key: "communication",

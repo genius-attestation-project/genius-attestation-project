@@ -10,11 +10,6 @@ export async function GET() {
     }
 
     const { user } = session;
-    const officeId = user.officeLocationId;
-    
-    if (!officeId) {
-      return NextResponse.json({ message: "No office assigned to user." }, { status: 400 });
-    }
 
     // 1. Fetch the user's read states for fast unread comparison
     // @ts-ignore: Stale IDE cache

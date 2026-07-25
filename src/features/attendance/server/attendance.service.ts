@@ -177,15 +177,22 @@ export async function isAttendanceReady(): Promise<boolean> {
 
 export async function getTodayAttendance(userId: string): Promise<AttendanceRecord | null> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { officeLocationRef: { select: { timezone: true } } },
+    });
+    const tz = user?.officeLocationRef?.timezone;
+    const date = todayDate(tz);
+
     const record = await prisma.attendanceRecord.findUnique({
-      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+      where: { userId_attendanceDate: { userId, attendanceDate: date } },
       include: attendanceUserInclude,
     });
     return record ? mapAttendanceRecord(record as AttendanceDbRecord) : null;
   } catch (err) {
     if (isTableMissingError(err)) {
       console.warn("[attendance] attendance_records table not found. Run: npx prisma migrate dev");
-      return null;
+      throw new Error(ATTENDANCE_NOT_READY_MESSAGE);
     }
     console.error("[attendance] getTodayAttendance error:", err);
     throw err;
@@ -199,20 +206,29 @@ export async function checkIn(
 ): Promise<AttendanceRecord> {
   const checkinTime = opts.checkinTime ? new Date(opts.checkinTime) : new Date();
 
+  let tz: string | undefined;
+
   let setting: { expectedCheckinTime: string } | null = null;
   try {
-    setting = await prisma.attendanceSetting.findUnique({
-      where: { userId },
-      select: { expectedCheckinTime: true },
+    const userWithSetting = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        officeLocationRef: { select: { timezone: true } },
+        attendanceSetting: { select: { expectedCheckinTime: true } }
+      },
     });
+    tz = userWithSetting?.officeLocationRef?.timezone;
+    setting = userWithSetting?.attendanceSetting || null;
   } catch (err) {
     if (!isTableMissingError(err)) {
       console.error("[attendance] checkIn - attendanceSetting lookup error:", err);
     }
   }
+  
+  const date = todayDate(tz);
 
   const existing = await prisma.attendanceRecord.findUnique({
-    where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+    where: { userId_attendanceDate: { userId, attendanceDate: date } },
     include: attendanceUserInclude,
   });
 
@@ -229,7 +245,7 @@ export async function checkIn(
     const record = await prisma.attendanceRecord.create({
       data: {
         userId,
-        attendanceDate: todayDate(),
+        attendanceDate: date,
         checkinTime,
         status,
         checkinRemarks: opts.checkinRemarks || null,
@@ -254,8 +270,15 @@ export async function checkOut(
   opts: { checkoutTime?: string; dailySummary: string },
 ): Promise<AttendanceRecord> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { officeLocationRef: { select: { timezone: true } } },
+    });
+    const tz = user?.officeLocationRef?.timezone;
+    const date = todayDate(tz);
+
     const existing = await prisma.attendanceRecord.findUnique({
-      where: { userId_attendanceDate: { userId, attendanceDate: todayDate() } },
+      where: { userId_attendanceDate: { userId, attendanceDate: date } },
       select: { id: true, checkinTime: true, status: true, ownerAdminId: true, checkoutTime: true },
     });
 

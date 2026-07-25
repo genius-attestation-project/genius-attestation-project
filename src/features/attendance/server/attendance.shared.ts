@@ -3,8 +3,22 @@ import { prisma } from "@/lib/prisma";
 export const ATTENDANCE_NOT_READY_MESSAGE =
   "Attendance system is not set up yet. Database migrations need to be applied.";
 
-export function todayDate(): Date {
-  return startOfDay(new Date());
+export function todayDate(timezone?: string): Date {
+  const now = new Date();
+  if (!timezone) return startOfDay(now);
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((p) => p.type === "year")!.value;
+  const month = parts.find((p) => p.type === "month")!.value;
+  const day = parts.find((p) => p.type === "day")!.value;
+
+  return new Date(`${year}-${month}-${day}T00:00:00.000Z`);
 }
 
 export function startOfDay(value: Date | string): Date {

@@ -24,7 +24,8 @@ export async function GET() {
     return Response.json({ record, setting, ready: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to load today's attendance.";
+    const status = message.includes("not set up") || message.includes("migrations") ? 503 : 500;
     console.error("[api/attendance/today] Error:", err);
-    return Response.json({ message }, { status: 500 });
+    return Response.json({ message }, { status });
   }
 }

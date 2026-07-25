@@ -60,8 +60,11 @@ export function AttendanceGuard({ userId }: Props) {
       } else {
         setModal("idle");
       }
-    } catch {
-      // silently fail — don't block the app if attendance API is unreachable
+    } catch (err) {
+      if (err instanceof Error && (err.message.includes("not set up") || err.message.includes("migrations"))) {
+        setError(err.message);
+        setModal("checkin");
+      }
     } finally {
       setLoading(false);
     }
