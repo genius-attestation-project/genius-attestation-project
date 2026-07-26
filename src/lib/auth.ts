@@ -34,9 +34,23 @@ const providers = [
           return null;
         }
 
-        const user = await (prisma as any).user.findUnique({
+        let user: any = await (prisma as any).user.findUnique({
           where: { email: parsed.data.email },
         });
+
+        let isAgency = false;
+        
+        if (!user) {
+          user = await (prisma as any).assignedAgency.findUnique({
+            where: { email: parsed.data.email },
+          });
+          if (!user) {
+            user = await (prisma as any).assignedAgency.findUnique({
+              where: { username: parsed.data.email },
+            });
+          }
+          if (user) isAgency = true;
+        }
 
         const passwordHash = user?.passwordHash ?? user?.legacyPasswordHash;
 
@@ -61,10 +75,17 @@ const providers = [
           return null;
         }
 
-        await (prisma as any).user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
+        if (isAgency) {
+          await (prisma as any).assignedAgency.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() },
+          });
+        } else {
+          await (prisma as any).user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          });
+        }
 
         authDebugLog("Credentials login authorized.", {
           userId: user.id,
@@ -73,10 +94,11 @@ const providers = [
 
         return {
           id: user.id,
-          name: user.name,
+          name: isAgency ? user.username : user.name,
           email: user.email,
-          image: user.image,
-        };
+          image: isAgency ? null : user.image,
+          isAgency,
+        } as any;
       } catch (error) {
         console.error("[auth] Credentials authorize failed", error);
         return null;
@@ -179,6 +201,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       try {
+        if (user && (user as any).isAgency) {
+          token.id = user.id;
+          token.name = user.name;
+          token.email = user.email;
+          token.isAgency = true;
+          token.role = "Agency";
+          token.isSuperAdmin = false;
+          token.permissions = [];
+          token.roles = [];
+          return token;
+        }
+        
+        if (token.isAgency) {
+          return token;
+        }
+
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
           select: {
@@ -235,6 +273,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           session.user.image =
             typeof token.picture === "string" ? token.picture : session.user.image;
+
+          session.user.isAgency =
+            typeof token.isAgency === "boolean" ? token.isAgency : false;
 
           session.user.role =
             typeof token.role === "string" ? token.role : "User";

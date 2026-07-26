@@ -841,6 +841,8 @@ model ProcessType {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  assignedAgencyPackages AssignedAgencyPackage[]
+
   @@unique([name, ownerAdminId])
   @@index([ownerAdminId])
   @@map("process_types")
@@ -1245,4 +1247,39 @@ model GeneralSetting {
   @@unique([settingKey, ownerAdminId])
   @@index([ownerAdminId])
   @@map("general_settings")
+}
+
+model AssignedAgency {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  ownerAdminId String    @map("owner_admin_id")
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  assignedPackages AssignedAgencyPackage[]
+
+  @@index([ownerAdminId])
+  @@index([isActive])
+  @@map("assigned_agencies")
+}
+
+model AssignedAgencyPackage {
+  id               String         @id @default(cuid())
+  assignedAgencyId String         @map("assigned_agency_id")
+  assignedAgency   AssignedAgency @relation(fields: [assignedAgencyId], references: [id], onDelete: Cascade)
+  processTypeId    String         @map("process_type_id")
+  processType      ProcessType    @relation(fields: [processTypeId], references: [id])
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedAgencyId, processTypeId])
+  @@index([assignedAgencyId])
+  @@index([processTypeId])
+  @@map("assigned_agency_packages")
 }

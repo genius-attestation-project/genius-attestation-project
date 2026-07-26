@@ -181,6 +181,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     ],
   },
   {
+    label: "Assigned Agencies",
+    href: "/dashboard/assigned-agencies",
+    icon: Users,
+    menuPermission: "menu.assigned-agencies",
+    pagePermission: "assigned_agencies.view",
+  },
+  {
     label: "Lead Management",
     href: "/dashboard/lead-management",
     icon: Users,
@@ -441,6 +448,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "dashboard", label: "Dashboard", description: "Dashboard module access." },
   { key: "admin_management", label: "Admin Management", description: "Admin workspace access." },
   { key: "users", label: "Users", description: "User management access." },
+  { 
+    key: "assigned_agencies", 
+    label: "Assigned Agencies", 
+    description: "Manage external agency login accounts.",
+    actions: ["view", "create", "edit", "delete", "manage", "export"]
+  },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
   { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
