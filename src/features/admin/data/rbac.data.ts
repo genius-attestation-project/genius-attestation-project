@@ -36,7 +36,8 @@ export const permissionActions = [
   "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline",
   "import", "downloadTemplate", "viewImportHistory",
   "comment", "reply", "forward", "inbox",
-  "activate", "deactivate", "reset_password"
+  "activate", "deactivate", "reset_password",
+  "complete", "transfer", "move"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -479,7 +480,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     description: "Unified document movement history access.",
     actions: ["view"]
   },
-  { key: "process", label: "Process Module", description: "Process Module tracking access." },
+  { 
+    key: "process", 
+    label: "Process Module", 
+    description: "Process Module tracking access.",
+    actions: ["view", "create", "edit", "delete", "complete", "reject", "transfer", "move", "manage", "export"]
+  },
   { key: "account_update", label: "Account Update", description: "Account update access." },
   { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
   { key: "account_admin_approval", label: "Account Admin Approval", description: "Account admin approval access." },

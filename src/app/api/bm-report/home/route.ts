@@ -28,12 +28,7 @@ export async function GET() {
       getBmReportStats(ownerAdminId, officeLocationName),
     ]);
 
-    const office = await prisma.officeLocation.findFirst({
-      where: { ownerAdminId, officeName: officeLocationName },
-      select: { isProcessOffice: true },
-    });
-
-    return jsonOk({ items, stats, isProcessOffice: office?.isProcessOffice || false });
+    return jsonOk({ items, stats });
   } catch (error) {
     console.error("Failed to fetch BM home", error);
     return jsonError("Unable to fetch BM home.", 500);

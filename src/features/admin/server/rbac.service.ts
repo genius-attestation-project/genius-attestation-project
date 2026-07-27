@@ -102,7 +102,6 @@ function mapOfficeLocation(officeLocation: {
   location: string;
   timezone: string;
   employees: number;
-  isProcessOffice?: boolean;
   createdAt: Date;
 }): OfficeLocationRow {
   return {
@@ -111,7 +110,6 @@ function mapOfficeLocation(officeLocation: {
     location: officeLocation.location,
     timezone: officeLocation.timezone,
     employees: officeLocation.employees,
-    isProcessOffice: officeLocation.isProcessOffice || false,
     createdDate: formatDate(officeLocation.createdAt),
   };
 }
@@ -778,7 +776,6 @@ export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeL
     location: string;
     timezone: string;
     employees: number;
-    isProcessOffice: boolean;
     createdAt: Date;
   }>>`
     SELECT
@@ -787,7 +784,6 @@ export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeL
       location,
       timezone,
       employees,
-      is_process_office AS "isProcessOffice",
       created_at AS "createdAt"
     FROM office_locations
     WHERE owner_admin_id = ${ownerAdminId}
@@ -809,7 +805,6 @@ export async function createOfficeLocation(
       location: payload.location,
       timezone: payload.timezone,
       employees: payload.employees,
-      isProcessOffice: payload.isProcessOffice,
       ownerAdminId,
     },
   });
@@ -838,7 +833,6 @@ export async function updateOfficeLocation(
       location: payload.location,
       timezone: payload.timezone,
       employees: payload.employees,
-      isProcessOffice: payload.isProcessOffice,
     },
   });
 

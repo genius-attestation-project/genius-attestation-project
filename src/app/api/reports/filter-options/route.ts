@@ -34,7 +34,7 @@ export async function GET() {
     const results = await Promise.allSettled([
       prisma.officeLocation.findMany({
         where: { ownerAdminId },
-        select: { id: true, officeName: true, isProcessOffice: true },
+        select: { id: true, officeName: true },
       }),
       prisma.department.findMany({
         where: { ownerAdminId },
@@ -106,7 +106,7 @@ export async function GET() {
 
     return NextResponse.json({
       officeLocations: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
-      processOffices: officeLocationsResult ? officeLocationsResult.filter(o => o.isProcessOffice).map(o => ({ id: o.id, name: o.officeName })) : null,
+      processOffices: officeLocationsResult ? officeLocationsResult.map(o => ({ id: o.id, name: o.officeName })) : null,
       departments: departments ? departments.map(d => ({ id: d.id, name: d.name })) : null,
       users: users,
       countries: countries ? countries.map(c => ({ id: c, name: c })) : null,

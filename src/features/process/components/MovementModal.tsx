@@ -40,7 +40,6 @@ export function MovementModal({
         .then((data) => {
           if (data.officeLocations) {
             const processOffices = data.officeLocations
-              .filter((o: any) => o.isProcessOffice)
               .map((o: any) => ({ label: o.officeName, value: o.id }));
             setOffices(processOffices);
             if (processOffices.length > 0) {
