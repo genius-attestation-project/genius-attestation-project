@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Building2, 
   CheckCheck, 
@@ -16,7 +17,10 @@ import {
   Send, 
   ShieldAlert, 
   UserCheck, 
-  XCircle 
+  XCircle,
+  History,
+  ArrowRightLeft,
+  CheckCircle2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -40,6 +44,7 @@ const emptyStats: ProcessStats = {
 type ProcessTab = "in_hand" | "inbound" | "outbound" | "bundle";
 
 export function ProcessDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProcessTab>("in_hand");
   const [processType, setProcessType] = useState<string>("All");
   
@@ -48,10 +53,15 @@ export function ProcessDashboard() {
   const [items, setItems] = useState<ProcessItem[]>([]);
   const [stats, setStats] = useState<ProcessStats>(emptyStats);
 
+  // Assigned Office Login Selector state
+  const [assignedOfficeOptions, setAssignedOfficeOptions] = useState<{ label: string; value: string }[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
+  const [loadingOffices, setLoadingOffices] = useState(false);
+
   // Modals state
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
-  const [targetAction, setTargetAction] = useState<"COMPLETED" | "REJECTED" | "SEND_TO_OFFICE">("COMPLETED");
+  const [targetAction, setTargetAction] = useState<"COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN">("COMPLETED");
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -60,6 +70,7 @@ export function ProcessDashboard() {
     { label: "All", value: "All" }
   ]);
 
+  // Load process types
   useEffect(() => {
     async function fetchProcessTypes() {
       try {
@@ -74,6 +85,32 @@ export function ProcessDashboard() {
       }
     }
     fetchProcessTypes();
+  }, []);
+
+  // Load active assigned office accounts for selector
+  useEffect(() => {
+    async function fetchAssignedOffices() {
+      setLoadingOffices(true);
+      try {
+        const res = await fetch("/api/assigned-office?pageSize=100&status=Active");
+        if (res.ok) {
+          const data = await res.json();
+          const list = (data.items || []).map((o: any) => ({
+            label: `${o.username}${o.email ? ` (${o.email})` : ""}`,
+            value: o.id,
+          }));
+          setAssignedOfficeOptions(list);
+          if (list.length > 0) {
+            setSelectedOfficeId(list[0].value);
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching assigned offices for selector:", e);
+      } finally {
+        setLoadingOffices(false);
+      }
+    }
+    fetchAssignedOffices();
   }, []);
 
   async function loadData() {
@@ -102,7 +139,10 @@ export function ProcessDashboard() {
     loadData();
   }, [activeTab, processType]);
 
-  function openMovementModal(assignmentId: string, action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE") {
+  function openMovementModal(
+    assignmentId: string, 
+    action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN"
+  ) {
     setSelectedAssignmentId(assignmentId);
     setTargetAction(action);
     setMovementModalOpen(true);
@@ -111,6 +151,12 @@ export function ProcessDashboard() {
   function openTimeline(tracking: string) {
     setTimelineTracking(tracking);
     setTimelineOpen(true);
+  }
+
+  function handleOfficeLogin() {
+    if (selectedOfficeId) {
+      router.push(`/dashboard/assigned-office/workspace?officeId=${selectedOfficeId}`);
+    }
   }
 
   const cards = [
@@ -169,7 +215,7 @@ export function ProcessDashboard() {
     },
     { 
       key: "bundle" as const, 
-      label: "Bundle Workflow", 
+      label: "Bundle Movement", 
       count: 0,
       description: "Sub-package & bundle transfers" 
     },
@@ -177,9 +223,9 @@ export function ProcessDashboard() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      {/* Top Banner with Header & Assigned Office Login Link */}
+      {/* Top Banner with Header & Assigned Office Login Selector */}
       <section className="relative overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-6">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
@@ -190,23 +236,37 @@ export function ProcessDashboard() {
               </span>
             </div>
             <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
-              Document Processing Dashboard
+              Process Module Dashboard
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage document movement across stages (Inbound, In Hand, Outbound, Bundle Workflows) and execute process operations.
+              Manage document workflows, execute operations (Inbound, In Hand, Outbound, Transfer, Receive, Return, Complete, Reject), and track movement history.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Quick Access to Assigned Office Login */}
-            <Link href="/dashboard/assigned-office/workspace">
-              <Button variant="secondary" className="gap-2 border-blue-200 bg-white font-semibold text-blue-700 shadow-sm hover:bg-blue-50">
+            {/* Assigned Office Login Selector & Login Button */}
+            <div className="flex items-center gap-2 rounded-2xl border border-blue-200 bg-white/90 p-2 shadow-sm">
+              <div className="w-48 sm:w-56">
+                <SearchableSelect
+                  options={assignedOfficeOptions}
+                  value={selectedOfficeId}
+                  onChange={setSelectedOfficeId}
+                  placeholder={loadingOffices ? "Loading accounts..." : "Select Assigned Office Account"}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                disabled={!selectedOfficeId || loadingOffices}
+                onClick={handleOfficeLogin}
+                className="gap-1.5 border-blue-200 bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700"
+              >
                 <Building2 size={16} />
-                Assigned Office Login
+                Login
               </Button>
-            </Link>
+            </div>
 
-            <div className="w-full sm:w-64">
+            {/* Filter by Process Type */}
+            <div className="w-full sm:w-52">
               <SearchableSelect
                 options={availableProcessTypes}
                 value={processType}
@@ -225,7 +285,7 @@ export function ProcessDashboard() {
         ))}
       </section>
 
-      {/* Navigation Tabs */}
+      {/* Workflow Navigation Tabs */}
       <section className="rounded-[28px] border border-(--border) bg-white/80 p-3 shadow-(--shadow-card)">
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {tabsConfig.map((tab) => {
@@ -269,7 +329,7 @@ export function ProcessDashboard() {
         </div>
       )}
 
-      {/* Main Table / Content Section */}
+      {/* Main Operations Table */}
       {loading ? (
         <div className="rounded-[28px] border border-(--border) bg-white p-12 text-center shadow-(--shadow-card)">
           <LoaderCircle size={28} className="mx-auto animate-spin text-blue-600" />
@@ -325,28 +385,82 @@ export function ProcessDashboard() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                          onClick={() => openMovementModal(item.id, "REJECTED")}
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                          onClick={() => openMovementModal(item.id, "SEND_TO_OFFICE")}
-                        >
-                          Send To Office
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => openMovementModal(item.id, "COMPLETED")}
-                        >
-                          Complete
-                        </Button>
+                        {/* Contextual Operation Buttons based on activeTab */}
+                        {activeTab === "inbound" && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => openMovementModal(item.id, "RECEIVE")}
+                            >
+                              Receive
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                              onClick={() => openMovementModal(item.id, "RETURN")}
+                            >
+                              Return
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                              onClick={() => openMovementModal(item.id, "REJECTED")}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        )}
+
+                        {activeTab === "in_hand" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                              onClick={() => openMovementModal(item.id, "SEND_TO_OFFICE")}
+                            >
+                              Transfer
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                              onClick={() => openMovementModal(item.id, "RETURN")}
+                            >
+                              Return
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                              onClick={() => openMovementModal(item.id, "REJECTED")}
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => openMovementModal(item.id, "COMPLETED")}
+                            >
+                              Complete
+                            </Button>
+                          </>
+                        )}
+
+                        {(activeTab === "outbound" || activeTab === "bundle") && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="border-slate-200 text-slate-700 hover:bg-slate-100 gap-1.5"
+                            onClick={() => openTimeline(item.trackingNumber)}
+                          >
+                            <History size={14} />
+                            Movement History
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -357,13 +471,13 @@ export function ProcessDashboard() {
         </div>
       )}
 
-      {/* Movement Modal */}
+      {/* Operation Action Modal */}
       {movementModalOpen && selectedAssignmentId && (
         <MovementModal
           open={movementModalOpen}
           onClose={() => setMovementModalOpen(false)}
-          title={`Process Document Operation`}
-          description="Confirm action to update document movement status."
+          title={`Process Operation: ${targetAction.replace("_", " ")}`}
+          description="Confirm details and add optional remarks to log this document movement."
           action={targetAction}
           assignmentId={selectedAssignmentId}
           onSuccess={loadData}

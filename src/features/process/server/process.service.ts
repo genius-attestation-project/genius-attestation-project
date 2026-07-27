@@ -95,7 +95,7 @@ export async function listProcessAssignments(
 
 export async function moveProcessAssignment(params: {
   assignmentId: string;
-  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE";
+  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN";
   targetOfficeId?: string;
   userId: string;
   ownerAdminId: string;
@@ -120,17 +120,30 @@ export async function moveProcessAssignment(params: {
 
     if (!movement) throw new Error("Document movement not found in process module.");
 
-    let nextOfficeId = "";
+    let nextOfficeId = officeId;
     let nextStatus = "";
     let processChain = Array.isArray(movement.processChain) ? [...movement.processChain] : [];
 
-    if (params.action === "SEND_TO_OFFICE") {
+    if (params.action === "RECEIVE") {
+      nextStatus = "IN_HAND";
+      nextOfficeId = officeId;
+    } else if (params.action === "SEND_TO_OFFICE") {
       if (!params.targetOfficeId) throw new Error("Target office is required.");
       nextOfficeId = params.targetOfficeId;
       nextStatus = "INBOUND";
       
       if (!processChain.includes(officeId)) {
-         processChain.push(officeId);
+        processChain.push(officeId);
+      }
+    } else if (params.action === "RETURN") {
+      nextStatus = "RETURNED";
+      const previousOfficeId = processChain.length > 0 ? processChain.pop() : null;
+      if (previousOfficeId) {
+        nextOfficeId = previousOfficeId as string;
+      } else {
+        if (movement.originOfficeId) {
+          nextOfficeId = movement.originOfficeId;
+        }
       }
     } else {
       nextStatus = params.action;
@@ -160,10 +173,19 @@ export async function moveProcessAssignment(params: {
       },
     });
 
+    const actionLabel =
+      params.action === "RECEIVE"
+        ? "Received Document"
+        : params.action === "RETURN"
+        ? "Returned Document"
+        : params.action === "SEND_TO_OFFICE"
+        ? "Sent to Process Office"
+        : `Marked as ${params.action}`;
+
     await tx.movementHistory.create({
       data: {
         trackingNumber: movement.trackingNumber,
-        action: params.action === "SEND_TO_OFFICE" ? "Sent to Process Office" : `Marked as ${params.action}`,
+        action: actionLabel,
         oldStatus: movement.status,
         newStatus: nextStatus,
         oldOffice: params.officeLocationName,

@@ -37,7 +37,7 @@ export type ProcessDashboardResponse = {
 
 export const moveProcessSchema = z.object({
   assignmentId: z.string().min(1, "Assignment ID is required"),
-  action: z.enum(["COMPLETED", "REJECTED", "SEND_TO_OFFICE"]),
+  action: z.enum(["COMPLETED", "REJECTED", "SEND_TO_OFFICE", "RECEIVE", "RETURN"]),
   targetOfficeId: z.string().optional(),
   remarks: z.string().optional(),
 });

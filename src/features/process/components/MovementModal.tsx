@@ -11,7 +11,7 @@ type MovementModalProps = {
   onClose: () => void;
   title: string;
   description: string;
-  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE";
+  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN";
   assignmentId: string;
   onSuccess: () => void;
 };
