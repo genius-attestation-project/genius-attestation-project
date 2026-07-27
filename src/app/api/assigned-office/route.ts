@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { createAgencySchema } from "@/features/assigned-agencies/validations/agency.schema";
+import { createOfficeSchema } from "@/features/assigned-office/validations/office.schema";
 import bcrypt from "bcrypt";
 import { auth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const errorResponse = await requireApiPermission("assigned_agencies.view");
+    const errorResponse = await requireApiPermission("assigned_office.view");
     if (errorResponse) return errorResponse;
 
     const session = await auth();
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    const [total, agencies] = await Promise.all([
+    const [total, offices] = await Promise.all([
       prisma.assignedAgency.count({ where: whereClause }),
       prisma.assignedAgency.findMany({
         where: whereClause,
@@ -65,21 +65,21 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({
-      items: agencies,
+      items: offices,
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    console.error("[ASSIGNED_AGENCIES_GET]", error);
+    console.error("[ASSIGNED_OFFICE_GET]", error);
     return NextResponse.json({ message: "Internal server error." }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const errorResponse = await requireApiPermission("assigned_agencies.create");
+    const errorResponse = await requireApiPermission("assigned_office.create");
     if (errorResponse) return errorResponse;
 
     const session = await auth();
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     if (!ownerAdminId || !userId) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
 
     const body = await req.json();
-    const parsed = createAgencySchema.safeParse(body);
+    const parsed = createOfficeSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ message: "Invalid request body.", errors: parsed.error.format() }, { status: 400 });
@@ -97,25 +97,25 @@ export async function POST(req: NextRequest) {
     const { username, email, password, assignedPackages, isActive } = parsed.data;
 
     // Check unique username and email in both User and AssignedAgency tables
-    const [existingAgencyUsername, existingAgencyEmail, existingUserUsername, existingUserEmail] = await Promise.all([
+    const [existingOfficeUsername, existingOfficeEmail, existingUserUsername, existingUserEmail] = await Promise.all([
       prisma.assignedAgency.findUnique({ where: { username } }),
       prisma.assignedAgency.findUnique({ where: { email } }),
       prisma.user.findUnique({ where: { email: username } }),
       prisma.user.findUnique({ where: { email } }),
     ]);
 
-    if (existingAgencyUsername || existingUserUsername) {
+    if (existingOfficeUsername || existingUserUsername) {
       return NextResponse.json({ message: "Username is already taken." }, { status: 400 });
     }
 
-    if (existingAgencyEmail || existingUserEmail) {
+    if (existingOfficeEmail || existingUserEmail) {
       return NextResponse.json({ message: "Email is already in use." }, { status: 400 });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const agency = await prisma.assignedAgency.create({
+    const office = await prisma.assignedAgency.create({
       data: {
         username,
         email,
@@ -131,9 +131,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(agency, { status: 201 });
+    return NextResponse.json(office, { status: 201 });
   } catch (error) {
-    console.error("[ASSIGNED_AGENCIES_POST]", error);
+    console.error("[ASSIGNED_OFFICE_POST]", error);
     return NextResponse.json({ message: "Internal server error." }, { status: 500 });
   }
 }

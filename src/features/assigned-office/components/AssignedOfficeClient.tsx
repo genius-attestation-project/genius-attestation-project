@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import * as XLSX from "xlsx";
 
-import { createAgencySchema, updateAgencySchema, resetAgencyPasswordSchema } from "../validations/agency.schema";
+import { createOfficeSchema, updateOfficeSchema, resetOfficePasswordSchema } from "../validations/office.schema";
 
 interface ProcessType {
   id: string;
@@ -21,7 +21,7 @@ interface AssignedPackage {
   processType: ProcessType;
 }
 
-interface Agency {
+interface Office {
   id: string;
   username: string;
   email: string;
@@ -34,8 +34,8 @@ interface Agency {
   updatedAt?: string;
 }
 
-export function AssignedAgenciesClient({ permissions }: { permissions: Record<string, boolean> }) {
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+export function AssignedOfficeClient({ permissions }: { permissions: Record<string, boolean> }) {
+  const [offices, setOffices] = useState<Office[]>([]);
   const [processTypes, setProcessTypes] = useState<ProcessType[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -46,7 +46,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
   const [totalPages, setTotalPages] = useState(1);
   
   const [modal, setModal] = useState<"create" | "edit" | "view" | "reset" | "delete" | null>(null);
-  const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
+  const [selectedOffice, setSelectedOffice] = useState<Office | null>(null);
   
   const [formData, setFormData] = useState({
     username: "",
@@ -77,17 +77,14 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
   }, []);
 
   useEffect(() => {
-    fetchAgencies();
+    fetchOffices();
   }, [page, search, statusFilter, packageFilter]);
 
   const fetchProcessTypes = async () => {
     try {
-      // Fetch active process types from master-data API
-       const res = await fetch('/api/master-data/process-types?active=true&limit=100', { credentials: 'include' });
+      const res = await fetch('/api/master-data/process-types?active=true&limit=100', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        console.log('Fetched process types:', data);
-        // Support both { items: [] } and direct array responses
         setProcessTypes(data.items ?? data);
         setProcessError(null);
       } else {
@@ -102,7 +99,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
     }
   };
 
-  const fetchAgencies = async () => {
+  const fetchOffices = async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -111,14 +108,14 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
         status: statusFilter,
         package: packageFilter,
       });
-      const res = await fetch(`/api/assigned-agencies?${query.toString()}`);
+      const res = await fetch(`/api/assigned-office?${query.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setAgencies(data.items);
+        setOffices(data.items);
         setTotalPages(data.totalPages || 1);
       }
     } catch (error) {
-      showToast("error", "Failed to load agencies");
+      showToast("error", "Failed to load assigned offices");
     } finally {
       setLoading(false);
     }
@@ -133,7 +130,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
 
     try {
       const data = { ...formData, assignedPackages: selectedPackages };
-      createAgencySchema.parse(data);
+      createOfficeSchema.parse(data);
     } catch (e: any) {
       if (e instanceof z.ZodError) {
         const errors: any = {};
@@ -145,19 +142,19 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/assigned-agencies", {
+      const res = await fetch("/api/assigned-office", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, assignedPackages: selectedPackages }),
       });
       if (!res.ok) {
         const err = await res.json();
-        showToast("error", err.message || "Failed to create agency");
+        showToast("error", err.message || "Failed to create assigned office");
         return;
       }
-      showToast("success", "Agency created successfully");
+      showToast("success", "Assigned office account created successfully");
       setModal(null);
-      fetchAgencies();
+      fetchOffices();
     } catch (e) {
       showToast("error", "An error occurred");
     } finally {
@@ -174,7 +171,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
         isActive: formData.isActive,
         assignedPackages: selectedPackages 
       };
-      updateAgencySchema.parse(data);
+      updateOfficeSchema.parse(data);
     } catch (e: any) {
       if (e instanceof z.ZodError) {
         const errors: any = {};
@@ -186,7 +183,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/assigned-agencies/${selectedAgency!.id}`, {
+      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,12 +195,12 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
       });
       if (!res.ok) {
         const err = await res.json();
-        showToast("error", err.message || "Failed to update agency");
+        showToast("error", err.message || "Failed to update assigned office");
         return;
       }
-      showToast("success", "Agency updated successfully");
+      showToast("success", "Assigned office updated successfully");
       setModal(null);
-      fetchAgencies();
+      fetchOffices();
     } catch (e) {
       showToast("error", "An error occurred");
     } finally {
@@ -219,7 +216,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
     }
     
     try {
-      resetAgencyPasswordSchema.parse({ password: formData.password });
+      resetOfficePasswordSchema.parse({ password: formData.password });
     } catch (e: any) {
       if (e instanceof z.ZodError) {
         setFormErrors({ password: e.issues[0].message });
@@ -229,7 +226,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/assigned-agencies/${selectedAgency!.id}/reset-password`, {
+      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}/reset-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: formData.password }),
@@ -250,16 +247,16 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
   const handleDelete = async () => {
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/assigned-agencies/${selectedAgency!.id}`, {
+      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
-        showToast("error", "Failed to delete agency");
+        showToast("error", "Failed to delete assigned office");
         return;
       }
-      showToast("success", "Agency deleted");
+      showToast("success", "Assigned office deleted");
       setModal(null);
-      fetchAgencies();
+      fetchOffices();
     } catch (e) {
       showToast("error", "An error occurred");
     } finally {
@@ -267,16 +264,16 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
     }
   };
 
-  const toggleStatus = async (agency: Agency) => {
+  const toggleStatus = async (office: Office) => {
     try {
-      const res = await fetch(`/api/assigned-agencies/${agency.id}`, {
+      const res = await fetch(`/api/assigned-office/${office.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !agency.isActive }),
+        body: JSON.stringify({ isActive: !office.isActive }),
       });
       if (res.ok) {
-        showToast("success", `Agency ${!agency.isActive ? "activated" : "deactivated"}`);
-        fetchAgencies();
+        showToast("success", `Assigned office ${!office.isActive ? "activated" : "deactivated"}`);
+        fetchOffices();
       }
     } catch (e) {
       showToast("error", "Failed to change status");
@@ -294,7 +291,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
   };
 
   const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(agencies.map(a => ({
+    const ws = XLSX.utils.json_to_sheet(offices.map(a => ({
       Username: a.username,
       Email: a.email,
       "Assigned Packages": a.assignedPackages.map(p => p.processType.name).join(", "),
@@ -303,8 +300,8 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
       "Last Login": a.lastLogin ? new Date(a.lastLogin).toLocaleDateString() : "Never",
     })));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Agencies");
-    XLSX.writeFile(wb, "Assigned_Agencies.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Assigned Office");
+    XLSX.writeFile(wb, "Assigned_Office.xlsx");
   };
 
   const filteredProcessTypes = processTypes.filter(p => 
@@ -321,10 +318,10 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
     setModal("create");
   };
 
-  const openEditModal = (agency: Agency) => {
-    setSelectedAgency(agency);
-    setFormData({ username: agency.username, email: agency.email, password: "", confirmPassword: "", isActive: agency.isActive });
-    setSelectedPackages(agency.assignedPackages.map(p => p.processTypeId));
+  const openEditModal = (office: Office) => {
+    setSelectedOffice(office);
+    setFormData({ username: office.username, email: office.email, password: "", confirmPassword: "", isActive: office.isActive });
+    setSelectedPackages(office.assignedPackages.map(p => p.processTypeId));
     setFormErrors({});
     setPkgDropdownOpen(false);
     setPkgSearch("");
@@ -350,12 +347,12 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
             <Building2 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Assigned Agencies</h1>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">Manage external agency login accounts and assigned process packages.</p>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">Assigned Office</h1>
+            <p className="text-xs text-slate-500 font-normal mt-0.5">Manage assigned office login accounts and assigned process packages.</p>
           </div>
         </div>
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          {permissions["assigned_agencies.export"] && (
+          {permissions["assigned_office.export"] && (
             <button 
               onClick={exportExcel} 
               className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 transition-all flex items-center gap-2 shadow-2xs hover:shadow-xs"
@@ -364,13 +361,13 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
               Export Excel
             </button>
           )}
-          {permissions["assigned_agencies.create"] && (
+          {permissions["assigned_office.create"] && (
             <button 
               onClick={openCreateModal} 
               className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> 
-              Add Agency
+              Add Office
             </button>
           )}
         </div>
@@ -438,7 +435,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
           </div>
         </div>
 
-        {/* Agencies Table */}
+        {/* Offices Table */}
         <div className="overflow-hidden rounded-xl border border-slate-200/80">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -457,101 +454,101 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                   <td colSpan={6} className="py-12 text-center">
                     <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400">
                       <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                      Loading agencies...
+                      Loading assigned offices...
                     </div>
                   </td>
                 </tr>
-              ) : agencies.length === 0 ? (
+              ) : offices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-14 text-center">
                     <div className="max-w-sm mx-auto space-y-3">
                       <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-blue-50 to-indigo-50 border border-blue-200/60 flex items-center justify-center text-blue-600 mx-auto shadow-inner">
                         <Building2 className="w-7 h-7" />
                       </div>
-                      <h3 className="text-sm font-bold text-slate-800">No Agency Accounts Found</h3>
-                      <p className="text-xs text-slate-500 font-normal">No agency accounts match your search or filters. Create your first agency account to assign process packages.</p>
-                      {permissions["assigned_agencies.create"] && (
+                      <h3 className="text-sm font-bold text-slate-800">No Assigned Office Accounts Found</h3>
+                      <p className="text-xs text-slate-500 font-normal">No assigned office accounts match your search or filters. Create your first assigned office account to assign process packages.</p>
+                      {permissions["assigned_office.create"] && (
                         <button 
                           onClick={openCreateModal} 
                           className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          Add Agency Account
+                          Add Office Account
                         </button>
                       )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                agencies.map(agency => (
-                  <tr key={agency.id} className="hover:bg-blue-50/30 transition-colors">
+                offices.map(office => (
+                  <tr key={office.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-3.5 text-xs font-bold text-slate-900">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] uppercase border border-slate-200/60">
-                          {agency.username.slice(0, 2)}
+                          {office.username.slice(0, 2)}
                         </div>
-                        <span>{agency.username}</span>
+                        <span>{office.username}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-xs font-medium text-slate-600">
                       <div className="flex items-center gap-1.5">
                         <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{agency.email}</span>
+                        <span>{office.email}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-xs">
                       <div className="flex flex-wrap gap-1.5">
-                        {agency.assignedPackages.slice(0, 2).map(p => (
+                        {office.assignedPackages.slice(0, 2).map(p => (
                           <span key={p.processTypeId} className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg font-medium text-[11px]">
                             {p.processType.name}
                           </span>
                         ))}
-                        {agency.assignedPackages.length > 2 && (
+                        {office.assignedPackages.length > 2 && (
                           <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg font-medium text-[11px]">
-                            +{agency.assignedPackages.length - 2} more
+                            +{office.assignedPackages.length - 2} more
                           </span>
                         )}
-                        {agency.assignedPackages.length === 0 && (
+                        {office.assignedPackages.length === 0 && (
                           <span className="text-slate-400 text-xs italic">None</span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-xs">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${agency.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' : 'bg-rose-50 text-rose-700 border border-rose-200/70'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${agency.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {agency.isActive ? 'Active' : 'Inactive'}
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${office.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' : 'bg-rose-50 text-rose-700 border border-rose-200/70'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${office.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        {office.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs font-medium text-slate-500">
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{agency.lastLogin ? new Date(agency.lastLogin).toLocaleDateString() : 'Never'}</span>
+                        <span>{office.lastLogin ? new Date(office.lastLogin).toLocaleDateString() : 'Never'}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="inline-flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                        {permissions["assigned_agencies.view"] && (
-                          <button onClick={() => { setSelectedAgency(agency); setModal("view"); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="View Details">
+                        {permissions["assigned_office.view"] && (
+                          <button onClick={() => { setSelectedOffice(office); setModal("view"); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="View Office">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {permissions["assigned_agencies.edit"] && (
-                          <button onClick={() => openEditModal(agency)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="Edit Agency">
+                        {permissions["assigned_office.edit"] && (
+                          <button onClick={() => openEditModal(office)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="Edit Office">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {permissions["assigned_agencies.reset_password"] && (
-                          <button onClick={() => { setSelectedAgency(agency); setFormData(f => ({...f, password: "", confirmPassword: ""})); setFormErrors({}); setModal("reset"); }} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-white rounded-lg transition-all" title="Reset Password">
+                        {permissions["assigned_office.reset_password"] && (
+                          <button onClick={() => { setSelectedOffice(office); setFormData(f => ({...f, password: "", confirmPassword: ""})); setFormErrors({}); setModal("reset"); }} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-white rounded-lg transition-all" title="Reset Password">
                             <KeyRound className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {permissions["assigned_agencies.activate"] && permissions["assigned_agencies.deactivate"] && (
-                          <button onClick={() => toggleStatus(agency)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${agency.isActive ? 'text-slate-400 hover:text-rose-600' : 'text-slate-400 hover:text-emerald-600'}`} title={agency.isActive ? "Deactivate" : "Activate"}>
+                        {permissions["assigned_office.activate"] && permissions["assigned_office.deactivate"] && (
+                          <button onClick={() => toggleStatus(office)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${office.isActive ? 'text-slate-400 hover:text-rose-600' : 'text-slate-400 hover:text-emerald-600'}`} title={office.isActive ? "Deactivate" : "Activate"}>
                             <Power className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {permissions["assigned_agencies.delete"] && (
-                          <button onClick={() => { setSelectedAgency(agency); setModal("delete"); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-all" title="Delete Agency">
+                        {permissions["assigned_office.delete"] && (
+                          <button onClick={() => { setSelectedOffice(office); setModal("delete"); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-all" title="Delete Office">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -602,10 +599,10 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                 </div>
                 <div>
                   <h2 className="text-lg font-bold tracking-tight text-white">
-                    {modal === "create" ? "Create Agency Account" : "Edit Agency Account"}
+                    {modal === "create" ? "Create Assigned Office Account" : "Edit Assigned Office Account"}
                   </h2>
                   <p className="text-xs text-slate-300 font-normal">
-                    {modal === "create" ? "Setup credentials and process package access for external agency." : "Update agency account settings and package assignments."}
+                    {modal === "create" ? "Setup credentials and process package access for assigned office." : "Update assigned office account settings and package assignments."}
                   </p>
                 </div>
               </div>
@@ -878,7 +875,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-800">Account Status</p>
-                    <p className="text-[11px] text-slate-500">Allow this agency user to login and access assigned process packages.</p>
+                    <p className="text-[11px] text-slate-500">Allow this assigned office user to login and access assigned process packages.</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -908,14 +905,14 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                 className="px-6 py-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {submitting && <RefreshCw className="w-4 h-4 animate-spin" />}
-                {modal === "create" ? "Create Account" : "Save Changes"}
+                {modal === "create" ? "Create Office" : "Save Changes"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {modal === "view" && selectedAgency && (
+      {modal === "view" && selectedOffice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-linear-to-r from-slate-900 via-slate-800 to-blue-950 text-white">
@@ -924,7 +921,7 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">Agency Details</h2>
+                  <h2 className="text-base font-bold text-white">Assigned Office Details</h2>
                   <p className="text-xs text-slate-300">View account credentials & assigned packages</p>
                 </div>
               </div>
@@ -934,32 +931,32 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Username</p>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedAgency.username}</p>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedOffice.username}</p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Email Address</p>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedAgency.email}</p>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedOffice.email}</p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Status</p>
-                  <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${selectedAgency.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedAgency.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    {selectedAgency.isActive ? 'Active' : 'Inactive'}
+                  <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${selectedOffice.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${selectedOffice.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    {selectedOffice.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Created Date</p>
-                  <p className="text-xs font-medium text-slate-700 mt-1">{new Date(selectedAgency.createdAt).toLocaleString()}</p>
+                  <p className="text-xs font-medium text-slate-700 mt-1">{new Date(selectedOffice.createdAt).toLocaleString()}</p>
                 </div>
                 <div className="col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Last Login</p>
-                  <p className="text-xs font-medium text-slate-700 mt-1">{selectedAgency.lastLogin ? new Date(selectedAgency.lastLogin).toLocaleString() : 'Never'}</p>
+                  <p className="text-xs font-medium text-slate-700 mt-1">{selectedOffice.lastLogin ? new Date(selectedOffice.lastLogin).toLocaleString() : 'Never'}</p>
                 </div>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Assigned Process Packages</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedAgency.assignedPackages.map(p => (
+                  {selectedOffice.assignedPackages.map(p => (
                     <span key={p.processTypeId} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/70 rounded-lg text-xs font-medium">
                       {p.processType.name}
                     </span>
@@ -983,8 +980,8 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">Reset Agency Password</h2>
-                  <p className="text-xs text-amber-100 font-normal">Target user: <span className="font-semibold">{selectedAgency?.username}</span></p>
+                  <h2 className="text-base font-bold text-white">Reset Assigned Office Password</h2>
+                  <p className="text-xs text-amber-100 font-normal">Target user: <span className="font-semibold">{selectedOffice?.username}</span></p>
                 </div>
               </div>
               <button onClick={() => setModal(null)} className="text-amber-200 hover:text-white text-xl">&times;</button>
@@ -1059,8 +1056,8 @@ export function AssignedAgenciesClient({ permissions }: { permissions: Record<st
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2 border border-rose-200">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900">Delete Agency Account?</h2>
-              <p className="text-xs text-slate-500">Are you sure you want to delete <span className="font-semibold text-slate-800">{selectedAgency?.username}</span>? This action is permanent.</p>
+              <h2 className="text-lg font-bold text-slate-900">Delete Assigned Office Account?</h2>
+              <p className="text-xs text-slate-500">Are you sure you want to delete <span className="font-semibold text-slate-800">{selectedOffice?.username}</span>? This action is permanent.</p>
             </div>
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
               <button disabled={submitting} onClick={() => setModal(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-100 text-slate-700 shadow-xs">Cancel</button>
