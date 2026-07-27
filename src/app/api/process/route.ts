@@ -24,9 +24,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const processType = searchParams.get("processType") || undefined;
+    const tab = searchParams.get("tab") || undefined;
 
     const stats = await getProcessStats(ownerAdminId, officeLocationName, processType);
-    const items = await listProcessAssignments(ownerAdminId, officeLocationName, processType);
+    const items = await listProcessAssignments(ownerAdminId, officeLocationName, processType, tab);
 
     return jsonOk({ items, stats });
   } catch (error) {

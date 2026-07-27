@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const ProcessLocations = ["IN_HAND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE"] as const;
+export const ProcessLocations = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending"] as const;
 export type ProcessLocation = (typeof ProcessLocations)[number];
 
-export const ProcessStatuses = ["IN_HAND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE"] as const;
+export const ProcessStatuses = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending"] as const;
 export type ProcessStatus = (typeof ProcessStatuses)[number];
 
 export type ProcessItem = {

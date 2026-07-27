@@ -17,27 +17,32 @@ export async function getProcessStats(ownerAdminId: string, officeLocationName: 
     return { inbound: 0, inHand: 0, completed: 0, rejected: 0, outbound: 0, total: 0 };
   }
 
-  const whereClause: any = {
+  const baseWhere: any = {
     registration: { ownerAdminId },
     currentOfficeId: officeId,
-    status: "HOME",
   };
 
   if (processType && processType !== "All") {
-    whereClause.registration.processType = processType;
+    baseWhere.registration.processType = processType;
   }
 
-  const count = await prisma.documentMovement.count({
-    where: whereClause,
-  });
+  const [inHand, inbound, completed, rejected, outbound, total] = await Promise.all([
+    prisma.documentMovement.count({ where: { ...baseWhere, status: { in: ["HOME", "IN_HAND", "Pending"] } } }),
+    prisma.documentMovement.count({ where: { ...baseWhere, status: "INBOUND" } }),
+    prisma.documentMovement.count({ where: { ...baseWhere, status: "COMPLETED" } }),
+    prisma.documentMovement.count({ where: { ...baseWhere, status: "REJECTED" } }),
+    prisma.documentMovement.count({ where: { ...baseWhere, status: { in: ["OUTBOUND", "SEND_TO_OFFICE"] } } }),
+    prisma.documentMovement.count({ where: { ...baseWhere } }),
+  ]);
 
-  return { inbound: 0, inHand: count, completed: 0, rejected: 0, outbound: 0, total: count };
+  return { inbound, inHand, completed, rejected, outbound, total };
 }
 
 export async function listProcessAssignments(
   ownerAdminId: string,
   officeLocationName: string,
-  processType?: string
+  processType?: string,
+  tab?: string
 ) {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
   if (!officeId) return [];
@@ -45,11 +50,20 @@ export async function listProcessAssignments(
   const whereClause: any = {
     registration: { ownerAdminId },
     currentOfficeId: officeId,
-    status: "HOME",
   };
 
   if (processType && processType !== "All") {
     whereClause.registration.processType = processType;
+  }
+
+  if (tab === "inbound") {
+    whereClause.status = "INBOUND";
+  } else if (tab === "outbound") {
+    whereClause.status = { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE"] };
+  } else if (tab === "bundle") {
+    whereClause.bundleId = { not: null };
+  } else if (tab === "in_hand") {
+    whereClause.status = { in: ["HOME", "IN_HAND", "Pending"] };
   }
 
   const movements = await prisma.documentMovement.findMany({
@@ -57,6 +71,7 @@ export async function listProcessAssignments(
     include: {
       registration: true,
       fromOffice: true,
+      bundle: true,
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -67,13 +82,14 @@ export async function listProcessAssignments(
     trackingNumber: mov.trackingNumber,
     clientName: mov.registration.customerName,
     processType: mov.registration.processType ?? mov.registration.documentType ?? "-",
-    currentLocation: "IN_HAND",
-    status: "IN_HAND",
+    currentLocation: (mov.status === "HOME" ? "IN_HAND" : mov.status) as ProcessLocation,
+    status: mov.status as any,
     receivedDate: formatDate(mov.createdAt),
     daysHeld: Math.floor((new Date().getTime() - mov.updatedAt.getTime()) / (1000 * 3600 * 24)),
     assignedUserId: mov.acceptedBy,
     assignedToName: mov.acceptedBy,
     remarks: mov.remarks,
+    bundleCode: mov.bundle?.bundleNumber,
   }));
 }
 
