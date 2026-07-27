@@ -167,6 +167,9 @@ model OfficeLocation {
   documentMovementsFrom    DocumentMovement[] @relation("FromOfficeRelation")
   documentMovementsTo      DocumentMovement[] @relation("ToOfficeRelation")
   documentMovementsCurrent DocumentMovement[] @relation("CurrentOfficeRelation")
+  bundlesFrom              Bundle[]           @relation("BundleFromOffice")
+  bundlesTo                Bundle[]           @relation("BundleToOffice")
+  subPackageMovements      SubPackageMovement[] @relation("AssignedOfficeSubPackage")
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -939,6 +942,8 @@ model DocumentMovement {
   remarks         String?
   originOfficeId  String?         @map("origin_office_id")
   processChain    Json?           @map("process_chain")
+  bundleId        String?         @map("bundle_id")
+  bundle          Bundle?         @relation(fields: [bundleId], references: [id], onDelete: SetNull)
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
@@ -946,6 +951,7 @@ model DocumentMovement {
   @@index([currentOfficeId])
   @@index([currentModule])
   @@index([status])
+  @@index([bundleId])
   @@map("document_movements")
 }
 
@@ -964,6 +970,90 @@ model MovementHistory {
   @@index([trackingNumber])
   @@index([performedAt])
   @@map("movement_history")
+}
+
+model Bundle {
+  id           String          @id @default(cuid())
+  bundleNumber String          @unique @map("bundle_number")
+  fromOfficeId String          @map("from_office_id")
+  fromOffice   OfficeLocation  @relation("BundleFromOffice", fields: [fromOfficeId], references: [id], onDelete: Cascade)
+  toOfficeId   String          @map("to_office_id")
+  toOffice     OfficeLocation  @relation("BundleToOffice", fields: [toOfficeId], references: [id], onDelete: Cascade)
+  status       String          @default("Pending Receive")
+  createdBy    String?         @map("created_by")
+  ownerAdminId String?         @map("owner_admin_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  items        BundleItem[]
+  movements    DocumentMovement[]
+
+  @@index([fromOfficeId])
+  @@index([toOfficeId])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@map("bundles")
+}
+
+model BundleItem {
+  id             String    @id @default(cuid())
+  bundleId       String    @map("bundle_id")
+  bundle         Bundle    @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  registrationId String?   @map("registration_id")
+  trackingNumber String    @map("tracking_number")
+  status         String    @default("Pending Receive")
+  receivedAt     DateTime? @map("received_at")
+  receivedBy     String?   @map("received_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([bundleId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@map("bundle_items")
+}
+
+model SubPackageMovement {
+  id               String          @id @default(cuid())
+  documentId       String          @map("document_id")
+  trackingNumber   String          @map("tracking_number")
+  subPackageId     String          @map("sub_package_id")
+  assignedOfficeId String?         @map("assigned_office_id")
+  assignedOffice   OfficeLocation? @relation("AssignedOfficeSubPackage", fields: [assignedOfficeId], references: [id], onDelete: SetNull)
+  status           String          @default("In Progress")
+  startedAt        DateTime        @default(now()) @map("started_at")
+  completedAt      DateTime?       @map("completed_at")
+  returnedAt       DateTime?       @map("returned_at")
+  rejectedAt       DateTime?       @map("rejected_at")
+  createdBy        String?         @map("created_by")
+  ownerAdminId     String?         @map("owner_admin_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([subPackageId])
+  @@index([assignedOfficeId])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@map("sub_package_movements")
+}
+
+model DocumentWorkflowHistory {
+  id             String   @id @default(cuid())
+  documentId     String   @map("document_id")
+  trackingNumber String   @map("tracking_number")
+  workflowStep   String   @map("workflow_step")
+  status         String   @map("status")
+  performedBy    String?  @map("performed_by")
+  performedAt    DateTime @default(now()) @map("performed_at")
+  remarks        String?  @db.Text
+  ownerAdminId   String?  @map("owner_admin_id")
+
+  @@index([trackingNumber])
+  @@index([workflowStep])
+  @@index([performedAt])
+  @@index([ownerAdminId])
+  @@map("document_workflow_history")
 }
 
 model AttendanceDailySummary {

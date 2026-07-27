@@ -37,7 +37,7 @@ export const permissionActions = [
   "import", "downloadTemplate", "viewImportHistory",
   "comment", "reply", "forward", "inbox",
   "activate", "deactivate", "reset_password",
-  "complete", "transfer", "move"
+  "complete", "transfer", "move", "login", "receive"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -454,10 +454,10 @@ export const permissionModules: PermissionModuleDefinition[] = [
     key: "assigned_office", 
     label: "Assigned Office", 
     description: "Manage assigned office login accounts.",
-    actions: ["view", "create", "edit", "delete", "manage", "export", "activate", "deactivate", "reset_password"]
+    actions: ["view", "create", "edit", "delete", "manage", "export", "activate", "deactivate", "reset_password", "login", "receive", "transfer", "complete", "return", "reject"]
   },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
-  { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
+  { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
   { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
   { key: "roles", label: "Roles", description: "Role and RBAC access." },
   { key: "departments", label: "Department", description: "Department administration." },
@@ -473,7 +473,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
-  { key: "bm_report", label: "BM Report", description: "BM reporting access." },
+  { key: "bm_report", label: "BM Report", description: "BM reporting access.", actions: ["view", "transfer", "receive", "export"] },
   {
     key: "document_movement",
     label: "Document Movement",

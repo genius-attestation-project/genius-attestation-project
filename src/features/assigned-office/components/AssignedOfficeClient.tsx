@@ -1,1069 +1,755 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-  Plus, Search, Edit2, KeyRound, Trash2, Power, Eye, EyeOff, Download, Check, 
-  RefreshCw, User, Mail, Lock, Sparkles, ChevronDown, X, ShieldCheck, Info, UserPlus,
-  Building2, Users, Filter, Clock, ChevronLeft, ChevronRight, RotateCcw, PackageCheck
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Building2,
+  LogIn,
+  Inbox,
+  PackageCheck,
+  CheckCircle2,
+  RotateCcw,
+  XCircle,
+  Clock,
+  Send,
+  Layers,
+  Search,
+  CheckSquare,
+  Square,
+  ArrowLeftRight,
 } from "lucide-react";
-import { z } from "zod";
-import * as XLSX from "xlsx";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
-import { createOfficeSchema, updateOfficeSchema, resetOfficePasswordSchema } from "../validations/office.schema";
+type TabKey = "inbound" | "in_hand" | "complete" | "return" | "rejected" | "history";
 
-interface ProcessType {
-  id: string;
-  name: string;
-}
+type AssignedOfficeClientProps = {
+  initialOfficeLocations?: Array<{ id: string; officeName: string }>;
+  permissions?: Record<string, boolean>;
+};
 
-interface AssignedPackage {
-  processTypeId: string;
-  processType: ProcessType;
-}
-
-interface Office {
-  id: string;
-  username: string;
-  email: string;
-  isActive: boolean;
-  lastLogin: string | null;
-  createdAt: string;
-  assignedPackages: AssignedPackage[];
-  createdBy?: string;
-  updatedBy?: string;
-  updatedAt?: string;
-}
-
-export function AssignedOfficeClient({ permissions }: { permissions: Record<string, boolean> }) {
-  const [offices, setOffices] = useState<Office[]>([]);
-  const [processTypes, setProcessTypes] = useState<ProcessType[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [packageFilter, setPackageFilter] = useState("All");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  
-  const [modal, setModal] = useState<"create" | "edit" | "view" | "reset" | "delete" | null>(null);
-  const [selectedOffice, setSelectedOffice] = useState<Office | null>(null);
-  
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    isActive: true,
-  });
-  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [pkgDropdownOpen, setPkgDropdownOpen] = useState(false);
-  const [pkgSearch, setPkgSearch] = useState("");
-
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [processLoading, setProcessLoading] = useState(true);
-  const [processError, setProcessError] = useState<string | null>(null);
-
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3500);
-  };
-
-  useEffect(() => {
-    fetchProcessTypes();
-  }, []);
-
-  useEffect(() => {
-    fetchOffices();
-  }, [page, search, statusFilter, packageFilter]);
-
-  const fetchProcessTypes = async () => {
-    try {
-      const res = await fetch('/api/master-data/process-types?active=true&limit=100', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setProcessTypes(data.items ?? data);
-        setProcessError(null);
-      } else {
-        const err = await res.json();
-        setProcessError(err.message || 'Failed to load process types');
-      }
-    } catch (e) {
-      console.error(e);
-      setProcessError('Unable to fetch process types');
-    } finally {
-      setProcessLoading(false);
-    }
-  };
-
-  const fetchOffices = async () => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({
-        page: page.toString(),
-        search,
-        status: statusFilter,
-        package: packageFilter,
-      });
-      const res = await fetch(`/api/assigned-office?${query.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setOffices(data.items);
-        setTotalPages(data.totalPages || 1);
-      }
-    } catch (error) {
-      showToast("error", "Failed to load assigned offices");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreate = async () => {
-    setFormErrors({});
-    if (formData.password !== formData.confirmPassword) {
-      setFormErrors({ confirmPassword: "Passwords do not match" });
-      return;
-    }
-
-    try {
-      const data = { ...formData, assignedPackages: selectedPackages };
-      createOfficeSchema.parse(data);
-    } catch (e: any) {
-      if (e instanceof z.ZodError) {
-        const errors: any = {};
-        e.issues.forEach((err: any) => errors[err.path[0]] = err.message);
-        setFormErrors(errors);
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/assigned-office", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, assignedPackages: selectedPackages }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        showToast("error", err.message || "Failed to create assigned office");
-        return;
-      }
-      showToast("success", "Assigned office account created successfully");
-      setModal(null);
-      fetchOffices();
-    } catch (e) {
-      showToast("error", "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleUpdate = async () => {
-    setFormErrors({});
-    try {
-      const data = { 
-        username: formData.username, 
-        email: formData.email, 
-        isActive: formData.isActive,
-        assignedPackages: selectedPackages 
-      };
-      updateOfficeSchema.parse(data);
-    } catch (e: any) {
-      if (e instanceof z.ZodError) {
-        const errors: any = {};
-        e.issues.forEach((err: any) => errors[err.path[0]] = err.message);
-        setFormErrors(errors);
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          isActive: formData.isActive,
-          assignedPackages: selectedPackages,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        showToast("error", err.message || "Failed to update assigned office");
-        return;
-      }
-      showToast("success", "Assigned office updated successfully");
-      setModal(null);
-      fetchOffices();
-    } catch (e) {
-      showToast("error", "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    setFormErrors({});
-    if (formData.password !== formData.confirmPassword) {
-      setFormErrors({ confirmPassword: "Passwords do not match" });
-      return;
-    }
-    
-    try {
-      resetOfficePasswordSchema.parse({ password: formData.password });
-    } catch (e: any) {
-      if (e instanceof z.ZodError) {
-        setFormErrors({ password: e.issues[0].message });
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}/reset-password`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: formData.password }),
-      });
-      if (!res.ok) {
-        showToast("error", "Failed to reset password");
-        return;
-      }
-      showToast("success", "Password reset successfully");
-      setModal(null);
-    } catch (e) {
-      showToast("error", "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/assigned-office/${selectedOffice!.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        showToast("error", "Failed to delete assigned office");
-        return;
-      }
-      showToast("success", "Assigned office deleted");
-      setModal(null);
-      fetchOffices();
-    } catch (e) {
-      showToast("error", "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const toggleStatus = async (office: Office) => {
-    try {
-      const res = await fetch(`/api/assigned-office/${office.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !office.isActive }),
-      });
-      if (res.ok) {
-        showToast("success", `Assigned office ${!office.isActive ? "activated" : "deactivated"}`);
-        fetchOffices();
-      }
-    } catch (e) {
-      showToast("error", "Failed to change status");
-    }
-  };
-
-  const generatePassword = () => {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let pwd = "";
-    for (let i = 0; i < 12; i++) {
-      pwd += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    setFormData(f => ({ ...f, password: pwd, confirmPassword: pwd }));
-    setShowPassword(true);
-  };
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(offices.map(a => ({
-      Username: a.username,
-      Email: a.email,
-      "Assigned Packages": a.assignedPackages.map(p => p.processType.name).join(", "),
-      Status: a.isActive ? "Active" : "Inactive",
-      "Created Date": new Date(a.createdAt).toLocaleDateString(),
-      "Last Login": a.lastLogin ? new Date(a.lastLogin).toLocaleDateString() : "Never",
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Assigned Office");
-    XLSX.writeFile(wb, "Assigned_Office.xlsx");
-  };
-
-  const filteredProcessTypes = processTypes.filter(p => 
-    p.name.toLowerCase().includes(pkgSearch.toLowerCase())
+export function AssignedOfficeClient({ initialOfficeLocations = [], permissions }: AssignedOfficeClientProps) {
+  const [offices, setOffices] = useState<Array<{ id: string; officeName: string }>>(
+    initialOfficeLocations
+  );
+  const [selectedLoginOfficeId, setSelectedLoginOfficeId] = useState<string>("");
+  const [currentOffice, setCurrentOffice] = useState<{ id: string; officeName: string } | null>(
+    null
   );
 
-  const openCreateModal = () => {
-    setFormData({ username: "", email: "", password: "", confirmPassword: "", isActive: true });
-    setSelectedPackages([]);
-    setFormErrors({});
-    setShowPassword(false);
-    setPkgDropdownOpen(false);
-    setPkgSearch("");
-    setModal("create");
+  const [activeTab, setActiveTab] = useState<TabKey>("in_hand");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Data states
+  const [stats, setStats] = useState<any>({
+    pendingCount: 0,
+    inboundCount: 0,
+    completedCount: 0,
+    returnedCount: 0,
+    rejectedCount: 0,
+  });
+  const [documents, setDocuments] = useState<any[]>([]);
+
+  // Selection states
+  const [selectedTrackingNumbers, setSelectedTrackingNumbers] = useState<string[]>([]);
+
+  // Modals
+  const [showSubPackageModal, setShowSubPackageModal] = useState(false);
+  const [subPackageAssignments, setSubPackageAssignments] = useState<
+    Record<string, string>
+  >({});
+  const [subPackageOptions, setSubPackageOptions] = useState<any[]>([]);
+
+  // Inbound Bundle Receive Modal
+  const [selectedInboundBundle, setSelectedInboundBundle] = useState<any | null>(null);
+  const [bundleReceivedSelections, setBundleReceivedSelections] = useState<string[]>([]);
+  const [isReceiving, setIsReceiving] = useState(false);
+
+  // Reject transfer destination office
+  const [rejectDestinationOfficeId, setRejectDestinationOfficeId] = useState<string>("");
+
+  // Load offices on mount
+  useEffect(() => {
+    async function loadOffices() {
+      try {
+        const res = await fetch("/api/admin-management/office-locations");
+        if (res.ok) {
+          const body = await res.json();
+          const list = body.data || body.officeLocations || [];
+          setOffices(list);
+          if (list.length > 0) {
+            setSelectedLoginOfficeId(list[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load assigned offices", err);
+      }
+    }
+    loadOffices();
+  }, []);
+
+  // Load sub package options from master config
+  useEffect(() => {
+    async function loadSubPackages() {
+      try {
+        const res = await fetch("/api/master-data/SUB_PACKAGE");
+        if (res.ok) {
+          const body = await res.json();
+          setSubPackageOptions(body.data || body.items || []);
+        }
+      } catch (err) {
+        console.error("Failed to load subpackage options", err);
+      }
+    }
+    loadSubPackages();
+  }, []);
+
+  const handleLogin = () => {
+    const found = offices.find((o) => o.id === selectedLoginOfficeId);
+    if (found) {
+      setCurrentOffice(found);
+      setActiveTab("in_hand");
+    }
   };
 
-  const openEditModal = (office: Office) => {
-    setSelectedOffice(office);
-    setFormData({ username: office.username, email: office.email, password: "", confirmPassword: "", isActive: office.isActive });
-    setSelectedPackages(office.assignedPackages.map(p => p.processTypeId));
-    setFormErrors({});
-    setPkgDropdownOpen(false);
-    setPkgSearch("");
-    setModal("edit");
+  const fetchOfficeData = async () => {
+    if (!currentOffice) return;
+    setIsLoading(true);
+    try {
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
+      const res = await fetch(
+        `/api/assigned-office/documents?officeId=${currentOffice.id}&tab=${activeTab}${searchParam}`
+      );
+      if (res.ok) {
+        const body = await res.json();
+        if (body.stats) setStats(body.stats);
+        setDocuments(body.documents || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch assigned office documents", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOfficeData();
+    setSelectedTrackingNumbers([]);
+  }, [currentOffice, activeTab, searchQuery]);
+
+  // Checkbox handlers
+  const handleSelectAll = () => {
+    if (selectedTrackingNumbers.length === documents.length) {
+      setSelectedTrackingNumbers([]);
+    } else {
+      setSelectedTrackingNumbers(documents.map((d) => d.trackingNumber));
+    }
+  };
+
+  const handleToggleSelect = (trackingNumber: string) => {
+    setSelectedTrackingNumbers((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((t) => t !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  // Open SubPackage Transfer Modal
+  const handleOpenSubPackageModal = () => {
+    if (selectedTrackingNumbers.length === 0) {
+      alert("Please select at least one document to transfer to a Sub Package.");
+      return;
+    }
+    const initialMapping: Record<string, string> = {};
+    selectedTrackingNumbers.forEach((tn) => {
+      initialMapping[tn] = subPackageOptions[0]?.id || subPackageOptions[0]?.name || "";
+    });
+    setSubPackageAssignments(initialMapping);
+    setShowSubPackageModal(true);
+  };
+
+  // Confirm SubPackage Transfer
+  const handleConfirmSubPackageTransfer = async () => {
+    if (!currentOffice) return;
+    const items = Object.entries(subPackageAssignments).map(([trackingNumber, subPackageId]) => ({
+      trackingNumber,
+      subPackageId,
+    }));
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/assigned-office/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "transfer_to_subpackage",
+          items,
+          officeId: currentOffice.id,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Sub package transfer failed");
+
+      alert(`Transferred ${items.length} documents to sub packages successfully!`);
+      setShowSubPackageModal(false);
+      setSelectedTrackingNumbers([]);
+      fetchOfficeData();
+    } catch (err: any) {
+      alert(err.message || "Transfer error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Back To Process Action
+  const handleBackToProcess = async () => {
+    if (selectedTrackingNumbers.length === 0) {
+      alert("Please select documents to send back to Process.");
+      return;
+    }
+    const processOffice = offices.find((o) => o.id !== currentOffice?.id);
+    if (!processOffice) {
+      alert("No process office destination available.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/assigned-office/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "back_to_process",
+          trackingNumbers: selectedTrackingNumbers,
+          fromOfficeId: currentOffice?.id,
+          toOfficeId: processOffice.id,
+          remarks: "Sent Back To Process Module",
+        }),
+      });
+
+      if (res.ok) {
+        alert("Sent back to Process Inbound!");
+        setSelectedTrackingNumbers([]);
+        fetchOfficeData();
+      }
+    } catch (err) {
+      alert("Failed to send back to Process");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Inbound Bundle Receive
+  const handleOpenInboundModal = (bundle: any) => {
+    setSelectedInboundBundle(bundle);
+    setBundleReceivedSelections(bundle.items.map((i: any) => i.trackingNumber));
+  };
+
+  const handleConfirmInboundReceive = async () => {
+    if (!selectedInboundBundle) return;
+    try {
+      setIsReceiving(true);
+      const res = await fetch("/api/bm-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "receive",
+          bundleId: selectedInboundBundle.id,
+          receivedTrackingNumbers: bundleReceivedSelections,
+        }),
+      });
+      const body = await res.json();
+      if (res.ok) {
+        alert(`Bundle received successfully!`);
+        setSelectedInboundBundle(null);
+        fetchOfficeData();
+      }
+    } catch (err) {
+      alert("Receive error");
+    } finally {
+      setIsReceiving(false);
+    }
   };
 
   return (
-    <div className="space-y-6 w-full">
-      {toast && (
-        <div
-          className={`fixed right-6 top-6 z-50 rounded-2xl px-5 py-3.5 text-sm font-semibold text-white shadow-xl animate-in slide-in-from-top-4 duration-200 ${
-            toast.type === "success" ? "bg-emerald-600 shadow-emerald-950/20" : "bg-rose-600 shadow-rose-950/20"
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {/* Page Header Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-linear-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-            <Building2 className="w-6 h-6" />
-          </div>
+    <div className="space-y-6">
+      {/* 1. ASSIGNED OFFICE LOGIN BAR */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Building2 className="h-6 w-6 text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Assigned Office</h1>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">Manage assigned office login accounts and assigned process packages.</p>
+            <h2 className="text-lg font-bold text-slate-900">Assigned Office Login</h2>
+            <p className="text-xs text-slate-500">
+              Select your assigned office to enter the office processing workflow
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          {permissions["assigned_office.export"] && (
-            <button 
-              onClick={exportExcel} 
-              className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 transition-all flex items-center gap-2 shadow-2xs hover:shadow-xs"
-            >
-              <Download className="w-4 h-4 text-slate-500" /> 
-              Export Excel
-            </button>
-          )}
-          {permissions["assigned_office.create"] && (
-            <button 
-              onClick={openCreateModal} 
-              className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> 
-              Add Office
-            </button>
-          )}
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <select
+            value={selectedLoginOfficeId}
+            onChange={(e) => setSelectedLoginOfficeId(e.target.value)}
+            className="w-full sm:w-64 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+          >
+            {offices.map((off) => (
+              <option key={off.id} value={off.id}>
+                {off.officeName}
+              </option>
+            ))}
+          </select>
+
+          <Button
+            onClick={handleLogin}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-5 py-2 text-sm shadow-sm"
+          >
+            <LogIn className="mr-2 h-4 w-4" />
+            LOGIN
+          </Button>
         </div>
       </div>
 
-      {/* Table & Control Container */}
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-5">
-        {/* Controls / Filters Row */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search Box */}
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search by username or email address..." 
-              className="w-full pl-10 pr-9 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 text-slate-800"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-            />
-            {search && (
-              <button 
-                onClick={() => { setSearch(""); setPage(1); }}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+      {/* 2. DASHBOARD VIEW (WHEN LOGGED IN) */}
+      {currentOffice ? (
+        <div className="space-y-6">
+          {/* Active Office Banner */}
+          <div className="rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-900 p-6 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                ACTIVE ASSIGNED OFFICE
+              </span>
+              <h1 className="text-2xl font-black tracking-tight">{currentOffice.officeName}</h1>
+            </div>
 
-          {/* Status Filter */}
-          <div className="relative min-w-35">
-            <select 
-              className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-all"
-              value={statusFilter}
-              onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+            <Link
+              href="/dashboard/assigned-office/sub-packages"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 px-5 py-2.5 text-sm font-bold text-white border border-white/20 backdrop-blur-xs transition-all"
             >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
+              <Layers className="h-4 w-4 text-blue-300" />
+              VIEW SUB PACKAGES →
+            </Link>
           </div>
 
-          {/* Package Filter */}
-          <div className="relative min-w-40">
-            {processLoading ? (
-              <select className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-medium text-slate-400 cursor-not-allowed" disabled>
-                <option>Loading...</option>
-              </select>
-            ) : processError ? (
-              <div className="text-rose-500 text-xs py-2 px-3">{processError}</div>
-            ) : (
-              <select 
-                className="w-full appearance-none pl-3.5 pr-8 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-all"
-                value={packageFilter}
-                onChange={e => { setPackageFilter(e.target.value); setPage(1); }}
-              >
-                <option value="All">All Packages</option>
-                {processTypes.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            )}
-            <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Offices Table */}
-        <div className="overflow-hidden rounded-xl border border-slate-200/80">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/80">
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px]">Username</th>
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px]">Email Address</th>
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px]">Assigned Packages</th>
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px]">Status</th>
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px]">Last Login</th>
-                <th className="px-4 py-3 text.xs uppercase tracking-wider font-bold text-slate-500 text-[11px] text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center">
-                    <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400">
-                      <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                      Loading assigned offices...
-                    </div>
-                  </td>
-                </tr>
-              ) : offices.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-14 text-center">
-                    <div className="max-w-sm mx-auto space-y-3">
-                      <div className="w-14 h-14 rounded-2xl bg-linear-to-tr from-blue-50 to-indigo-50 border border-blue-200/60 flex items-center justify-center text-blue-600 mx-auto shadow-inner">
-                        <Building2 className="w-7 h-7" />
-                      </div>
-                      <h3 className="text-sm font-bold text-slate-800">No Assigned Office Accounts Found</h3>
-                      <p className="text-xs text-slate-500 font-normal">No assigned office accounts match your search or filters. Create your first assigned office account to assign process packages.</p>
-                      {permissions["assigned_office.create"] && (
-                        <button 
-                          onClick={openCreateModal} 
-                          className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add Office Account
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                offices.map(office => (
-                  <tr key={office.id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-3.5 text-xs font-bold text-slate-900">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] uppercase border border-slate-200/60">
-                          {office.username.slice(0, 2)}
-                        </div>
-                        <span>{office.username}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs font-medium text-slate-600">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{office.email}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs">
-                      <div className="flex flex-wrap gap-1.5">
-                        {office.assignedPackages.slice(0, 2).map(p => (
-                          <span key={p.processTypeId} className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg font-medium text-[11px]">
-                            {p.processType.name}
-                          </span>
-                        ))}
-                        {office.assignedPackages.length > 2 && (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg font-medium text-[11px]">
-                            +{office.assignedPackages.length - 2} more
-                          </span>
-                        )}
-                        {office.assignedPackages.length === 0 && (
-                          <span className="text-slate-400 text-xs italic">None</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${office.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' : 'bg-rose-50 text-rose-700 border border-rose-200/70'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${office.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {office.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs font-medium text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{office.lastLogin ? new Date(office.lastLogin).toLocaleDateString() : 'Never'}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="inline-flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                        {permissions["assigned_office.view"] && (
-                          <button onClick={() => { setSelectedOffice(office); setModal("view"); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="View Office">
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {permissions["assigned_office.edit"] && (
-                          <button onClick={() => openEditModal(office)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="Edit Office">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {permissions["assigned_office.reset_password"] && (
-                          <button onClick={() => { setSelectedOffice(office); setFormData(f => ({...f, password: "", confirmPassword: ""})); setFormErrors({}); setModal("reset"); }} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-white rounded-lg transition-all" title="Reset Password">
-                            <KeyRound className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {permissions["assigned_office.activate"] && permissions["assigned_office.deactivate"] && (
-                          <button onClick={() => toggleStatus(office)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${office.isActive ? 'text-slate-400 hover:text-rose-600' : 'text-slate-400 hover:text-emerald-600'}`} title={office.isActive ? "Deactivate" : "Activate"}>
-                            <Power className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {permissions["assigned_office.delete"] && (
-                          <button onClick={() => { setSelectedOffice(office); setModal("delete"); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-all" title="Delete Office">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 text-xs font-medium text-slate-500">
-            <span>Page <strong className="text-slate-800">{page}</strong> of <strong className="text-slate-800">{totalPages}</strong></span>
-            <div className="flex items-center gap-2">
-              <button 
-                disabled={page === 1} 
-                onClick={() => setPage(p => p - 1)}
-                className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl disabled:opacity-40 hover:bg-slate-50 transition-all flex items-center gap-1 font-semibold text-slate-700 shadow-2xs"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Previous
-              </button>
-              <button 
-                disabled={page === totalPages} 
-                onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl disabled:opacity-40 hover:bg-slate-50 transition-all flex items-center gap-1 font-semibold text-slate-700 shadow-2xs"
-              >
-                Next
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+          {/* KPI Header Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+              <span className="text-2xl font-black text-slate-900">{stats.pendingCount}</span>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Pending Documents</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+              <span className="text-2xl font-black text-blue-600">{stats.inboundCount}</span>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Inbound Bundles</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+              <span className="text-2xl font-black text-emerald-600">{stats.completedCount}</span>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Completed</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+              <span className="text-2xl font-black text-amber-600">{stats.returnedCount}</span>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Returned</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-xs">
+              <span className="text-2xl font-black text-rose-600">{stats.rejectedCount}</span>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Rejected</p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Modals */}
-      {(modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-2xl my-8 overflow-hidden transform transition-all">
-            {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-linear-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center text-blue-400 shadow-inner">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold tracking-tight text-white">
-                    {modal === "create" ? "Create Assigned Office Account" : "Edit Assigned Office Account"}
-                  </h2>
-                  <p className="text-xs text-slate-300 font-normal">
-                    {modal === "create" ? "Setup credentials and process package access for assigned office." : "Update assigned office account settings and package assignments."}
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setModal(null)} 
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          {/* Tabs Bar */}
+          <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-100/80 p-1.5 rounded-2xl gap-1">
+            <button
+              onClick={() => setActiveTab("inbound")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "inbound"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Inbox className="h-4 w-4" />
+              Inbound
+            </button>
+            <button
+              onClick={() => setActiveTab("in_hand")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "in_hand"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <PackageCheck className="h-4 w-4" />
+              Document In Hand
+            </button>
+            <button
+              onClick={() => setActiveTab("complete")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "complete"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Document Complete
+            </button>
+            <button
+              onClick={() => setActiveTab("return")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "return"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <RotateCcw className="h-4 w-4 text-amber-600" />
+              Document Return
+            </button>
+            <button
+              onClick={() => setActiveTab("rejected")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "rejected"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <XCircle className="h-4 w-4 text-rose-600" />
+              Rejected
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === "history"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              History
+            </button>
+          </div>
+
+          {/* Main Tab Content */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search tracking number or customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+              />
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-6">
-              {/* Account Credentials */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Username <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Username"
-                      value={formData.username} 
-                      onChange={e => setFormData({...formData, username: e.target.value})} 
-                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border ${formErrors.username ? 'border-red-400 bg-red-50/20' : 'border-slate-200'} rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`} 
-                    />
-                  </div>
-                  {formErrors.username && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.username}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                    <input 
-                      type="email" 
-                      placeholder="Email address"
-                      value={formData.email} 
-                      onChange={e => setFormData({...formData, email: e.target.value})} 
-                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border ${formErrors.email ? 'border-red-400 bg-red-50/20' : 'border-slate-200'} rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`} 
-                    />
-                  </div>
-                  {formErrors.email && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.email}</p>}
-                </div>
-              </div>
-
-              {/* Password Setup */}
-              {modal === "create" && (
-                <div className="p-4 bg-linear-to-br from-slate-50 via-slate-50 to-blue-50/30 rounded-xl border border-slate-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      <Lock className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Password Setup <span className="text-red-500">*</span></span>
-                    </div>
-                    <button 
-                      onClick={generatePassword} 
-                      type="button" 
-                      className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-100/80 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
-                    >
-                      <Sparkles className="w-3 h-3 text-blue-600" />
-                      Generate Random
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                        <input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="Password" 
-                          value={formData.password} 
-                          onChange={e => setFormData({...formData, password: e.target.value})} 
-                          className={`w-full pl-10 pr-10 py-2.5 bg-white border ${formErrors.password ? 'border-red-400' : 'border-slate-200'} rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`} 
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      {formErrors.password && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.password}</p>}
-                    </div>
-
-                    <div>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                        <input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="Confirm Password" 
-                          value={formData.confirmPassword} 
-                          onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
-                          className={`w-full pl-10 pr-10 py-2.5 bg-white border ${formErrors.confirmPassword ? 'border-red-400' : 'border-slate-200'} rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`} 
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      {formErrors.confirmPassword && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.confirmPassword}</p>}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Assigned Packages Dropdown Selector */}
-              <div className="relative">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Assigned Packages <span className="text-red-500">*</span>
-                </label>
-                
-                {/* Custom Multi-Select Dropdown Trigger */}
-                <div 
-                  onClick={() => setPkgDropdownOpen(!pkgDropdownOpen)}
-                  className={`w-full min-h-11.5 px-3.5 py-2 bg-slate-50/50 hover:bg-slate-50 border ${formErrors.assignedPackages ? 'border-red-400 bg-red-50/20' : pkgDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/20 bg-white' : 'border-slate-200'} rounded-xl text-sm transition-all cursor-pointer flex items-center justify-between gap-2`}
-                >
-                  <div className="flex flex-wrap gap-1.5 items-center flex-1 py-0.5 max-h-24 overflow-y-auto">
-                    {selectedPackages.length === 0 ? (
-                      <span className="text-slate-400 text-sm">Select process type packages...</span>
-                    ) : (
-                      selectedPackages.map(pkgId => {
-                        const pkg = processTypes.find(p => p.id === pkgId);
-                        return (
-                          <span 
-                            key={pkgId} 
-                            className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200/70 shadow-xs group"
-                          >
-                            <span>{pkg?.name || pkgId}</span>
-                            <button 
-                              type="button" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPackages(prev => prev.filter(id => id !== pkgId));
-                              }} 
-                              className="p-0.5 hover:bg-blue-200/60 rounded-md text-blue-500 hover:text-blue-800 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 text-slate-400">
-                    {selectedPackages.length > 0 && (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                        {selectedPackages.length}
-                      </span>
-                    )}
-                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${pkgDropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
-                  </div>
-                </div>
-
-                {formErrors.assignedPackages && (
-                  <p className="text-red-500 text-xs mt-1.5 font-medium flex items-center gap-1">
-                    <Info className="w-3.5 h-3.5" />
-                    {formErrors.assignedPackages}
-                  </p>
-                )}
-
-                {/* Dropdown Popover */}
-                {pkgDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setPkgDropdownOpen(false)} />
-                    
-                    <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-xl shadow-2xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                        <input 
-                          type="text" 
-                          placeholder="Search process packages..." 
-                          value={pkgSearch}
-                          onChange={(e) => setPkgSearch(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                        />
-                      </div>
-
-                      {processTypes.length > 0 && (
-                        <div className="flex items-center justify-between px-1 py-1 border-b border-slate-100 text-xs text-slate-500">
-                          <span>{filteredProcessTypes.length} Available Packages</span>
-                          <div className="flex gap-2">
-                            <button 
-                              type="button" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPackages(processTypes.map(p => p.id));
-                              }}
-                              className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                            >
-                              Select All
-                            </button>
-                            <span>•</span>
-                            <button 
-                              type="button" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPackages([]);
-                              }}
-                              className="text-slate-500 hover:text-slate-700 font-medium hover:underline"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="max-h-52 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                        {processLoading ? (
-                          <div className="text-center text-slate-400 py-6 text-xs flex items-center justify-center gap-2">
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            Loading Process Types...
-                          </div>
-                        ) : processError ? (
-                          <div className="text-red-500 text-xs py-4 text-center">{processError}</div>
-                        ) : filteredProcessTypes.length === 0 ? (
-                          <div className="text-slate-500 text-xs py-6 text-center px-4">
-                            {pkgSearch ? "No matching process packages found." : "No active Process Types found. Please create Process Types in Master Configuration."}
-                          </div>
-                        ) : (
-                          filteredProcessTypes.map(pkg => {
-                            const isSelected = selectedPackages.includes(pkg.id);
-                            return (
-                              <div 
-                                key={pkg.id} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedPackages(prev => 
-                                    isSelected ? prev.filter(id => id !== pkg.id) : [...prev, pkg.id]
-                                  );
-                                }}
-                                className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer text-xs font-medium transition-all ${isSelected ? 'bg-blue-50 text-blue-900 border border-blue-100 font-semibold' : 'text-slate-700 hover:bg-slate-50 border border-transparent'}`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
-                                    {isSelected && <Check className="w-3 h-3 stroke-3" />}
-                                  </div>
-                                  <span className="truncate">{pkg.name}</span>
-                                </div>
-                                {isSelected && (
-                                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase tracking-wider">
-                                    Selected
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Account Status Switch */}
-              <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.isActive ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                    <ShieldCheck className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Account Status</p>
-                    <p className="text-[11px] text-slate-500">Allow this assigned office user to login and access assigned process packages.</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.isActive} 
-                    onChange={e => setFormData({...formData, isActive: e.target.checked})} 
-                    className="sr-only peer" 
+            {/* TAB: INBOUND BUNDLES */}
+            {activeTab === "inbound" && (
+              <div>
+                {documents.length === 0 ? (
+                  <EmptyState
+                    icon={Inbox}
+                    title="No Inbound Bundles"
+                    description="No inbound bundles waiting to be received."
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                </label>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {documents.map((bundle) => (
+                      <div
+                        key={bundle.id}
+                        onClick={() => handleOpenInboundModal(bundle)}
+                        className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-blue-400 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                          <span className="font-mono text-base font-bold text-blue-600">
+                            {bundle.bundleNumber}
+                          </span>
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                            {bundle.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          From: {bundle.fromOffice?.officeName} • {bundle.items?.length || 0} Documents
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-end gap-3">
-              <button 
-                disabled={submitting} 
-                onClick={() => setModal(null)} 
-                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium hover:bg-white hover:border-slate-300 text-slate-700 transition-all bg-slate-100/80 shadow-xs"
-              >
-                Cancel
-              </button>
-              <button 
-                disabled={submitting} 
-                onClick={modal === "create" ? handleCreate : handleUpdate} 
-                className="px-6 py-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
-              >
-                {submitting && <RefreshCw className="w-4 h-4 animate-spin" />}
-                {modal === "create" ? "Create Office" : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modal === "view" && selectedOffice && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-linear-to-r from-slate-900 via-slate-800 to-blue-950 text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center text-blue-400">
-                  <User className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Assigned Office Details</h2>
-                  <p className="text-xs text-slate-300">View account credentials & assigned packages</p>
-                </div>
-              </div>
-              <button onClick={() => setModal(null)} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors">&times;</button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Username</p>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedOffice.username}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Email Address</p>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedOffice.email}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Status</p>
-                  <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${selectedOffice.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedOffice.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    {selectedOffice.isActive ? 'Active' : 'Inactive'}
+            {/* TAB: DOCUMENT IN HAND */}
+            {activeTab === "in_hand" && (
+              <div className="space-y-6">
+                {/* Action Controls Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-slate-50 border border-slate-200 p-4">
+                  <span className="text-sm font-semibold text-slate-700">
+                    Selected: {selectedTrackingNumbers.length} documents
                   </span>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={handleBackToProcess}
+                      disabled={selectedTrackingNumbers.length === 0}
+                      className="bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-xl px-4 py-2 text-sm"
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Back To Process
+                    </Button>
+
+                    <Button
+                      onClick={handleOpenSubPackageModal}
+                      disabled={selectedTrackingNumbers.length === 0}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-4 py-2 text-sm"
+                    >
+                      <Layers className="mr-2 h-4 w-4" />
+                      Transfer To Sub Package
+                    </Button>
+
+                    <Link
+                      href="/dashboard/assigned-office/sub-packages"
+                      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 text-sm"
+                    >
+                      View Sub Packages →
+                    </Link>
+                  </div>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Created Date</p>
-                  <p className="text-xs font-medium text-slate-700 mt-1">{new Date(selectedOffice.createdAt).toLocaleString()}</p>
-                </div>
-                <div className="col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Last Login</p>
-                  <p className="text-xs font-medium text-slate-700 mt-1">{selectedOffice.lastLogin ? new Date(selectedOffice.lastLogin).toLocaleString() : 'Never'}</p>
-                </div>
+
+                {documents.length === 0 ? (
+                  <EmptyState
+                    icon={PackageCheck}
+                    title="No Documents In Hand"
+                    description="Documents received at this office will appear here."
+                  />
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-sm text-slate-700">
+                      <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                        <tr>
+                          <th className="p-4 w-10">
+                            <button onClick={handleSelectAll}>
+                              {selectedTrackingNumbers.length === documents.length ? (
+                                <CheckSquare className="h-5 w-5 text-blue-600" />
+                              ) : (
+                                <Square className="h-5 w-5 text-slate-400" />
+                              )}
+                            </button>
+                          </th>
+                          <th className="p-4">Tracking Number</th>
+                          <th className="p-4">Customer</th>
+                          <th className="p-4">Document Type</th>
+                          <th className="p-4">Process Type</th>
+                          <th className="p-4">Received Date</th>
+                          <th className="p-4">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {documents.map((doc) => {
+                          const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber);
+                          return (
+                            <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
+                              <td className="p-4">
+                                <button onClick={() => handleToggleSelect(doc.trackingNumber)}>
+                                  {isSelected ? (
+                                    <CheckSquare className="h-5 w-5 text-blue-600" />
+                                  ) : (
+                                    <Square className="h-5 w-5 text-slate-400" />
+                                  )}
+                                </button>
+                              </td>
+                              <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
+                              <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
+                              <td className="p-4">{doc.documentType || "-"}</td>
+                              <td className="p-4">{doc.processType || "-"}</td>
+                              <td className="p-4 text-xs text-slate-500">
+                                {new Date(doc.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="p-4">
+                                <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                  {doc.trackingStatus || "In Hand"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Assigned Process Packages</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedOffice.assignedPackages.map(p => (
-                    <span key={p.processTypeId} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/70 rounded-lg text-xs font-medium">
-                      {p.processType.name}
-                    </span>
-                  ))}
-                </div>
+            )}
+
+            {/* TAB: DOCUMENT COMPLETE */}
+            {activeTab === "complete" && (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="p-4">Tracking Number</th>
+                      <th className="p-4">Customer</th>
+                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Process Type</th>
+                      <th className="p-4">Completion Date</th>
+                      <th className="p-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {documents.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
+                        <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
+                        <td className="p-4">{doc.documentType || "-"}</td>
+                        <td className="p-4">{doc.processType || "-"}</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {new Date(doc.updatedAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                            Completed
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            )}
+
+            {/* TAB: DOCUMENT RETURN */}
+            {activeTab === "return" && (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="p-4">Tracking Number</th>
+                      <th className="p-4">Customer</th>
+                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Returned On</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {documents.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
+                        <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
+                        <td className="p-4">{doc.documentType || "-"}</td>
+                        <td className="p-4 text-amber-700 font-semibold">Returned</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {new Date(doc.updatedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: REJECTED */}
+            {activeTab === "rejected" && (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="p-4">Tracking Number</th>
+                      <th className="p-4">Customer</th>
+                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Rejected On</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {documents.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
+                        <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
+                        <td className="p-4">{doc.documentType || "-"}</td>
+                        <td className="p-4 text-rose-700 font-semibold">Rejected</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {new Date(doc.updatedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+          <Building2 className="mx-auto h-12 w-12 text-slate-400 mb-3" />
+          <h3 className="text-lg font-bold text-slate-800">Please Select an Assigned Office</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
+            Use the Assigned Office dropdown above and click LOGIN to access office document processing.
+          </p>
+        </div>
+      )}
+
+      {/* MODAL: Transfer to Sub Package */}
+      {showSubPackageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl space-y-6">
+            <h3 className="text-xl font-bold text-slate-900">Transfer To Sub Package</h3>
+            <p className="text-xs text-slate-500">
+              Select a subpackage for each tracking number.
+            </p>
+
+            <div className="max-h-60 overflow-y-auto space-y-3">
+              {selectedTrackingNumbers.map((tn) => (
+                <div key={tn} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50">
+                  <span className="font-bold text-blue-600 font-mono">{tn}</span>
+                  <select
+                    value={subPackageAssignments[tn] || ""}
+                    onChange={(e) =>
+                      setSubPackageAssignments({ ...subPackageAssignments, [tn]: e.target.value })
+                    }
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+                  >
+                    {subPackageOptions.map((sp) => (
+                      <option key={sp.id || sp.name} value={sp.id || sp.name}>
+                        {sp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-              <button onClick={() => setModal(null)} className="px-5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-100 text-slate-700 transition-all shadow-xs">Close</button>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <Button variant="secondary" onClick={() => setShowSubPackageModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmSubPackageTransfer}
+                className="bg-blue-600 text-white font-semibold"
+              >
+                Transfer
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {modal === "reset" && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 bg-linear-to-r from-amber-600 to-amber-700 text-white flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
-                  <KeyRound className="w-5 h-5" />
+      {/* MODAL: Inbound Receive Modal */}
+      {selectedInboundBundle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-6">
+            <h3 className="text-xl font-bold text-slate-900">
+              Receive Bundle: {selectedInboundBundle.bundleNumber}
+            </h3>
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {selectedInboundBundle.items?.map((item: any) => (
+                <div key={item.id} className="p-3 border rounded-xl font-mono text-sm font-bold">
+                  {item.trackingNumber}
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Reset Assigned Office Password</h2>
-                  <p className="text-xs text-amber-100 font-normal">Target user: <span className="font-semibold">{selectedOffice?.username}</span></p>
-                </div>
-              </div>
-              <button onClick={() => setModal(null)} className="text-amber-200 hover:text-white text-xl">&times;</button>
+              ))}
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-end">
-                <button 
-                  onClick={generatePassword} 
-                  type="button" 
-                  className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-600" />
-                  Generate Random Password
-                </button>
-              </div>
-              <div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="New Password" 
-                    value={formData.password} 
-                    onChange={e => setFormData({...formData, password: e.target.value})} 
-                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border ${formErrors.password ? 'border-red-400' : 'border-slate-200'} rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all`} 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {formErrors.password && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.password}</p>}
-              </div>
-
-              <div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Confirm New Password" 
-                    value={formData.confirmPassword} 
-                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
-                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border ${formErrors.confirmPassword ? 'border-red-400' : 'border-slate-200'} rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all`} 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {formErrors.confirmPassword && <p className="text-red-500 text-xs mt-1 font-medium">{formErrors.confirmPassword}</p>}
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button disabled={submitting} onClick={() => setModal(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-100 text-slate-700 shadow-xs">Cancel</button>
-              <button disabled={submitting} onClick={handleResetPassword} className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold shadow-md transition-all flex items-center gap-2">
-                {submitting && <RefreshCw className="w-4 h-4 animate-spin" />} Update Password
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modal === "delete" && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-sm overflow-hidden">
-            <div className="p-6 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2 border border-rose-200">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <h2 className="text-lg font-bold text-slate-900">Delete Assigned Office Account?</h2>
-              <p className="text-xs text-slate-500">Are you sure you want to delete <span className="font-semibold text-slate-800">{selectedOffice?.username}</span>? This action is permanent.</p>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button disabled={submitting} onClick={() => setModal(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-100 text-slate-700 shadow-xs">Cancel</button>
-              <button disabled={submitting} onClick={handleDelete} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold shadow-md transition-all flex items-center gap-2">
-                {submitting && <RefreshCw className="w-4 h-4 animate-spin" />} Delete Account
-              </button>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="secondary" onClick={() => setSelectedInboundBundle(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmInboundReceive}
+                className="bg-emerald-600 text-white font-semibold"
+              >
+                Receive All
+              </Button>
             </div>
           </div>
         </div>

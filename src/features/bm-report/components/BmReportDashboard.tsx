@@ -1,420 +1,678 @@
 "use client";
 
-import { ArrowRightLeft, CheckCheck, Inbox, LoaderCircle, PackageCheck, Lock, Unlock } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useState, useMemo } from "react";
+import {
+  Package,
+  Send,
+  Inbox,
+  Clock,
+  Search,
+  CheckSquare,
+  Square,
+  Building2,
+  FileText,
+  User,
+  Calendar,
+  Layers,
+  ArrowRightLeft,
+  XCircle,
+  CheckCircle2,
+  Filter,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { StatsCard } from "@/components/ui/StatsCard";
-import type { BmReportItem, BmReportResponse, BmReportStats } from "@/features/bm-report/types/bm-report.types";
-import { SendToProcessModal } from "./SendToProcessModal";
-import { Route } from "lucide-react";
-import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 
 type BmReportDashboardProps = {
   currentOfficeLocationName: string;
 };
 
-type TabKey = "home" | "inward" | "outward";
-
-const emptyStats: BmReportStats = {
-  totalInward: 0,
-  totalOutward: 0,
-  acceptedToday: 0,
-  pendingInward: 0,
+type OfficeOption = {
+  id: string;
+  officeName: string;
 };
 
-const tabConfig: Array<{ key: TabKey; label: string; description: string }> = [
-  { key: "home", label: "Home", description: "Accepted BM documents for your office" },
-  { key: "inward", label: "Inward", description: "Pending documents arriving from other offices" },
-  { key: "outward", label: "Outward", description: "Documents your office has routed elsewhere" },
-];
-
-async function parseResponse<T>(response: Response) {
-  const payload = (await response.json().catch(() => ({}))) as T & { message?: string };
-
-  if (!response.ok) {
-    throw new Error(payload.message ?? "Request failed.");
-  }
-
-  return payload;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "Accepted"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "Rejected"
-        ? "bg-rose-50 text-rose-700"
-        : "bg-amber-50 text-amber-700";
-
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{status}</span>;
-}
-
-function BmTable({
-  activeTab,
-  items,
-  acceptingId,
-  onAccept,
-  onSendProcess,
-  onReady,
-  onViewTimeline,
-}: {
-  activeTab: TabKey;
-  items: BmReportItem[];
-  acceptingId: string | null;
-  onAccept: (id: string) => Promise<void>;
-  onSendProcess?: (item: BmReportItem) => void;
-  onReady?: (id: string) => Promise<void>;
-  onViewTimeline?: (trackingNumber: string) => void;
-}) {
-  if (!items.length) {
-    return (
-      <EmptyState
-        icon={PackageCheck}
-        title={`No ${activeTab} records`}
-        description="Cross-office BM routing is live. Records will appear here as registrations move between offices."
-      />
-    );
-  }
-
-  return (
-    <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-255 text-left text-sm">
-          <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
-            <tr>
-              <th className="px-5 py-4">Registration Number</th>
-              <th className="px-5 py-4">Client Name</th>
-              <th className="px-5 py-4">Service</th>
-              <th className="px-5 py-4">{activeTab === "outward" ? "Delivery Location" : "Source Office"}</th>
-              {activeTab === "inward" ? <th className="px-5 py-4">Delivery Location</th> : null}
-              {activeTab === "home" ? <th className="px-5 py-4">Accepted Date</th> : null}
-              {activeTab === "home" ? <th className="px-5 py-4">Accepted By</th> : null}
-              {activeTab === "outward" ? <th className="px-5 py-4">Accepted Date</th> : null}
-              {activeTab === "outward" ? <th className="px-5 py-4">Accepted By</th> : null}
-              {activeTab === "inward" ? <th className="px-5 py-4">Created By</th> : null}
-              {activeTab === "inward" ? <th className="px-5 py-4">Created Date</th> : null}
-              <th className="px-5 py-4">Status</th>
-              {activeTab === "inward" || activeTab === "home" ? <th className="px-5 py-4 text-right">Action</th> : null}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-(--border) bg-white">
-            {items.map((item) => (
-              <tr key={item.id} className="transition hover:bg-blue-50/70">
-                <td className="px-5 py-4 font-bold text-blue-700">{item.registrationNumber}</td>
-                <td className="px-5 py-4">{item.clientName}</td>
-                <td className="px-5 py-4">{item.service}</td>
-                <td className="px-5 py-4">
-                  {activeTab === "outward" ? item.deliveryLocation : item.sourceOffice}
-                </td>
-                {activeTab === "inward" ? <td className="px-5 py-4">{item.deliveryLocation}</td> : null}
-                {activeTab === "home" ? <td className="px-5 py-4">{item.acceptedDate ?? "-"}</td> : null}
-                {activeTab === "home" ? <td className="px-5 py-4">{item.acceptedBy ?? "-"}</td> : null}
-                {activeTab === "outward" ? <td className="px-5 py-4">{item.acceptedDate ?? "-"}</td> : null}
-                {activeTab === "outward" ? <td className="px-5 py-4">{item.acceptedBy ?? "-"}</td> : null}
-                {activeTab === "inward" ? <td className="px-5 py-4">{item.createdBy}</td> : null}
-                {activeTab === "inward" ? <td className="px-5 py-4">{item.createdDate}</td> : null}
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={item.status} />
-                    {item.isBmLocked && (
-                      <div className="flex items-center gap-1 text-rose-600" title="This file is locked.">
-                        <Lock className="h-4 w-4" />
-                        <span className="text-xs font-bold uppercase">Locked</span>
-                      </div>
-                    )}
-                    {item.bmExtensionStatus === "Pending" && (
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                        Ext. Pending
-                      </span>
-                    )}
-                  </div>
-                </td>
-                {activeTab === "inward" ? (
-                  <td className="px-5 py-4 text-right">
-                    <Button
-                      size="sm"
-                      disabled={acceptingId === item.id || item.isBmLocked}
-                      onClick={() => onAccept(item.id)}
-                    >
-                      {acceptingId === item.id ? "Accepting..." : "Accept"}
-                    </Button>
-                  </td>
-                ) : activeTab === "home" ? (
-                  <td className="px-5 py-4 text-right flex gap-2 justify-end">
-                    {onSendProcess && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => onSendProcess(item)}
-                      >
-                        Send to Process
-                      </Button>
-                    )}
-                    {onViewTimeline && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => onViewTimeline(item.registrationNumber)}
-                      >
-                        <Route size={16} /> Timeline
-                      </Button>
-                    )}
-                    {onReady && (
-                      <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={() => onReady(item.id)}
-                        disabled={acceptingId === item.id}
-                      >
-                        {acceptingId === item.id ? "Processing..." : "READY"}
-                      </Button>
-                    )}
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
 
 export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboardProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("home");
-  const [loading, setLoading] = useState(true);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [homeItems, setHomeItems] = useState<BmReportItem[]>([]);
-  const [inwardItems, setInwardItems] = useState<BmReportItem[]>([]);
-  const [outwardItems, setOutwardItems] = useState<BmReportItem[]>([]);
-  const [stats, setStats] = useState<BmReportStats>(emptyStats);
-  
-  const [sendProcessOpen, setSendProcessOpen] = useState(false);
-  const [selectedProcessItem, setSelectedProcessItem] = useState<BmReportItem | null>(null);
-  const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("document_in_hand");
+  const [offices, setOffices] = useState<OfficeOption[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
+  const [destinationOfficeId, setDestinationOfficeId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  async function loadBmReport() {
-    if (!currentOfficeLocationName) {
-      setHomeItems([]);
-      setInwardItems([]);
-      setOutwardItems([]);
-      setStats(emptyStats);
-      setLoading(false);
+  // Data states
+  const [inHandDocs, setInHandDocs] = useState<any[]>([]);
+  const [inboundBundles, setInboundBundles] = useState<any[]>([]);
+  const [outboundBundles, setOutboundBundles] = useState<any[]>([]);
+  const [movementHistory, setMovementHistory] = useState<any[]>([]);
+
+  // Selection state for Document In Hand
+  const [selectedTrackingNumbers, setSelectedTrackingNumbers] = useState<string[]>([]);
+
+  // Popup Modal state for Inbound Bundle Details
+  const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
+  const [bundleReceivedSelections, setBundleReceivedSelections] = useState<string[]>([]);
+  const [isReceiving, setIsReceiving] = useState(false);
+
+  // Fetch offices
+  useEffect(() => {
+    async function loadOffices() {
+      try {
+        const res = await fetch("/api/admin-management/office-locations");
+        if (res.ok) {
+          const body = await res.json();
+          const list = body.data || body.officeLocations || [];
+          setOffices(list);
+          if (list.length > 0) {
+            const current = list.find(
+              (o: any) => o.officeName.toLowerCase() === currentOfficeLocationName.toLowerCase()
+            );
+            if (current) {
+              setSelectedOfficeId(current.id);
+            } else {
+              setSelectedOfficeId(list[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load offices", err);
+      }
+    }
+    loadOffices();
+  }, [currentOfficeLocationName]);
+
+  // Fetch active tab data
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const officeParam = selectedOfficeId ? `&officeId=${selectedOfficeId}` : "";
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
+      const res = await fetch(`/api/bm-report?section=${activeTab}${officeParam}${searchParam}`);
+      if (res.ok) {
+        const body = await res.json();
+        if (activeTab === "document_in_hand") {
+          setInHandDocs(body.data || []);
+        } else if (activeTab === "inbound") {
+          setInboundBundles(body.data || []);
+        } else if (activeTab === "outbound") {
+          setOutboundBundles(body.data || []);
+        } else if (activeTab === "history") {
+          setMovementHistory(body.data || []);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch BM Report data", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    setSelectedTrackingNumbers([]);
+  }, [activeTab, selectedOfficeId, searchQuery]);
+
+  // Checkbox helpers for Document In Hand
+  const handleSelectAllInHand = () => {
+    if (selectedTrackingNumbers.length === inHandDocs.length) {
+      setSelectedTrackingNumbers([]);
+    } else {
+      setSelectedTrackingNumbers(inHandDocs.map((doc) => doc.trackingNumber));
+    }
+  };
+
+  const handleToggleSelectInHand = (trackingNumber: string) => {
+    setSelectedTrackingNumbers((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((t) => t !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  // Transfer Action -> Create Bundle
+  const handleTransfer = async () => {
+    if (selectedTrackingNumbers.length === 0) {
+      alert("Please select at least one document to transfer.");
+      return;
+    }
+    if (!destinationOfficeId) {
+      alert("Please select a destination office.");
       return;
     }
 
-    setLoading(true);
-    setError("");
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/bm-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "transfer",
+          trackingNumbers: selectedTrackingNumbers,
+          fromOfficeId: selectedOfficeId,
+          toOfficeId: destinationOfficeId,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error || "Failed to transfer documents");
+      }
+
+      alert(`Bundle ${body.bundle?.bundleNumber || ""} created and transferred successfully!`);
+      setSelectedTrackingNumbers([]);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || "Transfer error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Inbound Bundle click -> Open Details Modal
+  const handleOpenBundleModal = (bundle: any) => {
+    setSelectedBundle(bundle);
+    setBundleReceivedSelections(bundle.items.map((i: any) => i.trackingNumber));
+  };
+
+  const handleToggleReceiveItem = (trackingNumber: string) => {
+    setBundleReceivedSelections((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((t) => t !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  // Confirm Receive (Full or Partial)
+  const handleConfirmReceive = async () => {
+    if (!selectedBundle) return;
+    if (bundleReceivedSelections.length === 0) {
+      alert("Please select at least one document to receive.");
+      return;
+    }
 
     try {
-      const [home, inward, outward] = await Promise.all([
-        parseResponse<BmReportResponse>(await fetch("/api/bm-report/home", { cache: "no-store" })),
-        parseResponse<BmReportResponse>(await fetch("/api/bm-report/inward", { cache: "no-store" })),
-        parseResponse<BmReportResponse>(await fetch("/api/bm-report/outward", { cache: "no-store" })),
-      ]);
+      setIsReceiving(true);
+      const res = await fetch("/api/bm-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "receive",
+          bundleId: selectedBundle.id,
+          receivedTrackingNumbers: bundleReceivedSelections,
+        }),
+      });
 
-      setHomeItems(home.items ?? []);
-      setInwardItems(inward.items ?? []);
-      setOutwardItems(outward.items ?? []);
-      setStats(home.stats ?? inward.stats ?? outward.stats ?? emptyStats);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to load BM report.");
-      setHomeItems([]);
-      setInwardItems([]);
-      setOutwardItems([]);
-      setStats(emptyStats);
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error || "Failed to receive bundle");
+      }
+
+      if (body.isSplit) {
+        alert(
+          `Received ${bundleReceivedSelections.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
+        );
+      } else {
+        alert(`Bundle ${body.bundleNumber} fully received!`);
+      }
+
+      setSelectedBundle(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || "Receive error");
     } finally {
-      setLoading(false);
+      setIsReceiving(false);
     }
-  }
-
-  useEffect(() => {
-    void loadBmReport();
-  }, [currentOfficeLocationName]);
-
-  const activeItems = useMemo(() => {
-    if (activeTab === "inward") return inwardItems;
-    if (activeTab === "outward") return outwardItems;
-    return homeItems;
-  }, [activeTab, homeItems, inwardItems, outwardItems]);
-
-  async function handleAccept(id: string) {
-    setAcceptingId(id);
-    setError("");
-    setSuccess("");
-
-    try {
-      await parseResponse(await fetch(`/api/bm-report/accept/${id}`, { method: "POST" }));
-      setSuccess("Document accepted and moved to Home.");
-      setActiveTab("home");
-      await loadBmReport();
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to accept document.");
-    } finally {
-      setAcceptingId(null);
-    }
-  }
-
-  async function handleReady(id: string) {
-    setAcceptingId(id);
-    setError("");
-    setSuccess("");
-
-    try {
-      await parseResponse(await fetch(`/api/bm-report/ready/${id}`, { method: "POST" }));
-      setSuccess("Document marked as Ready For Delivery.");
-      await loadBmReport();
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to mark document as ready.");
-    } finally {
-      setAcceptingId(null);
-    }
-  }
-
-  const cards = [
-    {
-      label: "Total Inward",
-      value: stats.totalInward.toLocaleString(),
-      delta: "Live",
-      description: "Pending inward BM documents",
-      icon: Inbox,
-      tone: "blue" as const,
-    },
-    {
-      label: "Total Outward",
-      value: stats.totalOutward.toLocaleString(),
-      delta: "Live",
-      description: "Documents sent to other offices",
-      icon: ArrowRightLeft,
-      tone: "slate" as const,
-    },
-    {
-      label: "Accepted Today",
-      value: stats.acceptedToday.toLocaleString(),
-      delta: "Today",
-      description: "BM documents accepted at this office",
-      icon: CheckCheck,
-      tone: "blue" as const,
-    },
-    {
-      label: "Pending Inward",
-      value: stats.pendingInward.toLocaleString(),
-      delta: "Action",
-      description: "Documents waiting to be accepted",
-      icon: LoaderCircle,
-      tone: "amber" as const,
-    },
-  ];
+  };
 
   return (
-    <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">BM Report</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">Office document routing</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Track inward, outward, and accepted BM documents using live revenue registrations routed by office location.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-blue-200 bg-white/90 px-4 py-3 text-right shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Current Office</p>
-            <p className="mt-2 text-lg font-bold text-slate-900">{currentOfficeLocationName || "Unassigned"}</p>
+    <div className="space-y-6">
+      {/* Top Header & Office Selector */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">BM Report Workflow</h1>
+          <p className="text-sm text-slate-500">
+            Enterprise bundle-based document transfer and movement management system
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Building2 className="h-5 w-5 text-blue-600" />
+          <span className="text-sm font-semibold text-slate-700">Office Location:</span>
+          <select
+            value={selectedOfficeId}
+            onChange={(e) => setSelectedOfficeId(e.target.value)}
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+          >
+            {offices.map((off) => (
+              <option key={off.id} value={off.id}>
+                {off.officeName}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Tabs Bar */}
+      <div className="flex border-b border-slate-200 bg-slate-100/80 p-1.5 rounded-2xl">
+        <button
+          onClick={() => setActiveTab("document_in_hand")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "document_in_hand"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Package className="h-4 w-4" />
+          Document In Hand
+        </button>
+
+        <button
+          onClick={() => setActiveTab("inbound")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "inbound"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Inbox className="h-4 w-4" />
+          Inbound Bundles
+          {inboundBundles.length > 0 && (
+            <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold">
+              {inboundBundles.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab("outbound")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "outbound"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Send className="h-4 w-4" />
+          Outbound Bundles
+        </button>
+
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "history"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Clock className="h-4 w-4" />
+          Movement History
+        </button>
+      </div>
+
+      {/* Main Tab Content */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* Search Bar */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tracking number, customer, document..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+            />
           </div>
         </div>
-      </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => (
-          <StatsCard key={card.label} {...card} />
-        ))}
-      </section>
+        {/* 1. DOCUMENT IN HAND TAB */}
+        {activeTab === "document_in_hand" && (
+          <div className="space-y-6">
+            {/* Transfer Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-blue-50/80 border border-blue-200 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                <span>Selected: {selectedTrackingNumbers.length} documents</span>
+              </div>
 
-      <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
-        <div className="flex flex-wrap gap-3">
-          {tabConfig.map((tab) => {
-            const active = tab.key === activeTab;
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Select Destination Office:
+                </span>
+                <select
+                  value={destinationOfficeId}
+                  onChange={(e) => setDestinationOfficeId(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500"
+                >
+                  <option value="">Select Office</option>
+                  {offices
+                    .filter((o) => o.id !== selectedOfficeId)
+                    .map((off) => (
+                      <option key={off.id} value={off.id}>
+                        {off.officeName}
+                      </option>
+                    ))}
+                </select>
 
-            return (
+                <Button
+                  onClick={handleTransfer}
+                  disabled={selectedTrackingNumbers.length === 0 || !destinationOfficeId || isLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm shadow-sm"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  TRANSFER
+                </Button>
+              </div>
+            </div>
+
+            {/* Document Table */}
+            {inHandDocs.length === 0 ? (
+              <EmptyState
+                icon={Package}
+                title="No Documents In Hand"
+                description="Newly registered or received documents for this office will appear here."
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                    <tr>
+                      <th className="p-4 w-10">
+                        <button onClick={handleSelectAllInHand} className="text-slate-600">
+                          {selectedTrackingNumbers.length === inHandDocs.length ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <Square className="h-5 w-5 text-slate-400" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="p-4">Tracking Number</th>
+                      <th className="p-4">Customer Name</th>
+                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Process / Package</th>
+                      <th className="p-4">Current Office</th>
+                      <th className="p-4">Registered Date</th>
+                      <th className="p-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {inHandDocs.map((doc) => {
+                      const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber);
+                      return (
+                        <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
+                          <td className="p-4">
+                            <button
+                              onClick={() => handleToggleSelectInHand(doc.trackingNumber)}
+                              className="text-slate-600"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="h-5 w-5 text-blue-600" />
+                              ) : (
+                                <Square className="h-5 w-5 text-slate-400" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
+                          <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
+                          <td className="p-4">{doc.documentType || "-"}</td>
+                          <td className="p-4">{doc.processType || "-"}</td>
+                          <td className="p-4 font-medium">{doc.regionOfRegistration || "Main"}</td>
+                          <td className="p-4 text-xs text-slate-500">
+                            {new Date(doc.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-4">
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                              {doc.trackingStatus || "In Hand"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. INBOUND BUNDLES TAB */}
+        {activeTab === "inbound" && (
+          <div>
+            {inboundBundles.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="No Inbound Bundles"
+                description="There are currently no inbound document bundles waiting to be received."
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {inboundBundles.map((bundle) => (
+                  <div
+                    key={bundle.id}
+                    onClick={() => handleOpenBundleModal(bundle)}
+                    className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md hover:border-blue-400 transition-all"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                      <span className="font-mono text-base font-bold text-blue-600">
+                        {bundle.bundleNumber}
+                      </span>
+                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                        {bundle.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm text-slate-600">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">From Office:</span>
+                        <span className="font-semibold text-slate-800">
+                          {bundle.fromOffice?.officeName || "Origin Office"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Documents:</span>
+                        <span className="font-bold text-slate-900">{bundle.items?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Transferred On:</span>
+                        <span>{new Date(bundle.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+                      <span className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1">
+                        View & Receive Details →
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. OUTBOUND BUNDLES TAB */}
+        {activeTab === "outbound" && (
+          <div>
+            {outboundBundles.length === 0 ? (
+              <EmptyState
+                icon={Send}
+                title="No Outbound Bundles"
+                description="Bundles created and transferred from this office will appear here."
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                    <tr>
+                      <th className="p-4">Bundle Number</th>
+                      <th className="p-4">Destination Office</th>
+                      <th className="p-4">Document Count</th>
+                      <th className="p-4">Transferred By</th>
+                      <th className="p-4">Transferred Date</th>
+                      <th className="p-4">Received Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {outboundBundles.map((bundle) => (
+                      <tr key={bundle.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-mono font-bold text-blue-600">
+                          {bundle.bundleNumber}
+                        </td>
+                        <td className="p-4 font-semibold text-slate-800">
+                          {bundle.toOffice?.officeName || "Destination"}
+                        </td>
+                        <td className="p-4 font-bold text-slate-900">{bundle.items?.length || 0}</td>
+                        <td className="p-4">{bundle.createdBy || "User"}</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {new Date(bundle.createdAt).toLocaleString()}
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              bundle.status === "Received"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {bundle.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. MOVEMENT HISTORY TAB */}
+        {activeTab === "history" && (
+          <div>
+            {movementHistory.length === 0 ? (
+              <EmptyState
+                icon={Clock}
+                title="No Movement History"
+                description="All bundle and document movements are tracked here."
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                    <tr>
+                      <th className="p-4">Tracking Number</th>
+                      <th className="p-4">Action</th>
+                      <th className="p-4">Old Status</th>
+                      <th className="p-4">New Status</th>
+                      <th className="p-4">Performed By</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {movementHistory.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-bold text-blue-600">{item.trackingNumber}</td>
+                        <td className="p-4 font-semibold">{item.action}</td>
+                        <td className="p-4 text-xs text-slate-500">{item.oldStatus || "-"}</td>
+                        <td className="p-4 text-xs font-semibold text-emerald-600">
+                          {item.newStatus || "-"}
+                        </td>
+                        <td className="p-4">{item.performedBy || "-"}</td>
+                        <td className="p-4 text-xs text-slate-500">
+                          {new Date(item.performedAt).toLocaleString()}
+                        </td>
+                        <td className="p-4 text-xs text-slate-600">{item.remarks || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* POPUP MODAL: Inbound Bundle Details & Receive */}
+      {selectedBundle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Bundle Details: {selectedBundle.bundleNumber}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  From: {selectedBundle.fromOffice?.officeName || "Origin Office"} • Total Items:{" "}
+                  {selectedBundle.items?.length || 0}
+                </p>
+              </div>
               <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "min-w-40 rounded-2xl border px-4 py-3 text-left transition",
-                  active
-                    ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-200"
-                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50",
-                ].join(" ")}
+                onClick={() => setSelectedBundle(null)}
+                className="text-slate-400 hover:text-slate-600"
               >
-                <span className="block text-sm font-bold">{tab.label}</span>
-                <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>{tab.description}</span>
+                <XCircle className="h-6 w-6" />
               </button>
-            );
-          })}
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500 mb-3">
+                Select Tracking Numbers to Receive:
+              </p>
+              <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-3 bg-slate-50">
+                {selectedBundle.items?.map((item: any) => {
+                  const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleToggleReceiveItem(item.trackingNumber)}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                        isChecked
+                          ? "bg-blue-50 border-blue-300"
+                          : "bg-white border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isChecked ? (
+                          <CheckSquare className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Square className="h-5 w-5 text-slate-400" />
+                        )}
+                        <span className="font-bold font-mono text-slate-900">
+                          {item.trackingNumber}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-slate-500">{item.status}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {bundleReceivedSelections.length < selectedBundle.items?.length && (
+                <p className="mt-2 text-xs text-amber-600 font-semibold">
+                  ⚠️ Partial Receive: Remaining{" "}
+                  {selectedBundle.items.length - bundleReceivedSelections.length} documents will automatically be split into a new bundle.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setSelectedBundle(null)}
+                className="rounded-xl px-4 py-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmReceive}
+                disabled={isReceiving || bundleReceivedSelections.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-5 py-2"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Receive Selected ({bundleReceivedSelections.length})
+              </Button>
+            </div>
+          </div>
         </div>
-      </section>
-
-      {error ? (
-        <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
-          {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {success}
-        </p>
-      ) : null}
-
-      {loading ? (
-        <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card)">
-          Loading BM report...
-        </div>
-      ) : currentOfficeLocationName ? (
-        <BmTable 
-          activeTab={activeTab} 
-          items={activeItems} 
-          acceptingId={acceptingId} 
-          onAccept={handleAccept}
-          onSendProcess={(item) => {
-            setSelectedProcessItem(item);
-            setSendProcessOpen(true);
-          }}
-          onReady={handleReady}
-          onViewTimeline={setTimelineTrackingNumber}
-        />
-      ) : (
-        <EmptyState
-          icon={Inbox}
-          title="Office location required"
-          description="Assign an office location to this user to activate BM routing, inward, outward, and home views."
-        />
-      )}
-
-      {sendProcessOpen && selectedProcessItem && (
-        <SendToProcessModal
-          open={sendProcessOpen}
-          onClose={() => {
-            setSendProcessOpen(false);
-            setSelectedProcessItem(null);
-          }}
-          registrationId={selectedProcessItem.id}
-          trackingNumber={selectedProcessItem.registrationNumber}
-          onSuccess={() => {
-            loadBmReport();
-          }}
-        />
-      )}
-      {timelineTrackingNumber && (
-        <LiveTimelineModal
-          isOpen={!!timelineTrackingNumber}
-          onClose={() => setTimelineTrackingNumber(null)}
-          trackingNumber={timelineTrackingNumber}
-        />
       )}
     </div>
   );

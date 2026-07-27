@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
     const [
       leads,
       registrations,
+      bundles,
       users,
       departments,
       officeLocations,
@@ -151,6 +152,10 @@ export async function GET(request: NextRequest) {
             { paymentStatus: contains(query) },
             { trackingStatus: contains(query) },
             { documentType: contains(query) },
+            { processType: contains(query) },
+            { subPackage: contains(query) },
+            { deliveryLocation: contains(query) },
+            { regionOfRegistration: contains(query) },
           ],
         },
         orderBy: { updatedAt: "desc" },
@@ -162,6 +167,23 @@ export async function GET(request: NextRequest) {
           mobile: true,
           paymentStatus: true,
           trackingStatus: true,
+        },
+      }),
+      prisma.bundle.findMany({
+        where: {
+          ownerAdminId,
+          OR: [
+            { bundleNumber: contains(query) },
+            { status: contains(query) },
+            { fromOffice: { officeName: contains(query) } },
+            { toOffice: { officeName: contains(query) } },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        include: {
+          fromOffice: true,
+          toOffice: true,
         },
       }),
       prisma.user.findMany({
