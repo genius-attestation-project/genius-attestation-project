@@ -19,7 +19,7 @@ export async function PUT(
     const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const body = await request.json();
-    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds } = body;
+    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds, coreSubPackageId } = body;
 
     // Dedicated handler for Document Type Categories
     if (rawSlug === "document-type-categories" || type === "DOCUMENT_TYPE_CATEGORIES") {
@@ -200,10 +200,23 @@ export async function PUT(
       updatedBy: session.user.id,
     };
 
-    if (isProcessType && Array.isArray(subPackageIds)) {
-      updateData.subPackages = {
-        set: subPackageIds.map((id: string) => ({ id })),
-      };
+    if (isProcessType) {
+      if (Array.isArray(subPackageIds)) {
+        updateData.subPackages = {
+          set: subPackageIds.map((id: string) => ({ id })),
+        };
+      }
+      if (coreSubPackageId !== undefined) {
+        if (coreSubPackageId) {
+          const validCore = await prisma.subPackage.findFirst({
+            where: { id: coreSubPackageId, ownerAdminId },
+          });
+          if (!validCore) {
+            return NextResponse.json({ message: "Selected Core Package was not found." }, { status: 400 });
+          }
+        }
+        updateData.coreSubPackageId = coreSubPackageId || null;
+      }
     }
 
     const updatedItem = await prisma.masterData.update({
@@ -211,6 +224,7 @@ export async function PUT(
       data: updateData,
       include: {
         subPackages: isProcessType,
+        coreSubPackage: isProcessType,
         categoryRel: isDocumentType,
       },
     });

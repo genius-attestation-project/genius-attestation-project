@@ -112,26 +112,38 @@ export async function GET(
       ownerAdminId,
     };
 
-    if (activeOnly) {
-      whereClause.isActive = true;
+    const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
+    const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
+
+    const coreSubPackageId = searchParams.get("coreSubPackageId") || "";
+    if (isProcessType && coreSubPackageId) {
+      whereClause.coreSubPackageId = coreSubPackageId;
     }
 
     if (query) {
-      whereClause.OR = [
-        { name: { contains: query } },
-        { category: { contains: query } },
-        { description: { contains: query } },
-      ];
+      if (isProcessType) {
+        whereClause.OR = [
+          { name: { contains: query } },
+          { category: { contains: query } },
+          { description: { contains: query } },
+          { coreSubPackage: { name: { contains: query } } },
+          { subPackages: { some: { name: { contains: query } } } },
+        ];
+      } else {
+        whereClause.OR = [
+          { name: { contains: query } },
+          { category: { contains: query } },
+          { description: { contains: query } },
+        ];
+      }
     }
-
-    const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
-    const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
 
     const [items, total] = await Promise.all([
       prisma.masterData.findMany({
         where: whereClause,
         include: {
           subPackages: isProcessType,
+          coreSubPackage: isProcessType,
           categoryRel: isDocumentType,
         },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
@@ -182,7 +194,7 @@ export async function POST(
     const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const body = await request.json();
-    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds } = body;
+    const { name, category, categoryId, description, isActive, sortOrder, subPackageIds, coreSubPackageId } = body;
 
     const trimmedName = (name || "").trim().slice(0, 100);
     if (!trimmedName) {
@@ -292,6 +304,15 @@ export async function POST(
     const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
     const idsToConnect = Array.isArray(subPackageIds) ? subPackageIds : [];
 
+    if (isProcessType && coreSubPackageId) {
+      const validCore = await prisma.subPackage.findFirst({
+        where: { id: coreSubPackageId, ownerAdminId },
+      });
+      if (!validCore) {
+        return NextResponse.json({ message: "Selected Core Package was not found." }, { status: 400 });
+      }
+    }
+
     const newItem = await prisma.masterData.create({
       data: {
         type,
@@ -303,12 +324,14 @@ export async function POST(
         sortOrder: sortOrder || 0,
         ownerAdminId,
         createdBy: session.user.id,
+        coreSubPackageId: isProcessType && coreSubPackageId ? coreSubPackageId : null,
         subPackages: isProcessType && idsToConnect.length > 0 ? {
           connect: idsToConnect.map((id: string) => ({ id }))
         } : undefined,
       },
       include: {
         subPackages: isProcessType,
+        coreSubPackage: isProcessType,
         categoryRel: isDocumentType,
       },
     });

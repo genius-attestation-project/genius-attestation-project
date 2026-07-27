@@ -7,6 +7,7 @@ import { MasterDataTable } from "@/features/master-configuration/components/Mast
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // Map URL slugs to human-readable titles
 const pageTitles: Record<string, string> = {
@@ -48,6 +49,8 @@ export default function MasterConfigurationDynamicPage({
   // Available Sub Packages for Process Types selection
   const [availableSubPackages, setAvailableSubPackages] = useState<any[]>([]);
   const [selectedSubPackageIds, setSelectedSubPackageIds] = useState<string[]>([]);
+  const [selectedCoreSubPackageId, setSelectedCoreSubPackageId] = useState("");
+  const [corePackageFilter, setCorePackageFilter] = useState("");
   const [subPackageSearch, setSubPackageSearch] = useState("");
 
   // Available Categories for Document Types selection
@@ -59,7 +62,10 @@ export default function MasterConfigurationDynamicPage({
   const fetchRecords = async (query = "") => {
     setIsLoading(true);
     try {
-      const q = query ? `?query=${encodeURIComponent(query)}` : "";
+      const paramsArr = [];
+      if (query) paramsArr.push(`query=${encodeURIComponent(query)}`);
+      if (isProcessType && corePackageFilter) paramsArr.push(`coreSubPackageId=${encodeURIComponent(corePackageFilter)}`);
+      const q = paramsArr.length > 0 ? `?${paramsArr.join("&")}` : "";
       const res = await fetch(`/api/master-data/${slug}${q}`);
       const json = await res.json();
       if (res.ok) {
@@ -91,6 +97,13 @@ export default function MasterConfigurationDynamicPage({
     }
   }, [slug, isProcessType, isDocumentType]);
 
+  // Refetch when Core Package filter changes
+  useEffect(() => {
+    if (isProcessType) {
+      fetchRecords(searchQuery);
+    }
+  }, [corePackageFilter]);
+
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -103,6 +116,7 @@ export default function MasterConfigurationDynamicPage({
     setEditingItem(null);
     setFormData({ name: "", category: isDocumentType ? "" : "General", categoryId: "", description: "", isActive: true, sortOrder: 0 });
     setSelectedSubPackageIds([]);
+    setSelectedCoreSubPackageId("");
     setDrawerOpen(true);
   };
 
@@ -116,10 +130,16 @@ export default function MasterConfigurationDynamicPage({
       isActive: item.isActive,
       sortOrder: item.sortOrder || 0,
     });
-    if (isProcessType && Array.isArray(item.subPackages)) {
-      setSelectedSubPackageIds(item.subPackages.map((sp: any) => sp.id));
+    if (isProcessType) {
+      setSelectedCoreSubPackageId(item.coreSubPackageId || item.coreSubPackage?.id || "");
+      if (Array.isArray(item.subPackages)) {
+        setSelectedSubPackageIds(item.subPackages.map((sp: any) => sp.id));
+      } else {
+        setSelectedSubPackageIds([]);
+      }
     } else {
       setSelectedSubPackageIds([]);
+      setSelectedCoreSubPackageId("");
     }
     setDrawerOpen(true);
   };
@@ -170,6 +190,7 @@ export default function MasterConfigurationDynamicPage({
 
       if (isProcessType) {
         payload.subPackageIds = selectedSubPackageIds;
+        payload.coreSubPackageId = selectedCoreSubPackageId || null;
       }
 
       if (isDocumentType && !payload.category && !payload.categoryId) {
@@ -232,6 +253,26 @@ export default function MasterConfigurationDynamicPage({
 
     if (isProcessType) {
       cols.push({
+        header: "Core Package",
+        accessorKey: "coreSubPackage",
+        cell: (item: any) => {
+          const core = item.coreSubPackage;
+          if (!core) return <span className="text-xs text-slate-400">-</span>;
+          const isInactive = !core.isActive;
+          return (
+            <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ${
+              isInactive
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+            }`}>
+              {core.name}
+              {isInactive ? " (Inactive)" : ""}
+            </span>
+          );
+        },
+      });
+
+      cols.push({
         header: "Sub Packages",
         accessorKey: "subPackages",
         cell: (item: any) => {
@@ -286,6 +327,25 @@ export default function MasterConfigurationDynamicPage({
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
+          filterComponent={
+            isProcessType ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Core Package:</span>
+                <select
+                  value={corePackageFilter}
+                  onChange={(e) => setCorePackageFilter(e.target.value)}
+                  className="h-10 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+                >
+                  <option value="">All Core Packages</option>
+                  {availableSubPackages.map((sp: any) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : undefined
+          }
         />
       </MasterLayout>
 
@@ -337,50 +397,74 @@ export default function MasterConfigurationDynamicPage({
                 </div>
               )}
 
+              {isProcessType && editingItem?.coreSubPackage && !editingItem.coreSubPackage.isActive && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                  ⚠️ <strong>Warning:</strong> The selected Core Package ("{editingItem.coreSubPackage.name}") is currently inactive in Master Configuration → Sub Packages.
+                </div>
+              )}
+
               {isProcessType && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-slate-900 dark:text-white">
-                    Sub Packages
-                  </label>
-                  <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/5">
-                    <input
-                      type="text"
-                      placeholder="Search sub packages..."
-                      value={subPackageSearch}
-                      onChange={(e) => setSubPackageSearch(e.target.value)}
-                      className="mb-2.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                <>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-bold text-slate-900 dark:text-white">
+                      Core Package
+                    </label>
+                    <SearchableSelect
+                      options={availableSubPackages.map((sp: any) => ({
+                        label: sp.name + (!sp.isActive ? " (Inactive)" : ""),
+                        value: sp.id,
+                      }))}
+                      value={selectedCoreSubPackageId}
+                      onChange={(val) => setSelectedCoreSubPackageId(val)}
+                      placeholder="Select Core Package"
+                      emptyMessage="No Sub Packages found."
                     />
-                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                      {filteredAvailableSubPackages.length === 0 ? (
-                        <p className="py-2 text-center text-xs text-slate-400">No active sub packages found.</p>
-                      ) : (
-                        filteredAvailableSubPackages.map((sp) => {
-                          const isChecked = selectedSubPackageIds.includes(sp.id);
-                          return (
-                            <label
-                              key={sp.id}
-                              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 cursor-pointer dark:text-slate-200 dark:hover:bg-white/10"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedSubPackageIds([...selectedSubPackageIds, sp.id]);
-                                  } else {
-                                    setSelectedSubPackageIds(selectedSubPackageIds.filter((id) => id !== sp.id));
-                                  }
-                                }}
-                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              {sp.name}
-                            </label>
-                          );
-                        })
-                      )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-slate-900 dark:text-white">
+                      Sub Packages
+                    </label>
+                    <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/5">
+                      <input
+                        type="text"
+                        placeholder="Search sub packages..."
+                        value={subPackageSearch}
+                        onChange={(e) => setSubPackageSearch(e.target.value)}
+                        className="mb-2.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                      />
+                      <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                        {filteredAvailableSubPackages.length === 0 ? (
+                          <p className="py-2 text-center text-xs text-slate-400">No active sub packages found.</p>
+                        ) : (
+                          filteredAvailableSubPackages.map((sp) => {
+                            const isChecked = selectedSubPackageIds.includes(sp.id);
+                            return (
+                              <label
+                                key={sp.id}
+                                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 cursor-pointer dark:text-slate-200 dark:hover:bg-white/10"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedSubPackageIds([...selectedSubPackageIds, sp.id]);
+                                    } else {
+                                      setSelectedSubPackageIds(selectedSubPackageIds.filter((id) => id !== sp.id));
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                {sp.name}
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </>
               )}
 
               <Input

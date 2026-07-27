@@ -21,6 +21,7 @@ type MasterDataTableProps = {
   searchPlaceholder?: string;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  filterComponent?: React.ReactNode;
 };
 
 export function MasterDataTable({
@@ -33,11 +34,12 @@ export function MasterDataTable({
   searchPlaceholder = "Search records...",
   searchQuery,
   onSearchChange,
+  filterComponent,
 }: MasterDataTableProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_12px_-4px_rgba(0,0,0,0.02)] dark:border-white/10 dark:bg-[#0f1115]">
       {/* Table Toolbar */}
-      <div className="flex items-center justify-between border-b border-slate-100 p-3 sm:p-4 dark:border-white/5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-3 sm:p-4 dark:border-white/5">
         <div className="relative w-full max-w-md group">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
           <input
@@ -48,6 +50,11 @@ export function MasterDataTable({
             className="h-10 w-full rounded-xl border border-slate-200/60 bg-slate-50/50 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-[#13151a]"
           />
         </div>
+        {filterComponent && (
+          <div className="flex items-center gap-2">
+            {filterComponent}
+          </div>
+        )}
       </div>
 
       {/* Data Table */}

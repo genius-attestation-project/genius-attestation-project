@@ -1148,10 +1148,14 @@ model MasterData {
   categoryId   String?               @map("category_id")
   categoryRel  DocumentTypeCategory? @relation("CategoryDocumentTypes", fields: [categoryId], references: [id], onDelete: SetNull)
 
+  coreSubPackageId String?     @map("core_sub_package_id")
+  coreSubPackage   SubPackage? @relation("ProcessTypeCoreSubPackage", fields: [coreSubPackageId], references: [id], onDelete: SetNull)
+
   @@unique([type, name, ownerAdminId])
   @@index([type])
   @@index([isActive])
   @@index([ownerAdminId])
+  @@index([coreSubPackageId])
   @@map("master_data")
 }
 
@@ -1164,7 +1168,8 @@ model SubPackage {
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
-  processTypes MasterData[] @relation("ProcessTypeSubPackages")
+  processTypes     MasterData[] @relation("ProcessTypeSubPackages")
+  coreProcessTypes MasterData[] @relation("ProcessTypeCoreSubPackage")
 
   @@unique([name, ownerAdminId])
   @@index([ownerAdminId])
