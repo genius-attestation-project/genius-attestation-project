@@ -252,6 +252,12 @@ export async function GET(request: NextRequest) {
         subtitle: `${registration.customerName} • ${registration.paymentStatus} • ${registration.trackingStatus}`,
         href: `/dashboard/search-report?trackingNumber=${encodeURIComponent(registration.trackingNumber)}`,
       })),
+      bundles: bundles.map((bundle) => ({
+        id: bundle.id,
+        title: bundle.bundleNumber,
+        subtitle: `Bundle • ${bundle.fromOffice?.officeName ?? "Origin"} -> ${bundle.toOffice?.officeName ?? "Destination"} • ${bundle.status}`,
+        href: `/dashboard/bm-report?search=${encodeURIComponent(bundle.bundleNumber)}`,
+      })),
       users: users.map((user) => ({
         id: user.id,
         title: user.name ?? user.email,

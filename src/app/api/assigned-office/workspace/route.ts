@@ -8,6 +8,7 @@ import {
   processSubPackageDocumentAction,
   transferBackToProcess,
   listSubPackageItemsForOffice,
+  getSubPackagesForProcessType,
 } from "@/features/assigned-office/server/assigned-office.service";
 
 export async function GET(req: NextRequest) {
@@ -21,9 +22,10 @@ export async function GET(req: NextRequest) {
     // Office ID comes from office user session or query param if admin
     const searchParams = req.nextUrl.searchParams;
     const officeId = searchParams.get("officeId") || session.user.officeId || session.user.id;
-    const action = searchParams.get("action"); // 'stats' | 'documents' | 'subpackage_items'
+    const action = searchParams.get("action"); // 'stats' | 'documents' | 'subpackage_items' | 'subpackages_for_process_type'
     const tab = searchParams.get("tab") || "in_hand";
     const search = searchParams.get("search") || "";
+    const processType = searchParams.get("processType") || undefined;
 
     if (action === "stats") {
       const stats = await getAssignedOfficeWorkspaceStats(officeId, ownerAdminId);
@@ -33,6 +35,11 @@ export async function GET(req: NextRequest) {
     if (action === "subpackage_items") {
       const data = await listSubPackageItemsForOffice({ officeId, ownerAdminId });
       return NextResponse.json(data);
+    }
+
+    if (action === "subpackages_for_process_type") {
+      const subPackages = await getSubPackagesForProcessType(processType, ownerAdminId);
+      return NextResponse.json({ subPackages });
     }
 
     const documents = await listWorkspaceDocuments({

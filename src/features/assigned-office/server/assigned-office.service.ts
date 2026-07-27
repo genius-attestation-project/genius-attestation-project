@@ -46,6 +46,48 @@ export async function getAssignedOfficeMasterOptions(ownerAdminId: string) {
 }
 
 /**
+ * Fetch Sub Packages dynamically filtered by Process Type name
+ */
+export async function getSubPackagesForProcessType(processTypeName: string | null | undefined, ownerAdminId: string) {
+  if (processTypeName) {
+    const ptMaster = await prisma.masterData.findFirst({
+      where: {
+        type: "PROCESS_TYPES",
+        name: processTypeName,
+        ownerAdminId,
+      },
+      include: {
+        subPackages: true,
+        coreSubPackage: true,
+      },
+    });
+
+    if (ptMaster && ptMaster.subPackages.length > 0) {
+      return ptMaster.subPackages.map((sp) => ({
+        id: sp.id,
+        name: sp.name,
+        description: sp.description,
+        isCorePackage: sp.id === ptMaster.coreSubPackageId,
+      }));
+    }
+  }
+
+  // Fallback to all active subpackages
+  const allSubPackages = await prisma.subPackage.findMany({
+    where: { ownerAdminId, isActive: true },
+    orderBy: { name: "asc" },
+  });
+
+  return allSubPackages.map((sp) => ({
+    id: sp.id,
+    name: sp.name,
+    description: sp.description,
+    isCorePackage: false,
+  }));
+}
+
+
+/**
  * List Assigned Offices with pagination, search, status filter, and sorting
  */
 export async function listAssignedOffices(params: {

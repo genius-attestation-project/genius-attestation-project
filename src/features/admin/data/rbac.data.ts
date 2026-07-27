@@ -458,6 +458,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
+  { key: "subpackage", label: "Sub Package Workflow", description: "Sub Package workflow access.", actions: ["view", "transfer", "complete", "return", "reject"] },
   { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
   { key: "roles", label: "Roles", description: "Role and RBAC access." },
   { key: "departments", label: "Department", description: "Department administration." },
