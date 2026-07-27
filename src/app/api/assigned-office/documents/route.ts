@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  getAssignedOfficeStats,
-  listAssignedOfficeDocuments,
+  getAssignedOfficeWorkspaceStats,
+  listWorkspaceDocuments,
   transferToSubPackage,
 } from "@/features/assigned-office/server/assigned-office.service";
 import { createTransferBundle } from "@/features/bm-report/server/bundle-workflow.service";
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const officeId = searchParams.get("officeId") || currentUser.officeLocationId;
+    const officeId = searchParams.get("officeId") || currentUser.officeId || currentUser.officeLocationId;
     const tab = searchParams.get("tab") || "in_hand";
     const search = searchParams.get("search") || undefined;
 
@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ stats: null, documents: [] });
     }
 
-    const stats = await getAssignedOfficeStats(officeId, currentUser.ownerAdminId);
-    const documents = await listAssignedOfficeDocuments({
+    const stats = await getAssignedOfficeWorkspaceStats(officeId, currentUser.ownerAdminId);
+    const documents = await listWorkspaceDocuments({
       officeId,
       tab,
       ownerAdminId: currentUser.ownerAdminId,
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       const { items, officeId } = body;
       const result = await transferToSubPackage({
         items,
-        officeId: officeId || currentUser.officeLocationId,
+        officeId: officeId || currentUser.officeId || currentUser.officeLocationId,
         userId: currentUser.id,
         userName: currentUser.name || undefined,
         ownerAdminId: currentUser.ownerAdminId,
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
       const result = await createTransferBundle({
         trackingNumbers,
-        fromOfficeId: fromOfficeId || currentUser.officeLocationId,
+        fromOfficeId: fromOfficeId || currentUser.officeId || currentUser.officeLocationId,
         toOfficeId,
         userId: currentUser.id,
         userName: currentUser.name || undefined,

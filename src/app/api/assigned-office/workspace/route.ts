@@ -1,0 +1,123 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import {
+  getAssignedOfficeWorkspaceStats,
+  listWorkspaceDocuments,
+  receiveBundleDocuments,
+  transferToSubPackage,
+  processSubPackageDocumentAction,
+  transferBackToProcess,
+  listSubPackageItemsForOffice,
+} from "@/features/assigned-office/server/assigned-office.service";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
+    // Office ID comes from office user session or query param if admin
+    const searchParams = req.nextUrl.searchParams;
+    const officeId = searchParams.get("officeId") || session.user.officeId || session.user.id;
+    const action = searchParams.get("action"); // 'stats' | 'documents' | 'subpackage_items'
+    const tab = searchParams.get("tab") || "in_hand";
+    const search = searchParams.get("search") || "";
+
+    if (action === "stats") {
+      const stats = await getAssignedOfficeWorkspaceStats(officeId, ownerAdminId);
+      return NextResponse.json(stats);
+    }
+
+    if (action === "subpackage_items") {
+      const data = await listSubPackageItemsForOffice({ officeId, ownerAdminId });
+      return NextResponse.json(data);
+    }
+
+    const documents = await listWorkspaceDocuments({
+      officeId,
+      tab,
+      ownerAdminId,
+      search,
+    });
+
+    return NextResponse.json(documents);
+  } catch (error: any) {
+    console.error("[WORKSPACE_GET]", error);
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
+    const userId = session.user.id;
+    const userName = session.user.name || session.user.email || "Office User";
+
+    const body = await req.json();
+    const { action, officeId: reqOfficeId } = body;
+    const officeId = reqOfficeId || session.user.officeId || session.user.id;
+
+    if (action === "receive_bundle") {
+      const { bundleId, selectedTrackingNumbers } = body;
+      const result = await receiveBundleDocuments({
+        bundleId,
+        selectedTrackingNumbers,
+        officeId,
+        userId,
+        userName,
+        ownerAdminId,
+      });
+      return NextResponse.json(result);
+    }
+
+    if (action === "transfer_to_subpackage") {
+      const { items } = body; // Array of { trackingNumber, subPackageId }
+      const result = await transferToSubPackage({
+        items,
+        officeId,
+        userId,
+        userName,
+        ownerAdminId,
+      });
+      return NextResponse.json(result);
+    }
+
+    if (action === "subpackage_action") {
+      const { movementIds, subPackageAction, remarks } = body; // subPackageAction: 'complete' | 'return' | 'reject'
+      const result = await processSubPackageDocumentAction({
+        movementIds,
+        action: subPackageAction,
+        userId,
+        userName,
+        ownerAdminId,
+        remarks,
+      });
+      return NextResponse.json(result);
+    }
+
+    if (action === "back_to_process") {
+      const { trackingNumbers, remarks } = body;
+      const result = await transferBackToProcess({
+        trackingNumbers,
+        officeId,
+        userId,
+        userName,
+        ownerAdminId,
+        remarks,
+      });
+      return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ message: "Unknown action" }, { status: 400 });
+  } catch (error: any) {
+    console.error("[WORKSPACE_POST]", error);
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
+  }
+}

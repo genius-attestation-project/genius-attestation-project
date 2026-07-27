@@ -39,7 +39,23 @@ const providers = [
         });
 
         let isAgency = false;
+        let isAssignedOffice = false;
         
+        if (!user) {
+          user = await (prisma as any).assignedOffice.findUnique({
+            where: { email: parsed.data.email },
+          });
+          if (!user) {
+            user = await (prisma as any).assignedOffice.findUnique({
+              where: { username: parsed.data.email },
+            });
+          }
+          if (user) {
+            isAssignedOffice = true;
+            isAgency = true;
+          }
+        }
+
         if (!user) {
           user = await (prisma as any).assignedAgency.findUnique({
             where: { email: parsed.data.email },
@@ -53,12 +69,13 @@ const providers = [
         }
 
         const passwordHash = user?.passwordHash ?? user?.legacyPasswordHash;
+        const isActive = isAssignedOffice ? (user?.status ?? user?.isActive) : user?.isActive;
 
-        if (!passwordHash || !user?.isActive) {
+        if (!passwordHash || !isActive) {
           authDebugLog("Login blocked because user is missing password or inactive.", {
             email: parsed.data.email,
             hasPassword: Boolean(passwordHash),
-            isActive: user?.isActive ?? null,
+            isActive: isActive ?? null,
           });
           return null;
         }
@@ -75,7 +92,12 @@ const providers = [
           return null;
         }
 
-        if (isAgency) {
+        if (isAssignedOffice) {
+          await (prisma as any).assignedOffice.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() },
+          });
+        } else if (isAgency) {
           await (prisma as any).assignedAgency.update({
             where: { id: user.id },
             data: { lastLogin: new Date() },
@@ -90,14 +112,17 @@ const providers = [
         authDebugLog("Credentials login authorized.", {
           userId: user.id,
           email: user.email,
+          isAssignedOffice,
         });
 
         return {
           id: user.id,
-          name: isAgency ? user.username : user.name,
+          name: (isAssignedOffice || isAgency) ? user.username : user.name,
           email: user.email,
-          image: isAgency ? null : user.image,
+          image: (isAssignedOffice || isAgency) ? null : user.image,
           isAgency,
+          isAssignedOffice,
+          ownerAdminId: user.ownerAdminId,
         } as any;
       } catch (error) {
         console.error("[auth] Credentials authorize failed", error);
@@ -201,19 +226,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       try {
-        if (user && (user as any).isAgency) {
+        if (user && ((user as any).isAssignedOffice || (user as any).isAgency)) {
           token.id = user.id;
           token.name = user.name;
           token.email = user.email;
           token.isAgency = true;
-          token.role = "Agency";
+          token.isAssignedOffice = Boolean((user as any).isAssignedOffice);
+          token.officeId = user.id;
+          token.ownerAdminId = (user as any).ownerAdminId;
+          token.role = "AssignedOffice";
           token.isSuperAdmin = false;
           token.permissions = [];
           token.roles = [];
           return token;
         }
         
-        if (token.isAgency) {
+        if (token.isAgency || token.isAssignedOffice) {
           return token;
         }
 
@@ -276,6 +304,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           session.user.isAgency =
             typeof token.isAgency === "boolean" ? token.isAgency : false;
+
+          session.user.isAssignedOffice =
+            typeof token.isAssignedOffice === "boolean" ? token.isAssignedOffice : false;
+
+          session.user.officeId =
+            typeof token.officeId === "string" ? token.officeId : undefined;
 
           session.user.role =
             typeof token.role === "string" ? token.role : "User";

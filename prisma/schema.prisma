@@ -1378,3 +1378,67 @@ model AssignedAgencyPackage {
   @@index([processTypeId])
   @@map("assigned_agency_packages")
 }
+
+model AssignedOffice {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  status       Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  ownerAdminId String    @map("owner_admin_id")
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  processTypes AssignedOfficeProcessType[]
+  subPackages  AssignedOfficeSubPackage[]
+  auditLogs    AssignedOfficeAuditLog[]
+
+  @@index([ownerAdminId])
+  @@index([status])
+  @@map("assigned_offices")
+}
+
+model AssignedOfficeProcessType {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  processTypeId    String         @map("process_type_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedOfficeId, processTypeId])
+  @@index([assignedOfficeId])
+  @@index([processTypeId])
+  @@map("assigned_office_process_types")
+}
+
+model AssignedOfficeSubPackage {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  subPackageId     String         @map("sub_package_id")
+  isCorePackage    Boolean        @default(false) @map("is_core_package")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedOfficeId, subPackageId])
+  @@index([assignedOfficeId])
+  @@index([subPackageId])
+  @@map("assigned_office_sub_packages")
+}
+
+model AssignedOfficeAuditLog {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  action           String         @map("action")
+  description      String         @db.Text @map("description")
+  performedBy      String         @map("performed_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([assignedOfficeId])
+  @@index([createdAt])
+  @@map("assigned_office_audit_logs")
+}
+

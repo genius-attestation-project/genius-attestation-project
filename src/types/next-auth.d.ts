@@ -16,6 +16,8 @@ declare module "next-auth" {
       isLocked?: boolean;
       lockReason?: string;
       isAgency?: boolean;
+      isAssignedOffice?: boolean;
+      officeId?: string;
     } & DefaultSession["user"];
   }
 }
@@ -35,5 +37,7 @@ declare module "next-auth/jwt" {
     isLocked?: boolean;
     lockReason?: string;
     isAgency?: boolean;
+    isAssignedOffice?: boolean;
+    officeId?: string;
   }
 }

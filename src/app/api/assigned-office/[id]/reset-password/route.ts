@@ -1,50 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { resetOfficePasswordSchema } from "@/features/assigned-office/validations/office.schema";
-import bcrypt from "bcrypt";
-import { auth } from "@/lib/auth";
+import { resetOfficePassword } from "@/features/assigned-office/server/assigned-office.service";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const errorResponse = await requireApiPermission("assigned_office.reset_password");
     if (errorResponse) return errorResponse;
 
-    const { id } = await params;
-
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     const userId = session?.user?.id;
+    const userName = session?.user?.name || session?.user?.email || "Admin";
 
+    if (!ownerAdminId || !userId) return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+
+    const { id } = await context.params;
     const body = await req.json();
     const parsed = resetOfficePasswordSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ message: "Invalid request body.", errors: parsed.error.format() }, { status: 400 });
+      return NextResponse.json(
+        { message: "Invalid password format.", errors: parsed.error.format() },
+        { status: 400 }
+      );
     }
 
-    const existing = await prisma.assignedAgency.findUnique({
-      where: { id },
-    });
-
-    if (!existing || existing.ownerAdminId !== ownerAdminId || existing.deletedAt !== null) {
-      return NextResponse.json({ message: "Assigned office not found." }, { status: 404 });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(parsed.data.password, salt);
-
-    await prisma.assignedAgency.update({
-      where: { id },
-      data: {
-        passwordHash,
-        updatedBy: userId,
-      },
-    });
-
-    return NextResponse.json({ message: "Password reset successfully." });
-  } catch (error) {
-    console.error("[ASSIGNED_OFFICE_RESET_PASSWORD]", error);
-    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+    const updated = await resetOfficePassword(id, parsed.data.password, userId, userName, ownerAdminId);
+    return NextResponse.json({ message: "Password reset successfully.", id: updated.id });
+  } catch (error: any) {
+    console.error("[ASSIGNED_OFFICE_RESET_PASSWORD_POST]", error);
+    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 400 });
   }
 }

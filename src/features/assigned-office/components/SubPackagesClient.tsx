@@ -1,303 +1,308 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Layers,
-  Search,
   CheckCircle2,
   RotateCcw,
-  XCircle,
-  CheckSquare,
-  Square,
+  AlertTriangle,
   ArrowLeft,
   RefreshCw,
+  Sparkles,
+  CheckSquare,
+  Square,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { cn } from "@/utils/cn";
 
-export function SubPackagesClient() {
+type SubPackagesClientProps = {
+  officeId: string;
+};
+
+export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
   const [subPackages, setSubPackages] = useState<any[]>([]);
+  const [coreSubPackageId, setCoreSubPackageId] = useState<string | null>(null);
   const [activeSubPackageId, setActiveSubPackageId] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
   const [selectedMovementIds, setSelectedMovementIds] = useState<string[]>([]);
+  const [processing, setProcessing] = useState(false);
 
-  const fetchSubPackageData = async () => {
-    setIsLoading(true);
+  // Load office assigned subpackages and movements
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setSelectedMovementIds([]);
     try {
-      const res = await fetch("/api/assigned-office/sub-packages");
+      const res = await fetch(`/api/assigned-office/workspace?action=subpackage_items&officeId=${officeId}`);
       if (res.ok) {
-        const body = await res.json();
-        const spList = body.subPackages || [];
-        setSubPackages(spList);
-        setItems(body.items || []);
-        if (spList.length > 0 && !activeSubPackageId) {
-          setActiveSubPackageId(spList[0].id || spList[0].name);
+        const data = await res.json();
+        setSubPackages(data.subPackages || []);
+        setCoreSubPackageId(data.coreSubPackageId || null);
+        setItems(data.items || []);
+
+        if (data.subPackages?.length > 0 && !activeSubPackageId) {
+          setActiveSubPackageId(data.subPackages[0].id);
         }
       }
     } catch (err) {
-      console.error("Failed to fetch sub packages", err);
-    } finally {
-      setIsLoading(false);
+      console.error("Failed to fetch subpackage data", err);
+    } fontinally: {
+      setLoading(false);
     }
-  };
+  }, [officeId, activeSubPackageId]);
 
   useEffect(() => {
-    fetchSubPackageData();
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
-  // Filter items for the active subpackage tab & search
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesTab =
-        item.subPackageId === activeSubPackageId ||
-        item.subPackageId?.toLowerCase() === activeSubPackageId?.toLowerCase();
+  // Filter items assigned to the active subpackage tab
+  const activeItems = items.filter((item) => item.subPackageId === activeSubPackageId);
 
-      if (!matchesTab) return false;
-
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase().trim();
-      return (
-        item.trackingNumber?.toLowerCase().includes(q) ||
-        item.registration?.customerName?.toLowerCase().includes(q)
-      );
-    });
-  }, [items, activeSubPackageId, searchQuery]);
-
-  // Checkbox Selection Handlers
-  const handleSelectAll = () => {
-    if (selectedMovementIds.length === filteredItems.length) {
-      setSelectedMovementIds([]);
-    } else {
-      setSelectedMovementIds(filteredItems.map((i) => i.id));
-    }
-  };
-
-  const handleToggleSelect = (id: string) => {
+  // Toggle selection
+  const toggleSelectMovement = (id: string) => {
     setSelectedMovementIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  // Perform Batch Action: Complete | Return | Reject
-  const handleBatchAction = async (action: "complete" | "return" | "reject") => {
-    if (selectedMovementIds.length === 0) {
-      alert("Please select at least one document for this action.");
-      return;
+  const toggleSelectAll = () => {
+    if (selectedMovementIds.length === activeItems.length) {
+      setSelectedMovementIds([]);
+    } else {
+      setSelectedMovementIds(activeItems.map((item) => item.id));
     }
+  };
 
+  // Handle action (Complete, Return, Reject)
+  const handleAction = async (actionType: "complete" | "return" | "reject") => {
+    if (selectedMovementIds.length === 0) return;
+    const confirmMessage =
+      actionType === "complete"
+        ? `Mark ${selectedMovementIds.length} item(s) as Complete?`
+        : actionType === "return"
+        ? `Return ${selectedMovementIds.length} item(s)?`
+        : `Reject ${selectedMovementIds.length} item(s) back to Process Module?`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setProcessing(true);
     try {
-      setIsLoading(true);
-      const res = await fetch("/api/assigned-office/sub-packages", {
+      const res = await fetch("/api/assigned-office/workspace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "subpackage_action",
+          officeId,
           movementIds: selectedMovementIds,
-          action,
+          subPackageAction: actionType,
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.error || "Action failed");
+      if (res.ok) {
+        fetchData();
       }
-
-      alert(`Successfully performed ${action.toUpperCase()} on ${selectedMovementIds.length} item(s)!`);
-      setSelectedMovementIds([]);
-      fetchSubPackageData();
-    } catch (err: any) {
-      alert(err.message || "Failed to perform action");
+    } catch (err) {
+      console.error("Action failed", err);
     } finally {
-      setIsLoading(false);
+      setProcessing(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/assigned-office"
-            className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Sub Packages Workflow</h1>
-            <p className="text-sm text-slate-500">
-              Manage and track all subpackage processing workflows efficiently
-            </p>
+    <div className="space-y-6 w-full pb-12">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5 dark:border-white/10">
+        <div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/assigned-office/workspace"
+              className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <Layers className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Assigned Sub Packages View
+            </h1>
           </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Process documents assigned to specific subpackages. Automated document completion triggers when all subpackages and Core Package complete.
+          </p>
         </div>
 
-        <Button
-          onClick={fetchSubPackageData}
-          variant="secondary"
-          className="rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <Link href="/dashboard/assigned-office/workspace">
+          <Button variant="secondary" className="gap-2 rounded-xl border-slate-300 dark:border-white/15">
+            <Building2 size={16} />
+            Back to Workspace
+          </Button>
+        </Link>
       </div>
 
-      {/* Horizontal SubPackage Tabs Bar */}
-      <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-100/80 p-1.5 rounded-2xl gap-1">
-        {subPackages.length === 0 ? (
-          <div className="p-3 text-xs font-semibold text-slate-500">No active subpackages configured</div>
-        ) : (
-          subPackages.map((sp) => {
-            const spId = sp.id || sp.name;
-            const isActive = activeSubPackageId === spId;
-            const count = items.filter(
-              (i) => i.subPackageId === spId || i.subPackageId?.toLowerCase() === spId.toLowerCase()
-            ).length;
+      {/* Horizontal SubPackage Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200/80 pb-2 dark:border-white/10">
+        {subPackages.map((sp) => {
+          const isCore = sp.id === coreSubPackageId;
+          const isActive = activeSubPackageId === sp.id;
+          const count = items.filter((item) => item.subPackageId === sp.id).length;
 
-            return (
-              <button
-                key={spId}
-                onClick={() => {
-                  setActiveSubPackageId(spId);
-                  setSelectedMovementIds([]);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold whitespace-nowrap transition-all ${
-                  isActive
-                    ? "bg-blue-900 text-white shadow-sm"
-                    : "bg-white/60 text-slate-700 hover:bg-white hover:text-slate-900"
-                }`}
-              >
-                <Layers className="h-4 w-4" />
-                {sp.name}
-                {count > 0 && (
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-black ${
-                      isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
-                    }`}
-                  >
-                    {count}
-                  </span>
+          return (
+            <button
+              key={sp.id}
+              onClick={() => {
+                setActiveSubPackageId(sp.id);
+                setSelectedMovementIds([]);
+              }}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all",
+                isActive
+                  ? isCore
+                    ? "bg-amber-600 text-white shadow-md shadow-amber-500/20"
+                    : "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/60 dark:bg-white/5 dark:border-white/10 dark:text-slate-300"
+              )}
+            >
+              {isCore && <Sparkles size={14} className="text-amber-200" />}
+              <span>{sp.name}</span>
+              {isCore && <span className="text-[10px] uppercase tracking-wider font-extrabold opacity-80">(CORE)</span>}
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-bold",
+                  isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 dark:bg-white/10"
                 )}
-              </button>
-            );
-          })
-        )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Main Table Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-        {/* Controls Header: Search & Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search tracking number or customer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-bold text-slate-700">
-              {selectedMovementIds.length} Selected
-            </span>
-
-            <Button
-              onClick={() => handleBatchAction("complete")}
-              disabled={selectedMovementIds.length === 0 || isLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-4 py-2 text-sm"
-            >
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              Complete
-            </Button>
-
-            <Button
-              onClick={() => handleBatchAction("return")}
-              disabled={selectedMovementIds.length === 0 || isLoading}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-4 py-2 text-sm"
-            >
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              Return
-            </Button>
-
-            <Button
-              onClick={() => handleBatchAction("reject")}
-              disabled={selectedMovementIds.length === 0 || isLoading}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl px-4 py-2 text-sm"
-            >
-              <XCircle className="mr-1.5 h-4 w-4" />
-              Reject
-            </Button>
-          </div>
+      {/* Toolbar Buttons */}
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200/60 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-[#0f1115]">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={activeItems.length > 0 && selectedMovementIds.length === activeItems.length}
+            onChange={toggleSelectAll}
+            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            {selectedMovementIds.length} selected
+          </span>
         </div>
 
-        {/* Table Content */}
-        {filteredItems.length === 0 ? (
-          <EmptyState
-            icon={Layers}
-            title="No Items in this Sub Package"
-            description="Documents transferred to this subpackage will appear here for processing."
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full text-left text-sm text-slate-700">
-              <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+        <div className="flex items-center gap-2">
+          <Button
+            disabled={selectedMovementIds.length === 0 || processing}
+            onClick={() => handleAction("complete")}
+            className="gap-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"
+          >
+            <CheckCircle2 size={16} />
+            Complete
+          </Button>
+
+          <Button
+            disabled={selectedMovementIds.length === 0 || processing}
+            onClick={() => handleAction("return")}
+            className="gap-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow-md"
+          >
+            <RotateCcw size={16} />
+            Return
+          </Button>
+
+          <Button
+            disabled={selectedMovementIds.length === 0 || processing}
+            onClick={() => handleAction("reject")}
+            className="gap-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 shadow-md"
+          >
+            <AlertTriangle size={16} />
+            Reject
+          </Button>
+        </div>
+      </div>
+
+      {/* Subpackage Items Table */}
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0f1115]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+            <thead className="border-b border-slate-200/80 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5">
+              <tr>
+                <th className="p-4 w-10"></th>
+                <th className="p-4">Tracking Number</th>
+                <th className="p-4">Customer Name</th>
+                <th className="p-4">Document Type</th>
+                <th className="p-4">Process Type</th>
+                <th className="p-4">Assigned Sub Package</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Assigned Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200/60 dark:divide-white/10">
+              {loading ? (
                 <tr>
-                  <th className="p-4 w-10">
-                    <button onClick={handleSelectAll}>
-                      {selectedMovementIds.length === filteredItems.length ? (
-                        <CheckSquare className="h-5 w-5 text-blue-600" />
-                      ) : (
-                        <Square className="h-5 w-5 text-slate-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="p-4">SL No.</th>
-                  <th className="p-4">Tracking Number</th>
-                  <th className="p-4">Customer Name</th>
-                  <th className="p-4">Received Date</th>
-                  <th className="p-4">Current Status</th>
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                    <RefreshCw className="mx-auto h-6 w-6 animate-spin" />
+                    <p className="mt-2 text-sm font-medium">Loading subpackage documents...</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {filteredItems.map((item, idx) => {
+              ) : activeItems.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
+                    No documents assigned to this subpackage.
+                  </td>
+                </tr>
+              ) : (
+                activeItems.map((item) => {
                   const isSelected = selectedMovementIds.includes(item.id);
+                  const reg = item.registration;
                   return (
-                    <tr key={item.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
+                    <tr
+                      key={item.id}
+                      className={cn(
+                        "hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors",
+                        isSelected && "bg-blue-50/40 dark:bg-blue-500/10"
+                      )}
+                    >
                       <td className="p-4">
-                        <button onClick={() => handleToggleSelect(item.id)}>
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-blue-600" />
-                          ) : (
-                            <Square className="h-5 w-5 text-slate-400" />
-                          )}
-                        </button>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectMovement(item.id)}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
                       </td>
-                      <td className="p-4 font-mono text-slate-500">{idx + 1}</td>
-                      <td className="p-4 font-bold text-blue-600 font-mono text-base">
+                      <td className="p-4 font-bold text-blue-600 dark:text-blue-400">
                         {item.trackingNumber}
                       </td>
-                      <td className="p-4 font-medium text-slate-900">
-                        {item.registration?.customerName || "N/A"}
+                      <td className="p-4 font-semibold text-slate-900 dark:text-white">
+                        {reg?.customerName || "-"}
                       </td>
-                      <td className="p-4 text-xs text-slate-500">
-                        {new Date(item.startedAt).toLocaleDateString()}
+                      <td className="p-4 text-xs">{reg?.documentType || "-"}</td>
+                      <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {reg?.processType || "-"}
+                      </td>
+                      <td className="p-4 text-xs">
+                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                          {subPackages.find((sp) => sp.id === item.subPackageId)?.name || "Sub Package"}
+                        </span>
                       </td>
                       <td className="p-4">
-                        <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                           {item.status}
                         </span>
                       </td>
+                      <td className="p-4 text-xs text-slate-500">
+                        {new Date(item.startedAt).toLocaleString()}
+                      </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

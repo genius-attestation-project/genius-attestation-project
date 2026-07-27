@@ -1,23 +1,86 @@
 import { z } from "zod";
 
-export const createOfficeSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username is too long"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  assignedPackages: z.array(z.string()).min(1, "Select at least one package"),
-  isActive: z.boolean().default(true),
-});
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-export const updateOfficeSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username is too long").optional(),
-  email: z.string().email("Invalid email address").optional(),
-  assignedPackages: z.array(z.string()).min(1, "Select at least one package").optional(),
-  isActive: z.boolean().optional(),
-});
+export const createOfficeSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(50, "Username is too long")
+      .regex(/^[a-zA-Z0-9._-]+$/, "Username can only contain letters, numbers, dots, underscores, and hyphens"),
+    email: z.string().email("Invalid email address"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        passwordRegex,
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm password"),
+    processTypes: z.array(z.string()).min(1, "Select at least one Process Type"),
+    corePackageId: z.string().min(1, "Core Package is required"),
+    subPackages: z.array(z.string()).min(1, "Select at least one Sub Package"),
+    status: z.boolean().default(true),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.subPackages.includes(data.corePackageId), {
+    message: "Core Package must also be included inside Assigned Sub Packages",
+    path: ["corePackageId"],
+  });
 
-export const resetOfficePasswordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+export const updateOfficeSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(50, "Username is too long")
+      .regex(/^[a-zA-Z0-9._-]+$/, "Username can only contain letters, numbers, dots, underscores, and hyphens")
+      .optional(),
+    email: z.string().email("Invalid email address").optional(),
+    password: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || (val.length >= 8 && passwordRegex.test(val)),
+        "Password must be at least 8 characters and contain uppercase, lowercase, and a number"
+      ),
+    processTypes: z.array(z.string()).min(1, "Select at least one Process Type").optional(),
+    corePackageId: z.string().min(1, "Core Package is required").optional(),
+    subPackages: z.array(z.string()).min(1, "Select at least one Sub Package").optional(),
+    status: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.corePackageId && data.subPackages) {
+        return data.subPackages.includes(data.corePackageId);
+      }
+      return true;
+    },
+    {
+      message: "Core Package must also be included inside Assigned Sub Packages",
+      path: ["corePackageId"],
+    }
+  );
+
+export const resetOfficePasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        passwordRegex,
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;

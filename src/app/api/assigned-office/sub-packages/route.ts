@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  listSubPackageItems,
-  processSubPackageAction,
+  listSubPackageItemsForOffice,
+  processSubPackageDocumentAction,
 } from "@/features/assigned-office/server/assigned-office.service";
 
 export async function GET(req: NextRequest) {
@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const officeId = searchParams.get("officeId") || currentUser.officeLocationId || undefined;
+    const officeId = searchParams.get("officeId") || currentUser.officeId || currentUser.officeLocationId || "";
 
-    const data = await listSubPackageItems({
+    const data = await listSubPackageItemsForOffice({
       officeId,
       ownerAdminId: currentUser.ownerAdminId,
     });
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await processSubPackageAction({
+    const result = await processSubPackageDocumentAction({
       movementIds,
       action,
       userId: currentUser.id,

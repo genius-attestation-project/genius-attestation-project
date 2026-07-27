@@ -16,6 +16,10 @@ export default async function AssignedOfficePage() {
     redirect("/dashboard");
   }
 
+  if (session.user?.isAssignedOffice || session.user?.isAgency) {
+    redirect("/dashboard/assigned-office/workspace");
+  }
+
   const permissions = {
     "assigned_office.view": hasPermission(session.user, "assigned_office.view"),
     "assigned_office.create": hasPermission(session.user, "assigned_office.create"),
