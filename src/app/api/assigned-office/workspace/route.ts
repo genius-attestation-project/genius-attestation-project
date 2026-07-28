@@ -9,6 +9,7 @@ import {
   transferBackToProcess,
   listSubPackageItemsForOffice,
   getSubPackagesForProcessType,
+  sendDocumentsToInHand,
 } from "@/features/assigned-office/server/assigned-office.service";
 
 export async function GET(req: NextRequest) {
@@ -120,6 +121,18 @@ export async function POST(req: NextRequest) {
         userName,
         ownerAdminId,
         remarks,
+      });
+      return NextResponse.json(result);
+    }
+
+    if (action === "send_to_in_hand") {
+      const { trackingNumbers } = body;
+      const result = await sendDocumentsToInHand({
+        trackingNumbers,
+        officeId,
+        userId,
+        userName,
+        ownerAdminId,
       });
       return NextResponse.json(result);
     }

@@ -1076,6 +1076,7 @@ export async function processSubPackageDocumentAction(params: {
   userId: string;
   userName?: string;
   ownerAdminId: string;
+  officeId?: string;
   remarks?: string;
 }) {
   return prisma.$transaction(async (tx: any) => {
@@ -1101,65 +1102,26 @@ export async function processSubPackageDocumentAction(params: {
           },
         });
 
-        // Check if ALL assigned subpackages & core package are completed for this document & office
-        let allAssignedSubPackagesDone = false;
-        let isCoreCompleted = false;
+        // Move document automatically to Document Complete
+        await tx.documentMovement.updateMany({
+          where: {
+            trackingNumber: subMov.trackingNumber,
+            currentOfficeId: subMov.assignedOfficeId || params.officeId,
+          },
+          data: { currentStatus: "Completed" },
+        });
 
-        if (subMov.assignedOfficeId) {
-          const officeSubPackages = await tx.assignedOfficeSubPackage.findMany({
-            where: { assignedOfficeId: subMov.assignedOfficeId },
-          });
-
-          const corePackage = officeSubPackages.find((sp: any) => sp.isCorePackage);
-
-          // Get movements for all assigned subpackages of this office for this tracking number
-          const allMovements = await tx.subPackageMovement.findMany({
-            where: {
-              trackingNumber: subMov.trackingNumber,
-              assignedOfficeId: subMov.assignedOfficeId,
-            },
-          });
-
-          const completedSubPkgIds = new Set(
-            allMovements.filter((m: any) => m.status === "Completed").map((m: any) => m.subPackageId)
-          );
-
-          allAssignedSubPackagesDone = officeSubPackages.every((sp: any) =>
-            completedSubPkgIds.has(sp.subPackageId)
-          );
-
-          if (corePackage) {
-            isCoreCompleted = completedSubPkgIds.has(corePackage.subPackageId);
-          } else {
-            isCoreCompleted = true;
-          }
-        }
-
-        if (allAssignedSubPackagesDone && isCoreCompleted) {
-          // Move document automatically to Document Complete
-          await tx.documentMovement.updateMany({
-            where: { trackingNumber: subMov.trackingNumber },
-            data: { currentStatus: "Completed" },
-          });
-
-          await tx.documentWorkflowHistory.create({
-            data: {
-              documentId: reg.id,
-              trackingNumber: subMov.trackingNumber,
-              workflowStep: "Document Complete Automation",
-              status: "Completed",
-              performedBy: params.userName || params.userId,
-              remarks: "All Assigned Sub Packages & Core Package completed successfully.",
-              ownerAdminId: params.ownerAdminId,
-            },
-          });
-        } else {
-          // Move back to Document In Hand
-          await tx.documentMovement.updateMany({
-            where: { trackingNumber: subMov.trackingNumber },
-            data: { currentStatus: "Document In Hand" },
-          });
-        }
+        await tx.documentWorkflowHistory.create({
+          data: {
+            documentId: reg.id,
+            trackingNumber: subMov.trackingNumber,
+            workflowStep: "Sub Package Completed",
+            status: "Completed",
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || "Sub Package processing completed",
+            ownerAdminId: params.ownerAdminId,
+          },
+        });
 
         await tx.auditTrail.create({
           data: {
@@ -1179,7 +1141,10 @@ export async function processSubPackageDocumentAction(params: {
         });
 
         await tx.documentMovement.updateMany({
-          where: { trackingNumber: subMov.trackingNumber },
+          where: {
+            trackingNumber: subMov.trackingNumber,
+            currentOfficeId: subMov.assignedOfficeId || params.officeId,
+          },
           data: { currentStatus: "Returned" },
         });
 
@@ -1194,6 +1159,15 @@ export async function processSubPackageDocumentAction(params: {
             ownerAdminId: params.ownerAdminId,
           },
         });
+
+        await tx.auditTrail.create({
+          data: {
+            registrationId: reg.id,
+            action: "SUB_PACKAGE_RETURNED",
+            performedBy: params.userName || params.userId,
+            description: `Subpackage returned for tracking #${subMov.trackingNumber}`,
+          },
+        });
       } else if (params.action === "reject") {
         await tx.subPackageMovement.update({
           where: { id: movementId },
@@ -1204,7 +1178,10 @@ export async function processSubPackageDocumentAction(params: {
         });
 
         await tx.documentMovement.updateMany({
-          where: { trackingNumber: subMov.trackingNumber },
+          where: {
+            trackingNumber: subMov.trackingNumber,
+            currentOfficeId: subMov.assignedOfficeId || params.officeId,
+          },
           data: { currentStatus: "Rejected" },
         });
 
@@ -1219,10 +1196,73 @@ export async function processSubPackageDocumentAction(params: {
             ownerAdminId: params.ownerAdminId,
           },
         });
+
+        await tx.auditTrail.create({
+          data: {
+            registrationId: reg.id,
+            action: "SUB_PACKAGE_REJECTED",
+            performedBy: params.userName || params.userId,
+            description: `Subpackage rejected for tracking #${subMov.trackingNumber}`,
+          },
+        });
       }
     }
 
     return { success: true };
+  });
+}
+
+/**
+ * WORKSPACE: Move documents back into Document In Hand
+ */
+export async function sendDocumentsToInHand(params: {
+  trackingNumbers: string[];
+  officeId: string;
+  userId: string;
+  userName?: string;
+  ownerAdminId: string;
+}) {
+  return prisma.$transaction(async (tx: any) => {
+    for (const trackingNumber of params.trackingNumbers) {
+      const reg = await tx.registration.findUnique({
+        where: { trackingNumber },
+      });
+
+      if (!reg) continue;
+
+      await tx.documentMovement.updateMany({
+        where: {
+          trackingNumber,
+          currentOfficeId: params.officeId,
+        },
+        data: {
+          currentStatus: "Document In Hand",
+        },
+      });
+
+      await tx.documentWorkflowHistory.create({
+        data: {
+          documentId: reg.id,
+          trackingNumber,
+          workflowStep: "Sent To In Hand",
+          status: "Document In Hand",
+          performedBy: params.userName || params.userId,
+          remarks: "Moved back into Document In Hand",
+          ownerAdminId: params.ownerAdminId,
+        },
+      });
+
+      await tx.auditTrail.create({
+        data: {
+          registrationId: reg.id,
+          action: "SENT_TO_IN_HAND",
+          performedBy: params.userName || params.userId,
+          description: `Document #${trackingNumber} moved back into Document In Hand`,
+        },
+      });
+    }
+
+    return { success: true, count: params.trackingNumbers.length };
   });
 }
 

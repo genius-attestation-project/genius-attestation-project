@@ -80,8 +80,10 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
   // Exclude Core Package from tabs as specified by prompt rules
   const displayTabs = subPackages.filter((sp) => sp.id !== coreSubPackageId);
 
-  // Filter items assigned to the active subpackage tab
-  const activeTabItems = items.filter((item) => item.subPackageId === activeSubPackageId);
+  // Filter items assigned to the active subpackage tab that are actively in progress
+  const activeTabItems = items.filter(
+    (item) => item.subPackageId === activeSubPackageId && item.status === "In Progress"
+  );
 
   // Filter items by search query and status filter
   const filteredItems = activeTabItems.filter((item) => {
@@ -228,7 +230,9 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
             ) : (
               displayTabs.map((sp) => {
                 const isActive = activeSubPackageId === sp.id;
-                const count = items.filter((item) => item.subPackageId === sp.id).length;
+                const count = items.filter(
+                  (item) => item.subPackageId === sp.id && item.status === "In Progress"
+                ).length;
 
                 return (
                   <button

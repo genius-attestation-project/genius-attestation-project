@@ -245,6 +245,30 @@ export function AssignedOfficeWorkspaceClient({
     }
   };
 
+  // Action: Send To In Hand
+  const handleSendToInHand = async () => {
+    if (selectedTrackingNumbers.length === 0) return;
+    try {
+      const res = await fetch("/api/assigned-office/workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_to_in_hand",
+          officeId,
+          trackingNumbers: selectedTrackingNumbers,
+        }),
+      });
+
+      if (res.ok) {
+        setSelectedTrackingNumbers([]);
+        fetchStats();
+        fetchTabData();
+      }
+    } catch (err) {
+      console.error("Failed to send back to in hand", err);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full pb-12">
       {/* Top Workspace Header */}
@@ -309,29 +333,33 @@ export function AssignedOfficeWorkspaceClient({
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all",
+                "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer",
                 isActive
                   ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/60 dark:bg-white/5 dark:border-white/10 dark:text-slate-300"
+                  : "bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
               )}
             >
               <Icon size={16} />
               <span>{tab.label}</span>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] font-bold",
-                  isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 dark:bg-white/10"
-                )}
-              >
-                {tab.count}
-              </span>
+              {tab.count > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-extrabold",
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Action Toolbar for Document In Hand */}
-      {activeTab === "in_hand" && (
+      {/* Action Toolbar for Workspace Document Tabs */}
+      {(activeTab === "in_hand" || activeTab === "complete" || activeTab === "return" || activeTab === "rejected") && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f1115]">
           <div className="flex items-center gap-2">
             <input
@@ -346,24 +374,37 @@ export function AssignedOfficeWorkspaceClient({
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              disabled={selectedTrackingNumbers.length === 0}
-              onClick={handleBackToProcess}
-              className="gap-2 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white"
-            >
-              <ArrowRightLeft size={16} />
-              Back To Process
-            </Button>
+            {activeTab === "in_hand" ? (
+              <>
+                <Button
+                  variant="secondary"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={handleBackToProcess}
+                  className="gap-2 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white"
+                >
+                  <ArrowRightLeft size={16} />
+                  Back To Process
+                </Button>
 
-            <Button
-              disabled={selectedTrackingNumbers.length === 0}
-              onClick={handleOpenTransferModal}
-              className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md"
-            >
-              <Send size={16} />
-              Transfer To Sub Package
-            </Button>
+                <Button
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={handleOpenTransferModal}
+                  className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                >
+                  <Send size={16} />
+                  Transfer To Sub Package
+                </Button>
+              </>
+            ) : (
+              <Button
+                disabled={selectedTrackingNumbers.length === 0}
+                onClick={handleSendToInHand}
+                className="gap-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-md font-semibold text-xs cursor-pointer"
+              >
+                <RotateCcw size={16} />
+                Send To In Hand
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -441,7 +482,7 @@ export function AssignedOfficeWorkspaceClient({
               <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
                 <thead className="border-b border-slate-200/80 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5">
                   <tr>
-                    {activeTab === "in_hand" && <th className="p-4 w-10"></th>}
+                    {activeTab !== "history" && <th className="p-4 w-10"></th>}
                     {activeTab === "history" ? (
                       <>
                         <th className="p-4">Tracking Number</th>
@@ -457,8 +498,7 @@ export function AssignedOfficeWorkspaceClient({
                         <th className="p-4">Customer Name</th>
                         <th className="p-4">Document Type</th>
                         <th className="p-4">Process Type</th>
-                        <th className="p-4">Sub Package</th>
-                        <th className="p-4">Delivery Location</th>
+                        <th className="p-4">Date</th>
                         <th className="p-4">Status</th>
                       </>
                     )}
@@ -505,16 +545,14 @@ export function AssignedOfficeWorkspaceClient({
                             isSelected && "bg-blue-50/40 dark:bg-blue-500/10"
                           )}
                         >
-                          {activeTab === "in_hand" && (
-                            <td className="p-4">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelectDocument(row.trackingNumber)}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                            </td>
-                          )}
+                          <td className="p-4">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectDocument(row.trackingNumber)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="p-4 font-bold text-blue-600 dark:text-blue-400">
                             {row.trackingNumber}
                           </td>
@@ -526,14 +564,11 @@ export function AssignedOfficeWorkspaceClient({
                             {row.processType || "-"}
                           </td>
                           <td className="p-4 text-xs text-slate-600 dark:text-slate-400">
-                            {row.subPackage || "-"}
-                          </td>
-                          <td className="p-4 text-xs text-slate-600 dark:text-slate-400">
-                            {row.deliveryLocation || "-"}
+                            {new Date(row.updatedAt || row.createdAt).toLocaleDateString()}
                           </td>
                           <td className="p-4">
                             <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                              {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || "In Hand"}
+                              {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || "Active"}
                             </span>
                           </td>
                         </tr>
