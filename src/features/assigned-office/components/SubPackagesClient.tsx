@@ -163,7 +163,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
         <div>
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard/assigned-office/workspace"
+              href={officeId ? `/dashboard/assigned-office/workspace?officeId=${officeId}` : "/dashboard/assigned-office/workspace"}
               className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
               title="Back to Workspace"
             >
@@ -194,7 +194,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
             Refresh
           </Button>
 
-          <Link href="/dashboard/assigned-office/workspace">
+          <Link href={officeId ? `/dashboard/assigned-office/workspace?officeId=${officeId}` : "/dashboard/assigned-office/workspace"}>
             <Button className="gap-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-md">
               <Building2 size={16} />
               Workspace

@@ -186,9 +186,9 @@ export async function listAssignedOffices(params: {
     const corePackageItem = office.subPackages.find((sp: any) => sp.isCorePackage);
     const corePackage = corePackageItem
       ? {
-          id: corePackageItem.subPackageId,
-          name: spMap.get(corePackageItem.subPackageId) || "Unknown Core Package",
-        }
+        id: corePackageItem.subPackageId,
+        name: spMap.get(corePackageItem.subPackageId) || "Unknown Core Package",
+      }
       : null;
 
     return {
@@ -274,9 +274,9 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
     })),
     corePackage: coreItem
       ? {
-          id: coreItem.subPackageId,
-          name: spMap.get(coreItem.subPackageId) || "Unknown",
-        }
+        id: coreItem.subPackageId,
+        name: spMap.get(coreItem.subPackageId) || "Unknown",
+      }
       : null,
     auditLogs: office.auditLogs,
   };
@@ -684,7 +684,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
         some: {
           currentOfficeId: officeId,
           status: { in: ["Received", "Document In Hand", "In Hand"] },
-          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "SUBPACKAGE"] },
+          currentStatus: { notIn: ["Completed", "Returned", "Rejected"] },
         },
       },
     },
@@ -752,13 +752,13 @@ export async function listWorkspaceDocuments(params: {
   const searchWhere =
     params.search && params.search.trim() !== ""
       ? {
-          OR: [
-            { trackingNumber: { contains: params.search.trim() } },
-            { customerName: { contains: params.search.trim() } },
-            { documentType: { contains: params.search.trim() } },
-            { processType: { contains: params.search.trim() } },
-          ],
-        }
+        OR: [
+          { trackingNumber: { contains: params.search.trim() } },
+          { customerName: { contains: params.search.trim() } },
+          { documentType: { contains: params.search.trim() } },
+          { processType: { contains: params.search.trim() } },
+        ],
+      }
       : {};
 
   if (params.tab === "inbound") {
@@ -845,7 +845,7 @@ export async function listWorkspaceDocuments(params: {
         some: {
           currentOfficeId: params.officeId,
           status: { in: ["Received", "Document In Hand", "In Hand"] },
-          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "SUBPACKAGE"] },
+          currentStatus: { notIn: ["Completed", "Returned", "Rejected"] },
         },
       },
     },
@@ -961,7 +961,6 @@ export async function transferToSubPackage(params: {
 
       if (!reg) continue;
 
-      // 1. Create subPackageMovement assignment record
       await tx.subPackageMovement.create({
         data: {
           documentId: reg.id,
@@ -974,19 +973,6 @@ export async function transferToSubPackage(params: {
         },
       });
 
-      // 2. Update documentMovement status so document leaves "Document In Hand"
-      await tx.documentMovement.updateMany({
-        where: {
-          trackingNumber: item.trackingNumber,
-          currentOfficeId: params.officeId,
-        },
-        data: {
-          currentStatus: "SUBPACKAGE",
-          currentSubPackageId: item.subPackageId,
-        },
-      });
-
-      // 3. Record Workflow History
       await tx.documentWorkflowHistory.create({
         data: {
           documentId: reg.id,
@@ -994,12 +980,11 @@ export async function transferToSubPackage(params: {
           workflowStep: "Sub Package Transfer",
           status: "In Progress",
           performedBy: params.userName || params.userId,
-          remarks: `Transferred to Sub Package ID: ${item.subPackageId}`,
+          remarks: `Assigned to Sub Package ID: ${item.subPackageId}`,
           ownerAdminId: params.ownerAdminId,
         },
       });
 
-      // 4. Record Audit Trail
       await tx.auditTrail.create({
         data: {
           registrationId: reg.id,
@@ -1021,12 +1006,26 @@ export async function listSubPackageItemsForOffice(params: {
   officeId: string;
   ownerAdminId: string;
 }) {
-  // Fetch office assigned subpackages configuration
+  // 1. Fetch office assigned subpackages configuration
   const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
     where: { assignedOfficeId: params.officeId },
   });
 
-  // Fetch all subpackage movements for this office
+  // 2. Fetch office assigned process types
+  const officeProcessTypes = await (prisma as any).assignedOfficeProcessType.findMany({
+    where: { assignedOfficeId: params.officeId },
+  });
+  const processTypeIds = officeProcessTypes.map((pt: any) => pt.processTypeId);
+
+  const masterProcessTypes = await prisma.masterData.findMany({
+    where: { id: { in: processTypeIds } },
+    include: { subPackages: true },
+  });
+  const processTypeSubPkgIds = masterProcessTypes.flatMap((pt: any) =>
+    (pt.subPackages || []).map((sp: any) => sp.id)
+  );
+
+  // 3. Fetch all subpackage movements for this office
   const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
       assignedOfficeId: params.officeId,
@@ -1035,10 +1034,11 @@ export async function listSubPackageItemsForOffice(params: {
     orderBy: { startedAt: "desc" },
   });
 
-  // Union configured subpackage IDs with actual movement subpackage IDs
   const configSubPkgIds = officeSubPackages.map((sp: any) => sp.subPackageId);
   const movementSubPkgIds = movements.map((m: any) => m.subPackageId);
-  const allSubPkgIds = Array.from(new Set([...configSubPkgIds, ...movementSubPkgIds]));
+  const allSubPkgIds = Array.from(
+    new Set([...configSubPkgIds, ...processTypeSubPkgIds, ...movementSubPkgIds])
+  );
 
   const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
 

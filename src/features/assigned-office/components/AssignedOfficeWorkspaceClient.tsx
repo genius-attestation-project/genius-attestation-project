@@ -268,7 +268,7 @@ export function AssignedOfficeWorkspaceClient({
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/dashboard/assigned-office/sub-packages">
+            <Link href={officeId ? `/dashboard/assigned-office/sub-packages?officeId=${officeId}` : "/dashboard/assigned-office/sub-packages"}>
               <Button className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-500 shadow-md">
                 <Layers size={16} />
                 View Sub Packages

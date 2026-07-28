@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AssignedOfficeWorkspaceClient } from "@/features/assigned-office/components/AssignedOfficeWorkspaceClient";
 
+import { cookies } from "next/headers";
+
 export const metadata: Metadata = {
   title: "Assigned Office Workspace | Genius Attestation",
   description: "External Processing Office Workspace",
@@ -19,9 +21,13 @@ export default async function AssignedOfficeWorkspacePage({
     redirect("/login");
   }
 
+  const cookieStore = await cookies();
+  const activeCookieOfficeId = cookieStore.get("activeAssignedOfficeId")?.value;
+
   const resolvedSearchParams = await (searchParams as any);
   const officeId =
     resolvedSearchParams?.officeId ||
+    activeCookieOfficeId ||
     (session.user as any).assignedOfficeId ||
     session.user.officeId ||
     session.user.id;

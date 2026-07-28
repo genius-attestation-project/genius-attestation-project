@@ -197,6 +197,7 @@ export function ProcessDashboard() {
 
   function handleOfficeLogin() {
     if (selectedOfficeId) {
+      document.cookie = `activeAssignedOfficeId=${selectedOfficeId}; path=/; max-age=86400; SameSite=Lax`;
       router.push(`/dashboard/assigned-office/workspace?officeId=${selectedOfficeId}`);
     }
   }

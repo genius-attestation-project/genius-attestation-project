@@ -21,7 +21,14 @@ export async function GET(req: NextRequest) {
     const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
     // Office ID comes from office user session or query param if admin
     const searchParams = req.nextUrl.searchParams;
-    const officeId = searchParams.get("officeId") || session.user.officeId || session.user.id;
+    const cookieOfficeId = req.cookies.get("activeAssignedOfficeId")?.value;
+    const officeId =
+      searchParams.get("officeId") ||
+      cookieOfficeId ||
+      session.user.officeId ||
+      (session.user as any).assignedOfficeId ||
+      session.user.id;
+
     const action = searchParams.get("action"); // 'stats' | 'documents' | 'subpackage_items' | 'subpackages_for_process_type'
     const tab = searchParams.get("tab") || "in_hand";
     const search = searchParams.get("search") || "";
@@ -69,7 +76,15 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action, officeId: reqOfficeId } = body;
-    const officeId = reqOfficeId || session.user.officeId || session.user.id;
+    const cookieOfficeId = req.cookies.get("activeAssignedOfficeId")?.value;
+    const searchOfficeId = req.nextUrl.searchParams.get("officeId");
+    const officeId =
+      reqOfficeId ||
+      searchOfficeId ||
+      cookieOfficeId ||
+      session.user.officeId ||
+      (session.user as any).assignedOfficeId ||
+      session.user.id;
 
     if (action === "receive_bundle") {
       const { bundleId, selectedTrackingNumbers } = body;
