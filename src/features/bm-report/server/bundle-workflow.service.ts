@@ -75,7 +75,7 @@ export async function createTransferBundle(params: {
 
   const bundleNumber = generateBundleNumber();
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     // 1. Create Bundle
     const bundle = await tx.bundle.create({
       data: {
@@ -121,7 +121,7 @@ export async function createTransferBundle(params: {
           createdBy: params.userName || params.userId,
           sentAt: new Date(),
           remarks: params.remarks,
-        },
+        } as any,
         update: {
           fromOfficeId: params.fromOfficeId,
           toOfficeId: params.toOfficeId,
@@ -129,7 +129,7 @@ export async function createTransferBundle(params: {
           bundleId: bundle.id,
           sentAt: new Date(),
           remarks: params.remarks,
-        },
+        } as any,
       });
 
       // Update registration tracking status
@@ -142,17 +142,19 @@ export async function createTransferBundle(params: {
       });
 
       // Record DocumentWorkflowHistory
-      await tx.documentWorkflowHistory.create({
-        data: {
-          documentId: reg.id,
-          trackingNumber,
-          workflowStep: "Transfer Bundle",
-          status: "Pending Receive",
-          performedBy: params.userName || params.userId,
-          remarks: `Transferred in Bundle ${bundleNumber}`,
-          ownerAdminId: params.ownerAdminId,
-        },
-      });
+      if (tx.documentWorkflowHistory) {
+        await tx.documentWorkflowHistory.create({
+          data: {
+            documentId: reg.id,
+            trackingNumber,
+            workflowStep: "Transfer Bundle",
+            status: "Pending Receive",
+            performedBy: params.userName || params.userId,
+            remarks: `Transferred in Bundle ${bundleNumber}`,
+            ownerAdminId: params.ownerAdminId,
+          },
+        });
+      }
 
       // Record MovementHistory
       await tx.movementHistory.create({
@@ -185,7 +187,8 @@ export async function listInboundBundles(params: {
   toOfficeId: string;
   ownerAdminId: string;
 }) {
-  return prisma.bundle.findMany({
+  const db = prisma as any;
+  return db.bundle.findMany({
     where: {
       toOfficeId: params.toOfficeId,
       ownerAdminId: params.ownerAdminId,
@@ -204,7 +207,8 @@ export async function listOutboundBundles(params: {
   fromOfficeId: string;
   ownerAdminId: string;
 }) {
-  return prisma.bundle.findMany({
+  const db = prisma as any;
+  return db.bundle.findMany({
     where: {
       fromOfficeId: params.fromOfficeId,
       ownerAdminId: params.ownerAdminId,
@@ -226,7 +230,8 @@ export async function receiveBundle(params: {
   ownerAdminId: string;
   remarks?: string;
 }) {
-  const bundle = await prisma.bundle.findUnique({
+  const db = prisma as any;
+  const bundle = await db.bundle.findUnique({
     where: { id: params.bundleId },
     include: { items: true, fromOffice: true, toOffice: true },
   });
@@ -236,11 +241,11 @@ export async function receiveBundle(params: {
   }
 
   const receivedSet = new Set(params.receivedTrackingNumbers);
-  const isFullReceive = bundle.items.every((item) => receivedSet.has(item.trackingNumber));
+  const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     // Process received items
-    for (const item of bundle.items) {
+    for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
         // Mark BundleItem received
         await tx.bundleItem.update({
@@ -278,17 +283,19 @@ export async function receiveBundle(params: {
             },
           });
 
-          await tx.documentWorkflowHistory.create({
-            data: {
-              documentId: reg.id,
-              trackingNumber: item.trackingNumber,
-              workflowStep: "Receive Bundle Item",
-              status: "Received",
-              performedBy: params.userName || params.userId,
-              remarks: `Received at ${bundle.toOffice?.officeName || "Office"} from Bundle ${bundle.bundleNumber}`,
-              ownerAdminId: params.ownerAdminId,
-            },
-          });
+          if (tx.documentWorkflowHistory) {
+            await tx.documentWorkflowHistory.create({
+              data: {
+                documentId: reg.id,
+                trackingNumber: item.trackingNumber,
+                workflowStep: "Receive Bundle Item",
+                status: "Received",
+                performedBy: params.userName || params.userId,
+                remarks: `Received at ${bundle.toOffice?.officeName || "Office"} from Bundle ${bundle.bundleNumber}`,
+                ownerAdminId: params.ownerAdminId,
+              },
+            });
+          }
 
           await tx.movementHistory.create({
             data: {
@@ -322,8 +329,8 @@ export async function receiveBundle(params: {
       return { success: true, isSplit: false, bundleNumber: bundle.bundleNumber };
     } else {
       // PARTIAL RECEIVE -> Split bundle!
-      const unreceivedItems = bundle.items.filter(
-        (item) => !receivedSet.has(item.trackingNumber)
+      const unreceivedItems = (bundle.items as any[]).filter(
+        (item: any) => !receivedSet.has(item.trackingNumber)
       );
 
       const splitBundleNumber = `${bundle.bundleNumber}-S`;
@@ -351,7 +358,7 @@ export async function receiveBundle(params: {
 
         await tx.documentMovement.updateMany({
           where: { trackingNumber: unreceived.trackingNumber },
-          data: { bundleId: splitBundle.id },
+          data: { bundleId: splitBundle.id } as any,
         });
 
         await tx.bundleItem.delete({
