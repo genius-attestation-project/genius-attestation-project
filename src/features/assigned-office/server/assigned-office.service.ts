@@ -673,7 +673,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
     where: {
       toOfficeId: officeId,
       ownerAdminId,
-      status: { in: ["Pending Receive", "Partially Received"] },
+      status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
     },
   });
 
@@ -766,7 +766,7 @@ export async function listWorkspaceDocuments(params: {
       where: {
         toOfficeId: params.officeId,
         ownerAdminId: params.ownerAdminId,
-        status: { in: ["Pending Receive", "Partially Received"] },
+        status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
       },
       include: {
         fromOffice: true,

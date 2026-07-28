@@ -76,13 +76,46 @@ export async function createTransferBundle(params: {
   const bundleNumber = generateBundleNumber();
 
   return prisma.$transaction(async (tx: any) => {
-    // 1. Create Bundle
+    // Ensure fromOfficeId and toOfficeId exist in OfficeLocation relation table
+    let fromLocation = await tx.officeLocation.findFirst({ where: { id: params.fromOfficeId } });
+    if (!fromLocation) {
+      const ao = await tx.assignedOffice.findUnique({ where: { id: params.fromOfficeId } });
+      fromLocation = await tx.officeLocation.create({
+        data: {
+          id: params.fromOfficeId,
+          officeName: ao?.username || "Source Office",
+          location: "Office",
+          timezone: "UTC",
+          ownerAdminId: params.ownerAdminId,
+        },
+      });
+    }
+
+    let toLocation = await tx.officeLocation.findFirst({ where: { id: params.toOfficeId } });
+    if (!toLocation) {
+      const ao = await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } });
+      toLocation = await tx.officeLocation.create({
+        data: {
+          id: params.toOfficeId,
+          officeName: ao?.username || "External Office",
+          location: "External Processing Office",
+          timezone: "UTC",
+          isProcessOffice: true,
+          ownerAdminId: params.ownerAdminId,
+        },
+      });
+    }
+
+    const isTargetAssignedOffice = await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } });
+    const destinationModule = isTargetAssignedOffice ? "ASSIGNED_OFFICE" : "BM_REPORT";
+
+    // 1. Create Bundle Movement record
     const bundle = await tx.bundle.create({
       data: {
         bundleNumber,
-        fromOfficeId: params.fromOfficeId,
-        toOfficeId: params.toOfficeId,
-        status: "Pending Receive",
+        fromOfficeId: fromLocation.id,
+        toOfficeId: toLocation.id,
+        status: "INBOUND_PENDING",
         createdBy: params.userName || params.userId,
         ownerAdminId: params.ownerAdminId,
       },
@@ -102,30 +135,38 @@ export async function createTransferBundle(params: {
           bundleId: bundle.id,
           registrationId: reg.id,
           trackingNumber,
-          status: "Pending Receive",
+          status: "INBOUND_PENDING",
         },
       });
 
-      // Update or Upsert DocumentMovement
+      // Create or Update DocumentMovement
       await tx.documentMovement.upsert({
         where: { trackingNumber },
         create: {
           trackingNumber,
           registrationId: reg.id,
-          fromOfficeId: params.fromOfficeId,
-          toOfficeId: params.toOfficeId,
-          status: "Pending Receive",
-          currentOfficeId: params.fromOfficeId,
-          currentModule: "BM_REPORT",
+          fromOfficeId: fromLocation.id,
+          toOfficeId: toLocation.id,
+          fromModule: "BM_REPORT",
+          toModule: destinationModule,
+          currentModule: destinationModule,
+          currentOfficeId: toLocation.id,
+          status: "INBOUND_PENDING",
+          currentStatus: "Pending Receive",
           bundleId: bundle.id,
           createdBy: params.userName || params.userId,
           sentAt: new Date(),
           remarks: params.remarks,
         } as any,
         update: {
-          fromOfficeId: params.fromOfficeId,
-          toOfficeId: params.toOfficeId,
-          status: "Pending Receive",
+          fromOfficeId: fromLocation.id,
+          toOfficeId: toLocation.id,
+          fromModule: "BM_REPORT",
+          toModule: destinationModule,
+          currentModule: destinationModule,
+          currentOfficeId: toLocation.id,
+          status: "INBOUND_PENDING",
+          currentStatus: "Pending Receive",
           bundleId: bundle.id,
           sentAt: new Date(),
           remarks: params.remarks,
@@ -148,9 +189,9 @@ export async function createTransferBundle(params: {
             documentId: reg.id,
             trackingNumber,
             workflowStep: "Transfer Bundle",
-            status: "Pending Receive",
+            status: "INBOUND_PENDING",
             performedBy: params.userName || params.userId,
-            remarks: `Transferred in Bundle ${bundleNumber}`,
+            remarks: `Transferred from BM Report to ${destinationModule} in Bundle ${bundleNumber}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
@@ -162,7 +203,7 @@ export async function createTransferBundle(params: {
           trackingNumber,
           action: "Bundle Transfer",
           oldStatus: "Document In Hand",
-          newStatus: "Pending Receive",
+          newStatus: "INBOUND_PENDING",
           performedBy: params.userName || params.userId,
           remarks: `Added to Bundle ${bundleNumber}`,
         },
@@ -192,7 +233,7 @@ export async function listInboundBundles(params: {
     where: {
       toOfficeId: params.toOfficeId,
       ownerAdminId: params.ownerAdminId,
-      status: { in: ["Pending Receive", "Partially Received"] },
+      status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
     },
     include: {
       fromOffice: true,
@@ -340,7 +381,7 @@ export async function receiveBundle(params: {
           bundleNumber: splitBundleNumber,
           fromOfficeId: bundle.fromOfficeId,
           toOfficeId: bundle.toOfficeId,
-          status: "Pending Receive",
+          status: "INBOUND_PENDING",
           createdBy: params.userName || params.userId,
           ownerAdminId: params.ownerAdminId,
         },
@@ -352,7 +393,7 @@ export async function receiveBundle(params: {
             bundleId: splitBundle.id,
             registrationId: unreceived.registrationId,
             trackingNumber: unreceived.trackingNumber,
-            status: "Pending Receive",
+            status: "INBOUND_PENDING",
           },
         });
 
