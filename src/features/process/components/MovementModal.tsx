@@ -51,12 +51,18 @@ export function MovementModal({
   useEffect(() => {
     if (open && needsOfficeSelector) {
       setLoadingOffices(true);
-      fetch("/api/offices/all")
+      const isAssignedOfficeTransfer = action === "TRANSFER_TO_ASSIGNED_OFFICE";
+      const endpoint = isAssignedOfficeTransfer
+        ? "/api/assigned-office?pageSize=100&status=Active"
+        : "/api/offices/all";
+
+      fetch(endpoint)
         .then((res) => res.json())
         .then((data) => {
-          const list = data.offices || data.data || [];
+          const rawList = isAssignedOfficeTransfer ? data.items : (data.offices || data.data);
+          const list = rawList || [];
           const formatted = list.map((o: any) => ({
-            label: `${o.officeName} (${o.type || "Office"})`,
+            label: o.officeName || o.username || o.name || "Assigned Office",
             value: o.id,
           }));
           setOffices(formatted);
@@ -65,7 +71,7 @@ export function MovementModal({
           }
         })
         .catch((err) => {
-          console.error("Failed to load office locations", err);
+          console.error("Failed to load target offices", err);
         })
         .finally(() => setLoadingOffices(false));
     }

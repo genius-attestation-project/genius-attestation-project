@@ -112,7 +112,7 @@ export function ProcessDashboard() {
         if (res.ok) {
           const data = await res.json();
           const list = (data.items || []).map((o: any) => ({
-            label: `${o.username}${o.email ? ` (${o.email})` : ""}`,
+            label: o.officeName || o.username || o.name || "Assigned Office",
             value: o.id,
           }));
           setAssignedOfficeOptions(list);
