@@ -48,7 +48,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
       }
     } catch (err) {
       console.error("Failed to fetch subpackage data", err);
-    } fontinally: {
+    } finally {
       setLoading(false);
     }
   }, [officeId, activeSubPackageId]);

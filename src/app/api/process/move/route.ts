@@ -1,4 +1,9 @@
-import { moveProcessAssignment } from "@/features/process/server/process.service";
+import {
+  moveProcessAssignment,
+  transferProcessDocumentsToBmReport,
+  transferProcessDocumentsToAssignedOffice,
+  processBulkMove,
+} from "@/features/process/server/process.service";
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
@@ -14,6 +19,7 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
     const userId = session?.user?.id;
+    const userName = session?.user?.name || undefined;
 
     if (!ownerAdminId || !userId) {
       return jsonError("Unauthorized", 401);
@@ -25,29 +31,60 @@ export async function POST(request: NextRequest) {
       return jsonError("Invalid input", 400);
     }
 
-    const { assignmentId, action, targetOfficeId, remarks } = parsed.data;
+    const { assignmentId, trackingNumbers, action, targetOfficeId, remarks } = parsed.data;
 
     const officeLocationName = await resolveOfficeLocationName({
       ownerAdminId,
       officeLocationId: session?.user?.officeLocationId,
       officeLocationName: session?.user?.officeLocationName,
     });
-    
-    if (!officeLocationName) {
-      return jsonError("Office location required", 400);
+
+    const targetList = trackingNumbers && trackingNumbers.length > 0
+      ? trackingNumbers
+      : assignmentId
+      ? [assignmentId]
+      : [];
+
+    if (targetList.length === 0) {
+      return jsonError("No target documents or assignment specified", 400);
     }
 
-    const updated = await moveProcessAssignment({
-      assignmentId,
-      action,
-      targetOfficeId,
+    if (action === "TRANSFER_TO_BM_REPORT") {
+      if (!targetOfficeId) return jsonError("Destination office required", 400);
+      const result = await transferProcessDocumentsToBmReport({
+        trackingNumbers: targetList,
+        toOfficeId: targetOfficeId,
+        userId,
+        userName,
+        ownerAdminId,
+        remarks,
+      });
+      return jsonOk({ success: true, data: result });
+    }
+
+    if (action === "TRANSFER_TO_ASSIGNED_OFFICE") {
+      if (!targetOfficeId) return jsonError("Target Assigned Office required", 400);
+      const result = await transferProcessDocumentsToAssignedOffice({
+        trackingNumbers: targetList,
+        targetAssignedOfficeId: targetOfficeId,
+        userId,
+        userName,
+        ownerAdminId,
+        remarks,
+      });
+      return jsonOk({ success: true, data: result });
+    }
+
+    const result = await processBulkMove({
+      trackingNumbers: targetList,
+      action: action as any,
       userId,
       ownerAdminId,
       remarks,
-      officeLocationName,
+      officeLocationName: officeLocationName || undefined,
     });
 
-    return jsonOk({ success: true, data: updated });
+    return jsonOk({ success: true, data: result });
   } catch (error) {
     console.error("Failed to move process", error);
     return jsonError(error instanceof Error ? error.message : "Unable to move process", 500);

@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-export const ProcessLocations = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending"] as const;
-export type ProcessLocation = (typeof ProcessLocations)[number];
+export const ProcessLocations = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending", "Pending Receive"] as const;
+export type ProcessLocation = (typeof ProcessLocations)[number] | string;
 
-export const ProcessStatuses = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending"] as const;
-export type ProcessStatus = (typeof ProcessStatuses)[number];
+export const ProcessStatuses = ["IN_HAND", "INBOUND", "COMPLETED", "REJECTED", "SEND_TO_OFFICE", "HOME", "Pending", "Pending Receive"] as const;
+export type ProcessStatus = (typeof ProcessStatuses)[number] | string;
 
 export type ProcessItem = {
   id: string;
@@ -19,6 +19,9 @@ export type ProcessItem = {
   assignedUserId: string | null;
   assignedToName: string | null;
   remarks: string | null;
+  bundleCode?: string;
+  fromOfficeName?: string | null;
+  toOfficeName?: string | null;
 };
 
 export type ProcessStats = {
@@ -36,8 +39,17 @@ export type ProcessDashboardResponse = {
 };
 
 export const moveProcessSchema = z.object({
-  assignmentId: z.string().min(1, "Assignment ID is required"),
-  action: z.enum(["COMPLETED", "REJECTED", "SEND_TO_OFFICE", "RECEIVE", "RETURN"]),
+  assignmentId: z.string().optional(),
+  trackingNumbers: z.array(z.string()).optional(),
+  action: z.enum([
+    "COMPLETED",
+    "REJECTED",
+    "SEND_TO_OFFICE",
+    "RECEIVE",
+    "RETURN",
+    "TRANSFER_TO_BM_REPORT",
+    "TRANSFER_TO_ASSIGNED_OFFICE",
+  ]),
   targetOfficeId: z.string().optional(),
   remarks: z.string().optional(),
 });

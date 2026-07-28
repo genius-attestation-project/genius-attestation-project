@@ -6,13 +6,23 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
+type MovementModalAction =
+  | "COMPLETED"
+  | "REJECTED"
+  | "SEND_TO_OFFICE"
+  | "RECEIVE"
+  | "RETURN"
+  | "TRANSFER_TO_BM_REPORT"
+  | "TRANSFER_TO_ASSIGNED_OFFICE";
+
 type MovementModalProps = {
   open: boolean;
   onClose: () => void;
   title: string;
   description: string;
-  action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN";
-  assignmentId: string;
+  action: MovementModalAction;
+  assignmentId?: string;
+  trackingNumbers?: string[];
   onSuccess: () => void;
 };
 
@@ -23,6 +33,7 @@ export function MovementModal({
   description,
   action,
   assignmentId,
+  trackingNumbers,
   onSuccess,
 }: MovementModalProps) {
   const [remarks, setRemarks] = useState("");
@@ -32,29 +43,38 @@ export function MovementModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const needsOfficeSelector =
+    action === "SEND_TO_OFFICE" ||
+    action === "TRANSFER_TO_BM_REPORT" ||
+    action === "TRANSFER_TO_ASSIGNED_OFFICE";
+
   useEffect(() => {
-    if (open && action === "SEND_TO_OFFICE") {
+    if (open && needsOfficeSelector) {
       setLoadingOffices(true);
-      fetch("/api/office-locations")
+      fetch("/api/offices/all")
         .then((res) => res.json())
         .then((data) => {
-          if (data.officeLocations) {
-            const processOffices = data.officeLocations
-              .map((o: any) => ({ label: o.officeName, value: o.id }));
-            setOffices(processOffices);
-            if (processOffices.length > 0) {
-              setSelectedOfficeId(processOffices[0].value);
-            }
+          const list = data.offices || data.data || [];
+          const formatted = list.map((o: any) => ({
+            label: `${o.officeName} (${o.type || "Office"})`,
+            value: o.id,
+          }));
+          setOffices(formatted);
+          if (formatted.length > 0) {
+            setSelectedOfficeId(formatted[0].value);
           }
+        })
+        .catch((err) => {
+          console.error("Failed to load office locations", err);
         })
         .finally(() => setLoadingOffices(false));
     }
-  }, [open, action]);
+  }, [open, action, needsOfficeSelector]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (action === "SEND_TO_OFFICE" && !selectedOfficeId) {
-      setError("Please select a target process office.");
+    if (needsOfficeSelector && !selectedOfficeId) {
+      setError("Please select a target office.");
       return;
     }
 
@@ -67,15 +87,16 @@ export function MovementModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assignmentId,
+          trackingNumbers: trackingNumbers && trackingNumbers.length > 0 ? trackingNumbers : undefined,
           action,
-          targetOfficeId: action === "SEND_TO_OFFICE" ? selectedOfficeId : undefined,
+          targetOfficeId: needsOfficeSelector ? selectedOfficeId : undefined,
           remarks,
         }),
       });
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.message || "Failed to complete action");
+        throw new Error(payload.message || payload.error || "Failed to complete action");
       }
 
       onSuccess();
@@ -89,18 +110,33 @@ export function MovementModal({
     }
   }
 
+  const officeLabel =
+    action === "TRANSFER_TO_BM_REPORT"
+      ? "Select Destination Office (BM Report)"
+      : action === "TRANSFER_TO_ASSIGNED_OFFICE"
+      ? "Select Target Assigned Office"
+      : "Select Process Office";
+
+  const targetCount = trackingNumbers?.length || (assignmentId ? 1 : 0);
+
   return (
     <FormDrawer open={open} onClose={onClose} title={title} description={description} placement="center">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {action === "SEND_TO_OFFICE" && (
+        {targetCount > 0 && (
+          <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3 text-xs font-semibold text-blue-900">
+            Executing action for {targetCount} selected document{targetCount > 1 ? "s" : ""}.
+          </div>
+        )}
+
+        {needsOfficeSelector && (
           <div>
-            <label className="block text-sm font-semibold mb-1">
-              Select Process Office
+            <label className="block text-sm font-semibold text-slate-800 mb-1">
+              {officeLabel}
             </label>
             {loadingOffices ? (
-              <p className="text-sm text-gray-500">Loading...</p>
+              <p className="text-sm text-slate-500">Loading offices...</p>
             ) : offices.length === 0 ? (
-              <p className="text-sm text-amber-600">No process offices found.</p>
+              <p className="text-sm text-amber-600">No available offices found.</p>
             ) : (
               <SearchableSelect
                 value={selectedOfficeId}
@@ -112,7 +148,7 @@ export function MovementModal({
             )}
           </div>
         )}
-        
+
         <div>
           <Textarea
             id="remarks"
@@ -135,7 +171,7 @@ export function MovementModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || (action === "SEND_TO_OFFICE" && offices.length === 0)}>
+          <Button type="submit" disabled={loading || (needsOfficeSelector && offices.length === 0)}>
             {loading ? "Processing..." : "Confirm Action"}
           </Button>
         </div>

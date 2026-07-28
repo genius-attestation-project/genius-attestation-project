@@ -1,7 +1,5 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ProcessItem, ProcessStats, ProcessLocation } from "../types/process.types";
-import { resolveOfficeLocationId } from "@/lib/office-location";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -12,14 +10,8 @@ function formatDate(date: Date) {
 }
 
 export async function getProcessStats(ownerAdminId: string, officeLocationName: string, processType?: string): Promise<ProcessStats> {
-  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
-  if (!officeId) {
-    return { inbound: 0, inHand: 0, completed: 0, rejected: 0, outbound: 0, total: 0 };
-  }
-
   const baseWhere: any = {
     registration: { ownerAdminId },
-    currentOfficeId: officeId,
   };
 
   if (processType && processType !== "All") {
@@ -27,12 +19,44 @@ export async function getProcessStats(ownerAdminId: string, officeLocationName: 
   }
 
   const [inHand, inbound, completed, rejected, outbound, total] = await Promise.all([
-    prisma.documentMovement.count({ where: { ...baseWhere, status: { in: ["HOME", "IN_HAND", "Pending"] } } }),
-    prisma.documentMovement.count({ where: { ...baseWhere, status: "INBOUND" } }),
-    prisma.documentMovement.count({ where: { ...baseWhere, status: "COMPLETED" } }),
-    prisma.documentMovement.count({ where: { ...baseWhere, status: "REJECTED" } }),
-    prisma.documentMovement.count({ where: { ...baseWhere, status: { in: ["OUTBOUND", "SEND_TO_OFFICE"] } } }),
-    prisma.documentMovement.count({ where: { ...baseWhere } }),
+    prisma.documentMovement.count({
+      where: {
+        ...baseWhere,
+        currentModule: "PROCESS_MODULE",
+        status: { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] },
+      },
+    }),
+    prisma.documentMovement.count({
+      where: {
+        ...baseWhere,
+        currentModule: "PROCESS_MODULE",
+        status: { in: ["INBOUND", "Pending Receive", "Pending"] },
+      },
+    }),
+    prisma.documentMovement.count({
+      where: {
+        ...baseWhere,
+        currentModule: "PROCESS_MODULE",
+        status: "COMPLETED",
+      },
+    }),
+    prisma.documentMovement.count({
+      where: {
+        ...baseWhere,
+        currentModule: "PROCESS_MODULE",
+        status: "REJECTED",
+      },
+    }),
+    prisma.documentMovement.count({
+      where: {
+        ...baseWhere,
+        OR: [
+          { currentModule: { not: "PROCESS_MODULE" } },
+          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED"] } },
+        ],
+      },
+    }),
+    prisma.documentMovement.count({ where: baseWhere }),
   ]);
 
   return { inbound, inHand, completed, rejected, outbound, total };
@@ -44,12 +68,8 @@ export async function listProcessAssignments(
   processType?: string,
   tab?: string
 ) {
-  const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
-  if (!officeId) return [];
-
   const whereClause: any = {
     registration: { ownerAdminId },
-    currentOfficeId: officeId,
   };
 
   if (processType && processType !== "All") {
@@ -57,40 +77,287 @@ export async function listProcessAssignments(
   }
 
   if (tab === "inbound") {
-    whereClause.status = "INBOUND";
+    whereClause.currentModule = "PROCESS_MODULE";
+    whereClause.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
   } else if (tab === "outbound") {
-    whereClause.status = { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE"] };
+    whereClause.OR = [
+      { currentModule: { not: "PROCESS_MODULE" } },
+      { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED"] } },
+    ];
   } else if (tab === "bundle") {
     whereClause.bundleId = { not: null };
-  } else if (tab === "in_hand") {
-    whereClause.status = { in: ["HOME", "IN_HAND", "Pending"] };
+  } else {
+    // Default: 'in_hand'
+    whereClause.currentModule = "PROCESS_MODULE";
+    whereClause.status = { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] };
   }
 
-  const movements = await prisma.documentMovement.findMany({
+  const movements = await (prisma as any).documentMovement.findMany({
     where: whereClause,
     include: {
       registration: true,
       fromOffice: true,
+      toOffice: true,
       bundle: true,
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  return movements.map((mov) => ({
-    id: mov.registrationId, // Used as assignmentId in UI
+  return (movements as any[]).map((mov: any) => ({
+    id: mov.registrationId,
     registrationId: mov.registrationId,
     trackingNumber: mov.trackingNumber,
-    clientName: mov.registration.customerName,
-    processType: mov.registration.processType ?? mov.registration.documentType ?? "-",
+    clientName: mov.registration?.customerName || mov.trackingNumber,
+    processType: mov.registration?.processType ?? mov.registration?.documentType ?? "-",
     currentLocation: (mov.status === "HOME" ? "IN_HAND" : mov.status) as ProcessLocation,
     status: mov.status as any,
-    receivedDate: formatDate(mov.createdAt),
-    daysHeld: Math.floor((new Date().getTime() - mov.updatedAt.getTime()) / (1000 * 3600 * 24)),
+    receivedDate: formatDate(new Date(mov.createdAt)),
+    daysHeld: Math.floor((new Date().getTime() - new Date(mov.updatedAt).getTime()) / (1000 * 3600 * 24)),
     assignedUserId: mov.acceptedBy,
     assignedToName: mov.acceptedBy,
     remarks: mov.remarks,
     bundleCode: mov.bundle?.bundleNumber,
+    fromOfficeName: mov.fromOffice?.officeName || null,
+    toOfficeName: mov.toOffice?.officeName || null,
   }));
+}
+
+export async function transferProcessDocumentsToBmReport(params: {
+  trackingNumbers: string[];
+  toOfficeId: string;
+  userId: string;
+  userName?: string;
+  ownerAdminId: string;
+  remarks?: string;
+}) {
+  if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
+    throw new Error("No documents selected.");
+  }
+  if (!params.toOfficeId) {
+    throw new Error("Destination office is required.");
+  }
+
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const bundleNumber = `BM-PROC-${dateStr}-${randomSuffix}`;
+
+  return prisma.$transaction(async (tx: any) => {
+    const sourceOffice = await tx.officeLocation.findFirst({
+      where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
+    });
+
+    const fromOfficeId = sourceOffice?.id || params.toOfficeId;
+
+    let bundle: any = null;
+    if (tx.bundle) {
+      bundle = await tx.bundle.create({
+        data: {
+          bundleNumber,
+          fromOfficeId,
+          toOfficeId: params.toOfficeId,
+          status: "Pending Receive",
+          createdBy: params.userName || params.userId,
+          ownerAdminId: params.ownerAdminId,
+        },
+      });
+    }
+
+    for (const trackingNumber of params.trackingNumbers) {
+      const reg = await tx.registration.findUnique({ where: { trackingNumber } });
+      if (!reg) continue;
+
+      if (bundle && tx.bundleItem) {
+        await tx.bundleItem.create({
+          data: {
+            bundleId: bundle.id,
+            registrationId: reg.id,
+            trackingNumber,
+            status: "Pending Receive",
+          },
+        });
+      }
+
+      await tx.documentMovement.updateMany({
+        where: { trackingNumber },
+        data: {
+          fromModule: "PROCESS_MODULE",
+          toModule: "BM_REPORT",
+          currentModule: "BM_REPORT",
+          fromOfficeId,
+          toOfficeId: params.toOfficeId,
+          currentOfficeId: params.toOfficeId,
+          status: "Pending Receive",
+          bundleId: bundle ? bundle.id : undefined,
+          sentAt: new Date(),
+          remarks: params.remarks,
+        } as any,
+      });
+
+      await tx.registration.update({
+        where: { trackingNumber },
+        data: {
+          trackingStatus: "In Transfer",
+          bmStatus: "Transferred",
+        },
+      });
+
+      if (tx.documentWorkflowHistory) {
+        await tx.documentWorkflowHistory.create({
+          data: {
+            documentId: reg.id,
+            trackingNumber,
+            workflowStep: "Process Transfer to BM Report",
+            status: "Pending Receive",
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || `Transferred to BM Report in Bundle ${bundleNumber}`,
+            ownerAdminId: params.ownerAdminId,
+          },
+        });
+      }
+
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber,
+          action: "Transfer to BM Report",
+          oldStatus: "IN_HAND",
+          newStatus: "Pending Receive",
+          performedBy: params.userName || params.userId,
+          remarks: `Added to Bundle ${bundleNumber}`,
+        },
+      });
+    }
+
+    return { success: true, bundleNumber };
+  });
+}
+
+export async function transferProcessDocumentsToAssignedOffice(params: {
+  trackingNumbers: string[];
+  targetAssignedOfficeId: string;
+  userId: string;
+  userName?: string;
+  ownerAdminId: string;
+  remarks?: string;
+}) {
+  if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
+    throw new Error("No documents selected.");
+  }
+  if (!params.targetAssignedOfficeId) {
+    throw new Error("Target Assigned Office is required.");
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    for (const trackingNumber of params.trackingNumbers) {
+      const reg = await tx.registration.findUnique({ where: { trackingNumber } });
+      if (!reg) continue;
+
+      await tx.documentMovement.updateMany({
+        where: { trackingNumber },
+        data: {
+          fromModule: "PROCESS_MODULE",
+          toModule: "ASSIGNED_OFFICE",
+          currentModule: "ASSIGNED_OFFICE",
+          toOfficeId: params.targetAssignedOfficeId,
+          currentOfficeId: params.targetAssignedOfficeId,
+          status: "Pending Receive",
+          sentAt: new Date(),
+          remarks: params.remarks,
+        },
+      });
+
+      if (tx.documentWorkflowHistory) {
+        await tx.documentWorkflowHistory.create({
+          data: {
+            documentId: reg.id,
+            trackingNumber,
+            workflowStep: "Process Transfer to Assigned Office",
+            status: "Pending Receive",
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || `Transferred to Assigned Office ID: ${params.targetAssignedOfficeId}`,
+            ownerAdminId: params.ownerAdminId,
+          },
+        });
+      }
+
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber,
+          action: "Transfer to Assigned Office",
+          oldStatus: "IN_HAND",
+          newStatus: "Pending Receive",
+          performedBy: params.userName || params.userId,
+          remarks: params.remarks,
+        },
+      });
+    }
+
+    return { success: true, count: params.trackingNumbers.length };
+  });
+}
+
+export async function processBulkMove(params: {
+  trackingNumbers: string[];
+  action: "COMPLETED" | "REJECTED" | "RECEIVE" | "RETURN";
+  userId: string;
+  ownerAdminId: string;
+  remarks?: string;
+  officeLocationName?: string;
+}) {
+  if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
+    throw new Error("No documents selected.");
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    for (const trackingNumber of params.trackingNumbers) {
+      const movement = await tx.documentMovement.findFirst({
+        where: {
+          trackingNumber,
+          registration: { ownerAdminId: params.ownerAdminId },
+        },
+      });
+
+      if (!movement) continue;
+
+      let nextStatus = "";
+      if (params.action === "RECEIVE") {
+        nextStatus = "IN_HAND";
+      } else if (params.action === "RETURN") {
+        nextStatus = "RETURNED";
+      } else {
+        nextStatus = params.action;
+      }
+
+      await tx.documentMovement.updateMany({
+        where: { trackingNumber },
+        data: {
+          status: nextStatus,
+          currentModule: "PROCESS_MODULE",
+          remarks: params.remarks,
+          updatedAt: new Date(),
+        },
+      });
+
+      const actionLabel =
+        params.action === "RECEIVE"
+          ? "Received Document"
+          : params.action === "RETURN"
+          ? "Returned Document"
+          : `Marked as ${params.action}`;
+
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber,
+          action: actionLabel,
+          oldStatus: movement.status,
+          newStatus: nextStatus,
+          performedBy: params.userId,
+          remarks: params.remarks,
+        },
+      });
+    }
+
+    return { success: true, count: params.trackingNumbers.length };
+  });
 }
 
 export async function moveProcessAssignment(params: {
@@ -102,119 +369,33 @@ export async function moveProcessAssignment(params: {
   remarks?: string;
   officeLocationName?: string;
 }) {
-  const officeId = await resolveOfficeLocationId({
-    ownerAdminId: params.ownerAdminId,
-    officeLocationName: params.officeLocationName,
+  const reg = await prisma.registration.findUnique({
+    where: { id: params.assignmentId },
+    select: { trackingNumber: true },
   });
+  const trackingNumber = reg?.trackingNumber || params.assignmentId;
 
-  if (!officeId) throw new Error("Office not found");
-
-  return prisma.$transaction(async (tx) => {
-    const movement = await tx.documentMovement.findFirst({
-      where: {
-        registrationId: params.assignmentId,
-        currentOfficeId: officeId,
-        registration: { ownerAdminId: params.ownerAdminId },
-      },
+  if (params.action === "SEND_TO_OFFICE") {
+    return transferProcessDocumentsToAssignedOffice({
+      trackingNumbers: [trackingNumber],
+      targetAssignedOfficeId: params.targetOfficeId!,
+      userId: params.userId,
+      ownerAdminId: params.ownerAdminId,
+      remarks: params.remarks,
     });
+  }
 
-    if (!movement) throw new Error("Document movement not found in process module.");
-
-    let nextOfficeId = officeId;
-    let nextStatus = "";
-    let processChain = Array.isArray(movement.processChain) ? [...movement.processChain] : [];
-
-    if (params.action === "RECEIVE") {
-      nextStatus = "IN_HAND";
-      nextOfficeId = officeId;
-    } else if (params.action === "SEND_TO_OFFICE") {
-      if (!params.targetOfficeId) throw new Error("Target office is required.");
-      nextOfficeId = params.targetOfficeId;
-      nextStatus = "INBOUND";
-      
-      if (!processChain.includes(officeId)) {
-        processChain.push(officeId);
-      }
-    } else if (params.action === "RETURN") {
-      nextStatus = "RETURNED";
-      const previousOfficeId = processChain.length > 0 ? processChain.pop() : null;
-      if (previousOfficeId) {
-        nextOfficeId = previousOfficeId as string;
-      } else {
-        if (movement.originOfficeId) {
-          nextOfficeId = movement.originOfficeId;
-        }
-      }
-    } else {
-      nextStatus = params.action;
-      const previousOfficeId = processChain.length > 0 ? processChain.pop() : null;
-      
-      if (previousOfficeId) {
-        nextOfficeId = previousOfficeId as string;
-      } else {
-        if (!movement.originOfficeId) throw new Error("Origin office not found.");
-        nextOfficeId = movement.originOfficeId;
-      }
-    }
-
-    const nextOffice = await tx.officeLocation.findUnique({ where: { id: nextOfficeId } });
-
-    const updated = await tx.documentMovement.update({
-      where: { trackingNumber: movement.trackingNumber },
-      data: {
-        status: nextStatus,
-        fromOfficeId: officeId,
-        toOfficeId: nextOfficeId,
-        currentOfficeId: nextOfficeId,
-        currentModule: "REGISTRATION",
-        processChain,
-        remarks: params.remarks,
-        updatedAt: new Date(),
-      },
-    });
-
-    const actionLabel =
-      params.action === "RECEIVE"
-        ? "Received Document"
-        : params.action === "RETURN"
-        ? "Returned Document"
-        : params.action === "SEND_TO_OFFICE"
-        ? "Sent to Process Office"
-        : `Marked as ${params.action}`;
-
-    await tx.movementHistory.create({
-      data: {
-        trackingNumber: movement.trackingNumber,
-        action: actionLabel,
-        oldStatus: movement.status,
-        newStatus: nextStatus,
-        oldOffice: params.officeLocationName,
-        newOffice: nextOffice?.officeName,
-        performedBy: params.userId,
-        remarks: params.remarks,
-      },
-    });
-
-    if (params.action === "SEND_TO_OFFICE") {
-      await tx.branchMovementRecord.create({
-        data: {
-          trackingNumber: movement.trackingNumber,
-          sourceOffice: params.officeLocationName,
-          destinationOffice: nextOffice?.officeName,
-          transferredBy: params.userId,
-          movementStatus: "In Transit",
-          remarks: params.remarks,
-          ownerAdminId: params.ownerAdminId,
-        },
-      });
-    }
-
-    return updated;
+  return processBulkMove({
+    trackingNumbers: [trackingNumber],
+    action: params.action as any,
+    userId: params.userId,
+    ownerAdminId: params.ownerAdminId,
+    remarks: params.remarks,
+    officeLocationName: params.officeLocationName,
   });
 }
 
 export async function getProcessHistory(trackingNumber: string, ownerAdminId: string) {
-  // First verify the user owns this registration
   const registration = await prisma.registration.findFirst({
     where: { trackingNumber, ownerAdminId },
   });
@@ -228,7 +409,7 @@ export async function getProcessHistory(trackingNumber: string, ownerAdminId: st
     orderBy: { performedAt: "asc" },
   });
 
-  return rows.map(r => ({
+  return rows.map((r: any) => ({
     id: r.id,
     action: r.action,
     fromModule: r.oldStatus || "N/A",

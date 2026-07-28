@@ -20,7 +20,10 @@ import {
   XCircle,
   History,
   ArrowRightLeft,
-  CheckCircle2
+  CheckCircle2,
+  CheckSquare,
+  Square,
+  CornerUpLeft
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -43,6 +46,15 @@ const emptyStats: ProcessStats = {
 
 type ProcessTab = "in_hand" | "inbound" | "outbound" | "bundle";
 
+type ModalAction =
+  | "COMPLETED"
+  | "REJECTED"
+  | "SEND_TO_OFFICE"
+  | "RECEIVE"
+  | "RETURN"
+  | "TRANSFER_TO_BM_REPORT"
+  | "TRANSFER_TO_ASSIGNED_OFFICE";
+
 export function ProcessDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProcessTab>("in_hand");
@@ -53,6 +65,9 @@ export function ProcessDashboard() {
   const [items, setItems] = useState<ProcessItem[]>([]);
   const [stats, setStats] = useState<ProcessStats>(emptyStats);
 
+  // Checkbox multi-selection state
+  const [selectedTrackingNumbers, setSelectedTrackingNumbers] = useState<string[]>([]);
+
   // Assigned Office Login Selector state
   const [assignedOfficeOptions, setAssignedOfficeOptions] = useState<{ label: string; value: string }[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
@@ -60,8 +75,9 @@ export function ProcessDashboard() {
 
   // Modals state
   const [movementModalOpen, setMovementModalOpen] = useState(false);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
-  const [targetAction, setTargetAction] = useState<"COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN">("COMPLETED");
+  const [targetAction, setTargetAction] = useState<ModalAction>("COMPLETED");
+  const [modalTrackingNumbers, setModalTrackingNumbers] = useState<string[]>([]);
+  const [modalAssignmentId, setModalAssignmentId] = useState<string | undefined>(undefined);
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -137,13 +153,39 @@ export function ProcessDashboard() {
 
   useEffect(() => {
     loadData();
+    setSelectedTrackingNumbers([]);
   }, [activeTab, processType]);
 
-  function openMovementModal(
-    assignmentId: string, 
-    action: "COMPLETED" | "REJECTED" | "SEND_TO_OFFICE" | "RECEIVE" | "RETURN"
+  // Multi-selection helpers
+  const handleSelectAll = () => {
+    if (selectedTrackingNumbers.length === items.length) {
+      setSelectedTrackingNumbers([]);
+    } else {
+      setSelectedTrackingNumbers(items.map((i) => i.trackingNumber));
+    }
+  };
+
+  const handleToggleSelect = (trackingNumber: string) => {
+    setSelectedTrackingNumbers((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((t) => t !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  // Open modal for selected bulk items or single item
+  function openBulkMovementModal(
+    action: ModalAction,
+    singleTracking?: string,
+    singleId?: string
   ) {
-    setSelectedAssignmentId(assignmentId);
+    const trackings = singleTracking ? [singleTracking] : selectedTrackingNumbers;
+    if (trackings.length === 0) {
+      alert("Please select at least one document to execute this action.");
+      return;
+    }
+    setModalTrackingNumbers(trackings);
+    setModalAssignmentId(singleId);
     setTargetAction(action);
     setMovementModalOpen(true);
   }
@@ -172,7 +214,7 @@ export function ProcessDashboard() {
       label: "Inbound", 
       value: stats.inbound.toLocaleString(), 
       delta: "Queued", 
-      description: "Awaiting acceptance", 
+      description: "Incoming from Assigned Office", 
       icon: Inbox, 
       tone: "amber" as const 
     },
@@ -180,7 +222,7 @@ export function ProcessDashboard() {
       label: "Outbound", 
       value: stats.outbound.toLocaleString(), 
       delta: "Dispatched", 
-      description: "Ready or sent to offices", 
+      description: "Sent to BM Report or Assigned Office", 
       icon: Send, 
       tone: "blue" as const 
     },
@@ -205,7 +247,7 @@ export function ProcessDashboard() {
       key: "inbound" as const, 
       label: "Inbound", 
       count: stats.inbound,
-      description: "Documents incoming to office" 
+      description: "Incoming from Assigned Office" 
     },
     { 
       key: "outbound" as const, 
@@ -239,12 +281,12 @@ export function ProcessDashboard() {
               Process Module Dashboard
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage document workflows, execute operations (Inbound, In Hand, Outbound, Transfer, Receive, Return, Complete, Reject), and track movement history.
+              Manage document processing workflows. Receive from Assigned Office, transfer to BM Report or Assigned Office, and track movement history.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Assigned Office Login Selector & Login Button */}
+            {/* Assigned Office Login Selector */}
             <div className="flex items-center gap-2 rounded-2xl border border-blue-200 bg-white/90 p-2 shadow-sm">
               <div className="w-48 sm:w-56">
                 <SearchableSelect
@@ -296,7 +338,7 @@ export function ProcessDashboard() {
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={[
-                  "flex-1 min-w-[150px] rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+                  "flex-1 min-w-37.5 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
                   active
                     ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-500/20"
                     : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50",
@@ -329,6 +371,109 @@ export function ProcessDashboard() {
         </div>
       )}
 
+      {/* Bulk Operations Toolbar */}
+      {items.length > 0 && (activeTab === "in_hand" || activeTab === "inbound") && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50/80 border border-blue-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+            <span>Selected: {selectedTrackingNumbers.length} of {items.length} documents</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {activeTab === "in_hand" && (
+              <>
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 shadow-sm"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("TRANSFER_TO_BM_REPORT")}
+                >
+                  <Send size={14} />
+                  Transfer To BM Report
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 shadow-sm"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE")}
+                >
+                  <Building2 size={14} />
+                  Transfer To Assigned Office
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold gap-1.5"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("RETURN")}
+                >
+                  <RotateCcw size={14} />
+                  Return
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold gap-1.5"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("REJECTED")}
+                >
+                  <XCircle size={14} />
+                  Reject
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("COMPLETED")}
+                >
+                  <CheckCircle2 size={14} />
+                  Complete
+                </Button>
+              </>
+            )}
+
+            {activeTab === "inbound" && (
+              <>
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("RECEIVE")}
+                >
+                  <CheckCheck size={14} />
+                  Receive Selected ({selectedTrackingNumbers.length})
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold gap-1.5"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("RETURN")}
+                >
+                  <RotateCcw size={14} />
+                  Return Selected
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold gap-1.5"
+                  disabled={selectedTrackingNumbers.length === 0}
+                  onClick={() => openBulkMovementModal("REJECTED")}
+                >
+                  <XCircle size={14} />
+                  Reject Selected
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Operations Table */}
       {loading ? (
         <div className="rounded-[28px] border border-(--border) bg-white p-12 text-center shadow-(--shadow-card)">
@@ -347,6 +492,15 @@ export function ProcessDashboard() {
             <table className="w-full min-w-255 text-left text-sm">
               <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <tr>
+                  <th className="px-4 py-4 w-10">
+                    <button type="button" onClick={handleSelectAll} className="text-slate-600">
+                      {selectedTrackingNumbers.length === items.length && items.length > 0 ? (
+                        <CheckSquare className="h-5 w-5 text-blue-600" />
+                      ) : (
+                        <Square className="h-5 w-5 text-slate-400" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-5 py-4">Tracking Number</th>
                   <th className="px-5 py-4">Client Name</th>
                   <th className="px-5 py-4">Process Type</th>
@@ -356,115 +510,133 @@ export function ProcessDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-(--border) bg-white">
-                {items.map((item) => (
-                  <tr key={item.id} className="transition hover:bg-slate-50/70">
-                    <td className="px-5 py-4 font-bold text-blue-600">
-                      <button 
-                        type="button" 
-                        onClick={() => openTimeline(item.trackingNumber)} 
-                        className="hover:underline flex items-center gap-1.5"
-                      >
-                        {item.trackingNumber}
-                      </button>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-slate-900">{item.clientName}</td>
-                    <td className="px-5 py-4 text-slate-600">{item.processType}</td>
-                    <td className="px-5 py-4 text-slate-500">{item.receivedDate}</td>
-                    <td className="px-5 py-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        item.status === "COMPLETED"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : item.status === "REJECTED"
-                          ? "bg-rose-50 text-rose-700"
-                          : item.status === "INBOUND"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-blue-50 text-blue-700"
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Contextual Operation Buttons based on activeTab */}
-                        {activeTab === "inbound" && (
-                          <>
-                            <Button
-                              size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => openMovementModal(item.id, "RECEIVE")}
-                            >
-                              Receive
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                              onClick={() => openMovementModal(item.id, "RETURN")}
-                            >
-                              Return
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                              onClick={() => openMovementModal(item.id, "REJECTED")}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
+                {items.map((item) => {
+                  const isSelected = selectedTrackingNumbers.includes(item.trackingNumber);
+                  return (
+                    <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/70"}`}>
+                      <td className="px-4 py-4">
+                        <button type="button" onClick={() => handleToggleSelect(item.trackingNumber)} className="text-slate-600">
+                          {isSelected ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <Square className="h-5 w-5 text-slate-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-blue-600">
+                        <button 
+                          type="button" 
+                          onClick={() => openTimeline(item.trackingNumber)} 
+                          className="hover:underline flex items-center gap-1.5"
+                        >
+                          {item.trackingNumber}
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 font-medium text-slate-900">{item.clientName}</td>
+                      <td className="px-5 py-4 text-slate-600">{item.processType}</td>
+                      <td className="px-5 py-4 text-slate-500">{item.receivedDate}</td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          item.status === "COMPLETED"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : item.status === "REJECTED"
+                            ? "bg-rose-50 text-rose-700"
+                            : item.status === "INBOUND" || item.status === "Pending Receive"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-blue-50 text-blue-700"
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          {/* Dedicated Action Buttons */}
+                          {activeTab === "inbound" && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => openBulkMovementModal("RECEIVE", item.trackingNumber, item.id)}
+                              >
+                                Receive
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                                onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
 
-                        {activeTab === "in_hand" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                              onClick={() => openMovementModal(item.id, "SEND_TO_OFFICE")}
-                            >
-                              Transfer
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                              onClick={() => openMovementModal(item.id, "RETURN")}
-                            >
-                              Return
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                              onClick={() => openMovementModal(item.id, "REJECTED")}
-                            >
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => openMovementModal(item.id, "COMPLETED")}
-                            >
-                              Complete
-                            </Button>
-                          </>
-                        )}
+                          {activeTab === "in_hand" && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                                onClick={() => openBulkMovementModal("TRANSFER_TO_BM_REPORT", item.trackingNumber, item.id)}
+                              >
+                                Transfer To BM Report
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                                onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE", item.trackingNumber, item.id)}
+                              >
+                                Transfer To Assigned Office
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                                onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                                onClick={() => openBulkMovementModal("COMPLETED", item.trackingNumber, item.id)}
+                              >
+                                Complete
+                              </Button>
+                            </>
+                          )}
 
-                        {(activeTab === "outbound" || activeTab === "bundle") && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="border-slate-200 text-slate-700 hover:bg-slate-100 gap-1.5"
-                            onClick={() => openTimeline(item.trackingNumber)}
-                          >
-                            <History size={14} />
-                            Movement History
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {(activeTab === "outbound" || activeTab === "bundle") && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="border-slate-200 text-slate-700 hover:bg-slate-100 gap-1.5"
+                              onClick={() => openTimeline(item.trackingNumber)}
+                            >
+                              <History size={14} />
+                              Movement History
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -472,15 +644,19 @@ export function ProcessDashboard() {
       )}
 
       {/* Operation Action Modal */}
-      {movementModalOpen && selectedAssignmentId && (
+      {movementModalOpen && (
         <MovementModal
           open={movementModalOpen}
           onClose={() => setMovementModalOpen(false)}
-          title={`Process Operation: ${targetAction.replace("_", " ")}`}
-          description="Confirm details and add optional remarks to log this document movement."
+          title={`Process Operation: ${targetAction.replace(/_/g, " ")}`}
+          description="Confirm details and target options to log this document movement."
           action={targetAction}
-          assignmentId={selectedAssignmentId}
-          onSuccess={loadData}
+          assignmentId={modalAssignmentId}
+          trackingNumbers={modalTrackingNumbers}
+          onSuccess={() => {
+            loadData();
+            setSelectedTrackingNumbers([]);
+          }}
         />
       )}
 

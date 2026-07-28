@@ -59,10 +59,10 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   useEffect(() => {
     async function loadOffices() {
       try {
-        const res = await fetch("/api/admin-management/office-locations");
+        const res = await fetch("/api/offices/all");
         if (res.ok) {
           const body = await res.json();
-          const list = body.data || body.officeLocations || [];
+          const list = body.offices || body.data || [];
           setOffices(list);
           if (list.length > 0) {
             const current = list.find(

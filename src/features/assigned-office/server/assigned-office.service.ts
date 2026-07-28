@@ -132,8 +132,8 @@ export async function listAssignedOffices(params: {
   const orderByDirection = params.sortOrder || "desc";
 
   const [total, items] = await Promise.all([
-    prisma.assignedOffice.count({ where }),
-    prisma.assignedOffice.findMany({
+    (prisma as any).assignedOffice.count({ where }),
+    (prisma as any).assignedOffice.findMany({
       where,
       include: {
         processTypes: true,
@@ -151,11 +151,11 @@ export async function listAssignedOffices(params: {
 
   // Fetch process type names and subpackage names from master tables
   const allProcessTypeIds = Array.from(
-    new Set(items.flatMap((o) => o.processTypes.map((pt) => pt.processTypeId)))
-  );
+    new Set((items as any[]).flatMap((o: any) => o.processTypes.map((pt: any) => pt.processTypeId)))
+  ) as string[];
   const allSubPackageIds = Array.from(
-    new Set(items.flatMap((o) => o.subPackages.map((sp) => sp.subPackageId)))
-  );
+    new Set((items as any[]).flatMap((o: any) => o.subPackages.map((sp: any) => sp.subPackageId)))
+  ) as string[];
 
   const [masterProcessTypes, masterSubPackages] = await Promise.all([
     prisma.masterData.findMany({
@@ -168,22 +168,22 @@ export async function listAssignedOffices(params: {
     }),
   ]);
 
-  const ptMap = new Map(masterProcessTypes.map((pt) => [pt.id, pt.name]));
-  const spMap = new Map(masterSubPackages.map((sp) => [sp.id, sp.name]));
+  const ptMap = new Map((masterProcessTypes as any[]).map((pt: any) => [pt.id, pt.name]));
+  const spMap = new Map((masterSubPackages as any[]).map((sp: any) => [sp.id, sp.name]));
 
-  const formattedItems = items.map((office) => {
-    const assignedProcessTypes = office.processTypes.map((pt) => ({
+  const formattedItems = (items as any[]).map((office: any) => {
+    const assignedProcessTypes = office.processTypes.map((pt: any) => ({
       id: pt.processTypeId,
       name: ptMap.get(pt.processTypeId) || "Unknown Process Type",
     }));
 
-    const assignedSubPackages = office.subPackages.map((sp) => ({
+    const assignedSubPackages = office.subPackages.map((sp: any) => ({
       id: sp.subPackageId,
       name: spMap.get(sp.subPackageId) || "Unknown Sub Package",
       isCorePackage: sp.isCorePackage,
     }));
 
-    const corePackageItem = office.subPackages.find((sp) => sp.isCorePackage);
+    const corePackageItem = office.subPackages.find((sp: any) => sp.isCorePackage);
     const corePackage = corePackageItem
       ? {
           id: corePackageItem.subPackageId,
@@ -221,7 +221,7 @@ export async function listAssignedOffices(params: {
  * Get single Assigned Office details
  */
 export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
-  const office = await prisma.assignedOffice.findFirst({
+  const office = await (prisma as any).assignedOffice.findFirst({
     where: { id, ownerAdminId },
     include: {
       processTypes: true,
@@ -234,8 +234,8 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
 
   if (!office) return null;
 
-  const ptIds = office.processTypes.map((pt) => pt.processTypeId);
-  const spIds = office.subPackages.map((sp) => sp.subPackageId);
+  const ptIds = office.processTypes.map((pt: any) => pt.processTypeId);
+  const spIds = office.subPackages.map((sp: any) => sp.subPackageId);
 
   const [masterProcessTypes, masterSubPackages] = await Promise.all([
     prisma.masterData.findMany({
@@ -248,10 +248,10 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
     }),
   ]);
 
-  const ptMap = new Map(masterProcessTypes.map((pt) => [pt.id, pt.name]));
-  const spMap = new Map(masterSubPackages.map((sp) => [sp.id, sp.name]));
+  const ptMap = new Map(masterProcessTypes.map((pt: any) => [pt.id, pt.name]));
+  const spMap = new Map(masterSubPackages.map((sp: any) => [sp.id, sp.name]));
 
-  const coreItem = office.subPackages.find((sp) => sp.isCorePackage);
+  const coreItem = office.subPackages.find((sp: any) => sp.isCorePackage);
 
   return {
     id: office.id,
@@ -263,11 +263,11 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
     updatedBy: office.updatedBy,
     createdAt: office.createdAt,
     updatedAt: office.updatedAt,
-    processTypes: office.processTypes.map((pt) => ({
+    processTypes: office.processTypes.map((pt: any) => ({
       id: pt.processTypeId,
       name: ptMap.get(pt.processTypeId) || "Unknown",
     })),
-    subPackages: office.subPackages.map((sp) => ({
+    subPackages: office.subPackages.map((sp: any) => ({
       id: sp.subPackageId,
       name: spMap.get(sp.subPackageId) || "Unknown",
       isCorePackage: sp.isCorePackage,
@@ -294,8 +294,8 @@ export async function createAssignedOffice(
   // Check unique username & email
   const [existingOfficeUser, existingOfficeEmail, existingUserUser, existingUserEmail] =
     await Promise.all([
-      prisma.assignedOffice.findUnique({ where: { username: input.username } }),
-      prisma.assignedOffice.findUnique({ where: { email: input.email } }),
+      (prisma as any).assignedOffice.findUnique({ where: { username: input.username } }),
+      (prisma as any).assignedOffice.findUnique({ where: { email: input.email } }),
       prisma.user.findUnique({ where: { email: input.username } }),
       prisma.user.findUnique({ where: { email: input.email } }),
     ]);
@@ -310,7 +310,7 @@ export async function createAssignedOffice(
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(input.password, salt);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const office = await tx.assignedOffice.create({
       data: {
         username: input.username,
@@ -325,7 +325,7 @@ export async function createAssignedOffice(
     // Create process type assignments
     if (input.processTypes && input.processTypes.length > 0) {
       await tx.assignedOfficeProcessType.createMany({
-        data: input.processTypes.map((ptId) => ({
+        data: input.processTypes.map((ptId: any) => ({
           assignedOfficeId: office.id,
           processTypeId: ptId,
         })),
@@ -335,7 +335,7 @@ export async function createAssignedOffice(
     // Create subpackage assignments
     if (input.subPackages && input.subPackages.length > 0) {
       await tx.assignedOfficeSubPackage.createMany({
-        data: input.subPackages.map((spId) => ({
+        data: input.subPackages.map((spId: any) => ({
           assignedOfficeId: office.id,
           subPackageId: spId,
           isCorePackage: spId === input.corePackageId,
@@ -408,7 +408,7 @@ export async function updateAssignedOffice(
   performedByName: string,
   ownerAdminId: string
 ) {
-  const existingOffice = await prisma.assignedOffice.findFirst({
+  const existingOffice = await (prisma as any).assignedOffice.findFirst({
     where: { id, ownerAdminId },
   });
 
@@ -417,20 +417,20 @@ export async function updateAssignedOffice(
   }
 
   if (input.username && input.username !== existingOffice.username) {
-    const takenUser = await prisma.assignedOffice.findUnique({
+    const takenUser = await (prisma as any).assignedOffice.findUnique({
       where: { username: input.username },
     });
     if (takenUser) throw new Error("Username is already taken.");
   }
 
   if (input.email && input.email !== existingOffice.email) {
-    const takenEmail = await prisma.assignedOffice.findUnique({
+    const takenEmail = await (prisma as any).assignedOffice.findUnique({
       where: { email: input.email },
     });
     if (takenEmail) throw new Error("Email is already in use.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const auditLogs: Array<{ action: string; description: string }> = [];
 
     let passwordHash = existingOffice.passwordHash;
@@ -466,7 +466,7 @@ export async function updateAssignedOffice(
         where: { assignedOfficeId: id },
       });
       await tx.assignedOfficeProcessType.createMany({
-        data: input.processTypes.map((ptId) => ({
+        data: input.processTypes.map((ptId: any) => ({
           assignedOfficeId: id,
           processTypeId: ptId,
         })),
@@ -482,7 +482,7 @@ export async function updateAssignedOffice(
         where: { assignedOfficeId: id },
       });
       await tx.assignedOfficeSubPackage.createMany({
-        data: input.subPackages.map((spId) => ({
+        data: input.subPackages.map((spId: any) => ({
           assignedOfficeId: id,
           subPackageId: spId,
           isCorePackage: spId === input.corePackageId,
@@ -526,13 +526,13 @@ export async function toggleOfficeStatus(
   performedByName: string,
   ownerAdminId: string
 ) {
-  const office = await prisma.assignedOffice.findFirst({
+  const office = await (prisma as any).assignedOffice.findFirst({
     where: { id, ownerAdminId },
   });
 
   if (!office) throw new Error("Assigned Office not found.");
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const updated = await tx.assignedOffice.update({
       where: { id },
       data: {
@@ -564,7 +564,7 @@ export async function resetOfficePassword(
   performedByName: string,
   ownerAdminId: string
 ) {
-  const office = await prisma.assignedOffice.findFirst({
+  const office = await (prisma as any).assignedOffice.findFirst({
     where: { id, ownerAdminId },
   });
 
@@ -573,7 +573,7 @@ export async function resetOfficePassword(
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(newPassword, salt);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const updated = await tx.assignedOffice.update({
       where: { id },
       data: {
@@ -604,13 +604,13 @@ export async function deleteAssignedOffice(
   performedByName: string,
   ownerAdminId: string
 ) {
-  const office = await prisma.assignedOffice.findFirst({
+  const office = await (prisma as any).assignedOffice.findFirst({
     where: { id, ownerAdminId },
   });
 
   if (!office) throw new Error("Assigned Office not found.");
 
-  return prisma.assignedOffice.delete({
+  return (prisma as any).assignedOffice.delete({
     where: { id },
   });
 }
@@ -619,7 +619,7 @@ export async function deleteAssignedOffice(
  * Export Assigned Offices list dataset for Excel download
  */
 export async function exportAssignedOfficesData(ownerAdminId: string) {
-  const offices = await prisma.assignedOffice.findMany({
+  const offices = await (prisma as any).assignedOffice.findMany({
     where: { ownerAdminId },
     include: {
       processTypes: true,
@@ -628,8 +628,8 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  const ptIds = Array.from(new Set(offices.flatMap((o) => o.processTypes.map((pt) => pt.processTypeId))));
-  const spIds = Array.from(new Set(offices.flatMap((o) => o.subPackages.map((sp) => sp.subPackageId))));
+  const ptIds = Array.from(new Set(offices.flatMap((o: any) => o.processTypes.map((pt: any) => pt.processTypeId)))) as string[];
+  const spIds = Array.from(new Set(offices.flatMap((o: any) => o.subPackages.map((sp: any) => sp.subPackageId)))) as string[];
 
   const [masterProcessTypes, masterSubPackages] = await Promise.all([
     prisma.masterData.findMany({
@@ -642,13 +642,13 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
     }),
   ]);
 
-  const ptMap = new Map(masterProcessTypes.map((pt) => [pt.id, pt.name]));
-  const spMap = new Map(masterSubPackages.map((sp) => [sp.id, sp.name]));
+  const ptMap = new Map(masterProcessTypes.map((pt: any) => [pt.id, pt.name]));
+  const spMap = new Map(masterSubPackages.map((sp: any) => [sp.id, sp.name]));
 
-  return offices.map((office) => {
-    const ptNames = office.processTypes.map((pt) => ptMap.get(pt.processTypeId) || "Unknown").join(", ");
-    const spNames = office.subPackages.map((sp) => spMap.get(sp.subPackageId) || "Unknown").join(", ");
-    const coreSp = office.subPackages.find((sp) => sp.isCorePackage);
+  return offices.map((office: any) => {
+    const ptNames = office.processTypes.map((pt: any) => ptMap.get(pt.processTypeId) || "Unknown").join(", ");
+    const spNames = office.subPackages.map((sp: any) => spMap.get(sp.subPackageId) || "Unknown").join(", ");
+    const coreSp = office.subPackages.find((sp: any) => sp.isCorePackage);
     const coreName = coreSp ? spMap.get(coreSp.subPackageId) || "None" : "None";
 
     return {
@@ -669,7 +669,7 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
  * WORKSPACE: Get counts for workspace tabs
  */
 export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdminId: string) {
-  const inboundBundlesCount = await prisma.bundle.count({
+  const inboundBundlesCount = await (prisma as any).bundle.count({
     where: {
       toOfficeId: officeId,
       ownerAdminId,
@@ -726,7 +726,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
     },
   });
 
-  const historyCount = await prisma.documentWorkflowHistory.count({
+  const historyCount = await (prisma as any).documentWorkflowHistory.count({
     where: { ownerAdminId },
   });
 
@@ -762,7 +762,7 @@ export async function listWorkspaceDocuments(params: {
       : {};
 
   if (params.tab === "inbound") {
-    return prisma.bundle.findMany({
+    return (prisma as any).bundle.findMany({
       where: {
         toOfficeId: params.officeId,
         ownerAdminId: params.ownerAdminId,
@@ -829,7 +829,7 @@ export async function listWorkspaceDocuments(params: {
   }
 
   if (params.tab === "history") {
-    return prisma.documentWorkflowHistory.findMany({
+    return (prisma as any).documentWorkflowHistory.findMany({
       where: { ownerAdminId: params.ownerAdminId },
       orderBy: { performedAt: "desc" },
       take: 100,
@@ -865,7 +865,7 @@ export async function receiveBundleDocuments(params: {
   userName?: string;
   ownerAdminId: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const bundle = await tx.bundle.findUnique({
       where: { id: params.bundleId },
       include: { items: true },
@@ -953,7 +953,7 @@ export async function transferToSubPackage(params: {
   userName?: string;
   ownerAdminId: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     for (const item of params.items) {
       const reg = await tx.registration.findUnique({
         where: { trackingNumber: item.trackingNumber },
@@ -1007,19 +1007,19 @@ export async function listSubPackageItemsForOffice(params: {
   ownerAdminId: string;
 }) {
   // Fetch office assigned subpackages
-  const officeSubPackages = await prisma.assignedOfficeSubPackage.findMany({
+  const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
     where: { assignedOfficeId: params.officeId },
   });
 
-  const subPackageIds = officeSubPackages.map((sp) => sp.subPackageId);
-  const coreItem = officeSubPackages.find((sp) => sp.isCorePackage);
+  const subPackageIds = officeSubPackages.map((sp: any) => sp.subPackageId);
+  const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
 
   const subPackages = await prisma.subPackage.findMany({
     where: { id: { in: subPackageIds } },
     orderBy: { name: "asc" },
   });
 
-  const movements = await prisma.subPackageMovement.findMany({
+  const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
       assignedOfficeId: params.officeId,
       ownerAdminId: params.ownerAdminId,
@@ -1028,20 +1028,20 @@ export async function listSubPackageItemsForOffice(params: {
     orderBy: { startedAt: "desc" },
   });
 
-  const trackingNumbers = Array.from(new Set(movements.map((m) => m.trackingNumber)));
+  const trackingNumbers = Array.from(new Set(movements.map((m: any) => m.trackingNumber))) as string[];
   const registrations = await prisma.registration.findMany({
     where: { trackingNumber: { in: trackingNumbers } },
   });
 
-  const regMap = new Map(registrations.map((r) => [r.trackingNumber, r]));
+  const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
 
   return {
     coreSubPackageId: coreItem ? coreItem.subPackageId : null,
-    subPackages: subPackages.map((sp) => ({
+    subPackages: subPackages.map((sp: any) => ({
       ...sp,
       isCorePackage: sp.id === coreItem?.subPackageId,
     })),
-    items: movements.map((m) => ({
+    items: movements.map((m: any) => ({
       ...m,
       registration: regMap.get(m.trackingNumber) || null,
     })),
@@ -1059,7 +1059,7 @@ export async function processSubPackageDocumentAction(params: {
   ownerAdminId: string;
   remarks?: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     for (const movementId of params.movementIds) {
       const subMov = await tx.subPackageMovement.findUnique({
         where: { id: movementId },
@@ -1091,7 +1091,7 @@ export async function processSubPackageDocumentAction(params: {
             where: { assignedOfficeId: subMov.assignedOfficeId },
           });
 
-          const corePackage = officeSubPackages.find((sp) => sp.isCorePackage);
+          const corePackage = officeSubPackages.find((sp: any) => sp.isCorePackage);
 
           // Get movements for all assigned subpackages of this office for this tracking number
           const allMovements = await tx.subPackageMovement.findMany({
@@ -1102,10 +1102,10 @@ export async function processSubPackageDocumentAction(params: {
           });
 
           const completedSubPkgIds = new Set(
-            allMovements.filter((m) => m.status === "Completed").map((m) => m.subPackageId)
+            allMovements.filter((m: any) => m.status === "Completed").map((m: any) => m.subPackageId)
           );
 
-          allAssignedSubPackagesDone = officeSubPackages.every((sp) =>
+          allAssignedSubPackagesDone = officeSubPackages.every((sp: any) =>
             completedSubPkgIds.has(sp.subPackageId)
           );
 
@@ -1218,7 +1218,7 @@ export async function transferBackToProcess(params: {
   ownerAdminId: string;
   remarks?: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     // Generate Bundle Number
     const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
     const bundleNumber = `BND-PROC-${String(count + 1).padStart(5, "0")}`;
@@ -1277,12 +1277,13 @@ export async function transferBackToProcess(params: {
       await tx.documentMovement.updateMany({
         where: { trackingNumber: tNum },
         data: {
-          fromModule: "Assigned Office",
-          toModule: "Process Module",
-          currentModule: "Process Module",
+          fromModule: "ASSIGNED_OFFICE",
+          toModule: "PROCESS_MODULE",
+          currentModule: "PROCESS_MODULE",
+          status: "INBOUND",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
-        },
+        } as any,
       });
 
       const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
