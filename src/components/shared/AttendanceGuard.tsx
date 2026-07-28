@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
 import { readJsonResponse } from "@/utils/fetch";
 
 type Props = {
   userId: string;
+  isAssignedOffice?: boolean;
 };
 
 type ModalState = "idle" | "checkin";
 
-export function AttendanceGuard({ userId }: Props) {
+export function AttendanceGuard({ userId, isAssignedOffice }: Props) {
+  const pathname = usePathname();
+  const isAssignedOfficeRoute =
+    Boolean(isAssignedOffice) || Boolean(pathname?.startsWith("/dashboard/assigned-office"));
+
   const [modal, setModal] = useState<ModalState>("idle");
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,8 +35,17 @@ export function AttendanceGuard({ userId }: Props) {
 
   // ── fetch today's record on mount ──
   useEffect(() => {
+    if (isAssignedOfficeRoute) {
+      setLoading(false);
+      setModal("idle");
+      return;
+    }
     fetchToday();
-  }, [userId]);
+  }, [userId, isAssignedOfficeRoute]);
+
+  if (isAssignedOfficeRoute) {
+    return null;
+  }
 
   async function fetchToday() {
     try {

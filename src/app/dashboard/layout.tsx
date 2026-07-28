@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
-      <AttendanceGuard userId={session.user.id} />
+      <AttendanceGuard userId={session.user.id} isAssignedOffice={session.user.isAssignedOffice} />
       <FollowupReminderProvider userId={session.user.id} ownerAdminId={ownerAdminId} />
       <FloatingCommunicationWidget />
       <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
