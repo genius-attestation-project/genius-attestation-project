@@ -1023,7 +1023,6 @@ export async function listSubPackageItemsForOffice(params: {
     where: {
       assignedOfficeId: params.officeId,
       ownerAdminId: params.ownerAdminId,
-      status: "In Progress",
     },
     orderBy: { startedAt: "desc" },
   });
