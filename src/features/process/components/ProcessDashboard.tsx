@@ -288,7 +288,7 @@ export function ProcessDashboard() {
           {/* Single Responsive Action Bar */}
           <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-3.5 shadow-sm backdrop-blur-xs sm:flex-row sm:items-center sm:gap-3">
             {/* Assigned Office Dropdown (Width: ~320px - 350px) */}
-            <div className="w-full sm:w-[320px] md:w-[350px] shrink-0">
+            <div className="w-full sm:w-[320px] md:w-87.5 shrink-0">
               <SearchableSelect
                 options={assignedOfficeOptions}
                 value={selectedOfficeId}
@@ -301,14 +301,14 @@ export function ProcessDashboard() {
             <Button
               disabled={!selectedOfficeId || loadingOffices}
               onClick={handleOfficeLogin}
-              className="h-[42px] gap-2 rounded-xl bg-blue-600 px-5 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
+              className="h-10.5 gap-2 rounded-xl bg-blue-600 px-5 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
             >
               <Building2 size={16} />
               <span>Login</span>
             </Button>
 
             {/* Process Type Filter */}
-            <div className="w-full sm:w-[220px] shrink-0">
+            <div className="w-full sm:w-55 shrink-0">
               <SearchableSelect
                 options={availableProcessTypes}
                 value={processType}

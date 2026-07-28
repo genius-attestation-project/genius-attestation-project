@@ -252,7 +252,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                         isActive ? "text-white" : "text-slate-400 dark:text-slate-300"
                       )}
                     />
-                    <span className="truncate max-w-[160px]">{sp.name}</span>
+                    <span className="truncate max-w-40">{sp.name}</span>
                     <span
                       className={cn(
                         "ml-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold",
