@@ -78,6 +78,17 @@ export const requireAuth = cache(async (callbackUrl = "/dashboard") => {
 export const requirePermission = cache(async (permission: string, callbackUrl = "/dashboard") => {
   const session = await requireAuth(callbackUrl);
 
+  const isAssignedOfficeUser = Boolean(
+    session.user?.isAssignedOffice ||
+    (session.user as any)?.accountType === "ASSIGNED_OFFICE" ||
+    session.user?.role === "AssignedOffice"
+  );
+
+  if (isAssignedOfficeUser) {
+    const officeId = (session.user as any)?.assignedOfficeId || session.user?.officeId || session.user?.id;
+    redirect(`/dashboard/assigned-office/workspace?officeId=${officeId}`);
+  }
+
   if (!hasPermission(session.user, permission)) {
     return null;
   }

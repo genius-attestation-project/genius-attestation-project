@@ -233,11 +233,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.isAgency = true;
           token.isAssignedOffice = Boolean((user as any).isAssignedOffice);
           token.officeId = user.id;
+          token.assignedOfficeId = user.id;
+          token.accountType = (user as any).isAssignedOffice ? "ASSIGNED_OFFICE" : "AGENCY";
           token.ownerAdminId = (user as any).ownerAdminId;
           token.role = "AssignedOffice";
           token.isSuperAdmin = false;
-          token.permissions = [];
-          token.roles = [];
+          token.permissions = ["menu.assigned-office", "assigned_office.view"];
+          token.roles = ["AssignedOffice"];
           return token;
         }
         
@@ -307,6 +309,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           session.user.isAssignedOffice =
             typeof token.isAssignedOffice === "boolean" ? token.isAssignedOffice : false;
+
+          (session.user as any).accountType =
+            typeof token.accountType === "string" ? token.accountType : (token.isAssignedOffice ? "ASSIGNED_OFFICE" : undefined);
+
+          (session.user as any).assignedOfficeId =
+            typeof token.assignedOfficeId === "string" ? token.assignedOfficeId : token.officeId;
 
           session.user.officeId =
             typeof token.officeId === "string" ? token.officeId : undefined;

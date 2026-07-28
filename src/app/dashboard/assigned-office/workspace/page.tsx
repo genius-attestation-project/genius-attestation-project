@@ -8,16 +8,26 @@ export const metadata: Metadata = {
   description: "External Processing Office Workspace",
 };
 
-export default async function AssignedOfficeWorkspacePage() {
+export default async function AssignedOfficeWorkspacePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ officeId?: string }> | { officeId?: string };
+}) {
   const session = await auth();
 
   if (!session?.user) {
     redirect("/login");
   }
 
+  const resolvedSearchParams = await (searchParams as any);
+  const officeId =
+    resolvedSearchParams?.officeId ||
+    (session.user as any).assignedOfficeId ||
+    session.user.officeId ||
+    session.user.id;
+
   const officeName = session.user.name || session.user.email || "Assigned Office";
   const currentUser = session.user.name || session.user.email || "User";
-  const officeId = session.user.officeId || session.user.id;
 
   return (
     <div className="space-y-6 w-full">

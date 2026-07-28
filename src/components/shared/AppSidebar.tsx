@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, ChevronDown, ChevronLeft, Menu, Search } from "lucide-react";
+import { BadgeCheck, Building2, ChevronDown, ChevronLeft, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -19,6 +19,7 @@ type AppSidebarProps = {
   userEmail: string;
   permissions: string[];
   isSuperAdmin: boolean;
+  isAssignedOffice?: boolean;
 };
 
 function filterNavigation(
@@ -67,6 +68,7 @@ export function AppSidebar({
   userEmail,
   permissions,
   isSuperAdmin,
+  isAssignedOffice,
 }: AppSidebarProps) {
   const pathname = usePathname() ?? "";
   const [collapsed, setCollapsed] = useState(false);
@@ -75,17 +77,30 @@ export function AppSidebar({
   
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
-  const visibleNavigation = useMemo(
-    () => filterNavigation(sidebarNavigation, permissions, isSuperAdmin, searchQuery),
-    [permissions, isSuperAdmin, searchQuery],
-  );
+  const visibleNavigation = useMemo(() => {
+    if (isAssignedOffice) {
+      return [
+        {
+          label: "Assigned Office",
+          href: "/dashboard/assigned-office/workspace",
+          icon: Building2,
+          menuPermission: "menu.assigned-office",
+          pagePermission: "assigned_office.view",
+        },
+      ];
+    }
+    return filterNavigation(sidebarNavigation, permissions, isSuperAdmin, searchQuery);
+  }, [permissions, isSuperAdmin, searchQuery, isAssignedOffice]);
 
   const activeLink = useMemo(() => {
+    if (isAssignedOffice) {
+      return visibleNavigation[0];
+    }
     const items = flattenNavigation(filterNavigation(sidebarNavigation, permissions, isSuperAdmin, ""));
     return items.find((link) =>
       link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href),
     );
-  }, [pathname, permissions, isSuperAdmin]);
+  }, [pathname, permissions, isSuperAdmin, isAssignedOffice, visibleNavigation]);
 
   // Expand parent accordion on initial load based on pathname
   useEffect(() => {

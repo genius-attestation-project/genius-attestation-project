@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -53,6 +53,23 @@ export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps)
           error: result.error,
         });
         setMessage(getAuthErrorMessage(result.error));
+        return;
+      }
+
+      // Check if logged-in user is an Assigned Office account
+      const session = await getSession();
+      const isAssignedOfficeUser = Boolean(
+        session?.user?.isAssignedOffice ||
+        (session?.user as any)?.accountType === "ASSIGNED_OFFICE" ||
+        session?.user?.role === "AssignedOffice"
+      );
+
+      if (isAssignedOfficeUser) {
+        const officeId = (session?.user as any)?.assignedOfficeId || session?.user?.officeId || session?.user?.id;
+        const targetUrl = officeId
+          ? `/dashboard/assigned-office/workspace?officeId=${officeId}`
+          : `/dashboard/assigned-office/workspace`;
+        window.location.assign(targetUrl);
         return;
       }
 

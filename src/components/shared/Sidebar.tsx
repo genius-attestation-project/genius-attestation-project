@@ -5,15 +5,17 @@ type SidebarProps = {
   userEmail: string;
   permissions: string[];
   isSuperAdmin: boolean;
+  isAssignedOffice?: boolean;
 };
 
-export function Sidebar({ userName, userEmail, permissions, isSuperAdmin }: SidebarProps) {
+export function Sidebar({ userName, userEmail, permissions, isSuperAdmin, isAssignedOffice }: SidebarProps) {
   return (
     <AppSidebar
       userName={userName}
       userEmail={userEmail}
       permissions={permissions}
       isSuperAdmin={isSuperAdmin}
+      isAssignedOffice={isAssignedOffice}
     />
   );
 }

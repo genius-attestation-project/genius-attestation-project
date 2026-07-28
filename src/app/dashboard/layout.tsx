@@ -30,9 +30,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     );
   }
 
+  const isAssignedOffice = Boolean(
+    session.user.isAssignedOffice ||
+    (session.user as any).accountType === "ASSIGNED_OFFICE" ||
+    session.user.role === "AssignedOffice"
+  );
+
   return (
     <div className="h-screen overflow-hidden p-2 sm:p-3 md:p-5">
-      <AttendanceGuard userId={session.user.id} isAssignedOffice={session.user.isAssignedOffice} />
+      <AttendanceGuard userId={session.user.id} isAssignedOffice={isAssignedOffice} />
       <FollowupReminderProvider userId={session.user.id} ownerAdminId={ownerAdminId} />
       <FloatingCommunicationWidget />
       <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-none">
@@ -41,6 +47,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           userEmail={userEmail}
           permissions={session.user.permissions}
           isSuperAdmin={session.user.isSuperAdmin}
+          isAssignedOffice={isAssignedOffice}
         />
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
           <Navbar userName={session.user.name} userEmail={session.user.email} />
