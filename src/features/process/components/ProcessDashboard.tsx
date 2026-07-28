@@ -267,8 +267,8 @@ export function ProcessDashboard() {
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Top Banner with Header & Assigned Office Login Selector */}
       <section className="relative overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
                 Process Module
@@ -285,30 +285,30 @@ export function ProcessDashboard() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Assigned Office Login Selector */}
-            <div className="flex items-center gap-2 rounded-2xl border border-blue-200 bg-white/90 p-2 shadow-sm">
-              <div className="w-48 sm:w-56">
-                <SearchableSelect
-                  options={assignedOfficeOptions}
-                  value={selectedOfficeId}
-                  onChange={setSelectedOfficeId}
-                  placeholder={loadingOffices ? "Loading accounts..." : "Select Assigned Office Account"}
-                />
-              </div>
-              <Button
-                variant="secondary"
-                disabled={!selectedOfficeId || loadingOffices}
-                onClick={handleOfficeLogin}
-                className="gap-1.5 border-blue-200 bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700"
-              >
-                <Building2 size={16} />
-                Login
-              </Button>
+          {/* Single Responsive Action Bar */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-3.5 shadow-sm backdrop-blur-xs sm:flex-row sm:items-center sm:gap-3">
+            {/* Assigned Office Dropdown (Width: ~320px - 350px) */}
+            <div className="w-full sm:w-[320px] md:w-[350px] shrink-0">
+              <SearchableSelect
+                options={assignedOfficeOptions}
+                value={selectedOfficeId}
+                onChange={setSelectedOfficeId}
+                placeholder={loadingOffices ? "Loading assigned offices..." : "Select Assigned Office"}
+              />
             </div>
 
-            {/* Filter by Process Type */}
-            <div className="w-full sm:w-52">
+            {/* Login Button immediately beside Assigned Office Dropdown */}
+            <Button
+              disabled={!selectedOfficeId || loadingOffices}
+              onClick={handleOfficeLogin}
+              className="h-[42px] gap-2 rounded-xl bg-blue-600 px-5 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
+            >
+              <Building2 size={16} />
+              <span>Login</span>
+            </Button>
+
+            {/* Process Type Filter */}
+            <div className="w-full sm:w-[220px] shrink-0">
               <SearchableSelect
                 options={availableProcessTypes}
                 value={processType}
