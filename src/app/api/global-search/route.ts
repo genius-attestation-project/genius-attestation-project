@@ -33,6 +33,12 @@ const modules: SearchItem[] = [
     href: "/dashboard/home",
   },
   {
+    id: "bm-report",
+    title: "BM Report",
+    subtitle: "Real-time document movement tracking center",
+    href: "/dashboard/bm-report",
+  },
+  {
     id: "admin-management",
     title: "Admin Management",
     subtitle: "Users, roles, departments, and offices",

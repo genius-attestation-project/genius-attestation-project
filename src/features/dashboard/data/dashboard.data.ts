@@ -71,6 +71,11 @@ export const sidebarItems: SidebarItem[] = [
     icon: Home,
   },
   {
+    label: "BM Report",
+    href: "/dashboard/bm-report",
+    icon: ChartNoAxesColumn,
+  },
+  {
     label: "Account Update",
     href: "/dashboard/account-update",
     icon: RefreshCw,

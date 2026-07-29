@@ -285,6 +285,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     pagePermission: "home.view",
   },
   {
+    label: "BM Report",
+    href: "/dashboard/bm-report",
+    icon: ChartNoAxesColumn,
+    menuPermission: "menu.bm-report",
+    pagePermission: "bm_report.view",
+  },
+  {
     label: "Process Module",
     href: "/dashboard/process",
     icon: ListChecks,
@@ -475,6 +482,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
   { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export"] },
+  { key: "bm_report", label: "BM Report", description: "Real-time document movement tracking center access.", actions: ["view", "export"] },
   {
     key: "document_movement",
     label: "Document Movement",
@@ -563,6 +571,7 @@ export const defaultRoleDefinitions = [
     permissions: [
       "dashboard.view",
       "home.view",
+      "bm_report.view",
       "lead_management.view",
       "leads.view",
       "leads.create",
@@ -591,6 +600,7 @@ export const defaultRoleDefinitions = [
       "salary.view",
       "menu.dashboard",
       "menu.home",
+      "menu.bm-report",
       "menu.lead-management",
       "menu.lead-management.all-leads",
       "menu.lead-management.followups",
