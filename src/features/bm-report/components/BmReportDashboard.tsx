@@ -158,10 +158,6 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
     window.open(`/api/bm-report/export?${params.toString()}`, "_blank");
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6 print:space-y-4">
       {/* Sleek Top Banner Matching Application Theme */}
@@ -432,11 +428,6 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
               {totalCount} Total
             </span>
           </div>
-
-          <Button variant="ghost" size="sm" onClick={handlePrint} className="print:hidden h-8 gap-1.5 text-xs font-semibold text-slate-600">
-            <Printer className="h-4 w-4 text-slate-500" />
-            Print Report
-          </Button>
         </div>
 
         {items.length === 0 ? (
