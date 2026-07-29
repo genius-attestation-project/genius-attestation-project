@@ -269,8 +269,14 @@ export async function listRealtimeDocumentMovements(params: MovementFilterParams
         currentMov?.currentModule ??
         (processAssignment ? "Process Module" : "Revenue Registration");
 
-      const currentSubPackageName =
-        latestSubPackageMov?.subPackageId ?? reg.subPackage ?? "-";
+      let currentSubPackageName = reg.subPackage || "-";
+      if (!currentSubPackageName || currentSubPackageName === "-" || (currentSubPackageName.startsWith("c") && currentSubPackageName.length > 20)) {
+        if (latestSubPackageMov?.subPackageId && !latestSubPackageMov.subPackageId.startsWith("c")) {
+          currentSubPackageName = latestSubPackageMov.subPackageId;
+        } else {
+          currentSubPackageName = "-";
+        }
+      }
 
       const currentHolder =
         currentMov?.acceptedBy ??
