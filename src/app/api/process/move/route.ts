@@ -1,6 +1,6 @@
 import {
   moveProcessAssignment,
-  transferProcessDocumentsToBmReport,
+  transferProcessDocumentsToHome,
   transferProcessDocumentsToAssignedOffice,
   processBulkMove,
 } from "@/features/process/server/process.service";
@@ -49,9 +49,9 @@ export async function POST(request: NextRequest) {
       return jsonError("No target documents or assignment specified", 400);
     }
 
-    if (action === "TRANSFER_TO_BM_REPORT") {
+    if (action === "TRANSFER_TO_HOME") {
       if (!targetOfficeId) return jsonError("Destination office required", 400);
-      const result = await transferProcessDocumentsToBmReport({
+      const result = await transferProcessDocumentsToHome({
         trackingNumbers: targetList,
         toOfficeId: targetOfficeId,
         userId,

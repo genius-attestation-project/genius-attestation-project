@@ -12,7 +12,7 @@ type MovementModalAction =
   | "SEND_TO_OFFICE"
   | "RECEIVE"
   | "RETURN"
-  | "TRANSFER_TO_BM_REPORT"
+  | "TRANSFER_TO_HOME"
   | "TRANSFER_TO_ASSIGNED_OFFICE";
 
 type MovementModalProps = {
@@ -45,7 +45,7 @@ export function MovementModal({
 
   const needsOfficeSelector =
     action === "SEND_TO_OFFICE" ||
-    action === "TRANSFER_TO_BM_REPORT" ||
+    action === "TRANSFER_TO_HOME" ||
     action === "TRANSFER_TO_ASSIGNED_OFFICE";
 
   useEffect(() => {
@@ -117,8 +117,8 @@ export function MovementModal({
   }
 
   const officeLabel =
-    action === "TRANSFER_TO_BM_REPORT"
-      ? "Select Destination Office (BM Report)"
+    action === "TRANSFER_TO_HOME"
+      ? "Select Destination Office (Home)"
       : action === "TRANSFER_TO_ASSIGNED_OFFICE"
       ? "Select Target Assigned Office"
       : "Select Process Office";

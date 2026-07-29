@@ -5,7 +5,7 @@ import {
   listWorkspaceDocuments,
   transferToSubPackage,
 } from "@/features/assigned-office/server/assigned-office.service";
-import { createTransferBundle } from "@/features/bm-report/server/bundle-workflow.service";
+import { createTransferBundle } from "@/features/home/server/bundle-workflow.service";
 
 export async function GET(req: NextRequest) {
   try {

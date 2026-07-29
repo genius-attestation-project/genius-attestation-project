@@ -1,16 +1,12 @@
-import { acceptBmRegistration } from "@/features/bm-report/server/bm-report.service";
+import { acceptHomeRegistration } from "@/features/home/server/home.service";
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function POST(_: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const denied = await requireApiPermission("bm_report.view");
+  const denied = await requireApiPermission("home.view");
   if (denied) return denied;
 
   try {
@@ -28,11 +24,11 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
 
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
     if (!officeLocationName || !acceptedByUserId) {
-      return jsonError("Office location and session user are required to accept BM documents.", 400);
+      return jsonError("Office location and session user are required to accept documents.", 400);
     }
 
     const { id } = await context.params;
-    const accepted = await acceptBmRegistration({
+    const accepted = await acceptHomeRegistration({
       id,
       ownerAdminId,
       officeLocationName,
@@ -46,7 +42,7 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
 
     return jsonOk({ success: true });
   } catch (error) {
-    console.error("Failed to accept BM document", error);
-    return jsonError("Unable to accept BM document.", 500);
+    console.error("Failed to accept Home document", error);
+    return jsonError("Unable to accept Home document.", 500);
   }
 }

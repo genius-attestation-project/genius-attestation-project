@@ -1,4 +1,4 @@
-export type BmReportItem = {
+export type HomeItem = {
   id: string;
   registrationNumber: string;
   clientName: string;
@@ -12,17 +12,12 @@ export type BmReportItem = {
   acceptedDate: string | null;
   acceptedBy: string | null;
   isBmLocked: boolean;
-  bmExtensionStatus: string;
+  bmExtensionStatus: string | null;
 };
 
-export type BmReportStats = {
+export type HomeStats = {
   totalInward: number;
   totalOutward: number;
   acceptedToday: number;
   pendingInward: number;
-};
-
-export type BmReportResponse = {
-  items: BmReportItem[];
-  stats: BmReportStats;
 };

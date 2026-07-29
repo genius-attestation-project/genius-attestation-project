@@ -1,13 +1,13 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { BmReportDashboard } from "@/features/bm-report/components/BmReportDashboard";
+import { HomeDashboard } from "@/features/home/components/HomeDashboard";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requirePermission } from "@/middleware/auth.middleware";
 
-export default async function BmReportPage() {
-  const session = await requirePermission("bm_report.view", "/dashboard/bm-report");
+export default async function HomePage() {
+  const session = await requirePermission("home.view", "/dashboard/home");
 
   if (!session) {
-    return <AccessDenied description="Your role cannot access BM reports." />;
+    return <AccessDenied description="Your role cannot access the home workflow module." />;
   }
 
   const currentOfficeLocationName = await resolveOfficeLocationName({
@@ -16,5 +16,5 @@ export default async function BmReportPage() {
     officeLocationName: session.user.officeLocationName,
   });
 
-  return <BmReportDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
+  return <HomeDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
 }

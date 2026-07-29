@@ -122,7 +122,7 @@ export async function listProcessAssignments(
   }));
 }
 
-export async function transferProcessDocumentsToBmReport(params: {
+export async function transferProcessDocumentsToHome(params: {
   trackingNumbers: string[];
   toOfficeId: string;
   userId: string;
@@ -139,7 +139,7 @@ export async function transferProcessDocumentsToBmReport(params: {
 
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const bundleNumber = `BM-PROC-${dateStr}-${randomSuffix}`;
+  const bundleNumber = `HOME-PROC-${dateStr}-${randomSuffix}`;
 
   return prisma.$transaction(async (tx: any) => {
     const sourceOffice = await tx.officeLocation.findFirst({
@@ -181,8 +181,8 @@ export async function transferProcessDocumentsToBmReport(params: {
         where: { trackingNumber },
         data: {
           fromModule: "PROCESS_MODULE",
-          toModule: "BM_REPORT",
-          currentModule: "BM_REPORT",
+          toModule: "HOME",
+          currentModule: "HOME",
           fromOfficeId,
           toOfficeId: params.toOfficeId,
           currentOfficeId: params.toOfficeId,
@@ -206,10 +206,10 @@ export async function transferProcessDocumentsToBmReport(params: {
           data: {
             documentId: reg.id,
             trackingNumber,
-            workflowStep: "Process Transfer to BM Report",
+            workflowStep: "Process Transfer to Home",
             status: "Pending Receive",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || `Transferred to BM Report in Bundle ${bundleNumber}`,
+            remarks: params.remarks || `Transferred to Home in Bundle ${bundleNumber}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
@@ -218,7 +218,7 @@ export async function transferProcessDocumentsToBmReport(params: {
       await tx.movementHistory.create({
         data: {
           trackingNumber,
-          action: "Transfer to BM Report",
+          action: "Transfer to Home",
           oldStatus: "IN_HAND",
           newStatus: "Pending Receive",
           performedBy: params.userName || params.userId,

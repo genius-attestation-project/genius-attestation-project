@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-type BmReportDashboardProps = {
+type HomeDashboardProps = {
   currentOfficeLocationName: string;
 };
 
@@ -33,7 +33,7 @@ type OfficeOption = {
 
 type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
 
-export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboardProps) {
+export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("document_in_hand");
   const [offices, setOffices] = useState<OfficeOption[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
@@ -88,7 +88,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
     try {
       const officeParam = selectedOfficeId ? `&officeId=${selectedOfficeId}` : "";
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
-      const res = await fetch(`/api/bm-report?section=${activeTab}${officeParam}${searchParam}`);
+      const res = await fetch(`/api/home?section=${activeTab}${officeParam}${searchParam}`);
       if (res.ok) {
         const body = await res.json();
         if (activeTab === "document_in_hand") {
@@ -102,7 +102,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
         }
       }
     } catch (err) {
-      console.error("Failed to fetch BM Report data", err);
+      console.error("Failed to fetch Home data", err);
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +143,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
 
     try {
       setIsLoading(true);
-      const res = await fetch("/api/bm-report", {
+      const res = await fetch("/api/home", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -193,7 +193,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
 
     try {
       setIsReceiving(true);
-      const res = await fetch("/api/bm-report", {
+      const res = await fetch("/api/home", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,7 +228,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   return (
     <div className="space-y-6">
       {/* Top Header & Office Selector */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-6 shadow-xs border border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Home Workflow</h1>
           <p className="text-sm text-slate-500">
@@ -259,7 +259,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           onClick={() => setActiveTab("document_in_hand")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "document_in_hand"
-              ? "bg-white text-blue-600 shadow-sm"
+              ? "bg-white text-blue-600 shadow-xs"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
@@ -271,7 +271,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           onClick={() => setActiveTab("inbound")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "inbound"
-              ? "bg-white text-blue-600 shadow-sm"
+              ? "bg-white text-blue-600 shadow-xs"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
@@ -288,7 +288,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           onClick={() => setActiveTab("outbound")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "outbound"
-              ? "bg-white text-blue-600 shadow-sm"
+              ? "bg-white text-blue-600 shadow-xs"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
@@ -300,7 +300,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
           onClick={() => setActiveTab("history")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "history"
-              ? "bg-white text-blue-600 shadow-sm"
+              ? "bg-white text-blue-600 shadow-xs"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
@@ -310,7 +310,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
       </div>
 
       {/* Main Tab Content */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
         {/* Search Bar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
@@ -356,7 +356,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                 <Button
                   onClick={handleTransfer}
                   disabled={selectedTrackingNumbers.length === 0 || !destinationOfficeId || isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm shadow-sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm shadow-xs"
                 >
                   <Send className="mr-2 h-4 w-4" />
                   TRANSFER
@@ -581,7 +581,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                         <td className="p-4 text-xs text-slate-500">
                           {new Date(item.performedAt).toLocaleString()}
                         </td>
-                        <td className="p-4 text-xs text-slate-600">{item.remarks || "-"}</td>
+                        <td className="p-4 text-xs max-w-xs truncate">{item.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -592,83 +592,88 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
         )}
       </div>
 
-      {/* POPUP MODAL: Inbound Bundle Details & Receive */}
+      {/* Bundle Receive Modal */}
       {selectedBundle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl space-y-6">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Bundle Details: {selectedBundle.bundleNumber}
+                <h3 className="text-lg font-bold text-slate-900">
+                  Inbound Bundle Details ({selectedBundle.bundleNumber})
                 </h3>
                 <p className="text-xs text-slate-500">
-                  From: {selectedBundle.fromOffice?.officeName || "Origin Office"} • Total Items:{" "}
-                  {selectedBundle.items?.length || 0}
+                  From: {selectedBundle.fromOffice?.officeName || "Origin Office"}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedBundle(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
                 <XCircle className="h-6 w-6" />
               </button>
             </div>
 
-            <div>
-              <p className="text-xs font-semibold uppercase text-slate-500 mb-3">
-                Select Tracking Numbers to Receive:
-              </p>
-              <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-3 bg-slate-50">
-                {selectedBundle.items?.map((item: any) => {
-                  const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleToggleReceiveItem(item.trackingNumber)}
-                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                        isChecked
-                          ? "bg-blue-50 border-blue-300"
-                          : "bg-white border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {isChecked ? (
-                          <CheckSquare className="h-5 w-5 text-blue-600" />
-                        ) : (
-                          <Square className="h-5 w-5 text-slate-400" />
-                        )}
-                        <span className="font-bold font-mono text-slate-900">
-                          {item.trackingNumber}
-                        </span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-500">{item.status}</span>
-                    </div>
-                  );
-                })}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-700">
+                  Bundle Items ({selectedBundle.items?.length || 0})
+                </span>
+                <span className="text-xs text-slate-500">
+                  Selected for Receive: {bundleReceivedSelections.length} / {selectedBundle.items?.length || 0}
+                </span>
               </div>
-              {bundleReceivedSelections.length < selectedBundle.items?.length && (
-                <p className="mt-2 text-xs text-amber-600 font-semibold">
-                  ⚠️ Partial Receive: Remaining{" "}
-                  {selectedBundle.items.length - bundleReceivedSelections.length} documents will automatically be split into a new bundle.
-                </p>
-              )}
+
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="p-3 w-10">Receive</th>
+                      <th className="p-3">Tracking Number</th>
+                      <th className="p-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {selectedBundle.items?.map((item: any) => {
+                      const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
+                      return (
+                        <tr key={item.id} className={isChecked ? "bg-emerald-50/30" : ""}>
+                          <td className="p-3">
+                            <button
+                              onClick={() => handleToggleReceiveItem(item.trackingNumber)}
+                              className="text-slate-600"
+                            >
+                              {isChecked ? (
+                                <CheckSquare className="h-5 w-5 text-emerald-600" />
+                              ) : (
+                                <Square className="h-5 w-5 text-slate-400" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="p-3 font-bold text-slate-900">{item.trackingNumber}</td>
+                          <td className="p-3">
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-              <Button
-                variant="secondary"
-                onClick={() => setSelectedBundle(null)}
-                className="rounded-xl px-4 py-2"
-              >
+              <Button variant="secondary" onClick={() => setSelectedBundle(null)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmReceive}
-                disabled={isReceiving || bundleReceivedSelections.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-5 py-2"
+                disabled={bundleReceivedSelections.length === 0 || isReceiving}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Receive Selected ({bundleReceivedSelections.length})
+                Confirm Receive ({bundleReceivedSelections.length})
               </Button>
             </div>
           </div>

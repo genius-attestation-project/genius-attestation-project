@@ -279,10 +279,10 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
   },
   {
     label: "Home",
-    href: "/dashboard/bm-report",
+    href: "/dashboard/home",
     icon: Home,
-    menuPermission: "menu.bm-report",
-    pagePermission: "bm_report.view",
+    menuPermission: "menu.home",
+    pagePermission: "home.view",
   },
   {
     label: "Process Module",
@@ -450,9 +450,9 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "dashboard", label: "Dashboard", description: "Dashboard module access." },
   { key: "admin_management", label: "Admin Management", description: "Admin workspace access." },
   { key: "users", label: "Users", description: "User management access." },
-  { 
-    key: "assigned_office", 
-    label: "Assigned Office", 
+  {
+    key: "assigned_office",
+    label: "Assigned Office",
     description: "Manage assigned office login accounts.",
     actions: ["view", "create", "edit", "delete", "manage", "export", "activate", "deactivate", "reset_password", "login", "receive", "transfer", "complete", "return", "reject"]
   },
@@ -474,16 +474,16 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
   { key: "revenue_summary", label: "Revenue Summary", description: "Revenue summary dashboard access." },
-  { key: "bm_report", label: "BM Report", description: "BM reporting access.", actions: ["view", "transfer", "receive", "export"] },
+  { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export"] },
   {
     key: "document_movement",
     label: "Document Movement",
     description: "Unified document movement history access.",
     actions: ["view"]
   },
-  { 
-    key: "process", 
-    label: "Process Module", 
+  {
+    key: "process",
+    label: "Process Module",
     description: "Process Module tracking access.",
     actions: ["view", "create", "edit", "delete", "complete", "reject", "transfer", "move", "manage", "export"]
   },
@@ -562,6 +562,7 @@ export const defaultRoleDefinitions = [
     isActive: true,
     permissions: [
       "dashboard.view",
+      "home.view",
       "lead_management.view",
       "leads.view",
       "leads.create",
@@ -589,6 +590,7 @@ export const defaultRoleDefinitions = [
       "leave.report",
       "salary.view",
       "menu.dashboard",
+      "menu.home",
       "menu.lead-management",
       "menu.lead-management.all-leads",
       "menu.lead-management.followups",

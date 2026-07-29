@@ -1,10 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { BmReportItem, BmReportStats } from "@/features/bm-report/types/bm-report.types";
+import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
 import { resolveOfficeLocationId } from "@/lib/office-location";
 
-function logBmWorkflow(message: string, payload: Record<string, unknown>) {
-  console.info(`[bm-report] ${message}`, payload);
+function logHomeWorkflow(message: string, payload: Record<string, unknown>) {
+  console.info(`[home] ${message}`, payload);
 }
 
 function formatDate(date: Date) {
@@ -23,10 +23,10 @@ function isSameDay(date: Date, compare: Date) {
   );
 }
 
-function mapMovement(movement: any): BmReportItem {
+function mapMovement(movement: any): HomeItem {
   const reg = movement.registration;
   return {
-    id: reg.id, // using registrationId for backward compatibility in UI
+    id: reg.id,
     registrationNumber: movement.trackingNumber,
     clientName: reg.customerName,
     service: reg.processType ?? reg.documentType ?? "-",
@@ -43,7 +43,7 @@ function mapMovement(movement: any): BmReportItem {
   };
 }
 
-export async function getBmReportStats(ownerAdminId: string, officeLocationName: string): Promise<BmReportStats> {
+export async function getHomeStats(ownerAdminId: string, officeLocationName: string): Promise<HomeStats> {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
   if (!officeId) {
     return { totalInward: 0, totalOutward: 0, acceptedToday: 0, pendingInward: 0 };
@@ -64,7 +64,7 @@ export async function getBmReportStats(ownerAdminId: string, officeLocationName:
 
   const today = new Date();
 
-  return movements.reduce<BmReportStats>(
+  return movements.reduce<HomeStats>(
     (stats, mov) => {
       if (mov.currentOfficeId === officeId && mov.status === "INBOUND") {
         stats.totalInward += 1;
@@ -85,7 +85,7 @@ export async function getBmReportStats(ownerAdminId: string, officeLocationName:
   );
 }
 
-export async function listBmInward(ownerAdminId: string, officeLocationName: string) {
+export async function listHomeInward(ownerAdminId: string, officeLocationName: string) {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
   if (!officeId) return [];
 
@@ -106,7 +106,7 @@ export async function listBmInward(ownerAdminId: string, officeLocationName: str
   return movements.map(mapMovement);
 }
 
-export async function listBmHome(ownerAdminId: string, officeLocationName: string) {
+export async function listHomeInHand(ownerAdminId: string, officeLocationName: string) {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
   if (!officeId) return [];
 
@@ -127,7 +127,7 @@ export async function listBmHome(ownerAdminId: string, officeLocationName: strin
   return movements.map(mapMovement);
 }
 
-export async function listBmOutward(ownerAdminId: string, officeLocationName: string) {
+export async function listHomeOutward(ownerAdminId: string, officeLocationName: string) {
   const officeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
   if (!officeId) return [];
 
@@ -135,7 +135,7 @@ export async function listBmOutward(ownerAdminId: string, officeLocationName: st
     where: {
       registration: { ownerAdminId },
       fromOfficeId: officeId,
-      status: "INBOUND", // Sent, waiting to be accepted
+      status: "INBOUND",
     },
     include: {
       registration: true,
@@ -147,7 +147,7 @@ export async function listBmOutward(ownerAdminId: string, officeLocationName: st
   return movements.map(mapMovement);
 }
 
-export async function acceptBmRegistration(params: {
+export async function acceptHomeRegistration(params: {
   id: string;
   ownerAdminId: string;
   officeLocationName: string;

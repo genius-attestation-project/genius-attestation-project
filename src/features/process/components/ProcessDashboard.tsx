@@ -52,7 +52,7 @@ type ModalAction =
   | "SEND_TO_OFFICE"
   | "RECEIVE"
   | "RETURN"
-  | "TRANSFER_TO_BM_REPORT"
+  | "TRANSFER_TO_HOME"
   | "TRANSFER_TO_ASSIGNED_OFFICE";
 
 export function ProcessDashboard() {
@@ -386,10 +386,10 @@ export function ProcessDashboard() {
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 shadow-sm"
                   disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("TRANSFER_TO_BM_REPORT")}
+                  onClick={() => openBulkMovementModal("TRANSFER_TO_HOME")}
                 >
                   <Send size={14} />
-                  Transfer To BM Report
+                  Transfer To Home
                 </Button>
 
                 <Button
@@ -585,9 +585,9 @@ export function ProcessDashboard() {
                               <Button
                                 size="sm"
                                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                                onClick={() => openBulkMovementModal("TRANSFER_TO_BM_REPORT", item.trackingNumber, item.id)}
+                                onClick={() => openBulkMovementModal("TRANSFER_TO_HOME", item.trackingNumber, item.id)}
                               >
-                                Transfer To BM Report
+                                Transfer To Home
                               </Button>
                               <Button
                                 size="sm"

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export function generateBundleNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `BM-${dateStr}-${randomSuffix}`;
+  return `HOME-${dateStr}-${randomSuffix}`;
 }
 
 export async function listDocumentInHand(params: {
@@ -76,7 +76,6 @@ export async function createTransferBundle(params: {
   const bundleNumber = generateBundleNumber();
 
   return prisma.$transaction(async (tx: any) => {
-    // Ensure fromOfficeId and toOfficeId exist in OfficeLocation relation table
     let fromLocation = await tx.officeLocation.findFirst({ where: { id: params.fromOfficeId } });
     if (!fromLocation) {
       const ao = await tx.assignedOffice.findUnique({ where: { id: params.fromOfficeId } });
@@ -107,9 +106,8 @@ export async function createTransferBundle(params: {
     }
 
     const isTargetAssignedOffice = await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } });
-    const destinationModule = isTargetAssignedOffice ? "ASSIGNED_OFFICE" : "BM_REPORT";
+    const destinationModule = isTargetAssignedOffice ? "ASSIGNED_OFFICE" : "HOME";
 
-    // 1. Create Bundle Movement record
     const bundle = await tx.bundle.create({
       data: {
         bundleNumber,
@@ -121,7 +119,6 @@ export async function createTransferBundle(params: {
       },
     });
 
-    // 2. Process each document
     for (const trackingNumber of params.trackingNumbers) {
       const reg = await tx.registration.findUnique({
         where: { trackingNumber },
@@ -129,7 +126,6 @@ export async function createTransferBundle(params: {
 
       if (!reg) continue;
 
-      // Create BundleItem
       await tx.bundleItem.create({
         data: {
           bundleId: bundle.id,
@@ -139,7 +135,6 @@ export async function createTransferBundle(params: {
         },
       });
 
-      // Create or Update DocumentMovement
       await tx.documentMovement.upsert({
         where: { trackingNumber },
         create: {
@@ -147,7 +142,7 @@ export async function createTransferBundle(params: {
           registrationId: reg.id,
           fromOfficeId: fromLocation.id,
           toOfficeId: toLocation.id,
-          fromModule: "BM_REPORT",
+          fromModule: "HOME",
           toModule: destinationModule,
           currentModule: destinationModule,
           currentOfficeId: toLocation.id,
@@ -161,7 +156,7 @@ export async function createTransferBundle(params: {
         update: {
           fromOfficeId: fromLocation.id,
           toOfficeId: toLocation.id,
-          fromModule: "BM_REPORT",
+          fromModule: "HOME",
           toModule: destinationModule,
           currentModule: destinationModule,
           currentOfficeId: toLocation.id,
@@ -173,7 +168,6 @@ export async function createTransferBundle(params: {
         } as any,
       });
 
-      // Update registration tracking status
       await tx.registration.update({
         where: { trackingNumber },
         data: {
@@ -182,7 +176,6 @@ export async function createTransferBundle(params: {
         },
       });
 
-      // Record DocumentWorkflowHistory
       if (tx.documentWorkflowHistory) {
         await tx.documentWorkflowHistory.create({
           data: {
@@ -191,13 +184,12 @@ export async function createTransferBundle(params: {
             workflowStep: "Transfer Bundle",
             status: "INBOUND_PENDING",
             performedBy: params.userName || params.userId,
-            remarks: `Transferred from BM Report to ${destinationModule} in Bundle ${bundleNumber}`,
+            remarks: `Transferred from Home to ${destinationModule} in Bundle ${bundleNumber}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
       }
 
-      // Record MovementHistory
       await tx.movementHistory.create({
         data: {
           trackingNumber,
@@ -209,7 +201,6 @@ export async function createTransferBundle(params: {
         },
       });
 
-      // Audit Trail
       await tx.auditTrail.create({
         data: {
           registrationId: reg.id,
@@ -285,10 +276,8 @@ export async function receiveBundle(params: {
   const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
 
   return prisma.$transaction(async (tx: any) => {
-    // Process received items
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
-        // Mark BundleItem received
         await tx.bundleItem.update({
           where: { id: item.id },
           data: {
@@ -298,7 +287,6 @@ export async function receiveBundle(params: {
           },
         });
 
-        // Update DocumentMovement
         await tx.documentMovement.updateMany({
           where: { trackingNumber: item.trackingNumber },
           data: {
@@ -310,7 +298,6 @@ export async function receiveBundle(params: {
           },
         });
 
-        // Update Registration
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
         });
@@ -362,14 +349,12 @@ export async function receiveBundle(params: {
     }
 
     if (isFullReceive) {
-      // Mark bundle fully received
       await tx.bundle.update({
         where: { id: bundle.id },
         data: { status: "Received" },
       });
       return { success: true, isSplit: false, bundleNumber: bundle.bundleNumber };
     } else {
-      // PARTIAL RECEIVE -> Split bundle!
       const unreceivedItems = (bundle.items as any[]).filter(
         (item: any) => !receivedSet.has(item.trackingNumber)
       );

@@ -67,7 +67,7 @@ export const sidebarItems: SidebarItem[] = [
   },
   {
     label: "Home",
-    href: "/dashboard/bm-report",
+    href: "/dashboard/home",
     icon: Home,
   },
   {

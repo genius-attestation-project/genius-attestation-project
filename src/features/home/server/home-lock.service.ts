@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export async function requestBmExtension(params: {
+export async function requestHomeExtension(params: {
   registrationId: string;
   ownerAdminId: string;
   reason: string;
@@ -33,7 +33,7 @@ export async function requestBmExtension(params: {
     await tx.auditTrail.create({
       data: {
         registrationId: existing.id,
-        action: "BM Extension Requested",
+        action: "Home Extension Requested",
         description: `Requested extension with reason: ${params.reason}`,
         performedBy: params.requestedByUserId,
       },
@@ -43,7 +43,7 @@ export async function requestBmExtension(params: {
   });
 }
 
-export async function approveBmExtension(params: {
+export async function approveHomeExtension(params: {
   registrationId: string;
   ownerAdminId: string;
   approvedByUserId: string;
@@ -73,8 +73,8 @@ export async function approveBmExtension(params: {
     await tx.auditTrail.create({
       data: {
         registrationId: existing.id,
-        action: "BM Extension Approved",
-        description: `BM extension approved. The record is now unlocked.`,
+        action: "Home Extension Approved",
+        description: `Extension approved. The record is now unlocked.`,
         performedBy: params.approvedByUserId,
       },
     });
@@ -83,7 +83,7 @@ export async function approveBmExtension(params: {
   });
 }
 
-export async function rejectBmExtension(params: {
+export async function rejectHomeExtension(params: {
   registrationId: string;
   ownerAdminId: string;
   rejectedByUserId: string;
@@ -111,8 +111,8 @@ export async function rejectBmExtension(params: {
     await tx.auditTrail.create({
       data: {
         registrationId: existing.id,
-        action: "BM Extension Rejected",
-        description: `BM extension request was rejected. The record remains locked.`,
+        action: "Home Extension Rejected",
+        description: `Extension request was rejected. The record remains locked.`,
         performedBy: params.rejectedByUserId,
       },
     });

@@ -47,7 +47,7 @@ export const moveProcessSchema = z.object({
     "SEND_TO_OFFICE",
     "RECEIVE",
     "RETURN",
-    "TRANSFER_TO_BM_REPORT",
+    "TRANSFER_TO_HOME",
     "TRANSFER_TO_ASSIGNED_OFFICE",
   ]),
   targetOfficeId: z.string().optional(),

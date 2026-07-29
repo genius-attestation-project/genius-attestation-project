@@ -7,7 +7,7 @@ import {
   listOutboundBundles,
   receiveBundle,
   getMovementHistory,
-} from "@/features/bm-report/server/bundle-workflow.service";
+} from "@/features/home/server/bundle-workflow.service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "Invalid section" }, { status: 400 });
   } catch (error: any) {
-    console.error("BM Report GET Error:", error);
+    console.error("Home API GET Error:", error);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 }
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: any) {
-    console.error("BM Report POST Error:", error);
+    console.error("Home API POST Error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to process request" },
       { status: 500 }

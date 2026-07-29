@@ -27,10 +27,10 @@ const modules: SearchItem[] = [
     href: "/dashboard/search-report",
   },
   {
-    id: "bm-report",
+    id: "home",
     title: "Home",
-    subtitle: "Branch movement reports",
-    href: "/dashboard/bm-report",
+    subtitle: "Home workflow and movement tracking center",
+    href: "/dashboard/home",
   },
   {
     id: "admin-management",
@@ -256,7 +256,7 @@ export async function GET(request: NextRequest) {
         id: bundle.id,
         title: bundle.bundleNumber,
         subtitle: `Bundle • ${bundle.fromOffice?.officeName ?? "Origin"} -> ${bundle.toOffice?.officeName ?? "Destination"} • ${bundle.status}`,
-        href: `/dashboard/bm-report?search=${encodeURIComponent(bundle.bundleNumber)}`,
+        href: `/dashboard/home?search=${encodeURIComponent(bundle.bundleNumber)}`,
       })),
       users: users.map((user) => ({
         id: user.id,
