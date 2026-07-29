@@ -8,6 +8,7 @@ import {
   Clock3,
   FileSearch,
   Handshake,
+  Home,
   LayoutDashboard,
   Layers3,
   PencilLine,
@@ -65,9 +66,9 @@ export const sidebarItems: SidebarItem[] = [
     icon: ClipboardList,
   },
   {
-    label: "BM Report",
+    label: "Home",
     href: "/dashboard/bm-report",
-    icon: ChartNoAxesColumn,
+    icon: Home,
   },
   {
     label: "Account Update",

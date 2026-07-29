@@ -11,14 +11,14 @@ function DashboardFallback() {
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <LoadingSkeleton key={index} className="h-[156px] w-full" />
+          <LoadingSkeleton key={index} className="h-39 w-full" />
         ))}
       </section>
       <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <LoadingSkeleton className="h-[420px] w-full" />
-        <LoadingSkeleton className="h-[420px] w-full" />
+        <LoadingSkeleton className="h-105 w-full" />
+        <LoadingSkeleton className="h-105 w-full" />
       </section>
-      <LoadingSkeleton className="h-[360px] w-full" />
+      <LoadingSkeleton className="h-90 w-full" />
     </div>
   );
 }

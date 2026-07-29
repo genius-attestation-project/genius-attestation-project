@@ -28,7 +28,7 @@ const modules: SearchItem[] = [
   },
   {
     id: "bm-report",
-    title: "BM Report",
+    title: "Home",
     subtitle: "Branch movement reports",
     href: "/dashboard/bm-report",
   },

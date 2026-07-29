@@ -230,7 +230,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
       {/* Top Header & Office Selector */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">BM Report Workflow</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Home Workflow</h1>
           <p className="text-sm text-slate-500">
             Enterprise bundle-based document transfer and movement management system
           </p>
