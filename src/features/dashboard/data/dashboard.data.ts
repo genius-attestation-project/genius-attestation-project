@@ -8,7 +8,7 @@ import {
   Clock3,
   FileSearch,
   Handshake,
-  Home,
+  LayoutDashboard,
   Layers3,
   PencilLine,
   RefreshCw,
@@ -38,7 +38,7 @@ export type DashboardStat = {
 };
 
 export const sidebarItems: SidebarItem[] = [
-  { label: "Home", href: "/dashboard", icon: Home },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
     label: "Admin Management",
     href: "/dashboard/admin-management",

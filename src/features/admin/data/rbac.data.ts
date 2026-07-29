@@ -8,7 +8,6 @@ import {
   Clock3,
   FileSearch,
   Handshake,
-  Home,
   LayoutDashboard,
   Layers3,
   PencilLine,
@@ -60,9 +59,9 @@ export type PermissionModuleDefinition = {
 
 export const sidebarNavigation: NavigationItemDefinition[] = [
   {
-    label: "Home",
+    label: "Dashboard",
     href: "/dashboard",
-    icon: Home,
+    icon: LayoutDashboard,
     menuPermission: "menu.dashboard",
     pagePermission: "dashboard.view",
   },

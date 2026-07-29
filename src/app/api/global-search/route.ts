@@ -13,7 +13,7 @@ type SearchItem = {
 };
 
 const modules: SearchItem[] = [
-  { id: "home", title: "Home", subtitle: "Dashboard overview", href: "/dashboard" },
+  { id: "home", title: "Dashboard", subtitle: "Dashboard overview", href: "/dashboard" },
   {
     id: "revenue-registration",
     title: "Revenue Registration",

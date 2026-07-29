@@ -37,7 +37,7 @@ export default async function DashboardPage() {
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
-        eyebrow="Home Dashboard"
+        eyebrow="Dashboard"
         title={`${greeting}, ${userName}`}
         description="A quick view of today's lead activity and approvals."
       />
