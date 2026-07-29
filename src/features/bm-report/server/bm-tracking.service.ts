@@ -398,14 +398,41 @@ export async function getDocumentMovementDetails(ownerAdminId: string, trackingN
     courierNumber?: string | null;
   }> = [];
 
+function cleanOfficeName(name?: string | null): string {
+  if (!name || name === "-" || name === "null") return "Main Office";
+  const lower = name.toLowerCase().trim();
+  if (lower === "uaeembassy" || lower === "uae_embassy") return "UAE Embassy";
+  if (lower === "kochihq" || lower === "kochi_hq" || lower === "kochi") return "Kochi HQ";
+  if (lower === "mala" || lower === "mala_office") return "Mala Office";
+  if (lower === "delhi" || lower === "delhi_office") return "Delhi Office";
+  if (lower === "oman" || lower === "oman_embassy") return "Oman Embassy";
+  return name.replace(/_/g, " ");
+}
+
+function cleanUserName(user?: string | null): string {
+  if (!user || user === "-" || user === "null") return "Staff User";
+  if (user.includes("-") && user.length > 25 && /^[0-9a-fA-F-]+$/.test(user)) {
+    return "System Admin";
+  }
+  return user;
+}
+
+function cleanSubPackageId(spId?: string | null): string {
+  if (!spId || spId === "-") return "-";
+  if (spId.startsWith("c") && spId.length > 20) {
+    return "Embassy Sub Package";
+  }
+  return spId;
+}
+
   timeline.push({
     id: `reg-${registration.id}`,
     step: "Revenue Registration Created",
     fromLocation: "Client / Lead",
-    toLocation: registration.regionOfRegistration || "Main Office",
+    toLocation: cleanOfficeName(registration.regionOfRegistration),
     module: "Revenue Registration",
     status: "Registered",
-    performedBy: registration.registeredPerson || registration.createdBy || "System",
+    performedBy: cleanUserName(registration.registeredPerson || registration.createdBy),
     timestamp: registration.createdAt,
     remarks: `Registered for customer ${registration.customerName}`,
   });
@@ -414,11 +441,11 @@ export async function getDocumentMovementDetails(ownerAdminId: string, trackingN
     timeline.push({
       id: `bm-${rec.id}`,
       step: `Branch Movement (${rec.movementStatus})`,
-      fromLocation: rec.sourceOffice || "-",
-      toLocation: rec.destinationOffice || "-",
+      fromLocation: cleanOfficeName(rec.sourceOffice),
+      toLocation: cleanOfficeName(rec.destinationOffice),
       module: "BM Movement",
       status: rec.movementStatus,
-      performedBy: rec.transferredBy || rec.receivedBy || "Office Admin",
+      performedBy: cleanUserName(rec.transferredBy || rec.receivedBy),
       timestamp: rec.transferDateTime,
       remarks: rec.remarks,
       courierNumber: rec.courierNumber,
@@ -429,27 +456,28 @@ export async function getDocumentMovementDetails(ownerAdminId: string, trackingN
     timeline.push({
       id: `proc-${pm.id}`,
       step: `Process Step (${pm.action})`,
-      fromLocation: pm.fromLocation,
-      toLocation: pm.toLocation,
+      fromLocation: cleanOfficeName(pm.fromLocation),
+      toLocation: cleanOfficeName(pm.toLocation),
       module: "Process Module",
       status: pm.action,
-      performedBy: pm.userId,
+      performedBy: cleanUserName(pm.userId),
       timestamp: pm.createdAt,
       remarks: pm.remarks,
     });
   });
 
   subPackageMovements.forEach((spm) => {
+    const officeName = cleanOfficeName(spm.assignedOffice?.officeName);
     timeline.push({
       id: `spm-${spm.id}`,
       step: `Sub Package Workflow (${spm.status})`,
-      fromLocation: spm.assignedOffice?.officeName || "Assigned Office",
-      toLocation: spm.assignedOffice?.officeName || "Assigned Office",
+      fromLocation: officeName,
+      toLocation: officeName,
       module: "Sub Package",
       status: spm.status,
-      performedBy: spm.createdBy || "Office User",
+      performedBy: cleanUserName(spm.createdBy),
       timestamp: spm.startedAt,
-      remarks: `Sub Package ID: ${spm.subPackageId}`,
+      remarks: `Sub Package: ${cleanSubPackageId(spm.subPackageId)}`,
     });
   });
 
@@ -457,11 +485,11 @@ export async function getDocumentMovementDetails(ownerAdminId: string, trackingN
     timeline.push({
       id: `mh-${mh.id}`,
       step: mh.action,
-      fromLocation: mh.oldOffice || "-",
-      toLocation: mh.newOffice || "-",
+      fromLocation: cleanOfficeName(mh.oldOffice),
+      toLocation: cleanOfficeName(mh.newOffice),
       module: "Document Movement",
       status: mh.newStatus || mh.action,
-      performedBy: mh.performedBy || "System",
+      performedBy: cleanUserName(mh.performedBy),
       timestamp: mh.performedAt,
       remarks: mh.remarks,
     });

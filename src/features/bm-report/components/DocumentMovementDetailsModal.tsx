@@ -57,20 +57,20 @@ export function DocumentMovementDetailsModal({
   }, [trackingNumber]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
-      <div className="flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl dark:bg-[#0f1115] border-l border-slate-200 dark:border-white/10">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-white/10 dark:bg-white/5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+      <div className="flex flex-col w-full max-w-6xl h-[85vh] rounded-3xl bg-white shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden">
+        {/* Header - Fixed Height */}
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-bold">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-bold shrink-0">
               <Layers3 className="h-5 w-5" />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   Document Movement Tracking
                 </h2>
-                <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-mono">
                   {trackingNumber}
                 </span>
               </div>
@@ -98,9 +98,9 @@ export function DocumentMovementDetailsModal({
             <p className="mt-2 text-sm font-bold text-slate-800">{error}</p>
           </div>
         ) : details ? (
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Customer Summary Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-slate-200 bg-slate-50/50 p-4 text-xs dark:border-white/10 dark:bg-white/5">
+          <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+            {/* Customer Summary Bar - Fixed Height */}
+            <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-slate-200 bg-slate-50/50 p-4 text-xs dark:border-white/10 dark:bg-white/5">
               <div>
                 <span className="text-slate-400 block font-medium">Customer</span>
                 <span className="font-bold text-slate-900 dark:text-white">
@@ -132,8 +132,8 @@ export function DocumentMovementDetailsModal({
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-slate-200 bg-white px-4 dark:border-white/10 dark:bg-[#0f1115] overflow-x-auto">
+            {/* Tabs Navigation - Fixed Height */}
+            <div className="shrink-0 flex border-b border-slate-200 bg-white px-4 dark:border-white/10 dark:bg-[#0f1115] overflow-x-auto whitespace-nowrap scrollbar-none">
               <button
                 onClick={() => setActiveTab("timeline")}
                 className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all ${
@@ -191,8 +191,8 @@ export function DocumentMovementDetailsModal({
               </button>
             </div>
 
-            {/* Tab Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Tab Body - Scrollable Content Only */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
               {/* TIMELINE TAB */}
               {activeTab === "timeline" && (
                 <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
