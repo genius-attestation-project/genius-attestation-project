@@ -244,6 +244,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             onChange={(e) => setSelectedOfficeId(e.target.value)}
             className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
           >
+            <option value="">All Offices</option>
             {offices.map((off) => (
               <option key={off.id} value={off.id}>
                 {off.officeName}

@@ -25,23 +25,46 @@ export async function listDocumentInHand(params: {
     ];
   }
 
+  let officeName: string | undefined = undefined;
+  if (params.officeId) {
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        OR: [{ id: params.officeId }, { officeName: params.officeId }],
+      },
+      select: { officeName: true, id: true },
+    });
+    if (office) {
+      officeName = office.officeName;
+    }
+  }
+
+  const officeMatchConditions: any[] = [];
+  if (params.officeId) {
+    const officeNamesToMatch = [params.officeId];
+    if (officeName) officeNamesToMatch.push(officeName);
+
+    officeMatchConditions.push(
+      {
+        regionOfRegistration: { in: officeNamesToMatch },
+      },
+      {
+        documentMovements: {
+          some: {
+            OR: [
+              { currentOfficeId: params.officeId },
+              ...(officeName ? [{ currentOffice: { officeName } }] : []),
+            ],
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "In Transit", "INBOUND_PENDING", "Pending Receive"] },
+          },
+        },
+      }
+    );
+  }
+
   const registrations = await prisma.registration.findMany({
     where: {
       ...whereClause,
-      OR: [
-        {
-          trackingStatus: { in: ["Registered", "Document In Hand", "In Hand", "HOME"] },
-          ...(params.officeId ? { regionOfRegistration: params.officeId } : {}),
-        },
-        {
-          documentMovements: {
-            some: {
-              currentOfficeId: params.officeId,
-              status: { in: ["Received", "Document In Hand", "HOME", "Completed"] },
-            },
-          },
-        },
-      ],
+      ...(officeMatchConditions.length > 0 ? { OR: officeMatchConditions } : {}),
     },
     include: {
       documentMovements: {
@@ -220,11 +243,17 @@ export async function listInboundBundles(params: {
   ownerAdminId: string;
 }) {
   const db = prisma as any;
+  const office = await db.officeLocation.findFirst({
+    where: { OR: [{ id: params.toOfficeId }, { officeName: params.toOfficeId }] },
+  });
+  const officeIds = [params.toOfficeId];
+  if (office) officeIds.push(office.id);
+
   return db.bundle.findMany({
     where: {
-      toOfficeId: params.toOfficeId,
+      toOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
-      status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
+      status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING", "In Transit"] },
     },
     include: {
       fromOffice: true,
@@ -240,9 +269,15 @@ export async function listOutboundBundles(params: {
   ownerAdminId: string;
 }) {
   const db = prisma as any;
+  const office = await db.officeLocation.findFirst({
+    where: { OR: [{ id: params.fromOfficeId }, { officeName: params.fromOfficeId }] },
+  });
+  const officeIds = [params.fromOfficeId];
+  if (office) officeIds.push(office.id);
+
   return db.bundle.findMany({
     where: {
-      fromOfficeId: params.fromOfficeId,
+      fromOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
     },
     include: {
@@ -250,7 +285,6 @@ export async function listOutboundBundles(params: {
       toOffice: true,
       items: true,
     },
-    orderBy: { createdAt: "desc" },
   });
 }
 
