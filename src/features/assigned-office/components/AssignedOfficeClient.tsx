@@ -290,7 +290,15 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     if (!selectedOffice) return;
     setFormError(null);
 
-    if (formPassword && formPassword !== formConfirmPassword) {
+    const hasNewPassword = Boolean(formPassword && formPassword.trim() !== "");
+    const hasConfirmPassword = Boolean(formConfirmPassword && formConfirmPassword.trim() !== "");
+
+    if (hasNewPassword && !hasConfirmPassword) {
+      setFormError("Confirm Password is required.");
+      return;
+    }
+
+    if (hasNewPassword && formPassword !== formConfirmPassword) {
       setFormError("Passwords do not match.");
       return;
     }
@@ -308,7 +316,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
         body: JSON.stringify({
           username: formUsername,
           email: formEmail,
-          password: formPassword || undefined,
+          password: hasNewPassword ? formPassword : undefined,
+          confirmPassword: hasNewPassword ? formConfirmPassword : undefined,
           processTypes: formSelectedProcessTypes,
           corePackageId: formSelectedCorePackage,
           subPackages: formSelectedSubPackages,
@@ -1067,6 +1076,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     </label>
                     <input
                       type={formShowPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       placeholder="Leave blank to keep current"
                       value={formPassword}
                       onChange={(e) => setFormPassword(e.target.value)}
@@ -1080,6 +1090,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     </label>
                     <input
                       type={formShowPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       placeholder="Confirm password"
                       value={formConfirmPassword}
                       onChange={(e) => setFormConfirmPassword(e.target.value)}

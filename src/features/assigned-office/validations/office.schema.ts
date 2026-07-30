@@ -45,14 +45,39 @@ export const updateOfficeSchema = z
       .string()
       .optional()
       .refine(
-        (val) => !val || (val.length >= 8 && passwordRegex.test(val)),
+        (val) => !val || val.trim() === "" || (val.length >= 8 && passwordRegex.test(val)),
         "Password must be at least 8 characters and contain uppercase, lowercase, and a number"
       ),
+    confirmPassword: z.string().optional(),
     processTypes: z.array(z.string()).min(1, "Select at least one Process Type").optional(),
     corePackageId: z.string().min(1, "Core Package is required").optional(),
     subPackages: z.array(z.string()).min(1, "Select at least one Sub Package").optional(),
     status: z.boolean().optional(),
   })
+  .refine(
+    (data) => {
+      if (data.password && data.password.trim() !== "") {
+        return Boolean(data.confirmPassword && data.confirmPassword.trim() !== "");
+      }
+      return true;
+    },
+    {
+      message: "Confirm Password is required.",
+      path: ["confirmPassword"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.password && data.password.trim() !== "") {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    },
+    {
+      message: "Passwords do not match.",
+      path: ["confirmPassword"],
+    }
+  )
   .refine(
     (data) => {
       if (data.corePackageId && data.subPackages) {

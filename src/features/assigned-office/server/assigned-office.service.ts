@@ -433,10 +433,16 @@ export async function updateAssignedOffice(
   return prisma.$transaction(async (tx: any) => {
     const auditLogs: Array<{ action: string; description: string }> = [];
 
-    let passwordHash = existingOffice.passwordHash;
+    const updateData: any = {
+      username: input.username ?? existingOffice.username,
+      email: input.email ?? existingOffice.email,
+      status: input.status !== undefined ? input.status : existingOffice.status,
+      updatedBy: performedByName || currentUserId,
+    };
+
     if (input.password && input.password.trim() !== "") {
       const salt = await bcrypt.genSalt(10);
-      passwordHash = await bcrypt.hash(input.password, salt);
+      updateData.passwordHash = await bcrypt.hash(input.password, salt);
       auditLogs.push({
         action: "Password Reset",
         description: "Password updated for Assigned Office user.",
@@ -452,13 +458,7 @@ export async function updateAssignedOffice(
 
     const updatedOffice = await tx.assignedOffice.update({
       where: { id },
-      data: {
-        username: input.username ?? existingOffice.username,
-        email: input.email ?? existingOffice.email,
-        passwordHash,
-        status: input.status !== undefined ? input.status : existingOffice.status,
-        updatedBy: performedByName || currentUserId,
-      },
+      data: updateData,
     });
 
     if (input.processTypes && input.processTypes.length > 0) {
