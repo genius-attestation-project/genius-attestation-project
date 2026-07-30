@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
+import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { buildReceiptUrl } from "@/features/account-update/server/receipt-storage.service";
 import type {
   AccountStatementResponse,
@@ -383,13 +384,22 @@ export async function createPaymentUpdate(args: {
         },
       });
       createdPayments.push(payment);
+      const receivedAmt = index === 0 ? Number(amountPaid) : Number(registration.balanceReceivedAmount || 0);
+      const newBalance = Math.max(0, Number(registration.totalCharges) - receivedAmt);
+      const newPaymentStatus = calculatePaymentStatus({
+        approvalStatus: registration.approvalStatus,
+        totalCharges: Number(registration.totalCharges),
+        advancePaid: Number(registration.advancePaid),
+        balanceAmount: newBalance,
+        receivedAmount: receivedAmt,
+      });
 
       await tx.registration.update({
         where: { id: registration.id },
         data: {
           paymentMode: args.paymentMode,
           paymentUpdateStatus: "Submitted",
-          paymentStatus: "Paid",
+          paymentStatus: newPaymentStatus,
           balanceReceivedAmount: index === 0 ? amountPaid : registration.balanceReceivedAmount,
           submittedBy: args.submittedBy ?? null,
           submittedAt: invoice.submittedAt,

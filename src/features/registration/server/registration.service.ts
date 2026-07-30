@@ -80,6 +80,8 @@ function mapRegistration(registration: RegistrationRecord) {
   };
 }
 
+import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
+
 function buildRegistrationData(input: RegistrationInput) {
   const totalCharges = new Prisma.Decimal(input.totalCharges ?? 0);
   const advancePaid = new Prisma.Decimal(input.advancePaid ?? 0);
@@ -87,6 +89,13 @@ function buildRegistrationData(input: RegistrationInput) {
   const hasCommissionTarget = Boolean(
     input.commissionToUserId || input.commissionToName || input.commissionToEmail,
   );
+
+  const computedPaymentStatus = calculatePaymentStatus({
+    approvalStatus: input.approvalStatus || "Pending",
+    totalCharges: Number(totalCharges),
+    advancePaid: Number(advancePaid),
+    balanceAmount: Number(balanceAmount),
+  });
 
   return {
     trackingNumber: input.trackingNumber,
@@ -110,7 +119,7 @@ function buildRegistrationData(input: RegistrationInput) {
     advancePaid,
     balanceAmount,
     paymentMode: input.paymentMode || null,
-    paymentStatus: input.paymentStatus,
+    paymentStatus: computedPaymentStatus,
     collectedPerson: input.collectedPerson || null,
     leadId: input.leadId || null,
     ...(hasCommissionTarget
@@ -584,15 +593,24 @@ export async function setRegistrationApproval(
 ) {
   const existing = await prisma.registration.findFirst({
     where: { ownerAdminId, id },
-    select: { id: true, trackingNumber: true },
+    select: { id: true, trackingNumber: true, totalCharges: true, advancePaid: true, balanceAmount: true, balanceReceivedAmount: true },
   });
 
   if (!existing) return null;
+
+  const newPaymentStatus = calculatePaymentStatus({
+    approvalStatus,
+    totalCharges: Number(existing.totalCharges),
+    advancePaid: Number(existing.advancePaid),
+    balanceAmount: Number(existing.balanceAmount),
+    receivedAmount: existing.balanceReceivedAmount ? Number(existing.balanceReceivedAmount) : undefined,
+  });
 
   const registration = await prisma.registration.update({
     where: { id: existing.id },
     data: {
       approvalStatus,
+      paymentStatus: newPaymentStatus,
       auditTrail: {
         create: {
           action: approvalStatus,
@@ -605,6 +623,41 @@ export async function setRegistrationApproval(
   });
 
   return mapRegistration(registration);
+}
+
+export async function recalculateAllRegistrationPaymentStatuses() {
+  try {
+    const registrations = await prisma.registration.findMany({
+      select: {
+        id: true,
+        approvalStatus: true,
+        totalCharges: true,
+        advancePaid: true,
+        balanceAmount: true,
+        balanceReceivedAmount: true,
+        paymentStatus: true,
+      },
+    });
+
+    for (const reg of registrations) {
+      const correctStatus = calculatePaymentStatus({
+        approvalStatus: reg.approvalStatus,
+        totalCharges: Number(reg.totalCharges),
+        advancePaid: Number(reg.advancePaid),
+        balanceAmount: Number(reg.balanceAmount),
+        receivedAmount: reg.balanceReceivedAmount ? Number(reg.balanceReceivedAmount) : undefined,
+      });
+
+      if (reg.paymentStatus !== correctStatus) {
+        await prisma.registration.update({
+          where: { id: reg.id },
+          data: { paymentStatus: correctStatus },
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[recalculateAllRegistrationPaymentStatuses] Error:", err);
+  }
 }
 
 export async function listRegistrationAuditTrail(ownerAdminId: string, id: string) {

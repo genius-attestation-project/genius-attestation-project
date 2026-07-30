@@ -154,13 +154,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
-        label: "Approval Status",
-        href: "/dashboard/master-configuration/approval-status",
-        icon: ShieldCheck,
-        menuPermission: "menu.master-configuration.approval-status",
-        pagePermission: "master_configuration.view",
-      },
-      {
         label: "Payment Mode",
         href: "/dashboard/master-configuration/payment-mode",
         icon: CreditCard,

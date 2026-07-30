@@ -120,7 +120,7 @@ export async function GET() {
         "Closed", "Qualified", "Potential_Qualified", "LOB"
       ].map(s => ({ id: s, name: s.replace("_", " ") })),
       paymentStatuses: [
-        "Pending", "Partially Paid", "Paid", "Completed"
+        "Pending Approval", "Unpaid", "Partially Paid", "Paid"
       ].map(s => ({ id: s, name: s })),
     });
   } catch (error) {

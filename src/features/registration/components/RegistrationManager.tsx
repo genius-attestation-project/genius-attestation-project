@@ -28,6 +28,7 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { FileUpload } from "@/components/common/FileUpload";
+import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
@@ -399,6 +400,18 @@ export function RegistrationManager({
     return Number.isNaN(total - advance) ? 0 : total - advance;
   }, [form.advancePaid, form.totalCharges]);
   const hasPaymentEntry = form.totalCharges.trim() !== "" || form.advancePaid.trim() !== "";
+
+  const computedPaymentStatus = useMemo(() => {
+    const total = Number(form.totalCharges || 0);
+    const advance = Number(form.advancePaid || 0);
+    const balance = Number.isNaN(total - advance) ? 0 : total - advance;
+    return calculatePaymentStatus({
+      approvalStatus: form.approvalStatus || selected?.approvalStatus || "Pending",
+      totalCharges: total,
+      advancePaid: advance,
+      balanceAmount: balance,
+    });
+  }, [form.advancePaid, form.totalCharges, form.approvalStatus, selected?.approvalStatus]);
 
   const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
   const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
@@ -1433,7 +1446,7 @@ export function RegistrationManager({
             />
             <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
             <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
-            <SelectField label="Payment Status" name="paymentStatus" value={form.paymentStatus} options={paymentStatusOptions} onChange={updateField} required />
+            <Input label="Payment Status" value={computedPaymentStatus} readOnly placeholder="System Generated" />
             <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
             <label className="grid gap-2">
               <span className="text-sm font-bold">Commission To</span>

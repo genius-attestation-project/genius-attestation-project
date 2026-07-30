@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { createNotification } from "@/features/notifications/server/notification.service";
+import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { prisma } from "@/lib/prisma";
 
 export async function submitAdvancePaymentApproval(args: {
@@ -343,6 +344,18 @@ export async function approveAdvancePayment(args: {
   const totalAmount = Number(approval.totalAmount);
   const remainingBalance = Math.max(0, totalAmount - advanceAmount);
 
+  const reg = await prisma.registration.findUnique({
+    where: { id: approval.registrationId },
+    select: { approvalStatus: true },
+  });
+
+  const newPaymentStatus = calculatePaymentStatus({
+    approvalStatus: reg?.approvalStatus || "Pending",
+    totalCharges: totalAmount,
+    advancePaid: advanceAmount,
+    balanceAmount: remainingBalance,
+  });
+
   // Update approval
   const updatedApproval = await prisma.advancePaymentApproval.update({
     where: { id: approval.id },
@@ -360,6 +373,7 @@ export async function approveAdvancePayment(args: {
     data: {
       advancePaid: new Prisma.Decimal(advanceAmount),
       balanceAmount: new Prisma.Decimal(remainingBalance),
+      paymentStatus: newPaymentStatus,
       advancePaymentStatus: "Approved",
       advancePaymentApprovedBy: approvedByName,
       advancePaymentApprovedAt: now,

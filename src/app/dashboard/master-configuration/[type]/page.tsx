@@ -21,7 +21,6 @@ const pageTitles: Record<string, string> = {
   "lead-sources": "Lead Sources",
   "services": "Services",
   "process-status": "Process Status",
-  "approval-status": "Approval Status",
 };
 
 export default function MasterConfigurationDynamicPage({

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // We keep system-level status options as enums because they drive hardcoded logic.
 // Master data options (Process Types, Document Types, etc.) are now fetched dynamically from the DB via the API.
-export const paymentStatusOptions = ["Pending", "Partially Paid", "Paid"] as const;
+export const paymentStatusOptions = ["Pending Approval", "Unpaid", "Partially Paid", "Paid"] as const;
 export const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
 
 const optionalText = z.string().trim().optional().default("");
@@ -73,7 +73,7 @@ export const registrationInputSchema = z.object({
   totalCharges: numericField("Total charges", false),
   advancePaid: numericField("Advance paid", false),
   paymentMode: requiredText("Payment mode"),
-  paymentStatus: z.enum(paymentStatusOptions).optional().default("Pending"),
+  paymentStatus: z.string().optional(),
   collectedPerson: optionalText,
   commissionToUserId: optionalText,
   commissionToName: optionalText,
