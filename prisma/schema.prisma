@@ -1442,3 +1442,42 @@ model AssignedOfficeAuditLog {
   @@map("assigned_office_audit_logs")
 }
 
+model PaymentMode {
+  id              String                @id @default(cuid())
+  paymentModeName String                @map("payment_mode_name")
+  description     String?               @db.Text
+  status          String                @default("Active")
+  displayOrder    Int                   @default(0) @map("display_order")
+  createdBy       String?               @map("created_by")
+  updatedBy       String?               @map("updated_by")
+  deletedBy       String?               @map("deleted_by")
+  deletedAt       DateTime?             @map("deleted_at")
+  ownerAdminId    String                @map("owner_admin_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  auditLogs       PaymentModeAuditLog[]
+
+  @@unique([paymentModeName, ownerAdminId])
+  @@index([ownerAdminId])
+  @@index([status])
+  @@map("payment_modes")
+}
+
+model PaymentModeAuditLog {
+  id              String      @id @default(cuid())
+  paymentModeId   String      @map("payment_mode_id")
+  action          String
+  performedBy     String      @map("performed_by")
+  performedByName String?     @map("performed_by_name")
+  details         String?     @db.Text
+  timestamp       DateTime    @default(now())
+  ownerAdminId    String      @map("owner_admin_id")
+  paymentMode     PaymentMode @relation(fields: [paymentModeId], references: [id], onDelete: Cascade)
+
+  @@index([ownerAdminId])
+  @@index([paymentModeId])
+  @@index([timestamp])
+  @@map("payment_mode_audit_logs")
+}
+
+

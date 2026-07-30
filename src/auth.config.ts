@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "LwohKo6gq7QYj4Y4MK5DdofKcFYdIrj8a31MbqkPJMS";
 
 export const authConfig = {
+  basePath: "/api/auth",
   pages: {
     signIn: "/login",
   },
