@@ -7,7 +7,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-const fileCategories = new Set(["DOCUMENT", "INVOICE", "SUPPORTING_DOCUMENT"]);
+const fileCategories = new Set(["DOCUMENT", "INVOICE", "SUPPORTING_DOCUMENT", "ADVANCE_PAYMENT"]);
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {

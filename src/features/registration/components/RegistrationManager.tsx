@@ -342,6 +342,7 @@ export function RegistrationManager({
   const [documentFileId, setDocumentFileId] = useState<string | null>(null);
   const [invoiceFileId, setInvoiceFileId] = useState<string | null>(null);
   const [supportingFileId, setSupportingFileId] = useState<string | null>(null);
+  const [advancePaymentFileId, setAdvancePaymentFileId] = useState<string | null>(null);
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -675,6 +676,7 @@ export function RegistrationManager({
     setDocumentFileId(null);
     setInvoiceFileId(null);
     setSupportingFileId(null);
+    setAdvancePaymentFileId(null);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -686,6 +688,7 @@ export function RegistrationManager({
     setDocumentFileId(null);
     setInvoiceFileId(null);
     setSupportingFileId(null);
+    setAdvancePaymentFileId(null);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -713,6 +716,7 @@ export function RegistrationManager({
       { fileStorageId: documentFileId, category: "DOCUMENT" },
       { fileStorageId: invoiceFileId, category: "INVOICE" },
       { fileStorageId: supportingFileId, category: "SUPPORTING_DOCUMENT" },
+      { fileStorageId: advancePaymentFileId, category: "ADVANCE_PAYMENT" },
     ].filter((item): item is { fileStorageId: string; category: string } => Boolean(item.fileStorageId));
 
     for (const { fileStorageId, category } of files) {
@@ -1403,6 +1407,19 @@ export function RegistrationManager({
               value={form.advancePaid}
               placeholder="Enter amount"
               onChange={(event) => updateField("advancePaid", event.target.value)}
+            />
+            <FileUpload
+              label="Advance Payment Upload"
+              moduleName="Revenue Registration"
+              accept=".jpg,.jpeg,.png,.webp,.pdf"
+              onUploadComplete={(id) => setAdvancePaymentFileId(id)}
+              onRemove={() => {
+                const existing = selected?.files.find((f) => f.fileCategory === "ADVANCE_PAYMENT");
+                if (existing) handleRemoveExistingFile(existing.id);
+                setAdvancePaymentFileId(null);
+              }}
+              existingFile={selected?.files.find((f) => f.fileCategory === "ADVANCE_PAYMENT")}
+              required={false}
             />
             <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
             <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
