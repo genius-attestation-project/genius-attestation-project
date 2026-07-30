@@ -1,29 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { deleteRegistrationFile, getRegistrationFile } from "@/features/registration/server/registration.service";
 import { auth } from "@/lib/auth";
-import { getRegistrationFile, deleteRegistrationFile } from "@/features/registration/server/registration.service";
+import { prisma } from "@/lib/prisma";
 import { deleteFile } from "@/services/storage/delete";
+import { generateSignedFileUrl } from "@/services/storage/view";
 import { jsonError, jsonOk } from "@/utils/response";
-import { NextRequest } from "next/server";
 
-type RouteContext = {
-  params: Promise<{ fileId: string }>;
-};
+export async function GET(request: NextRequest, context: { params: Promise<{ fileId: string }> }) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId;
 
-export async function GET(_: NextRequest, context: { params: Promise<{ fileId: string }> }) {
-  const session = await auth();
-  const ownerAdminId = session?.user?.ownerAdminId;
+    if (!session || !ownerAdminId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!ownerAdminId) {
-    return Response.json({ message: "No owner admin ID found." }, { status: 401 });
+    const { fileId } = await context.params;
+    const file = await getRegistrationFile(ownerAdminId, fileId);
+
+    if (!file || !file.fileStorage) {
+      return NextResponse.json({ message: "File not found." }, { status: 404 });
+    }
+
+    const fileStorage = file.fileStorage;
+
+    // Resolve bucketKey safely
+    let bucketKey = fileStorage.bucketKey;
+    if (!bucketKey && fileStorage.url && fileStorage.url.startsWith("http")) {
+      try {
+        const parsedUrl = new URL(fileStorage.url);
+        bucketKey = decodeURIComponent(parsedUrl.pathname.slice(1));
+      } catch {
+        bucketKey = fileStorage.url;
+      }
+    }
+
+    if (!bucketKey) {
+      return NextResponse.json({ message: "Invalid bucket key for file." }, { status: 400 });
+    }
+
+    // Audit log viewing
+    const performedBy = session.user?.name || session.user?.email || "User";
+    if (file.registrationId) {
+      await (prisma as any).auditTrail.create({
+        data: {
+          registrationId: file.registrationId,
+          action: "Viewed Registration File",
+          description: `User ${performedBy} viewed file "${fileStorage.originalName}".`,
+          performedBy,
+        },
+      }).catch((err: any) => console.error("Audit log error:", err));
+    }
+
+    // Generate 15-minute signed URL (900 seconds)
+    const signedUrl = await generateSignedFileUrl({
+      bucketKey,
+      originalName: fileStorage.originalName,
+      mimeType: fileStorage.mimeType,
+      expiresInSeconds: 900,
+    });
+
+    return NextResponse.redirect(signedUrl, 307);
+  } catch (error: any) {
+    console.error("[GET /api/registrations/files/[fileId]] Error:", error);
+    return NextResponse.json({ message: error.message || "Failed to retrieve file." }, { status: 500 });
   }
-
-  const { fileId } = await context.params;
-  const file = await getRegistrationFile(ownerAdminId, fileId);
-
-  if (!file || !file.fileStorage) {
-    return Response.json({ message: "File not found." }, { status: 404 });
-  }
-
-  return Response.redirect(file.fileStorage.url);
 }
 
 export async function DELETE(_: NextRequest, context: { params: Promise<{ fileId: string }> }) {

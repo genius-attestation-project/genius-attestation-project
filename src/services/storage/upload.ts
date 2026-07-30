@@ -32,9 +32,6 @@ export async function uploadFile(
     })
   );
 
-  const url = `${process.env.WASABI_PUBLIC_URL}/${key}`;
-
-  // Type assertion used to bypass IDE caching issue with PrismaClient
   const fileStorage = await (prisma as any).fileStorage.create({
     data: {
       module: moduleName,
@@ -43,7 +40,9 @@ export async function uploadFile(
       originalName: file.name,
       storedName,
       bucketKey: key,
-      url,
+      bucketName: process.env.WASABI_BUCKET || "genius-attestation",
+      storageProvider: "WASABI",
+      url: "", // Internal view URL populated below with record ID
       mimeType: file.type,
       extension,
       size: file.size,
@@ -51,5 +50,11 @@ export async function uploadFile(
     }
   });
 
-  return fileStorage;
+  const internalUrl = `/api/files/${fileStorage.id}/view`;
+  const updatedStorage = await (prisma as any).fileStorage.update({
+    where: { id: fileStorage.id },
+    data: { url: internalUrl },
+  });
+
+  return updatedStorage;
 }

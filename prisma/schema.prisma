@@ -588,20 +588,22 @@ model AccountStatementEntry {
 }
 
 model FileStorage {
-  id           String   @id @default(cuid())
-  module       String
-  recordId     String?  @map("record_id")
-  folder       String
-  originalName String   @map("original_name")
-  storedName   String   @map("stored_name")
-  bucketKey    String   @map("bucket_key")
-  url          String   @db.Text
-  mimeType     String   @map("mime_type")
-  extension    String
-  size         Int
-  uploadedBy   String?  @map("uploaded_by")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  module          String
+  recordId        String?  @map("record_id")
+  folder          String
+  originalName    String   @map("original_name")
+  storedName      String   @map("stored_name")
+  bucketKey       String   @map("bucket_key")
+  bucketName      String?  @default("genius-attestation") @map("bucket_name")
+  storageProvider String?  @default("WASABI") @map("storage_provider")
+  url             String   @db.Text
+  mimeType        String   @map("mime_type")
+  extension       String
+  size            Int
+  uploadedBy      String?  @map("uploaded_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   registrationFiles RegistrationFile[]
 

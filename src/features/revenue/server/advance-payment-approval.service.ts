@@ -38,12 +38,12 @@ export async function submitAdvancePaymentApproval(args: {
   if (receiptFileId) {
     const storage = await prisma.fileStorage.findUnique({ where: { id: receiptFileId } });
     if (storage) {
-      receiptFileUrl = storage.url;
+      receiptFileUrl = `/api/files/${storage.id}/view`;
       receiptFileName = storage.originalName;
     }
   } else if (registration.files.length > 0 && registration.files[0].fileStorage) {
     receiptFileId = registration.files[0].fileStorageId;
-    receiptFileUrl = registration.files[0].fileStorage.url;
+    receiptFileUrl = `/api/files/${registration.files[0].fileStorage.id}/view`;
     receiptFileName = registration.files[0].fileStorage.originalName;
   }
 
@@ -265,6 +265,8 @@ export async function listAdvancePaymentApprovals(
   return {
     items: items.map((item) => {
       const receiptStorage = item.registration?.files[0]?.fileStorage;
+      const receiptFileId = item.receiptFileId || item.registration?.files[0]?.fileStorageId || null;
+      const receiptFileUrl = receiptFileId ? `/api/files/${receiptFileId}/view` : null;
       return {
         id: item.id,
         registrationId: item.registrationId,
@@ -279,8 +281,8 @@ export async function listAdvancePaymentApprovals(
         totalAmount: Number(item.totalAmount),
         advanceAmount: Number(item.advanceAmount),
         remainingBalance: Number(item.remainingBalance),
-        receiptFileId: item.receiptFileId || item.registration?.files[0]?.fileStorageId || null,
-        receiptFileUrl: item.receiptFileUrl || receiptStorage?.url || null,
+        receiptFileId,
+        receiptFileUrl,
         receiptFileName: item.receiptFileName || receiptStorage?.originalName || null,
         status: item.status,
         approvalStatus: item.status,

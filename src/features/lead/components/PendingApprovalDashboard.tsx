@@ -169,10 +169,10 @@ export function PendingApprovalDashboard() {
   }
 
   const viewReceipt = (item: AdvancePaymentApprovalItem) => {
-    if (item.receiptFileUrl) {
+    if (item.receiptFileId) {
+      window.open(`/api/files/${item.receiptFileId}/view`, "_blank");
+    } else if (item.receiptFileUrl) {
       window.open(item.receiptFileUrl, "_blank");
-    } else if (item.receiptFileId) {
-      window.open(`/api/registrations/files/${item.receiptFileId}`, "_blank");
     } else {
       setError("No uploaded receipt file found for this advance payment request.");
     }

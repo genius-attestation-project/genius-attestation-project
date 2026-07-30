@@ -65,7 +65,7 @@ function mapRegistration(registration: RegistrationRecord) {
       fileName: file.fileStorage?.originalName || "Unknown",
       mimeType: file.fileStorage?.mimeType || "application/octet-stream",
       fileSize: file.fileStorage?.size || 0,
-      url: file.fileStorage?.url ?? null,
+      url: file.fileStorageId ? `/api/files/${file.fileStorageId}/view` : `/api/registrations/files/${file.id}`,
     })),
     auditTrail: registration.auditTrail.map((item) => ({
       ...item,

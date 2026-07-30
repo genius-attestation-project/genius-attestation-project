@@ -104,11 +104,16 @@ export function FileUpload({
             <span className="truncate">{existingFile.fileName}</span>
           </span>
           <div className="flex gap-2">
-            {existingFile.url ? (
+            {existingFile.url || existingFile.id ? (
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.open(existingFile.url, "_blank")}
+                onClick={() => {
+                  const targetUrl = existingFile.url && !existingFile.url.startsWith("http")
+                    ? existingFile.url
+                    : `/api/files/${existingFile.id}/view`;
+                  window.open(targetUrl, "_blank");
+                }}
                 type="button"
               >
                 Preview
