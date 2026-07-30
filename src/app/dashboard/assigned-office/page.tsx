@@ -16,7 +16,13 @@ export default async function AssignedOfficePage() {
     redirect("/dashboard");
   }
 
-  if (session.user?.isAssignedOffice || session.user?.isAgency) {
+  const isAssignedOfficePortalUser = Boolean(
+    (session.user as any)?.accountType === "ASSIGNED_OFFICE" ||
+    session.user?.role === "AssignedOffice" ||
+    session.user?.isAgency
+  );
+
+  if (isAssignedOfficePortalUser) {
     redirect("/dashboard/assigned-office/workspace");
   }
 

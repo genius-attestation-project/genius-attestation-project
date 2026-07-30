@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -427,6 +428,16 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link href="/dashboard/assigned-office/workspace">
+            <Button
+              variant="secondary"
+              className="gap-2 rounded-xl border-blue-200 text-blue-700 bg-blue-50/60 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+            >
+              <Building2 size={16} />
+              Open Workspace
+            </Button>
+          </Link>
+
           {permissions["assigned_office.export"] && (
             <Button
               variant="secondary"
