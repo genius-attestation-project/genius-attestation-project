@@ -21,6 +21,7 @@ type ProcessHistoryTimelineProps = {
 
 export function ProcessHistoryTimeline({ open, onClose, trackingNumber }: ProcessHistoryTimelineProps) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [docDetails, setDocDetails] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -35,9 +36,17 @@ export function ProcessHistoryTimeline({ open, onClose, trackingNumber }: Proces
     setError("");
     try {
       const res = await fetch(`/api/process/history/${trackingNumber}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load history");
-      setHistory(data.data || []);
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.message || "Failed to load history");
+      
+      const resData = payload.data || payload;
+      if (Array.isArray(resData)) {
+        setHistory(resData);
+        setDocDetails(null);
+      } else {
+        setHistory(resData.history || resData.data || []);
+        setDocDetails(resData.document || null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading history");
     } finally {
@@ -49,10 +58,64 @@ export function ProcessHistoryTimeline({ open, onClose, trackingNumber }: Proces
     <FormDrawer
       open={open}
       onClose={onClose}
-      title="Process Timeline"
-      description={`Tracking history for ${trackingNumber}`}
+      title="Live Document Movement & Timeline"
+      description={`Comprehensive tracking history and document details for ${trackingNumber}`}
+      placement="center"
     >
-      <div className="min-h-[200px]">
+      <div className="min-h-[200px] space-y-6 pt-2">
+        {docDetails && (
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-xs dark:border-white/10 dark:bg-white/5 space-y-3 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-blue-600 dark:text-blue-400">
+                  {docDetails.trackingNumber}
+                </span>
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                  {docDetails.mainProcess}
+                </span>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                Status: {docDetails.currentStatus}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+              <div>
+                <span className="text-slate-400 block font-medium">Customer</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{docDetails.customerName}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Mobile</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.mobile}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Document Type</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.documentType}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Sub Package</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.subPackage}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Registered Office</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.registeredOffice}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Current Office</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.currentOffice}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Registered Date</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{docDetails.registeredDate}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">Total Amount</span>
+                <span className="font-bold text-slate-900 dark:text-white">₹{docDetails.totalAmount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <p className="text-center text-sm text-soft py-10">Loading history...</p>
         ) : error ? (

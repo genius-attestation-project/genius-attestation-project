@@ -507,9 +507,11 @@ export function ProcessDashboard() {
                     </button>
                   </th>
                   <th className="px-5 py-4">Tracking Number</th>
-                  <th className="px-5 py-4">Client Name</th>
-                  <th className="px-5 py-4">Process Type</th>
-                  <th className="px-5 py-4">Received Date</th>
+                  <th className="px-5 py-4">Customer Name</th>
+                  <th className="px-5 py-4">Document Details</th>
+                  <th className="px-5 py-4">Process / Package</th>
+                  <th className="px-5 py-4">Office & Location</th>
+                  <th className="px-5 py-4">Date & Amount</th>
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4 text-right">Process Operations</th>
                 </tr>
@@ -532,14 +534,33 @@ export function ProcessDashboard() {
                         <button 
                           type="button" 
                           onClick={() => openTimeline(item.trackingNumber)} 
-                          className="hover:underline flex items-center gap-1.5"
+                          className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
                         >
                           {item.trackingNumber}
                         </button>
                       </td>
-                      <td className="px-5 py-4 font-medium text-slate-900">{item.clientName}</td>
-                      <td className="px-5 py-4 text-slate-600">{item.processType}</td>
-                      <td className="px-5 py-4 text-slate-500">{item.receivedDate}</td>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-slate-900 text-xs sm:text-sm">{item.customerName || item.clientName}</div>
+                        <div className="text-[11px] text-slate-500 font-mono">{item.mobile || "-"}</div>
+                      </td>
+                      <td className="px-5 py-4 text-xs">
+                        <div className="font-medium text-slate-800">{item.documentType || "-"}</div>
+                        <div className="text-[11px] text-slate-500">Service: {item.service || "-"}</div>
+                      </td>
+                      <td className="px-5 py-4 text-xs">
+                        <div className="font-bold text-blue-800 dark:text-blue-300">{item.mainProcess || item.processType}</div>
+                        {item.subPackage && item.subPackage !== "-" && (
+                          <div className="text-[11px] text-slate-500">SubPkg: {item.subPackage}</div>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-xs">
+                        <div className="font-medium text-slate-800">{item.registeredOffice || item.fromOfficeName || "Main"}</div>
+                        <div className="text-[11px] text-slate-500">{item.deliveryLocation || "-"}</div>
+                      </td>
+                      <td className="px-5 py-4 text-xs">
+                        <div className="font-semibold text-slate-700">{item.receivedDate}</div>
+                        <div className="font-bold text-slate-900">₹{item.totalAmount || 0}</div>
+                      </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                           item.status === "COMPLETED"
@@ -680,6 +701,7 @@ export function ProcessDashboard() {
           action={targetAction}
           assignmentId={modalAssignmentId}
           trackingNumbers={modalTrackingNumbers}
+          selectedDocuments={items.filter((i) => modalTrackingNumbers.includes(i.trackingNumber))}
           onSuccess={() => {
             loadData();
             setSelectedTrackingNumbers([]);

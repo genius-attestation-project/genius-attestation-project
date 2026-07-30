@@ -393,21 +393,22 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       </th>
                       <th className="p-4">Tracking Number</th>
                       <th className="p-4">Customer Name</th>
-                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Document Details</th>
                       <th className="p-4">Process / Package</th>
-                      <th className="p-4">Current Office</th>
-                      <th className="p-4">Registered Date</th>
+                      <th className="p-4">Office & Location</th>
+                      <th className="p-4">Date & Amount</th>
                       <th className="p-4">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {inHandDocs.map((doc) => {
-                      const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber);
+                    {inHandDocs.map((doc: any) => {
+                      const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber || doc.registrationNumber);
+                      const tNum = doc.trackingNumber || doc.registrationNumber;
                       return (
                         <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
                           <td className="p-4">
                             <button
-                              onClick={() => handleToggleSelectInHand(doc.trackingNumber)}
+                              onClick={() => handleToggleSelectInHand(tNum)}
                               className="text-slate-600"
                             >
                               {isSelected ? (
@@ -417,17 +418,32 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
-                          <td className="p-4 font-bold text-blue-600">{doc.trackingNumber}</td>
-                          <td className="p-4 font-medium text-slate-900">{doc.customerName}</td>
-                          <td className="p-4">{doc.documentType || "-"}</td>
-                          <td className="p-4">{doc.processType || "-"}</td>
-                          <td className="p-4 font-medium">{doc.regionOfRegistration || "Main"}</td>
-                          <td className="p-4 text-xs text-slate-500">
-                            {new Date(doc.createdAt).toLocaleDateString()}
+                          <td className="p-4 font-mono font-bold text-blue-600">{tNum}</td>
+                          <td className="p-4">
+                            <div className="font-semibold text-slate-900">{doc.customerName || doc.clientName}</div>
+                            <div className="text-xs text-slate-500 font-mono">{doc.mobile || "-"}</div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-medium text-slate-800">{doc.documentType || "-"}</div>
+                            <div className="text-[11px] text-slate-500">Service: {doc.service || "-"}</div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-bold text-blue-800">{doc.mainProcess || doc.processType || "-"}</div>
+                            {doc.subPackage && doc.subPackage !== "-" && (
+                              <div className="text-[11px] text-slate-500">SubPkg: {doc.subPackage}</div>
+                            )}
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-medium text-slate-800">{doc.regionOfRegistration || doc.sourceOffice || "Main"}</div>
+                            <div className="text-[11px] text-slate-500">{doc.deliveryLocation || "-"}</div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-semibold text-slate-700">{doc.createdDate || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "-")}</div>
+                            <div className="font-bold text-slate-900">₹{doc.totalCharges || 0}</div>
                           </td>
                           <td className="p-4">
                             <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                              {doc.trackingStatus || "In Hand"}
+                              {doc.trackingStatus || doc.status || "In Hand"}
                             </span>
                           </td>
                         </tr>
@@ -670,12 +686,18 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                     <tr>
                       <th className="p-3 w-10">Receive</th>
                       <th className="p-3">Tracking Number</th>
+                      <th className="p-3">Customer Name</th>
+                      <th className="p-3">Document Type</th>
+                      <th className="p-3">Main Process</th>
+                      <th className="p-3">Sub Package</th>
+                      <th className="p-3">Amount</th>
                       <th className="p-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {selectedBundle.items?.map((item: any) => {
                       const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
+                      const reg = item.registration;
                       return (
                         <tr key={item.id} className={isChecked ? "bg-emerald-50/30" : ""}>
                           <td className="p-3">
@@ -690,7 +712,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
-                          <td className="p-3 font-bold text-slate-900">{item.trackingNumber}</td>
+                          <td className="p-3 font-mono font-bold text-blue-600">{item.trackingNumber}</td>
+                          <td className="p-3 font-medium text-slate-900">{reg?.customerName || "-"}</td>
+                          <td className="p-3 text-xs">{reg?.documentType || "-"}</td>
+                          <td className="p-3 text-xs font-semibold text-slate-800">{reg?.processType || "-"}</td>
+                          <td className="p-3 text-xs text-slate-600">{reg?.subPackage || "-"}</td>
+                          <td className="p-3 text-xs font-bold text-slate-900">₹{reg?.totalCharges ? Number(reg.totalCharges) : 0}</td>
                           <td className="p-3">
                             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
                               {item.status}

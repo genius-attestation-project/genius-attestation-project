@@ -500,9 +500,10 @@ export function AssignedOfficeWorkspaceClient({
                       <>
                         <th className="p-4">Tracking Number</th>
                         <th className="p-4">Customer Name</th>
-                        <th className="p-4">Document Type</th>
-                        <th className="p-4">Process Type</th>
-                        <th className="p-4">Date</th>
+                        <th className="p-4">Document Details</th>
+                        <th className="p-4">Process / Package</th>
+                        <th className="p-4">Office & Location</th>
+                        <th className="p-4">Date & Amount</th>
                         <th className="p-4">Status</th>
                         {(activeTab === "complete" || activeTab === "return") && <th className="p-4 text-right">Actions</th>}
                       </>
@@ -521,7 +522,7 @@ export function AssignedOfficeWorkspaceClient({
                       if (activeTab === "history") {
                         return (
                           <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5">
-                            <td className="p-4 font-bold text-blue-600 dark:text-blue-400">
+                            <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                               {row.trackingNumber}
                             </td>
                             <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
@@ -558,22 +559,36 @@ export function AssignedOfficeWorkspaceClient({
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
-                          <td className="p-4 font-bold text-blue-600 dark:text-blue-400">
+                          <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                             {row.trackingNumber}
                           </td>
-                          <td className="p-4 font-semibold text-slate-900 dark:text-white">
-                            {row.customerName}
+                          <td className="p-4">
+                            <div className="font-semibold text-slate-900 dark:text-white">{row.customerName}</div>
+                            <div className="text-xs text-slate-500 font-mono">{row.mobile || "-"}</div>
                           </td>
-                          <td className="p-4 text-xs">{row.documentType || "-"}</td>
-                          <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                            {row.processType || "-"}
+                          <td className="p-4 text-xs">
+                            <div className="font-medium text-slate-800 dark:text-slate-200">{row.documentType || "-"}</div>
+                            <div className="text-[11px] text-slate-500">Service: {row.externalProcess || row.processType || "-"}</div>
                           </td>
-                          <td className="p-4 text-xs text-slate-600 dark:text-slate-400">
-                            {new Date(row.updatedAt || row.createdAt).toLocaleDateString()}
+                          <td className="p-4 text-xs">
+                            <div className="font-bold text-blue-800 dark:text-blue-300">{row.processType || "-"}</div>
+                            {row.subPackage && row.subPackage !== "-" && (
+                              <div className="text-[11px] text-slate-500">SubPkg: {row.subPackage}</div>
+                            )}
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-medium text-slate-800 dark:text-slate-200">{row.regionOfRegistration || "Main Office"}</div>
+                            <div className="text-[11px] text-slate-500">{row.deliveryLocation || "-"}</div>
+                          </td>
+                          <td className="p-4 text-xs">
+                            <div className="font-semibold text-slate-700 dark:text-slate-300">
+                              {new Date(row.updatedAt || row.createdAt).toLocaleDateString()}
+                            </div>
+                            <div className="font-bold text-slate-900 dark:text-white">₹{row.totalCharges ? Number(row.totalCharges) : 0}</div>
                           </td>
                           <td className="p-4">
                             <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                              {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || "Active"}
+                              {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || row.status || "Active"}
                             </span>
                           </td>
                           {(activeTab === "complete" || activeTab === "return") && (
@@ -654,26 +669,48 @@ export function AssignedOfficeWorkspaceClient({
                 </button>
               </div>
 
-              <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 rounded-2xl border border-slate-200/60 p-2 dark:divide-white/10 dark:border-white/10">
+              <div className="max-h-64 overflow-y-auto space-y-2 rounded-2xl border border-slate-200/60 p-2 dark:border-white/10">
                 {selectedBundle.items.map((item: any) => {
                   const isChecked = bundleSelectedTrackings.includes(item.trackingNumber);
+                  const reg = item.registration;
                   return (
                     <div
                       key={item.id}
                       onClick={() => toggleBundleItem(item.trackingNumber)}
-                      className="flex cursor-pointer items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors rounded-xl"
+                      className={cn(
+                        "cursor-pointer rounded-xl border p-3 text-xs transition-all space-y-1.5",
+                        isChecked
+                          ? "border-blue-500 bg-blue-50/50 dark:bg-blue-500/10"
+                          : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-[#0f1115]"
+                      )}
                     >
-                      <div className="flex items-center gap-3">
-                        {isChecked ? (
-                          <CheckSquare className="text-blue-600" size={18} />
-                        ) : (
-                          <Square className="text-slate-300" size={18} />
-                        )}
-                        <span className="font-bold text-slate-900 dark:text-white text-xs">
-                          {item.trackingNumber}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          {isChecked ? (
+                            <CheckSquare className="text-blue-600 shrink-0" size={18} />
+                          ) : (
+                            <Square className="text-slate-300 shrink-0" size={18} />
+                          )}
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                            {item.trackingNumber}
+                          </span>
+                          {reg?.customerName && (
+                            <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[140px]">
+                              • {reg.customerName}
+                            </span>
+                          )}
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          {item.status}
                         </span>
                       </div>
-                      <span className="text-xs text-slate-500">{item.status}</span>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pl-7">
+                        <div>Doc Type: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.documentType || "-"}</span></div>
+                        <div>Main Process: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.processType || "-"}</span></div>
+                        <div>Sub Package: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.subPackage || "-"}</span></div>
+                        <div>Amount: <span className="font-bold text-slate-900 dark:text-white">₹{reg?.totalCharges ? Number(reg.totalCharges) : 0}</span></div>
+                      </div>
                     </div>
                   );
                 })}
@@ -737,26 +774,37 @@ export function AssignedOfficeWorkspaceClient({
                   <span>Selected Documents ({selectedTrackingNumbers.length})</span>
                 </div>
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3.5 dark:border-white/10 dark:bg-white/5">
-                  <div
-                    className={cn(
-                      "flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1 pr-2 border-0"
-                    )}
-                  >
+                  <div className="space-y-2 max-h-52 overflow-y-auto p-1 pr-1">
                     {selectedTrackingNumbers.map((tNum) => {
                       const docItem = items.find((i) => i.trackingNumber === tNum);
                       return (
                         <div
                           key={tNum}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs dark:border-white/10 dark:bg-[#0f1115]"
+                          className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-2xs dark:border-white/10 dark:bg-[#0f1115] space-y-1.5"
                         >
-                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {tNum}
-                          </span>
-                          {docItem?.customerName && (
-                            <span className="text-[11px] text-slate-500 max-w-[120px] truncate">
-                              • {docItem.customerName}
+                          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-100 pb-1.5 dark:border-white/10">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs sm:text-sm">
+                                Tracking Number : {tNum}
+                              </span>
+                              <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                {docItem?.processType || docItem?.documentType || "UAE Attestation"}
+                              </span>
+                            </div>
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              Status : {docItem?.trackingStatus || docItem?.status || "In Hand"}
                             </span>
-                          )}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300 pt-0.5">
+                            <div><span className="text-slate-400">Customer : </span><span className="font-semibold text-slate-800 dark:text-slate-100">{docItem?.customerName || "-"}</span></div>
+                            <div><span className="text-slate-400">Mobile : </span><span className="font-medium">{docItem?.mobile || "-"}</span></div>
+                            <div><span className="text-slate-400">Document Type : </span><span className="font-medium">{docItem?.documentType || "-"}</span></div>
+                            <div><span className="text-slate-400">Service : </span><span className="font-medium">{docItem?.externalProcess || docItem?.processType || "-"}</span></div>
+                            <div><span className="text-slate-400">Main Process : </span><span className="font-medium">{docItem?.processType || "-"}</span></div>
+                            <div><span className="text-slate-400">Current Office : </span><span className="font-medium">{officeName || "Assigned Office"}</span></div>
+                            <div><span className="text-slate-400">Registered Date : </span><span className="font-medium">{docItem?.createdAt ? new Date(docItem.createdAt).toLocaleDateString() : "-"}</span></div>
+                          </div>
                         </div>
                       );
                     })}

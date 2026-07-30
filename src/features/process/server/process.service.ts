@@ -107,8 +107,20 @@ export async function listProcessAssignments(
     id: mov.registrationId,
     registrationId: mov.registrationId,
     trackingNumber: mov.trackingNumber,
+    customerName: mov.registration?.customerName || mov.trackingNumber,
     clientName: mov.registration?.customerName || mov.trackingNumber,
+    mobile: mov.registration?.mobile || "-",
+    documentType: mov.registration?.documentType || "-",
+    service: mov.registration?.externalProcess || mov.registration?.processType || "-",
+    mainProcess: mov.registration?.processType || "-",
     processType: mov.registration?.processType ?? mov.registration?.documentType ?? "-",
+    subPackage: mov.registration?.subPackage || "-",
+    registeredOffice: mov.registration?.regionOfRegistration || "-",
+    currentOffice: mov.toOffice?.officeName || mov.fromOffice?.officeName || mov.registration?.regionOfRegistration || "Process Office",
+    deliveryLocation: mov.registration?.deliveryLocation || "-",
+    country: mov.registration?.country || "-",
+    totalAmount: mov.registration?.totalCharges ? Number(mov.registration.totalCharges) : 0,
+    registeredDate: mov.registration?.createdAt ? formatDate(new Date(mov.registration.createdAt)) : "-",
     currentLocation: (mov.status === "HOME" ? "IN_HAND" : mov.status) as ProcessLocation,
     status: mov.status as any,
     receivedDate: formatDate(new Date(mov.createdAt)),
@@ -399,8 +411,6 @@ export async function getProcessHistory(trackingNumber: string, ownerAdminId: st
   const registration = await prisma.registration.findFirst({
     where: { trackingNumber, ownerAdminId },
   });
-  
-  if (!registration) return [];
 
   const rows = await prisma.movementHistory.findMany({
     where: {
@@ -409,7 +419,7 @@ export async function getProcessHistory(trackingNumber: string, ownerAdminId: st
     orderBy: { performedAt: "asc" },
   });
 
-  return rows.map((r: any) => ({
+  const historyItems = rows.map((r: any) => ({
     id: r.id,
     action: r.action,
     fromModule: r.oldStatus || "N/A",
@@ -418,4 +428,28 @@ export async function getProcessHistory(trackingNumber: string, ownerAdminId: st
     userName: r.performedBy,
     createdAt: r.performedAt,
   }));
+
+  const docInfo = registration
+    ? {
+        trackingNumber: registration.trackingNumber,
+        customerName: registration.customerName,
+        mobile: registration.mobile,
+        documentType: registration.documentType || "-",
+        mainProcess: registration.processType || "-",
+        subPackage: registration.subPackage || "-",
+        registeredOffice: registration.regionOfRegistration || "-",
+        currentOffice: registration.regionOfRegistration || "Process Office",
+        currentStatus: registration.trackingStatus || "Registered",
+        totalAmount: Number(registration.totalCharges || 0),
+        country: registration.country || "-",
+        deliveryLocation: registration.deliveryLocation || "-",
+        registeredDate: registration.createdAt ? formatDate(new Date(registration.createdAt)) : "-",
+      }
+    : null;
+
+  return {
+    document: docInfo,
+    history: historyItems,
+    data: historyItems,
+  };
 }

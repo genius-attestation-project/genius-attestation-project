@@ -762,7 +762,7 @@ export async function listWorkspaceDocuments(params: {
       : {};
 
   if (params.tab === "inbound") {
-    return (prisma as any).bundle.findMany({
+    const bundles = await (prisma as any).bundle.findMany({
       where: {
         toOfficeId: params.officeId,
         ownerAdminId: params.ownerAdminId,
@@ -775,6 +775,23 @@ export async function listWorkspaceDocuments(params: {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    const trackingNumbers: string[] = Array.from(
+      new Set(bundles.flatMap((b: any) => b.items.map((i: any) => i.trackingNumber as string)))
+    );
+
+    const registrations = await prisma.registration.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+    });
+    const regMap = new Map(registrations.map((r) => [r.trackingNumber, r]));
+
+    return bundles.map((b: any) => ({
+      ...b,
+      items: b.items.map((i: any) => ({
+        ...i,
+        registration: regMap.get(i.trackingNumber) || null,
+      })),
+    }));
   }
 
   if (params.tab === "complete") {

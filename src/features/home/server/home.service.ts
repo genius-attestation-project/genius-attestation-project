@@ -24,22 +24,33 @@ function isSameDay(date: Date, compare: Date) {
 }
 
 function mapMovement(movement: any): HomeItem {
-  const reg = movement.registration;
+  const reg = movement.registration || {};
   return {
-    id: reg.id,
+    id: reg.id || movement.id,
+    trackingNumber: movement.trackingNumber,
     registrationNumber: movement.trackingNumber,
-    clientName: reg.customerName,
-    service: reg.processType ?? reg.documentType ?? "-",
+    customerName: reg.customerName || movement.trackingNumber,
+    clientName: reg.customerName || movement.trackingNumber,
+    mobile: reg.mobile || "-",
+    documentType: reg.documentType || "-",
+    processType: reg.processType || "-",
+    mainProcess: reg.processType || "-",
+    subPackage: reg.subPackage || "-",
+    service: reg.externalProcess ?? reg.processType ?? reg.documentType ?? "-",
     sourceOffice: movement.fromOffice?.officeName ?? reg.regionOfRegistration ?? "-",
+    regionOfRegistration: reg.regionOfRegistration ?? "-",
     deliveryLocation: reg.deliveryLocation ?? "-",
+    totalCharges: reg.totalCharges ? Number(reg.totalCharges) : 0,
     createdBy: movement.createdBy ?? reg.createdBy ?? "-",
     createdDate: formatDate(movement.createdAt),
+    createdAt: reg.createdAt || movement.createdAt,
     status: movement.status,
+    trackingStatus: reg.trackingStatus || movement.status,
     acceptedAt: movement.acceptedAt ? movement.acceptedAt.toISOString() : null,
     acceptedDate: movement.acceptedAt ? formatDate(movement.acceptedAt) : null,
     acceptedBy: movement.acceptedBy ?? null,
-    isBmLocked: reg.isBmLocked,
-    bmExtensionStatus: reg.bmExtensionStatus,
+    isBmLocked: Boolean(reg.isBmLocked),
+    bmExtensionStatus: reg.bmExtensionStatus || null,
   };
 }
 

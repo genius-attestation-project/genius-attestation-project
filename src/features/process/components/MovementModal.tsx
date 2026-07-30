@@ -23,6 +23,7 @@ type MovementModalProps = {
   action: MovementModalAction;
   assignmentId?: string;
   trackingNumbers?: string[];
+  selectedDocuments?: any[];
   onSuccess: () => void;
 };
 
@@ -34,6 +35,7 @@ export function MovementModal({
   action,
   assignmentId,
   trackingNumbers,
+  selectedDocuments,
   onSuccess,
 }: MovementModalProps) {
   const [remarks, setRemarks] = useState("");
@@ -127,10 +129,28 @@ export function MovementModal({
 
   return (
     <FormDrawer open={open} onClose={onClose} title={title} description={description} placement="center">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         {targetCount > 0 && (
-          <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3 text-xs font-semibold text-blue-900">
-            Executing action for {targetCount} selected document{targetCount > 1 ? "s" : ""}.
+          <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3 text-xs font-semibold text-blue-900 flex items-center justify-between">
+            <span>Executing action for {targetCount} selected document{targetCount > 1 ? "s" : ""}.</span>
+          </div>
+        )}
+
+        {selectedDocuments && selectedDocuments.length > 0 && (
+          <div className="max-h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-white/10 bg-slate-50/50">
+            {selectedDocuments.map((doc: any, i: number) => (
+              <div key={doc.trackingNumber || i} className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-white/10 dark:bg-[#0f1115] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{doc.trackingNumber}</span>
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">{doc.status || doc.currentStatus || "In Hand"}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  {doc.customerName && <span>Customer: <strong>{doc.customerName}</strong></span>}
+                  {doc.documentType && <span>Doc: <strong>{doc.documentType}</strong></span>}
+                  {doc.mainProcess && <span>Process: <strong>{doc.mainProcess}</strong></span>}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
