@@ -30,10 +30,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     );
   }
 
-  const isAssignedOffice = Boolean(
-    session.user.isAssignedOffice ||
+  const isAssignedOfficePortalUser = Boolean(
     (session.user as any).accountType === "ASSIGNED_OFFICE" ||
     session.user.role === "AssignedOffice"
+  );
+
+  const isAssignedOffice = Boolean(
+    session.user.isAssignedOffice || isAssignedOfficePortalUser
   );
 
   return (
@@ -47,7 +50,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           userEmail={userEmail}
           permissions={session.user.permissions}
           isSuperAdmin={session.user.isSuperAdmin}
-          isAssignedOffice={isAssignedOffice}
+          isAssignedOffice={isAssignedOfficePortalUser}
         />
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
           <Navbar userName={session.user.name} userEmail={session.user.email} />
