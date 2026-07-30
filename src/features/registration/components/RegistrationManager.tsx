@@ -578,10 +578,11 @@ export function RegistrationManager({
 
       async function fetchPaymentModes() {
         try {
-          const res = await fetch(`/api/master-data/payment-modes?active=true`);
+          const res = await fetch(`/api/master-data/payment-mode?status=Active&pageSize=200`);
           if (res.ok) {
             const data = await res.json();
-            const names = (data.items || []).map((i: any) => i.name);
+            // Map paymentModeName (primary field) with name as fallback for robustness
+            const names = (data.items || []).map((i: any) => i.paymentModeName || i.name).filter(Boolean);
             setPaymentModeOptions(names.length > 0 ? names : ["Cash", "Bank Transfer", "Credit Card", "Cheque", "Online"]);
             return;
           }

@@ -6,6 +6,7 @@ import {
   ChartNoAxesColumn,
   ClipboardList,
   Clock3,
+  CreditCard,
   FileSearch,
   Handshake,
   Home,
@@ -157,6 +158,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         href: "/dashboard/master-configuration/approval-status",
         icon: ShieldCheck,
         menuPermission: "menu.master-configuration.approval-status",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Payment Mode",
+        href: "/dashboard/master-configuration/payment-mode",
+        icon: CreditCard,
+        menuPermission: "menu.master-configuration.payment-mode",
         pagePermission: "master_configuration.view",
       },
     ],
@@ -443,6 +451,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     actions: ["view", "create", "edit", "delete", "manage", "export", "activate", "deactivate", "reset_password", "login", "receive", "transfer", "complete", "return", "reject"]
   },
   { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
+  {
+    key: "payment_mode",
+    label: "Payment Mode",
+    description: "Payment Mode master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
   { key: "subpackage", label: "Sub Package Workflow", description: "Sub Package workflow access.", actions: ["view", "transfer", "complete", "return", "reject"] },
   { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
