@@ -65,8 +65,8 @@ export async function GET(
       });
     }
 
-    // Dedicated handler for Sub Packages
-    if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
+    // Dedicated handler for Sub Process / Sub Packages
+    if (rawSlug === "sub-process" || rawSlug === "sub-packages" || type === "SUB_PROCESS" || type === "SUB_PACKAGES") {
       const whereClause: any = { ownerAdminId };
       if (activeOnly) whereClause.isActive = true;
       if (query) {
@@ -112,8 +112,12 @@ export async function GET(
       ownerAdminId,
     };
 
-    const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
+    const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
     const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
+
+    if (isProcessType) {
+      whereClause.type = "PROCESS_TYPES";
+    }
 
     const coreSubPackageId = searchParams.get("coreSubPackageId") || "";
     if (isProcessType && coreSubPackageId) {
@@ -226,8 +230,8 @@ export async function POST(
       return NextResponse.json({ item: newItem }, { status: 201 });
     }
 
-    // Dedicated handler for Sub Packages
-    if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
+    // Dedicated handler for Sub Process / Sub Packages
+    if (rawSlug === "sub-process" || rawSlug === "sub-packages" || type === "SUB_PROCESS" || type === "SUB_PACKAGES") {
       const existing = await prisma.subPackage.findMany({
         where: { ownerAdminId },
         select: { name: true },
@@ -253,6 +257,9 @@ export async function POST(
 
     // Generic MasterData handler
     const isDocumentType = type === "DOCUMENT_TYPES" || type === "DOCUMENT_TYPE";
+    const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
+    const targetType = isProcessType ? "PROCESS_TYPES" : type;
+
     let finalCategoryId: string | null = categoryId || null;
     let finalCategoryName = (category || "").trim().slice(0, 100);
 
@@ -288,7 +295,7 @@ export async function POST(
 
     const existingRecords = await prisma.masterData.findMany({
       where: {
-        type,
+        type: targetType,
         isArchived: false,
         ownerAdminId,
       },
@@ -301,7 +308,6 @@ export async function POST(
       return NextResponse.json({ message: "A record with this name already exists." }, { status: 409 });
     }
 
-    const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
     const idsToConnect = Array.isArray(subPackageIds) ? subPackageIds : [];
 
     if (isProcessType && coreSubPackageId) {

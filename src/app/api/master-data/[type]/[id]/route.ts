@@ -82,8 +82,8 @@ export async function PUT(
       return NextResponse.json({ item: updatedItem });
     }
 
-    // Dedicated handler for Sub Packages
-    if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
+    // Dedicated handler for Sub Process / Sub Packages
+    if (rawSlug === "sub-process" || rawSlug === "sub-packages" || type === "SUB_PROCESS" || type === "SUB_PACKAGES") {
       const existing = await prisma.subPackage.findUnique({
         where: { id: params.id },
       });
@@ -136,7 +136,7 @@ export async function PUT(
     }
 
     const isDocumentType = type === "DOCUMENT_TYPES" || type === "DOCUMENT_TYPE";
-    const isProcessType = rawSlug === "process-types" || type === "PROCESS_TYPES";
+    const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
 
     let trimmedName = existing.name;
     if (name !== undefined) {
@@ -294,8 +294,8 @@ export async function DELETE(
       return NextResponse.json({ success: true, message: "Category deleted." });
     }
 
-    // Dedicated handler for Sub Packages
-    if (rawSlug === "sub-packages" || type === "SUB_PACKAGES") {
+    // Dedicated handler for Sub Process / Sub Packages
+    if (rawSlug === "sub-process" || rawSlug === "sub-packages" || type === "SUB_PROCESS" || type === "SUB_PACKAGES") {
       const existing = await prisma.subPackage.findUnique({
         where: { id: params.id },
       });

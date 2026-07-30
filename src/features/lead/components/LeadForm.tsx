@@ -141,7 +141,7 @@ export function LeadForm({
       
       if (!ignore) {
         fetchMaster("document-types", setDocTypes);
-        fetchMaster("process-types", setServices);
+        fetchMaster("attestation-types", setServices);
         fetchMaster("lead-sources", setSources);
         fetchMaster("customer-types", setClientTypes);
       }

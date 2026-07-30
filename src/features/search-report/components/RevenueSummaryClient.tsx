@@ -117,7 +117,7 @@ export function RevenueSummaryClient() {
     
     async function fetchProcessTypes() {
       try {
-        const res = await fetch("/api/master-data/process-types?active=true");
+        const res = await fetch("/api/master-data/attestation-types?active=true");
         if (res.ok) {
           const data = await res.json();
           setProcessTypeOptions(data.items.map((i: any) => i.name));

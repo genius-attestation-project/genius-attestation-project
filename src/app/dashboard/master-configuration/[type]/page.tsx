@@ -13,11 +13,12 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 const pageTitles: Record<string, string> = {
   "document-types": "Document Types",
   "document-type-categories": "Document Type Categories",
-  "process-types": "Process Types",
-  "sub-packages": "Sub Packages",
+  "attestation-types": "Attestation Types",
+  "process-types": "Attestation Types",
+  "sub-process": "Sub Process",
+  "sub-packages": "Sub Process",
   "customer-types": "Customer Types",
   "lead-sources": "Lead Sources",
-  "embassy-list": "Embassy List",
   "services": "Services",
   "process-status": "Process Status",
   "approval-status": "Approval Status",
@@ -33,8 +34,8 @@ export default function MasterConfigurationDynamicPage({
   
   const isDocumentType = slug === "document-types";
   const isDocumentTypeCategory = slug === "document-type-categories";
-  const isProcessType = slug === "process-types";
-  const isSubPackage = slug === "sub-packages";
+  const isProcessType = slug === "attestation-types" || slug === "process-types";
+  const isSubPackage = slug === "sub-process" || slug === "sub-packages";
   const title = pageTitles[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
   const [data, setData] = useState<any[]>([]);
@@ -46,7 +47,7 @@ export default function MasterConfigurationDynamicPage({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   
-  // Available Sub Packages for Process Types selection
+  // Available Sub Process for Attestation Types selection
   const [availableSubPackages, setAvailableSubPackages] = useState<any[]>([]);
   const [selectedSubPackageIds, setSelectedSubPackageIds] = useState<string[]>([]);
   const [selectedCoreSubPackageId, setSelectedCoreSubPackageId] = useState("");
@@ -84,7 +85,7 @@ export default function MasterConfigurationDynamicPage({
   useEffect(() => {
     fetchRecords();
     if (isProcessType) {
-      fetch("/api/master-data/sub-packages?active=true")
+      fetch("/api/master-data/sub-process?active=true")
         .then((res) => res.json())
         .then((json) => setAvailableSubPackages(json.items || []))
         .catch(console.error);
@@ -229,11 +230,11 @@ export default function MasterConfigurationDynamicPage({
     const cols: Array<{ header: string; accessorKey: string; cell?: (item: any) => React.ReactNode }> = [
       { 
         header: isSubPackage 
-          ? "Sub Package Name" 
+          ? "Sub Process Name" 
           : isDocumentTypeCategory
           ? "Category Name"
           : isProcessType 
-          ? "Process Type" 
+          ? "Attestation Type" 
           : "Name", 
         accessorKey: "name" 
       },
@@ -273,7 +274,7 @@ export default function MasterConfigurationDynamicPage({
       });
 
       cols.push({
-        header: "Sub Packages",
+        header: "Sub Process",
         accessorKey: "subPackages",
         cell: (item: any) => {
           const subs = item.subPackages || [];
@@ -360,7 +361,7 @@ export default function MasterConfigurationDynamicPage({
           <div className="space-y-6">
             <div className="space-y-4">
               <Input
-                label={isSubPackage ? "Sub Package Name" : isDocumentTypeCategory ? "Category Name" : "Name"}
+                label={isSubPackage ? "Sub Process Name" : isDocumentTypeCategory ? "Category Name" : "Name"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -399,7 +400,7 @@ export default function MasterConfigurationDynamicPage({
 
               {isProcessType && editingItem?.coreSubPackage && !editingItem.coreSubPackage.isActive && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                  ⚠️ <strong>Warning:</strong> The selected Core Package ("{editingItem.coreSubPackage.name}") is currently inactive in Master Configuration → Sub Packages.
+                  ⚠️ <strong>Warning:</strong> The selected Core Package ("{editingItem.coreSubPackage.name}") is currently inactive in Master Configuration → Sub Process.
                 </div>
               )}
 
@@ -417,25 +418,25 @@ export default function MasterConfigurationDynamicPage({
                       value={selectedCoreSubPackageId}
                       onChange={(val) => setSelectedCoreSubPackageId(val)}
                       placeholder="Select Core Package"
-                      emptyMessage="No Sub Packages found."
+                      emptyMessage="No Sub Process entries found."
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-slate-900 dark:text-white">
-                      Sub Packages
+                      Sub Process
                     </label>
                     <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/5">
                       <input
                         type="text"
-                        placeholder="Search sub packages..."
+                        placeholder="Search sub process..."
                         value={subPackageSearch}
                         onChange={(e) => setSubPackageSearch(e.target.value)}
                         className="mb-2.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
                       />
                       <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
                         {filteredAvailableSubPackages.length === 0 ? (
-                          <p className="py-2 text-center text-xs text-slate-400">No active sub packages found.</p>
+                          <p className="py-2 text-center text-xs text-slate-400">No active sub process entries found.</p>
                         ) : (
                           filteredAvailableSubPackages.map((sp) => {
                             const isChecked = selectedSubPackageIds.includes(sp.id);
