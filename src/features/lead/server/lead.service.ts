@@ -12,6 +12,7 @@ import {
   FOLLOWUP_LOCK_MESSAGE,
   getUserLockState,
 } from "@/features/lead/server/followup-lock.service";
+import { getAdvancePaymentStats } from "@/features/revenue/server/advance-payment-approval.service";
 import type {
   DashboardStatsResponse,
   LeadFilterOptionsResponse,
@@ -2231,6 +2232,14 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     }
   }
 
+  const advanceStats = await getAdvancePaymentStats(ownerAdminId).catch(() => ({
+    pendingAdvanceApprovals: 0,
+    approvedAdvances: 0,
+    rejectedAdvances: 0,
+    totalAdvanceAmount: 0,
+    approvedAdvanceAmount: 0,
+  }));
+
   return {
     totalLeads,
     activeLeads,
@@ -2238,6 +2247,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
     pendingLeads,
     totalRevenue,
     followups,
+    ...advanceStats,
     recentLeads,
     recentActivities,
     charts: {

@@ -38,7 +38,7 @@ export const permissionActions = [
   "import", "downloadTemplate", "viewImportHistory",
   "comment", "reply", "forward", "inbox",
   "activate", "deactivate", "reset_password",
-  "complete", "transfer", "move", "login", "receive"
+  "complete", "transfer", "move", "login", "receive", "view_receipt"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -541,6 +541,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     label: "Document Communication",
     description: "Office to office document communication access.",
     actions: ["view", "comment", "reply", "forward", "inbox"]
+  },
+  {
+    key: "advance_payment_approval",
+    label: "Advance Payment Approval",
+    description: "Advance Payment Approval workflow permissions.",
+    actions: ["view", "approve", "reject", "view_receipt"]
   },
 ];
 

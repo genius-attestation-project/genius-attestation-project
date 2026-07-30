@@ -34,7 +34,7 @@ export type DashboardStat = {
   delta: string;
   description: string;
   icon: LucideIcon;
-  tone?: "blue" | "slate" | "amber";
+  tone?: "blue" | "slate" | "amber" | "emerald" | "rose";
   href?: string;
 };
 

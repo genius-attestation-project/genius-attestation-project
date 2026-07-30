@@ -14,5 +14,5 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
+// Updated Prisma Client types reloaded
 
-// Force TS server reload

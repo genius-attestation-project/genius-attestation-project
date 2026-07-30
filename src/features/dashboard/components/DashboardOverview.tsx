@@ -102,7 +102,7 @@ export async function DashboardOverview({
     });
   }
 
-  if (canAccess(permissions, isSuperAdmin, ["pending_approval.view"])) {
+  if (canAccess(permissions, isSuperAdmin, ["pending_approval.view", "advance_payment_approval.view"])) {
     cards.push({
       label: "Pending Approval",
       value: stats.pendingLeads.toLocaleString(),
@@ -112,6 +112,54 @@ export async function DashboardOverview({
       tone: "amber",
       href: "/dashboard/lead-management/pending-approval",
     });
+
+    if (stats.pendingAdvanceApprovals !== undefined) {
+      cards.push({
+        label: "Pending Advance Approvals",
+        value: (stats.pendingAdvanceApprovals ?? 0).toLocaleString(),
+        delta: "Live",
+        description: "Advance payments awaiting review",
+        icon: ClipboardList,
+        tone: "amber",
+        href: "/dashboard/lead-management/pending-approval",
+      });
+      cards.push({
+        label: "Approved Advances",
+        value: (stats.approvedAdvances ?? 0).toLocaleString(),
+        delta: "Live",
+        description: "Confirmed advance payments",
+        icon: BadgeCheck,
+        tone: "emerald",
+        href: "/dashboard/lead-management/pending-approval",
+      });
+      cards.push({
+        label: "Rejected Advances",
+        value: (stats.rejectedAdvances ?? 0).toLocaleString(),
+        delta: "Live",
+        description: "Rejected advance requests",
+        icon: BadgeCheck,
+        tone: "rose",
+        href: "/dashboard/lead-management/pending-approval",
+      });
+      cards.push({
+        label: "Total Advance Amount",
+        value: `₹${(stats.totalAdvanceAmount ?? 0).toLocaleString()}`,
+        delta: "Live",
+        description: "Total advances requested",
+        icon: BadgeDollarSign,
+        tone: "blue",
+        href: "/dashboard/revenue-registration",
+      });
+      cards.push({
+        label: "Approved Advance Amount",
+        value: `₹${(stats.approvedAdvanceAmount ?? 0).toLocaleString()}`,
+        delta: "Live",
+        description: "Total approved advances",
+        icon: BadgeDollarSign,
+        tone: "emerald",
+        href: "/dashboard/revenue-registration",
+      });
+    }
   }
 
   const showRecentLeads = canAccess(permissions, isSuperAdmin, ["leads.view"]);

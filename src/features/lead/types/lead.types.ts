@@ -86,6 +86,11 @@ export type DashboardStatsResponse = {
   pendingLeads: number;
   totalRevenue: number;
   followups: number;
+  pendingAdvanceApprovals?: number;
+  approvedAdvances?: number;
+  rejectedAdvances?: number;
+  totalAdvanceAmount?: number;
+  approvedAdvanceAmount?: number;
   recentLeads: LeadRow[];
   recentActivities: Array<{
     title: string;

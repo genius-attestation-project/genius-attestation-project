@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-type ReportType = "leads" | "registrations" | "followups" | "attendance" | "process" | "bm-movements" | "delivery" | "welcome-calls";
+type ReportType = "leads" | "registrations" | "advance-payments" | "followups" | "attendance" | "process" | "bm-movements" | "delivery" | "welcome-calls";
 
 export default function DetailedReports() {
   const { filters } = useReportFilters();
@@ -80,6 +80,17 @@ export default function DetailedReports() {
         { key: "paymentStatus", label: "Payment Status" },
         { key: "trackingStatus", label: "Process Status" },
         { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+      ];
+    } else if (activeTab === "advance-payments") {
+      return [
+        { key: "trackingNumber", label: "Tracking No." },
+        { key: "customerName", label: "Customer" },
+        { key: "advanceAmount", label: "Advance Amount (₹)", render: (row: any) => `₹${row.advanceAmount}` },
+        { key: "approvalStatus", label: "Approval Status" },
+        { key: "approvedBy", label: "Approved By", render: (row: any) => row.approvedBy || "-" },
+        { key: "approvedDate", label: "Approved Date", render: (row: any) => row.approvedDate !== "-" ? new Date(row.approvedDate).toLocaleDateString() : "-" },
+        { key: "registeredBy", label: "Requested By" },
+        { key: "requestedDate", label: "Requested Date", render: (row: any) => new Date(row.requestedDate).toLocaleDateString() }
       ];
     } else if (activeTab === "followups") {
       return [

@@ -418,6 +418,12 @@ model Registration {
   importedBy             String?   @map("imported_by")
   importedAt             DateTime? @map("imported_at")
   originalRowNumber      Int?      @map("original_row_number")
+  advancePaymentStatus          String    @default("None") @map("advance_payment_status")
+  advancePaymentRejectionReason String?   @map("advance_payment_rejection_reason")
+  advancePaymentApprovedBy      String?   @map("advance_payment_approved_by")
+  advancePaymentApprovedAt      DateTime? @map("advance_payment_approved_at")
+  advancePaymentRejectedBy      String?   @map("advance_payment_rejected_by")
+  advancePaymentRejectedAt      DateTime? @map("advance_payment_rejected_at")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -428,11 +434,13 @@ model Registration {
   processAssignments      ProcessAssignment[]
   documentMovements       DocumentMovement[]
   communications          DocumentCommunication[]
+  advancePaymentApprovals AdvancePaymentApproval[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
   @@index([paymentStatus])
   @@index([paymentUpdateStatus])
+  @@index([advancePaymentStatus])
   @@index([approvalStatus])
   @@index([financeApprovalStatus])
   @@index([bmStatus])
@@ -1479,5 +1487,69 @@ model PaymentModeAuditLog {
   @@index([timestamp])
   @@map("payment_mode_audit_logs")
 }
+
+model AdvancePaymentApproval {
+  id               String                 @id @default(cuid())
+  registrationId   String                 @map("registration_id")
+  registration     Registration           @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber   String                 @map("tracking_number")
+  leadId           String?                @map("lead_id")
+  customerName     String                 @map("customer_name")
+  mobile           String
+  office           String?
+  registeredPerson String?                @map("registered_person")
+  registeredDate   DateTime               @map("registered_date")
+  totalAmount      Decimal                @default(0) @map("total_amount") @db.Decimal(12, 2)
+  advanceAmount    Decimal                @default(0) @map("advance_amount") @db.Decimal(12, 2)
+  remainingBalance Decimal                @default(0) @map("remaining_balance") @db.Decimal(12, 2)
+  receiptFileId    String?                @map("receipt_file_id")
+  receiptFileUrl   String?                @map("receipt_file_url")
+  receiptFileName  String?                @map("receipt_file_name")
+  status           String                 @default("Pending Approval")
+  requestedById    String?                @map("requested_by_id")
+  requestedByName  String?                @map("requested_by_name")
+  requestedAt      DateTime               @default(now()) @map("requested_at")
+  approvedById     String?                @map("approved_by_id")
+  approvedByName   String?                @map("approved_by_name")
+  approvedAt       DateTime?              @map("approved_at")
+  rejectedById     String?                @map("rejected_by_id")
+  rejectedByName   String?                @map("rejected_by_name")
+  rejectedAt       DateTime?              @map("rejected_at")
+  rejectionReason  String?                @map("rejection_reason")
+  ownerAdminId     String                 @map("owner_admin_id")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  auditLogs AdvancePaymentAuditLog[]
+
+  @@index([registrationId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([requestedAt])
+  @@map("advance_payment_approvals")
+}
+
+model AdvancePaymentAuditLog {
+  id              String                 @id @default(cuid())
+  approvalId      String                 @map("approval_id")
+  approval        AdvancePaymentApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  registrationId  String                 @map("registration_id")
+  action          String
+  performedBy     String                 @map("performed_by")
+  performedByName String?                @map("performed_by_name")
+  remarks         String?                @db.Text
+  ipAddress       String?                @map("ip_address")
+  ownerAdminId    String?                @map("owner_admin_id")
+  createdAt       DateTime               @default(now()) @map("created_at")
+
+  @@index([approvalId])
+  @@index([registrationId])
+  @@index([performedBy])
+  @@index([createdAt])
+  @@index([ownerAdminId])
+  @@map("advance_payment_audit_logs")
+}
+
 
 

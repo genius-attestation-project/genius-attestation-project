@@ -51,6 +51,12 @@ export type Registration = {
   acceptedBy: string | null;
   acceptedAt: string | null;
   approvalStatus: string;
+  advancePaymentStatus?: string;
+  advancePaymentRejectionReason?: string | null;
+  advancePaymentApprovedBy?: string | null;
+  advancePaymentApprovedAt?: Date | string | null;
+  advancePaymentRejectedBy?: string | null;
+  advancePaymentRejectedAt?: Date | string | null;
   trackingStatus: string;
   welcomeCallStatus: string;
   welcomeCalledBy: string | null;

@@ -10,7 +10,7 @@ type StatsCardProps = {
   delta: string;
   description: string;
   icon: LucideIcon;
-  tone?: "blue" | "slate" | "amber";
+  tone?: "blue" | "slate" | "amber" | "emerald" | "rose";
   href?: string;
 };
 
@@ -18,6 +18,8 @@ const toneStyles = {
   blue: "bg-blue-50 text-blue-600 ring-blue-100 dark:bg-blue-500/10 dark:ring-blue-500/20",
   slate: "bg-slate-50 text-slate-600 ring-slate-100 dark:bg-slate-500/10 dark:ring-slate-500/20",
   amber: "bg-amber-50 text-amber-600 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20",
+  emerald: "bg-emerald-50 text-emerald-600 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20",
+  rose: "bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-500/10 dark:ring-rose-500/20",
 };
 
 export function StatsCard({

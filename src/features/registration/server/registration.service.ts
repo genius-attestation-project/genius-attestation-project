@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
 import { prisma } from "@/lib/prisma";
 import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
 
@@ -348,7 +349,21 @@ export async function createRegistration(
     bmStatus: registration.bmStatus,
   });
 
-  return mapRegistration(registration);
+  if ((input.advancePaid ?? 0) > 0) {
+    await submitAdvancePaymentApproval({
+      ownerAdminId,
+      registrationId: registration.id,
+      advanceAmount: input.advancePaid ?? 0,
+      performedByUserId: userId,
+    }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
+  }
+
+  const reloaded = await prisma.registration.findUnique({
+    where: { id: registration.id },
+    include: registrationInclude,
+  });
+
+  return mapRegistration(reloaded || registration);
 }
 
 export async function updateRegistration(
@@ -371,6 +386,7 @@ export async function updateRegistration(
       advancePaid: true,
       regionOfRegistration: true,
       isBmLocked: true,
+      advancePaymentStatus: true,
     },
   });
 
@@ -405,6 +421,15 @@ export async function updateRegistration(
     include: registrationInclude,
   });
 
+  if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
+    await submitAdvancePaymentApproval({
+      ownerAdminId,
+      registrationId: registration.id,
+      advanceAmount: input.advancePaid ?? 0,
+      performedByUserId: undefined,
+    }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
+  }
+
   logRegistrationWorkflow("Updated registration.", {
     trackingNumber: registration.trackingNumber,
     currentUserOffice: sourceOfficeName,
@@ -414,7 +439,12 @@ export async function updateRegistration(
     bmStatus: registration.bmStatus,
   });
 
-  return mapRegistration(registration);
+  const reloaded = await prisma.registration.findUnique({
+    where: { id: registration.id },
+    include: registrationInclude,
+  });
+
+  return mapRegistration(reloaded || registration);
 }
 
 export async function deleteRegistration(ownerAdminId: string, id: string, performedBy?: string) {
@@ -449,7 +479,7 @@ export async function addRegistrationFile(
 ) {
   const existing = await prisma.registration.findFirst({
     where: { ownerAdminId, id },
-    select: { id: true },
+    select: { id: true, advancePaid: true },
   });
 
   if (!existing) return null;
@@ -480,7 +510,21 @@ export async function addRegistrationFile(
     include: registrationInclude,
   });
 
-  return mapRegistration(registration);
+  if (file.fileCategory === "ADVANCE_PAYMENT" && Number(registration.advancePaid) > 0) {
+    await submitAdvancePaymentApproval({
+      ownerAdminId,
+      registrationId: registration.id,
+      advanceAmount: Number(registration.advancePaid),
+      receiptFileId: file.fileStorageId,
+    }).catch((err) => console.error("[registration] Advance payment file upload approval error:", err));
+  }
+
+  const reloaded = await prisma.registration.findUnique({
+    where: { id: registration.id },
+    include: registrationInclude,
+  });
+
+  return mapRegistration(reloaded || registration);
 }
 
 export async function getRegistrationFile(ownerAdminId: string, fileId: string) {

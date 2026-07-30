@@ -1390,6 +1390,16 @@ export function RegistrationManager({
           </Section>
 
           <Section title="Section 3: Commercial / Payment Details">
+            {selected?.advancePaymentStatus === "Rejected" && (
+              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                <span className="font-bold">Advance Payment Was Rejected:</span>{" "}
+                {selected.advancePaymentRejectionReason || "No reason specified."}
+                <br />
+                <span className="text-[11px] text-rose-600 dark:text-rose-400">
+                  Update the Advance Paid amount or upload a new receipt file to re-submit for approval.
+                </span>
+              </div>
+            )}
             <Input
               label="Total Charges"
               type="number"

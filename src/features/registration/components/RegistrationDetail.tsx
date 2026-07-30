@@ -53,10 +53,18 @@ export function RegistrationDetail({
   const commissionTo = registration.commissionToName && registration.commissionToEmail
     ? `${registration.commissionToName} (${registration.commissionToEmail})`
     : registration.commissionToName || registration.commissionToEmail;
+
   const approvalTone =
     registration.approvalStatus === "Approved" || registration.approvalStatus === "Accepted"
       ? "green"
       : registration.approvalStatus === "Rejected"
+        ? "red"
+        : "blue";
+
+  const advancePaymentTone =
+    registration.advancePaymentStatus === "Approved"
+      ? "green"
+      : registration.advancePaymentStatus === "Rejected"
         ? "red"
         : "blue";
 
@@ -72,11 +80,31 @@ export function RegistrationDetail({
           <div className="flex flex-wrap gap-2">
             {actionButton}
             <StatusPill value={registration.paymentStatus} />
+            {registration.advancePaymentStatus && registration.advancePaymentStatus !== "None" ? (
+              <StatusPill value={`Advance: ${registration.advancePaymentStatus}`} tone={advancePaymentTone} />
+            ) : null}
             <StatusPill value={registration.approvalStatus} tone={approvalTone} />
             <StatusPill value={registration.trackingStatus} />
           </div>
         </div>
       </section>
+
+      {registration.advancePaymentStatus === "Rejected" && registration.advancePaymentRejectionReason && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-50/80 p-4 dark:bg-rose-500/10">
+          <p className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">Advance Payment Rejected</p>
+          <p className="mt-1 text-sm font-semibold text-rose-900 dark:text-rose-200">
+            Reason: {registration.advancePaymentRejectionReason}
+          </p>
+          {registration.advancePaymentRejectedBy && (
+            <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">
+              Rejected by {registration.advancePaymentRejectedBy} on {registration.advancePaymentRejectedAt ? new Date(registration.advancePaymentRejectedAt).toLocaleString() : "-"}
+            </p>
+          )}
+          <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+            Please edit this registration to change the Advance Amount or upload a new payment receipt to re-submit for approval.
+          </p>
+        </div>
+      )}
 
       <section className="grid gap-3">
         <h3 className="flex items-center gap-2 text-lg font-extrabold">
@@ -117,6 +145,7 @@ export function RegistrationDetail({
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Total Charges" value={registration.totalCharges.toFixed(2)} />
           <Field label="Advance Paid" value={registration.advancePaid.toFixed(2)} />
+          <Field label="Advance Payment Status" value={registration.advancePaymentStatus || "Not Submitted"} />
           <Field label="Balance Amount" value={registration.balanceAmount.toFixed(2)} />
           <Field label="Payment Mode" value={registration.paymentMode} />
           <Field label="Collected Person" value={registration.collectedPerson} />
