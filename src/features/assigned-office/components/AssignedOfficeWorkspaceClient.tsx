@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/cn";
+import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 
 type WorkspaceProps = {
   officeName: string;
@@ -59,6 +60,9 @@ export function AssignedOfficeWorkspaceClient({
   // Bundle Receive Modal
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
   const [bundleSelectedTrackings, setBundleSelectedTrackings] = useState<string[]>([]);
+
+  // Retrieve Modal state
+  const [retrieveItem, setRetrieveItem] = useState<any | null>(null);
   const [receiving, setReceiving] = useState(false);
 
   // Transfer To Sub Package Modal
@@ -500,6 +504,7 @@ export function AssignedOfficeWorkspaceClient({
                         <th className="p-4">Process Type</th>
                         <th className="p-4">Date</th>
                         <th className="p-4">Status</th>
+                        {(activeTab === "complete" || activeTab === "return") && <th className="p-4 text-right">Actions</th>}
                       </>
                     )}
                   </tr>
@@ -571,6 +576,30 @@ export function AssignedOfficeWorkspaceClient({
                               {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || "Active"}
                             </span>
                           </td>
+                          {(activeTab === "complete" || activeTab === "return") && (
+                            <td className="p-4 text-right">
+                              {row.status !== "Received" && row.status !== "COMPLETED" ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setRetrieveItem(row)}
+                                  className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                                >
+                                  <RotateCcw size={14} /> Retrieve
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  title="Cannot retrieve because destination office has already received this document."
+                                  className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
+                                >
+                                  <RotateCcw size={14} /> Retrieve
+                                </Button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -772,6 +801,32 @@ export function AssignedOfficeWorkspaceClient({
           </div>
         </div>
       )}
+      {/* RETRIEVE CONFIRMATION MODAL */}
+      <RetrieveConfirmationModal
+        open={Boolean(retrieveItem)}
+        onClose={() => setRetrieveItem(null)}
+        itemTitle={retrieveItem?.trackingNumber}
+        onConfirm={async (reason) => {
+          if (!retrieveItem) return;
+          const res = await fetch("/api/document-movement/retrieve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              trackingNumbers: [retrieveItem.trackingNumber],
+              reason,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            alert(json.error || "Failed to retrieve document.");
+            return;
+          }
+          alert(json.message || "Document retrieved successfully.");
+          setRetrieveItem(null);
+          await fetchTabData();
+          await fetchStats();
+        }}
+      />
     </div>
   );
 }

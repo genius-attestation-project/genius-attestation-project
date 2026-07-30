@@ -28,6 +28,7 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { StatsCard } from "@/components/ui/StatsCard";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ProcessItem, ProcessStats } from "../types/process.types";
@@ -78,6 +79,9 @@ export function ProcessDashboard() {
   const [targetAction, setTargetAction] = useState<ModalAction>("COMPLETED");
   const [modalTrackingNumbers, setModalTrackingNumbers] = useState<string[]>([]);
   const [modalAssignmentId, setModalAssignmentId] = useState<string | undefined>(undefined);
+  
+  // Retrieve Modal State
+  const [retrieveItem, setRetrieveItem] = useState<any | null>(null);
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -633,6 +637,28 @@ export function ProcessDashboard() {
                               Movement History
                             </Button>
                           )}
+                          {activeTab === "outbound" && (
+                            item.status !== "Received" && item.status !== "COMPLETED" ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setRetrieveItem(item)}
+                                className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                              >
+                                <RotateCcw size={14} /> Retrieve
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                title="Cannot retrieve because destination office has already received this document."
+                                className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
+                              >
+                                <RotateCcw size={14} /> Retrieve
+                              </Button>
+                            )
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -669,6 +695,31 @@ export function ProcessDashboard() {
           trackingNumber={timelineTracking}
         />
       )}
+      {/* RETRIEVE CONFIRMATION MODAL */}
+      <RetrieveConfirmationModal
+        open={Boolean(retrieveItem)}
+        onClose={() => setRetrieveItem(null)}
+        itemTitle={retrieveItem?.trackingNumber}
+        onConfirm={async (reason) => {
+          if (!retrieveItem) return;
+          const res = await fetch("/api/document-movement/retrieve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              trackingNumbers: [retrieveItem.trackingNumber],
+              reason,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            alert(json.error || "Failed to retrieve document.");
+            return;
+          }
+          alert(json.message || "Document retrieved successfully.");
+          setRetrieveItem(null);
+          await loadData();
+        }}
+      />
     </div>
   );
 }

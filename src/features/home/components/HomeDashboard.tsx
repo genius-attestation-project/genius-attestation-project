@@ -18,9 +18,11 @@ import {
   XCircle,
   CheckCircle2,
   Filter,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -54,6 +56,9 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
   const [bundleReceivedSelections, setBundleReceivedSelections] = useState<string[]>([]);
   const [isReceiving, setIsReceiving] = useState(false);
+
+  // Retrieve Modal state
+  const [retrieveBundle, setRetrieveBundle] = useState<any | null>(null);
 
   // Fetch offices
   useEffect(() => {
@@ -510,35 +515,70 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       <th className="p-4">Transferred By</th>
                       <th className="p-4">Transferred Date</th>
                       <th className="p-4">Received Status</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {outboundBundles.map((bundle) => (
-                      <tr key={bundle.id} className="hover:bg-slate-50">
-                        <td className="p-4 font-mono font-bold text-blue-600">
-                          {bundle.bundleNumber}
-                        </td>
-                        <td className="p-4 font-semibold text-slate-800">
-                          {bundle.toOffice?.officeName || "Destination"}
-                        </td>
-                        <td className="p-4 font-bold text-slate-900">{bundle.items?.length || 0}</td>
-                        <td className="p-4">{bundle.createdBy || "User"}</td>
-                        <td className="p-4 text-xs text-slate-500">
-                          {new Date(bundle.createdAt).toLocaleString()}
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              bundle.status === "Received"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {bundle.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {outboundBundles.map((bundle) => {
+                      const isFullyReceived = bundle.status === "Received";
+                      const isRetrieved = bundle.status === "Retrieved";
+                      const canRetrieve = !isFullyReceived && !isRetrieved;
+
+                      return (
+                        <tr key={bundle.id} className="hover:bg-slate-50">
+                          <td className="p-4 font-mono font-bold text-blue-600">
+                            {bundle.bundleNumber}
+                          </td>
+                          <td className="p-4 font-semibold text-slate-800">
+                            {bundle.toOffice?.officeName || "Destination"}
+                          </td>
+                          <td className="p-4 font-bold text-slate-900">{bundle.items?.length || 0}</td>
+                          <td className="p-4">{bundle.createdBy || "User"}</td>
+                          <td className="p-4 text-xs text-slate-500">
+                            {new Date(bundle.createdAt).toLocaleString()}
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                isFullyReceived
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : isRetrieved
+                                  ? "bg-rose-50 text-rose-700"
+                                  : "bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {bundle.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            {canRetrieve ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setRetrieveBundle(bundle)}
+                                className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                              >
+                                <RotateCcw size={14} /> Retrieve
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                title={
+                                  isFullyReceived
+                                    ? "Cannot retrieve because destination office has already received these documents."
+                                    : "Already retrieved."
+                                }
+                                className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
+                              >
+                                <RotateCcw size={14} /> Retrieve
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -680,6 +720,32 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
           </div>
         </div>
       )}
+      {/* RETRIEVE CONFIRMATION MODAL */}
+      <RetrieveConfirmationModal
+        open={Boolean(retrieveBundle)}
+        onClose={() => setRetrieveBundle(null)}
+        itemTitle={retrieveBundle?.bundleNumber}
+        documentCount={retrieveBundle?.items?.length}
+        onConfirm={async (reason) => {
+          if (!retrieveBundle) return;
+          const res = await fetch("/api/document-movement/retrieve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bundleId: retrieveBundle.id,
+              reason,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            alert(json.error || "Failed to retrieve bundle.");
+            return;
+          }
+          alert(json.message || "Bundle retrieved successfully.");
+          setRetrieveBundle(null);
+          await fetchData();
+        }}
+      />
     </div>
   );
 }

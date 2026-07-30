@@ -38,7 +38,7 @@ export const permissionActions = [
   "import", "downloadTemplate", "viewImportHistory",
   "comment", "reply", "forward", "inbox",
   "activate", "deactivate", "reset_password",
-  "complete", "transfer", "move", "login", "receive", "view_receipt"
+  "complete", "transfer", "move", "login", "receive", "view_receipt", "retrieve"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -473,7 +473,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
     key: "document_movement",
     label: "Document Movement",
     description: "Unified document movement history access.",
-    actions: ["view"]
+    actions: ["view", "retrieve"]
   },
   {
     key: "process",
@@ -627,6 +627,7 @@ export const defaultRoleDefinitions = [
       "attendance.summary.edit",
       "attendance.checkout.create",
       "document_movement.view",
+      "document_movement.retrieve",
       "communication.view",
       "communication.comment",
       "communication.reply",
