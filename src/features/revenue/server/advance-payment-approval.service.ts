@@ -346,11 +346,12 @@ export async function approveAdvancePayment(args: {
 
   const reg = await prisma.registration.findUnique({
     where: { id: approval.registrationId },
-    select: { approvalStatus: true },
+    select: { approvalStatus: true, advancePaymentStatus: true },
   });
 
   const newPaymentStatus = calculatePaymentStatus({
     approvalStatus: reg?.approvalStatus || "Pending",
+    advancePaymentStatus: "Approved",
     totalCharges: totalAmount,
     advancePaid: advanceAmount,
     balanceAmount: remainingBalance,

@@ -1,5 +1,6 @@
 export type ComputePaymentStatusParams = {
   approvalStatus: string;
+  advancePaymentStatus?: string | null;
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
@@ -12,18 +13,24 @@ export type ComputedPaymentStatus = "Pending Approval" | "Unpaid" | "Partially P
  * Centralized Automatic Payment Status Calculation Engine
  *
  * Rules:
- * 1. If Revenue Registration has NOT been approved (approvalStatus !== "Approved" && approvalStatus !== "Accepted"):
+ * 1. If Revenue Registration has NOT been approved and Advance Payment has NOT been approved:
  *    Payment Status = "Pending Approval"
- * 2. If Revenue Registration HAS been approved:
- *    - Advance Amount = 0 AND Balance Amount = Total Amount => "Unpaid"
- *    - Advance Amount > 0 (or Received Amount > 0) AND Balance Amount > 0 => "Partially Paid"
- *    - Balance Amount <= 0 => "Paid"
+ * 2. If Revenue Registration HAS been approved or Advance Payment HAS been approved:
+ *    - Balance Amount = 0 (or Received Amount >= Total Charges) => "Paid"
+ *    - Balance Amount > 0 AND (Advance Paid > 0 or Received Amount > 0) => "Partially Paid"
+ *    - Balance Amount = Total Charges AND Advance Paid = 0 => "Unpaid"
  */
 export function calculatePaymentStatus(params: ComputePaymentStatusParams): ComputedPaymentStatus {
   const approvalStatus = (params.approvalStatus || "").trim();
-  const isApproved = approvalStatus === "Approved" || approvalStatus === "Accepted";
+  const advancePaymentStatus = (params.advancePaymentStatus || "").trim();
 
-  // Rule 1: If registration is not approved, payment status is always Pending Approval
+  // A registration is approved if either registration approval or advance payment approval is granted
+  const isApproved =
+    approvalStatus === "Approved" ||
+    approvalStatus === "Accepted" ||
+    advancePaymentStatus === "Approved";
+
+  // Rule 1: If registration is waiting for approval, payment status is always Pending Approval
   if (!isApproved) {
     return "Pending Approval";
   }

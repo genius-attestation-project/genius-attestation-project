@@ -593,13 +593,14 @@ export async function setRegistrationApproval(
 ) {
   const existing = await prisma.registration.findFirst({
     where: { ownerAdminId, id },
-    select: { id: true, trackingNumber: true, totalCharges: true, advancePaid: true, balanceAmount: true, balanceReceivedAmount: true },
+    select: { id: true, trackingNumber: true, totalCharges: true, advancePaid: true, balanceAmount: true, balanceReceivedAmount: true, advancePaymentStatus: true },
   });
 
   if (!existing) return null;
 
   const newPaymentStatus = calculatePaymentStatus({
     approvalStatus,
+    advancePaymentStatus: existing.advancePaymentStatus,
     totalCharges: Number(existing.totalCharges),
     advancePaid: Number(existing.advancePaid),
     balanceAmount: Number(existing.balanceAmount),
@@ -631,6 +632,7 @@ export async function recalculateAllRegistrationPaymentStatuses() {
       select: {
         id: true,
         approvalStatus: true,
+        advancePaymentStatus: true,
         totalCharges: true,
         advancePaid: true,
         balanceAmount: true,
@@ -642,6 +644,7 @@ export async function recalculateAllRegistrationPaymentStatuses() {
     for (const reg of registrations) {
       const correctStatus = calculatePaymentStatus({
         approvalStatus: reg.approvalStatus,
+        advancePaymentStatus: reg.advancePaymentStatus,
         totalCharges: Number(reg.totalCharges),
         advancePaid: Number(reg.advancePaid),
         balanceAmount: Number(reg.balanceAmount),
