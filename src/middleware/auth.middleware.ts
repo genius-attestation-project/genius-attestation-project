@@ -60,7 +60,7 @@ export const requireAuth = cache(async (callbackUrl = "/dashboard") => {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  
+
   if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     return {
       ...session,
@@ -78,18 +78,32 @@ export const requireAuth = cache(async (callbackUrl = "/dashboard") => {
 export const requirePermission = cache(async (permission: string, callbackUrl = "/dashboard") => {
   const session = await requireAuth(callbackUrl);
 
-  const isAssignedOfficeUser = Boolean(
-    session.user?.isAssignedOffice ||
+  const isAssignedOfficePortalUser = Boolean(
     (session.user as any)?.accountType === "ASSIGNED_OFFICE" ||
     session.user?.role === "AssignedOffice"
   );
 
-  if (isAssignedOfficeUser) {
+  if (isAssignedOfficePortalUser) {
     const officeId = (session.user as any)?.assignedOfficeId || session.user?.officeId || session.user?.id;
-    redirect(`/dashboard/assigned-office/workspace?officeId=${officeId}`);
+    const redirectUrl = `/dashboard/assigned-office/workspace?officeId=${officeId}`;
+    console.info("[auth] requirePermission redirecting AssignedOffice portal user.", {
+      userId: session.user.id,
+      permission,
+      redirectUrl,
+    });
+    redirect(redirectUrl);
   }
 
-  if (!hasPermission(session.user, permission)) {
+  const allowed = hasPermission(session.user, permission);
+  console.info("[auth] requirePermission decision.", {
+    userId: session.user.id,
+    email: session.user.email,
+    permission,
+    allowed,
+    isAssignedOffice: session.user.isAssignedOffice,
+  });
+
+  if (!allowed) {
     return null;
   }
 
@@ -126,7 +140,7 @@ export async function requireApiPermission(permission: string) {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  
+
   if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     return Response.json(
       { message: lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE },
@@ -174,7 +188,7 @@ export async function requireAnyApiPermission(permissions: string[]) {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  
+
   if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     return Response.json(
       { message: lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE },
@@ -219,7 +233,7 @@ export async function requireApiAuth() {
 
   await lockUsersWithMissedFollowups(session.user.ownerAdminId ?? session.user.id);
   const lockState = await getUserLockState(session.user.id);
-  
+
   if (lockState?.isLocked && canUserBeLocked(lockState, session.user.id)) {
     throw new Error(lockState.lockReason ?? FOLLOWUP_LOCK_MESSAGE);
   }

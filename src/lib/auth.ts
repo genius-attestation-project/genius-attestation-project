@@ -36,11 +36,15 @@ const providers = [
 
         let user: any = await (prisma as any).user.findUnique({
           where: { email: parsed.data.email },
+          include: {
+            officeLocationRef: true,
+          },
         });
 
         let isAgency = false;
         let isAssignedOffice = false;
-        
+        let isAssignedOfficeTableUser = false;
+
         if (!user) {
           user = await (prisma as any).assignedOffice.findUnique({
             where: { email: parsed.data.email },
@@ -53,6 +57,7 @@ const providers = [
           if (user) {
             isAssignedOffice = true;
             isAgency = true;
+            isAssignedOfficeTableUser = true;
           }
         }
 
@@ -69,7 +74,7 @@ const providers = [
         }
 
         const passwordHash = user?.passwordHash ?? user?.legacyPasswordHash;
-        const isActive = isAssignedOffice ? (user?.status ?? user?.isActive) : user?.isActive;
+        const isActive = isAssignedOfficeTableUser ? (user?.status ?? user?.isActive) : user?.isActive;
 
         if (!passwordHash || !isActive) {
           authDebugLog("Login blocked because user is missing password or inactive.", {
@@ -92,7 +97,14 @@ const providers = [
           return null;
         }
 
-        if (isAssignedOffice) {
+        const officeLocationId = user?.officeLocationId ?? user?.officeLocationRef?.id ?? null;
+        const officeLocationName = user?.officeLocationRef?.officeName ?? user?.officeLocationName ?? null;
+        const region = user?.officeLocationRef?.location ?? officeLocationName ?? null;
+        if (!isAssignedOfficeTableUser && user) {
+          isAssignedOffice = Boolean(officeLocationId || user.officeLocationRef || officeLocationName);
+        }
+
+        if (isAssignedOfficeTableUser) {
           await (prisma as any).assignedOffice.update({
             where: { id: user.id },
             data: { lastLogin: new Date() },
@@ -109,20 +121,28 @@ const providers = [
           });
         }
 
-        authDebugLog("Credentials login authorized.", {
+        console.info("[auth] Credentials login authorized.", {
+          "user.id": user.id,
           userId: user.id,
           email: user.email,
-          isAssignedOffice,
+          officeLocationId: officeLocationId,
+          "officeLocation.name": officeLocationName,
+          officeLocationName: officeLocationName,
+          region: region,
+          isAssignedOffice: isAssignedOffice,
         });
 
         return {
           id: user.id,
-          name: (isAssignedOffice || isAgency) ? user.username : user.name,
+          name: (isAssignedOfficeTableUser || isAgency) ? user.username : user.name,
           email: user.email,
-          image: (isAssignedOffice || isAgency) ? null : user.image,
+          image: (isAssignedOfficeTableUser || isAgency) ? null : user.image,
           isAgency,
           isAssignedOffice,
+          accountType: isAssignedOfficeTableUser ? "ASSIGNED_OFFICE" : (isAgency ? "AGENCY" : undefined),
           ownerAdminId: user.ownerAdminId,
+          officeLocationId,
+          officeLocationName,
         } as any;
       } catch (error) {
         console.error("[auth] Credentials authorize failed", error);
@@ -156,10 +176,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (!user.email) {
             authDebugLog("Google login failed: no email provided.");
-            console.log("Google email:", user.email);
-            console.log("DB user:", undefined);
-            console.log("DB role:", undefined);
-            console.log("Active:", undefined);
             return denyGoogleLogin();
           }
 
@@ -170,26 +186,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
 
-          console.log("Google email:", user.email);
-          console.log("DB user:", existingUser?.email);
-          console.log("DB role:", existingUser?.role?.name);
-          console.log("Active:", existingUser?.isActive);
-
-          if (!existingUser) {
-            authDebugLog("Google login denied: user not registered.", { email: user.email });
-            return denyGoogleLogin();
-          }
-
-          if (!existingUser.isActive) {
-            authDebugLog("Google login denied: user is inactive.", { email: user.email });
-            return denyGoogleLogin();
-          }
-
-          if (existingUser.role?.name !== "Super Admin") {
-            authDebugLog("Google login denied: user is not a Super Admin.", {
-              email: user.email,
-              role: existingUser.role?.name ?? null,
-            });
+          if (!existingUser || !existingUser.isActive || existingUser.role?.name !== "Super Admin") {
             return denyGoogleLogin();
           }
 
@@ -202,7 +199,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
 
-          authDebugLog("Google admin login authorized.", { email: user.email });
           return true;
         }
 
@@ -219,31 +215,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const isInitialSignIn = !!user;
       const isUpdate = trigger === "update";
-      const needsRefresh = !token.id;
+      const needsRefresh = !token.id || token.isAssignedOffice === undefined;
 
       if (!isInitialSignIn && !isUpdate && !needsRefresh) {
         return token;
       }
 
       try {
-        if (user && ((user as any).isAssignedOffice || (user as any).isAgency)) {
+        if (user && (user as any).accountType === "ASSIGNED_OFFICE") {
           token.id = user.id;
           token.name = user.name;
           token.email = user.email;
           token.isAgency = true;
-          token.isAssignedOffice = Boolean((user as any).isAssignedOffice);
+          token.isAssignedOffice = true;
           token.officeId = user.id;
           token.assignedOfficeId = user.id;
-          token.accountType = (user as any).isAssignedOffice ? "ASSIGNED_OFFICE" : "AGENCY";
+          token.accountType = "ASSIGNED_OFFICE";
           token.ownerAdminId = (user as any).ownerAdminId;
           token.role = "AssignedOffice";
           token.isSuperAdmin = false;
           token.permissions = ["menu.assigned-office", "assigned_office.view"];
           token.roles = ["AssignedOffice"];
+
+          console.info("[auth] JWT Payload (AssignedOffice):", {
+            "user.id": token.id,
+            email: token.email,
+            isAssignedOffice: token.isAssignedOffice,
+            accountType: token.accountType,
+          });
           return token;
         }
-        
-        if (token.isAgency || token.isAssignedOffice) {
+
+        if (user && (user as any).accountType === "AGENCY") {
+          token.id = user.id;
+          token.name = user.name;
+          token.email = user.email;
+          token.isAgency = true;
+          token.isAssignedOffice = false;
+          token.accountType = "AGENCY";
+          token.ownerAdminId = (user as any).ownerAdminId;
+          return token;
+        }
+
+        if (token.accountType === "AGENCY" || token.accountType === "ASSIGNED_OFFICE") {
           return token;
         }
 
@@ -257,6 +271,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ownerAdminId: true,
             officeLocationId: true,
             officeLocationName: true,
+            officeLocationRef: {
+              select: {
+                id: true,
+                officeName: true,
+                location: true,
+              },
+            },
           },
         });
 
@@ -265,6 +286,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const access = await getSessionAccess(dbUser.id);
+
+        const officeLocationId = dbUser.officeLocationId ?? dbUser.officeLocationRef?.id ?? null;
+        const officeLocationName = dbUser.officeLocationRef?.officeName ?? dbUser.officeLocationName ?? null;
+        const region = dbUser.officeLocationRef?.location ?? officeLocationName ?? null;
+        const isAssignedOffice = Boolean(officeLocationId || dbUser.officeLocationRef || officeLocationName);
 
         token.id = dbUser.id;
         token.name = dbUser.name;
@@ -276,11 +302,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.isSuperAdmin = access?.isSuperAdmin ?? false;
 
         token.ownerAdminId = dbUser.ownerAdminId;
-        token.officeLocationId = dbUser.officeLocationId;
-        token.officeLocationName = dbUser.officeLocationName;
+        token.officeLocationId = officeLocationId;
+        token.officeLocationName = officeLocationName;
+        token.isAssignedOffice = isAssignedOffice;
 
         token.roles = access?.roles ?? [];
         token.permissions = access?.permissions ?? [];
+
+        console.info("[auth] JWT Payload:", {
+          "user.id": dbUser.id,
+          email: dbUser.email,
+          role: token.role,
+          officeLocationId: officeLocationId,
+          "officeLocation.name": officeLocationName,
+          officeLocationName: officeLocationName,
+          region: region,
+          isAssignedOffice: isAssignedOffice,
+        });
 
         return token;
       } catch (error) {
@@ -311,7 +349,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             typeof token.isAssignedOffice === "boolean" ? token.isAssignedOffice : false;
 
           (session.user as any).accountType =
-            typeof token.accountType === "string" ? token.accountType : (token.isAssignedOffice ? "ASSIGNED_OFFICE" : undefined);
+            typeof token.accountType === "string" ? token.accountType : undefined;
 
           (session.user as any).assignedOfficeId =
             typeof token.assignedOfficeId === "string" ? token.assignedOfficeId : token.officeId;
@@ -354,6 +392,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             typeof token.isSuperAdmin === "boolean"
               ? token.isSuperAdmin
               : false;
+
+          console.info("[auth] Session Payload:", {
+            "user.id": session.user.id,
+            email: session.user.email,
+            role: session.user.role,
+            officeLocationId: session.user.officeLocationId,
+            "officeLocation.name": session.user.officeLocationName,
+            isAssignedOffice: session.user.isAssignedOffice,
+          });
         }
 
         return session;

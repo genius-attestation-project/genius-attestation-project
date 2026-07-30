@@ -12,8 +12,7 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isAssignedOfficeUser = Boolean(
-        auth?.user?.isAssignedOffice ||
+      const isAssignedOfficePortalUser = Boolean(
         (auth?.user as any)?.accountType === "ASSIGNED_OFFICE" ||
         auth?.user?.role === "AssignedOffice"
       );
@@ -26,14 +25,33 @@ export const authConfig = {
       const isOnWorkspace = nextUrl.pathname.startsWith("/dashboard/assigned-office");
       const isOnLogin = nextUrl.pathname === "/login";
 
+      console.info("[auth] Middleware authorized check:", {
+        path: nextUrl.pathname,
+        isLoggedIn,
+        userId: auth?.user?.id ?? null,
+        isAssignedOffice: auth?.user?.isAssignedOffice ?? false,
+        accountType: (auth?.user as any)?.accountType ?? null,
+      });
+
       if (isOnDashboard) {
-        if (!isLoggedIn) return false;
-        if (isAssignedOfficeUser && !isOnWorkspace) {
+        if (!isLoggedIn) {
+          console.info("[auth] Middleware decision: Redirecting unauthenticated user to login.", {
+            destination: "/login",
+          });
+          return false;
+        }
+        if (isAssignedOfficePortalUser && !isOnWorkspace) {
+          console.info("[auth] Middleware decision: Redirecting AssignedOffice portal user to workspace.", {
+            destination: workspacePath,
+          });
           return Response.redirect(new URL(workspacePath, nextUrl));
         }
         return true;
       } else if (isOnLogin && isLoggedIn) {
-        if (isAssignedOfficeUser) {
+        if (isAssignedOfficePortalUser) {
+          console.info("[auth] Middleware decision: Redirecting logged-in AssignedOffice portal user from login.", {
+            destination: workspacePath,
+          });
           return Response.redirect(new URL(workspacePath, nextUrl));
         }
         const callbackUrl = nextUrl.searchParams.get("callbackUrl");
@@ -41,12 +59,18 @@ export const authConfig = {
           try {
             const parsedUrl = new URL(callbackUrl, nextUrl);
             if (parsedUrl.origin === nextUrl.origin && !parsedUrl.pathname.startsWith("/login")) {
+              console.info("[auth] Middleware decision: Redirecting logged-in user to callbackUrl.", {
+                destination: parsedUrl.toString(),
+              });
               return Response.redirect(parsedUrl);
             }
           } catch (e) {
             // Fallback to /dashboard
           }
         }
+        console.info("[auth] Middleware decision: Redirecting logged-in user from login to dashboard.", {
+          destination: "/dashboard",
+        });
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
       return true;

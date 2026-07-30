@@ -56,29 +56,32 @@ export function LoginForm({ callbackUrl = "/dashboard", error }: LoginFormProps)
         return;
       }
 
-      // Check if logged-in user is an Assigned Office account
+      // Check if logged-in user is a dedicated Assigned Office portal account
       const session = await getSession();
-      const isAssignedOfficeUser = Boolean(
-        session?.user?.isAssignedOffice ||
+      const isAssignedOfficePortalUser = Boolean(
         (session?.user as any)?.accountType === "ASSIGNED_OFFICE" ||
         session?.user?.role === "AssignedOffice"
       );
 
-      if (isAssignedOfficeUser) {
+      console.info("[auth] Client sign-in completed.", {
+        userId: session?.user?.id,
+        email: session?.user?.email,
+        isAssignedOffice: session?.user?.isAssignedOffice,
+        accountType: (session?.user as any)?.accountType,
+        isAssignedOfficePortalUser,
+      });
+
+      if (isAssignedOfficePortalUser) {
         const officeId = (session?.user as any)?.assignedOfficeId || session?.user?.officeId || session?.user?.id;
         const targetUrl = officeId
           ? `/dashboard/assigned-office/workspace?officeId=${officeId}`
           : `/dashboard/assigned-office/workspace`;
+        console.info("[auth] Navigating AssignedOffice portal user.", { targetUrl });
         window.location.assign(targetUrl);
         return;
       }
 
-      const destination = result?.url ?? callbackUrl;
-
-      if (!destination) {
-        setMessage("Login succeeded but no redirect destination was returned.");
-        return;
-      }
+      const destination = callbackUrl && !callbackUrl.includes("/login") ? callbackUrl : "/dashboard";
 
       console.info("[auth] Credentials sign-in succeeded, redirecting.", {
         destination,
