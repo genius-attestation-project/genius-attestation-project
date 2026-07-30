@@ -67,7 +67,7 @@ export function AssignedOfficeWorkspaceClient({
 
   // Transfer To Sub Package Modal
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [transferAssignments, setTransferAssignments] = useState<Record<string, string>>({});
+  const [selectedSubPackageId, setSelectedSubPackageId] = useState<string>("");
   const [transferring, setTransferring] = useState(false);
 
   // Fetch Stats
@@ -181,25 +181,24 @@ export function AssignedOfficeWorkspaceClient({
   // Open Transfer to Sub Package Modal
   const handleOpenTransferModal = () => {
     if (selectedTrackingNumbers.length === 0) return;
-    const initialMap: Record<string, string> = {};
-    selectedTrackingNumbers.forEach((tNum) => {
-      initialMap[tNum] = officeSubPackages[0]?.id || "";
-    });
-    setTransferAssignments(initialMap);
+    setSelectedSubPackageId(officeSubPackages[0]?.id || "");
     setIsTransferModalOpen(true);
   };
 
   // Submit Transfer to Sub Package
   const handleTransferToSubPackageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedSubPackageId) {
+      alert("Please select a Sub Package.");
+      return;
+    }
+
     setTransferring(true);
     try {
-      const payloadItems = Object.entries(transferAssignments).map(
-        ([trackingNumber, subPackageId]) => ({
-          trackingNumber,
-          subPackageId,
-        })
-      );
+      const payloadItems = selectedTrackingNumbers.map((trackingNumber) => ({
+        trackingNumber,
+        subPackageId: selectedSubPackageId,
+      }));
 
       const res = await fetch("/api/assigned-office/workspace", {
         method: "POST",
@@ -213,6 +212,7 @@ export function AssignedOfficeWorkspaceClient({
 
       if (res.ok) {
         setIsTransferModalOpen(false);
+        setSelectedTrackingNumbers([]);
         fetchStats();
         fetchTabData();
       }
@@ -711,14 +711,15 @@ export function AssignedOfficeWorkspaceClient({
       {/* TRANSFER TO SUB PACKAGE MODAL */}
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-white/10">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-blue-600" />
                   Transfer To Sub Package
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Select ONE Sub Package for each document (filtered by Process Type from Master Configuration).
+                  Transfer all selected documents to a single Sub Package.
                 </p>
               </div>
               <button
@@ -729,57 +730,78 @@ export function AssignedOfficeWorkspaceClient({
               </button>
             </div>
 
-            <form onSubmit={handleTransferToSubPackageSubmit} className="space-y-4">
-              <div className="max-h-80 overflow-y-auto space-y-4 rounded-2xl border border-slate-200/60 p-4 dark:border-white/10 bg-slate-50/50 dark:bg-white/5">
-                {selectedTrackingNumbers.map((tNum) => {
-                  const docItem = items.find((i) => i.trackingNumber === tNum);
-                  const docTitle = docItem ? `${docItem.documentType || "Document"} (${docItem.customerName})` : tNum;
-                  const procType = docItem?.processType || "General";
-
-                  return (
-                    <div key={tNum} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0f1115] shadow-xs space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 dark:border-white/10 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+            <form onSubmit={handleTransferToSubPackageSubmit} className="space-y-5">
+              {/* Selected Documents Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <span>Selected Documents ({selectedTrackingNumbers.length})</span>
+                </div>
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3.5 dark:border-white/10 dark:bg-white/5">
+                  <div
+                    className={cn(
+                      "flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1 pr-2 border-0"
+                    )}
+                  >
+                    {selectedTrackingNumbers.map((tNum) => {
+                      const docItem = items.find((i) => i.trackingNumber === tNum);
+                      return (
+                        <div
+                          key={tNum}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs dark:border-white/10 dark:bg-[#0f1115]"
+                        >
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                             {tNum}
                           </span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            • {docTitle}
-                          </span>
+                          {docItem?.customerName && (
+                            <span className="text-[11px] text-slate-500 max-w-[120px] truncate">
+                              • {docItem.customerName}
+                            </span>
+                          )}
                         </div>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                          Process: {procType}
-                        </span>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Select Sub Package (Max 1):
-                        </label>
-                        <select
-                          required
-                          value={transferAssignments[tNum] || ""}
-                          onChange={(e) =>
-                            setTransferAssignments({
-                              ...transferAssignments,
-                              [tNum]: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
-                        >
-                          <option value="">-- Choose Sub Package --</option>
-                          {officeSubPackages.map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.name} {sp.isCorePackage ? "★ (MAIN PROCESS)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
+              {/* Main Process Info */}
+              {items.length > 0 && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-900 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-200 flex items-center justify-between">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">Main Process</span>
+                  <span className="font-bold text-blue-700 dark:text-blue-300">
+                    {items.find((i) => selectedTrackingNumbers.includes(i.trackingNumber))?.processType || "General Process"}
+                  </span>
+                </div>
+              )}
+
+              {/* Sub Package Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Select Sub Package *
+                </label>
+
+                {officeSubPackages.length === 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                    No Sub Packages available for this Main Process.
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={selectedSubPackageId}
+                    onChange={(e) => setSelectedSubPackageId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
+                  >
+                    <option value="">-- Choose Sub Package --</option>
+                    {officeSubPackages.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name} {sp.isCorePackage ? "★ (MAIN PROCESS)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 border-t border-slate-200/80 pt-4 dark:border-white/10">
                 <Button
                   type="button"
@@ -791,9 +813,10 @@ export function AssignedOfficeWorkspaceClient({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={transferring}
-                  className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                  disabled={transferring || officeSubPackages.length === 0 || !selectedSubPackageId}
+                  className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md gap-2"
                 >
+                  <Send size={14} />
                   {transferring ? "Transferring..." : "Confirm Sub Package Transfer"}
                 </Button>
               </div>
