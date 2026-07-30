@@ -249,7 +249,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     }
 
     if (!formSelectedSubPackages.includes(formSelectedCorePackage)) {
-      setFormError("Selected Sub Package must also be checked in Assigned Sub Packages.");
+      setFormError("Selected Main Process must also be checked in Assigned Sub Packages.");
       return;
     }
 
@@ -304,7 +304,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     }
 
     if (!formSelectedSubPackages.includes(formSelectedCorePackage)) {
-      setFormError("Selected Sub Package must also be checked in Assigned Sub Packages.");
+      setFormError("Selected Main Process must also be checked in Assigned Sub Packages.");
       return;
     }
 
@@ -432,7 +432,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
             </h1>
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Manage external processing offices, credentials, process type mappings, sub package, and workspace permissions.
+            Manage external processing offices, credentials, process type mappings, main process, and workspace permissions.
           </p>
         </div>
 
@@ -541,7 +541,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </th>
                 <th className="p-4">Email</th>
                 <th className="p-4">Assigned Process Types</th>
-                <th className="p-4">Assigned Sub Package</th>
+                <th className="p-4">Assigned Main Process</th>
                 <th className="p-4">Assigned Sub Packages</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Last Login</th>
@@ -914,25 +914,29 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
               </div>
 
-              {/* Sub Package */}
+              {/* Main Process */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sub Package *</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Main Process *
+                  </h3>
+                  <span className="text-xs text-amber-600 font-medium dark:text-amber-400">
+                    Mandatory process determining document completion
+                  </span>
+                </div>
                 <select
                   required
                   value={formSelectedCorePackage}
                   onChange={(e) => setFormSelectedCorePackage(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
                 >
-                  <option value="">-- Select ONE Sub Package --</option>
+                  <option value="">-- Select ONE Main Process --</option>
                   {availableSubPackages.map((sp) => (
                     <option key={sp.id} value={sp.id}>
                       {sp.name}
                     </option>
                   ))}
                 </select>
-                {formSelectedCorePackage && !formSelectedSubPackages.includes(formSelectedCorePackage) && (
-                  <span className="text-xs text-slate-400">Sub Package must be included</span>
-                )}
               </div>
 
               {/* Assigned Sub Packages */}
@@ -941,7 +945,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Assigned Sub Packages *
                   </h3>
-                  <span className="text-xs text-slate-400">Sub Package must be included</span>
+                  <span className="text-xs text-slate-400">Main Process must be included</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 max-h-48 overflow-y-auto p-1">
                   {availableSubPackages.map((sp) => {
@@ -1016,7 +1020,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                   Edit Assigned Office
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Update credentials, process mappings, and sub package.
+                  Update credentials, process mappings, and main process.
                 </p>
               </div>
               <button
@@ -1143,16 +1147,16 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
               </div>
 
-              {/* Sub Package */}
+              {/* Main Process */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sub Package *</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Main Process *</h3>
                 <select
                   required
                   value={formSelectedCorePackage}
                   onChange={(e) => setFormSelectedCorePackage(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
                 >
-                  <option value="">-- Select ONE Sub Package --</option>
+                  <option value="">-- Select ONE Main Process --</option>
                   {availableSubPackages.map((sp) => (
                     <option key={sp.id} value={sp.id}>
                       {sp.name}
@@ -1192,7 +1196,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                         <span className="truncate flex-1">{sp.name}</span>
                         {isCore && (
                           <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
-                            CORE
+                            MAIN PROCESS
                           </span>
                         )}
                       </button>
@@ -1287,20 +1291,18 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
               </div>
             </div>
 
-            {/* Sub Package & Subpackages */}
+            {/* Core Package & Subpackages */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Package Configurations
               </h3>
-              <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-500">Sub Package: </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
-                      <Sparkles size={12} />
-                      {selectedOffice.corePackage?.name || "Not assigned"}
-                    </span>
-                  </div>
+              <div className="rounded-2xl border border-slate-200/60 p-4 space-y-3 dark:border-white/10">
+                <div>
+                  <span className="text-xs font-semibold text-slate-500">Main Process: </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+                    <Sparkles size={12} />
+                    {selectedOffice.corePackage?.name || "Not assigned"}
+                  </span>
                 </div>
 
                 <div>
@@ -1318,7 +1320,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                             : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
                         )}
                       >
-                        {sp.name} {sp.isCorePackage ? "(CORE)" : ""}
+                        {sp.name} {sp.isCorePackage ? "(MAIN PROCESS)" : ""}
                       </span>
                     ))}
                   </div>

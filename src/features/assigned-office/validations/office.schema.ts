@@ -19,7 +19,7 @@ export const createOfficeSchema = z
       ),
     confirmPassword: z.string().min(1, "Please confirm password"),
     processTypes: z.array(z.string()).min(1, "Select at least one Process Type"),
-    corePackageId: z.string().min(1, "Sub Package is required"),
+    corePackageId: z.string().min(1, "Main Process is required"),
     subPackages: z.array(z.string()).min(1, "Select at least one Sub Package"),
     status: z.boolean().default(true),
   })
@@ -28,7 +28,7 @@ export const createOfficeSchema = z
     path: ["confirmPassword"],
   })
   .refine((data) => data.subPackages.includes(data.corePackageId), {
-    message: "Sub Package must also be included inside Assigned Sub Packages",
+    message: "Main Process must also be included inside Assigned Sub Packages",
     path: ["corePackageId"],
   });
 
@@ -50,7 +50,7 @@ export const updateOfficeSchema = z
       ),
     confirmPassword: z.string().optional(),
     processTypes: z.array(z.string()).min(1, "Select at least one Process Type").optional(),
-    corePackageId: z.string().min(1, "Sub Package is required").optional(),
+    corePackageId: z.string().min(1, "Main Process is required").optional(),
     subPackages: z.array(z.string()).min(1, "Select at least one Sub Package").optional(),
     status: z.boolean().optional(),
   })
@@ -86,7 +86,7 @@ export const updateOfficeSchema = z
       return true;
     },
     {
-      message: "Sub Package must also be included inside Assigned Sub Packages",
+      message: "Main Process must also be included inside Assigned Sub Packages",
       path: ["corePackageId"],
     }
   );

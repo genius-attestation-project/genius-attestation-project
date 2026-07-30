@@ -253,7 +253,7 @@ export default function MasterConfigurationDynamicPage({
 
     if (isProcessType) {
       cols.push({
-        header: "Sub Package",
+        header: "Main Process",
         accessorKey: "coreSubPackage",
         cell: (item: any) => {
           const core = item.coreSubPackage;
@@ -330,13 +330,13 @@ export default function MasterConfigurationDynamicPage({
           filterComponent={
             isProcessType ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Sub Package:</span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Main Process:</span>
                 <select
                   value={corePackageFilter}
                   onChange={(e) => setCorePackageFilter(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
-                  <option value="">All Sub Packages</option>
+                  <option value="">All Main Processes</option>
                   {availableSubPackages.map((sp: any) => (
                     <option key={sp.id} value={sp.id}>
                       {sp.name}
@@ -399,7 +399,7 @@ export default function MasterConfigurationDynamicPage({
 
               {isProcessType && editingItem?.coreSubPackage && !editingItem.coreSubPackage.isActive && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                  ⚠️ <strong>Warning:</strong> The selected Sub Package ("{editingItem.coreSubPackage.name}") is currently inactive in Master Configuration → Sub Process.
+                  ⚠️ <strong>Warning:</strong> The selected Main Process ("{editingItem.coreSubPackage.name}") is currently inactive in Master Configuration → Sub Process.
                 </div>
               )}
 
@@ -407,7 +407,7 @@ export default function MasterConfigurationDynamicPage({
                 <>
                   <div className="space-y-1.5">
                     <label className="block text-sm font-bold text-slate-900 dark:text-white">
-                      Sub Package
+                      Main Process
                     </label>
                     <SearchableSelect
                       options={availableSubPackages.map((sp: any) => ({
@@ -416,7 +416,7 @@ export default function MasterConfigurationDynamicPage({
                       }))}
                       value={selectedCoreSubPackageId}
                       onChange={(val) => setSelectedCoreSubPackageId(val)}
-                      placeholder="Select Sub Package"
+                      placeholder="Select Main Process"
                       emptyMessage="No Sub Process entries found."
                     />
                   </div>

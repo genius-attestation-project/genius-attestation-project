@@ -752,7 +752,7 @@ function cleanSubPackageId(spId?: string | null): string {
     })),
     corePackageStatus: {
       isCompleted: isCorePackageCompleted,
-      statusLabel: isCorePackageCompleted ? "Completed" : "Pending Core Verification",
+      statusLabel: isCorePackageCompleted ? "Completed" : "Pending Main Process Verification",
       completedAt: registration.updatedAt,
     },
     auditTrail: registration.auditTrail,

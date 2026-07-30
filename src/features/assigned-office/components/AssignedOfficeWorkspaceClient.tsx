@@ -770,7 +770,7 @@ export function AssignedOfficeWorkspaceClient({
                           <option value="">-- Choose Sub Package --</option>
                           {officeSubPackages.map((sp) => (
                             <option key={sp.id} value={sp.id}>
-                              {sp.name} {sp.isCorePackage ? "★ (SUB PACKAGE)" : ""}
+                              {sp.name} {sp.isCorePackage ? "★ (MAIN PROCESS)" : ""}
                             </option>
                           ))}
                         </select>

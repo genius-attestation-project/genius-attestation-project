@@ -120,7 +120,7 @@ export function DocumentMovementDetailsModal({
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block font-medium">Sub Package Status</span>
+                <span className="text-slate-400 block font-medium">Main Process Status</span>
                 <span
                   className={`inline-flex items-center gap-1 font-bold ${
                     details.corePackageStatus.isCompleted ? "text-emerald-600" : "text-amber-600"
