@@ -551,27 +551,6 @@ export default function PaymentModePage() {
               )}
             </div>
 
-            {/* Display Order */}
-            <div className="space-y-1.5">
-              <label className="block text-sm font-bold text-slate-900 dark:text-white">
-                Display Order{" "}
-                <span className="text-[11px] font-normal text-slate-400">
-                  (lower = first)
-                </span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={String(form.displayOrder)}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    displayOrder: parseInt(e.target.value) || 0,
-                  })
-                }
-                className="h-12 w-full min-w-0 rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-[#13151a]"
-              />
-            </div>
 
             {/* Audit log section (edit mode only) */}
             {editingItem && auditLogs.length > 0 && (
