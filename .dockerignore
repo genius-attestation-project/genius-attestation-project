@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+.vscode
+scratch
+*.log
+*.tsbuildinfo
+ts_errors.txt
+.env
+.env.local
+.env.production
+README.md
