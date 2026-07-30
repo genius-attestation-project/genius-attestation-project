@@ -187,7 +187,7 @@ export async function listAssignedOffices(params: {
     const corePackage = corePackageItem
       ? {
         id: corePackageItem.subPackageId,
-        name: spMap.get(corePackageItem.subPackageId) || "Unknown Core Package",
+        name: spMap.get(corePackageItem.subPackageId) || "Unknown Sub Package",
       }
       : null;
 
@@ -360,7 +360,7 @@ export async function createAssignedOffice(
         },
         {
           assignedOfficeId: office.id,
-          action: "Core Package Changed",
+          action: "Sub Package Changed",
           description: `Set Core Sub Package ID: ${input.corePackageId}`,
           performedBy: performedByName || currentUserId,
         },
@@ -489,8 +489,8 @@ export async function updateAssignedOffice(
         })),
       });
       auditLogs.push({
-        action: "Core Package Changed",
-        description: `Set Core Package ID to: ${input.corePackageId}`,
+        action: "Sub Package Changed",
+        description: `Set Sub Package ID to: ${input.corePackageId}`,
       });
       auditLogs.push({
         action: "Sub Package Changed",
@@ -655,7 +655,7 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
       Username: office.username,
       Email: office.email,
       "Assigned Process Types": ptNames,
-      "Assigned Core Package": coreName,
+      "Assigned Sub Package": coreName,
       "Assigned Sub Packages": spNames,
       Status: office.status ? "Active" : "Inactive",
       "Last Login": office.lastLogin ? new Date(office.lastLogin).toLocaleString() : "Never",

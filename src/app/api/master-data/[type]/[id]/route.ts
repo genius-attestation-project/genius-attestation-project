@@ -212,7 +212,7 @@ export async function PUT(
             where: { id: coreSubPackageId, ownerAdminId },
           });
           if (!validCore) {
-            return NextResponse.json({ message: "Selected Core Package was not found." }, { status: 400 });
+            return NextResponse.json({ message: "Selected Sub Package was not found." }, { status: 400 });
           }
         }
         updateData.coreSubPackageId = coreSubPackageId || null;
