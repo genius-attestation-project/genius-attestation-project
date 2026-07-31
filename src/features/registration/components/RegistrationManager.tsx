@@ -1334,7 +1334,7 @@ export function RegistrationManager({
             />
           </Section>
 
-          <Section title="Section 2: Document Upload">
+          <Section title="Section 2: Document Details">
             <label className="grid gap-2">
               <span className="text-sm font-bold">Document Type</span>
               <SearchableSelect
@@ -1419,7 +1419,7 @@ export function RegistrationManager({
             />
           </Section>
 
-          <Section title="Section 3: Commercial / Payment Details">
+          <Section title="Section 3: Payment Details">
             {selected?.advancePaymentStatus === "Rejected" && (
               <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
                 <span className="font-bold">Advance Payment Was Rejected:</span>{" "}
