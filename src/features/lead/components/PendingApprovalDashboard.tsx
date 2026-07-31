@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, Eye, FileText, IndianRupee, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Download, Eye, FileText, IndianRupee, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -10,6 +10,68 @@ import { Textarea } from "@/components/ui/Textarea";
 
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { Building2, CheckCircle2, Pencil, XCircle } from "lucide-react";
+
+function AgreementCell({ file }: { file: any }) {
+  if (!file) {
+    return <span className="text-xs text-slate-400 dark:text-slate-500 italic font-medium">No Agreement Uploaded</span>;
+  }
+
+  const fileName = file.originalName || file.fileName || file.name || "Agreement Document";
+  const ext = (file.extension || fileName.split(".").pop() || "").toLowerCase().replace(".", "");
+  const isPreviewable = ["pdf", "jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+
+  const fileUrl = file.id ? `/api/files/${file.id}/view` : file.url || "#";
+
+  const handlePreview = () => {
+    if (isPreviewable) {
+      window.open(fileUrl, "_blank");
+    } else {
+      handleDownload();
+    }
+  };
+
+  const handleDownload = () => {
+    const a = document.createElement("a");
+    a.href = fileUrl;
+    a.download = fileName;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 min-w-[180px]">
+      <button
+        type="button"
+        onClick={handlePreview}
+        title={isPreviewable ? `Preview ${fileName}` : `Download ${fileName}`}
+        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300 text-left truncate max-w-[200px]"
+      >
+        <FileText size={14} className="shrink-0 text-blue-500" />
+        <span className="truncate">{fileName}</span>
+      </button>
+      <div className="flex items-center gap-1.5 pt-0.5">
+        {isPreviewable && (
+          <button
+            type="button"
+            onClick={handlePreview}
+            className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:hover:bg-blue-500/25 transition-colors"
+          >
+            <Eye size={12} /> Preview
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20 transition-colors"
+        >
+          <Download size={12} /> Download
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
 type MainTabKey = "advance_payment" | "corporate_approval" | "lob" | "inactive" | "overdue";
@@ -409,23 +471,7 @@ export function PendingApprovalDashboard() {
                           {item.address || "-"}
                         </td>
                         <td className="px-5 py-4">
-                          {item.agreementFile ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const url = item.agreementFile.url && !item.agreementFile.url.startsWith("http")
-                                  ? item.agreementFile.url
-                                  : `/api/files/${item.agreementFile.id}/view`;
-                                window.open(url, "_blank");
-                              }}
-                              className="text-xs text-blue-600 dark:text-blue-400"
-                            >
-                              <FileText size={14} className="mr-1" /> Agreement
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-soft">No Document</span>
-                          )}
+                          <AgreementCell file={item.agreementFile} />
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900 dark:text-white">{item.createdBy || "System User"}</p>

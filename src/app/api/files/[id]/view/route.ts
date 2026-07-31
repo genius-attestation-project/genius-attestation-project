@@ -26,10 +26,13 @@ export async function GET(
         hasPermission(userAccess, "revenue_registration.view") ||
         hasPermission(userAccess, "registrations.view") ||
         hasPermission(userAccess, "pending_approval.view") ||
+        hasPermission(userAccess, "corporate_details.view") ||
+        hasPermission(userAccess, "corporate_details_approval.view") ||
+        hasPermission(userAccess, "master_configuration.view") ||
         hasPermission(userAccess, "lead_management.view");
 
       if (!allowed) {
-        return NextResponse.json({ error: "Forbidden: Insufficient permissions to view file receipt." }, { status: 403 });
+        return NextResponse.json({ error: "Forbidden: Insufficient permissions to view file." }, { status: 403 });
       }
     }
 
