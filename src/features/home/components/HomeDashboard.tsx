@@ -21,6 +21,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { FormDrawer } from "@/components/ui/FormDrawer";
+import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 
 type MovementModalAction =
   | "COMPLETED"
@@ -137,19 +138,9 @@ export function MovementModal({
         )}
 
         {selectedDocuments && selectedDocuments.length > 0 && (
-          <div className="max-h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-white/10 bg-slate-50/50">
+          <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-white/10 bg-slate-50/50">
             {selectedDocuments.map((doc: any, i: number) => (
-              <div key={doc.trackingNumber || i} className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-white/10 dark:bg-[#0f1115] space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{doc.trackingNumber}</span>
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">{doc.status || doc.currentStatus || "In Hand"}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-                  {doc.customerName && <span>Customer: <strong>{doc.customerName}</strong></span>}
-                  {doc.documentType && <span>Doc: <strong>{doc.documentType}</strong></span>}
-                  {doc.mainProcess && <span>Process: <strong>{doc.mainProcess}</strong></span>}
-                </div>
-              </div>
+              <DocumentInfoCard key={doc.trackingNumber || i} document={doc} compact />
             ))}
           </div>
         )}
