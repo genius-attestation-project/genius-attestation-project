@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, FileUp, Loader2, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Download, Eye, FileText, FileUp, Loader2, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -96,34 +96,76 @@ export function FileUpload({
   };
 
   if (existingFile && !file) {
+    const fileName = existingFile.fileName || "Uploaded File";
+    const ext = (fileName.split(".").pop() || "").toLowerCase().replace(".", "");
+    const isPreviewable = ["pdf", "jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+
+    const fileUrl = existingFile.id
+      ? `/api/files/${existingFile.id}/view`
+      : existingFile.url && !existingFile.url.startsWith("http")
+      ? existingFile.url
+      : existingFile.url || "#";
+
+    const handleView = () => {
+      if (isPreviewable) {
+        window.open(fileUrl, "_blank");
+      } else {
+        handleDownload();
+      }
+    };
+
+    const handleDownload = () => {
+      const a = document.createElement("a");
+      a.href = fileUrl;
+      a.download = fileName;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
     return (
       <div className="grid gap-2">
         <span className="text-sm font-bold">{label}</span>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200">
-          <span className="grid min-w-0 gap-1">
-            <span className="truncate">{existingFile.fileName}</span>
-          </span>
-          <div className="flex gap-2">
-            {existingFile.url || existingFile.id ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const targetUrl = existingFile.url && !existingFile.url.startsWith("http")
-                    ? existingFile.url
-                    : `/api/files/${existingFile.id}/view`;
-                  window.open(targetUrl, "_blank");
-                }}
-                type="button"
-              >
-                Preview
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="sm" onClick={handleReplace} type="button">
-              <RefreshCw size={16} /> Replace
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 py-3 text-sm font-semibold text-slate-800 dark:bg-white/5 dark:text-slate-200">
+          <div className="flex items-center gap-2 min-w-0 max-w-[220px]">
+            <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <button
+              type="button"
+              onClick={handleView}
+              title={isPreviewable ? `View ${fileName}` : `Download ${fileName}`}
+              className="truncate text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300 font-semibold text-left"
+            >
+              {fileName}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleView}
+              type="button"
+              className="text-xs"
+            >
+              <Eye size={14} className="mr-1" /> View
             </Button>
-            <Button variant="danger" size="sm" onClick={onRemove} type="button">
-              <Trash2 size={16} /> Delete
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownload}
+              type="button"
+              className="text-xs"
+            >
+              <Download size={14} className="mr-1" /> Download
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReplace}
+              type="button"
+              className="text-xs"
+            >
+              <RefreshCw size={14} className="mr-1" /> Replace
             </Button>
           </div>
         </div>

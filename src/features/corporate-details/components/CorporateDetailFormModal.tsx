@@ -47,6 +47,7 @@ export function CorporateDetailFormModal({
   });
 
   const [agreementFileId, setAgreementFileId] = useState<string | null>(null);
+  const [existingFile, setExistingFile] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,6 +64,7 @@ export function CorporateDetailFormModal({
         isActive: initialData.isActive ?? true,
       });
       setAgreementFileId(initialData.agreementFileId || null);
+      setExistingFile((initialData as any).agreementFile || null);
     } else {
       setForm({
         companyName: "",
@@ -74,6 +76,7 @@ export function CorporateDetailFormModal({
         isActive: true,
       });
       setAgreementFileId(null);
+      setExistingFile(null);
     }
     setError("");
   }, [initialData, open]);
@@ -190,15 +193,20 @@ export function CorporateDetailFormModal({
         <FileUpload
           label="Agreement Upload (Optional)"
           moduleName="Corporate Details"
-          accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp"
-          onUploadComplete={(id) => setAgreementFileId(id)}
-          onRemove={() => setAgreementFileId(null)}
+          accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp,.xls,.xlsx"
+          onUploadComplete={(id) => {
+            setAgreementFileId(id);
+          }}
+          onRemove={() => {
+            setAgreementFileId(null);
+            setExistingFile(null);
+          }}
           existingFile={
-            initialData && (initialData as any).agreementFile
+            existingFile
               ? {
-                  id: (initialData as any).agreementFile.id,
-                  fileName: (initialData as any).agreementFile.originalName || "Agreement Document",
-                  url: (initialData as any).agreementFile.url,
+                  id: existingFile.id,
+                  fileName: existingFile.originalName || existingFile.fileName || "Agreement Document",
+                  url: existingFile.url,
                 }
               : undefined
           }
