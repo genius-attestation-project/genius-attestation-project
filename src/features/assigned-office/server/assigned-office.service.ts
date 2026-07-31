@@ -310,6 +310,41 @@ export async function createAssignedOffice(
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(input.password, salt);
 
+  const subPkgIds = input.subPackages || [];
+  let derivedProcessTypeIds = input.processTypes || [];
+  let derivedCorePackageId = input.corePackageId || "";
+
+  if (subPkgIds.length > 0) {
+    const matchingProcessTypes = await prisma.masterData.findMany({
+      where: {
+        type: "PROCESS_TYPES",
+        ownerAdminId,
+        isActive: true,
+        isArchived: false,
+        subPackages: {
+          some: {
+            id: { in: subPkgIds },
+          },
+        },
+      },
+      select: {
+        id: true,
+        coreSubPackageId: true,
+      },
+    });
+
+    if (!derivedProcessTypeIds || derivedProcessTypeIds.length === 0) {
+      derivedProcessTypeIds = matchingProcessTypes.map((pt) => pt.id);
+    }
+
+    if (!derivedCorePackageId) {
+      const foundCore = matchingProcessTypes.find(
+        (pt) => pt.coreSubPackageId && subPkgIds.includes(pt.coreSubPackageId)
+      );
+      derivedCorePackageId = foundCore?.coreSubPackageId || subPkgIds[0] || "";
+    }
+  }
+
   return prisma.$transaction(async (tx: any) => {
     const office = await tx.assignedOffice.create({
       data: {
@@ -323,9 +358,9 @@ export async function createAssignedOffice(
     });
 
     // Create process type assignments
-    if (input.processTypes && input.processTypes.length > 0) {
+    if (derivedProcessTypeIds && derivedProcessTypeIds.length > 0) {
       await tx.assignedOfficeProcessType.createMany({
-        data: input.processTypes.map((ptId: any) => ({
+        data: derivedProcessTypeIds.map((ptId: any) => ({
           assignedOfficeId: office.id,
           processTypeId: ptId,
         })),
@@ -333,12 +368,12 @@ export async function createAssignedOffice(
     }
 
     // Create subpackage assignments
-    if (input.subPackages && input.subPackages.length > 0) {
+    if (subPkgIds && subPkgIds.length > 0) {
       await tx.assignedOfficeSubPackage.createMany({
-        data: input.subPackages.map((spId: any) => ({
+        data: subPkgIds.map((spId: any) => ({
           assignedOfficeId: office.id,
           subPackageId: spId,
-          isCorePackage: spId === input.corePackageId,
+          isCorePackage: spId === derivedCorePackageId,
         })),
       });
     }
@@ -355,19 +390,13 @@ export async function createAssignedOffice(
         {
           assignedOfficeId: office.id,
           action: "Process Type Changed",
-          description: `Assigned ${input.processTypes.length} Process Type(s).`,
-          performedBy: performedByName || currentUserId,
-        },
-        {
-          assignedOfficeId: office.id,
-          action: "Main Process Changed",
-          description: `Set Main Process ID: ${input.corePackageId}`,
+          description: `Assigned ${derivedProcessTypeIds.length} Process Type(s).`,
           performedBy: performedByName || currentUserId,
         },
         {
           assignedOfficeId: office.id,
           action: "Sub Package Changed",
-          description: `Assigned ${input.subPackages.length} Sub Package(s).`,
+          description: `Assigned ${subPkgIds.length} Sub Package(s).`,
           performedBy: performedByName || currentUserId,
         },
       ],
@@ -461,40 +490,69 @@ export async function updateAssignedOffice(
       data: updateData,
     });
 
-    if (input.processTypes && input.processTypes.length > 0) {
+    if (input.subPackages && input.subPackages.length > 0) {
+      const subPkgIds = input.subPackages;
+      let derivedProcessTypeIds = input.processTypes || [];
+      let derivedCorePackageId = input.corePackageId || "";
+
+      const matchingProcessTypes = await prisma.masterData.findMany({
+        where: {
+          type: "PROCESS_TYPES",
+          ownerAdminId,
+          isActive: true,
+          isArchived: false,
+          subPackages: {
+            some: {
+              id: { in: subPkgIds },
+            },
+          },
+        },
+        select: {
+          id: true,
+          coreSubPackageId: true,
+        },
+      });
+
+      if (!derivedProcessTypeIds || derivedProcessTypeIds.length === 0) {
+        derivedProcessTypeIds = matchingProcessTypes.map((pt) => pt.id);
+      }
+
+      if (!derivedCorePackageId) {
+        const foundCore = matchingProcessTypes.find(
+          (pt) => pt.coreSubPackageId && subPkgIds.includes(pt.coreSubPackageId)
+        );
+        derivedCorePackageId = foundCore?.coreSubPackageId || subPkgIds[0] || "";
+      }
+
       await tx.assignedOfficeProcessType.deleteMany({
         where: { assignedOfficeId: id },
       });
-      await tx.assignedOfficeProcessType.createMany({
-        data: input.processTypes.map((ptId: any) => ({
-          assignedOfficeId: id,
-          processTypeId: ptId,
-        })),
-      });
+      if (derivedProcessTypeIds.length > 0) {
+        await tx.assignedOfficeProcessType.createMany({
+          data: derivedProcessTypeIds.map((ptId: any) => ({
+            assignedOfficeId: id,
+            processTypeId: ptId,
+          })),
+        });
+      }
       auditLogs.push({
         action: "Process Type Changed",
-        description: `Updated assigned Process Types to ${input.processTypes.length} item(s).`,
+        description: `Updated assigned Process Types to ${derivedProcessTypeIds.length} item(s).`,
       });
-    }
 
-    if (input.subPackages && input.subPackages.length > 0 && input.corePackageId) {
       await tx.assignedOfficeSubPackage.deleteMany({
         where: { assignedOfficeId: id },
       });
       await tx.assignedOfficeSubPackage.createMany({
-        data: input.subPackages.map((spId: any) => ({
+        data: subPkgIds.map((spId: any) => ({
           assignedOfficeId: id,
           subPackageId: spId,
-          isCorePackage: spId === input.corePackageId,
+          isCorePackage: spId === derivedCorePackageId,
         })),
       });
       auditLogs.push({
-        action: "Main Process Changed",
-        description: `Set Main Process ID to: ${input.corePackageId}`,
-      });
-      auditLogs.push({
         action: "Sub Package Changed",
-        description: `Updated assigned Sub Packages to ${input.subPackages.length} item(s).`,
+        description: `Updated assigned Sub Packages to ${subPkgIds.length} item(s).`,
       });
     }
 

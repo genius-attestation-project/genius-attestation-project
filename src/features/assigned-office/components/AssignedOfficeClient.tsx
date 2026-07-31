@@ -51,6 +51,7 @@ type ProcessTypeOption = {
 type SubPackageOption = {
   id: string;
   name: string;
+  description?: string | null;
 };
 
 type AssignedOfficeItem = {
@@ -108,9 +109,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
   const [formConfirmPassword, setFormConfirmPassword] = useState("");
   const [formShowPassword, setFormShowPassword] = useState(false);
   const [formStatus, setFormStatus] = useState(true);
-  const [formSelectedProcessTypes, setFormSelectedProcessTypes] = useState<string[]>([]);
-  const [formSelectedCorePackage, setFormSelectedCorePackage] = useState<string>("");
   const [formSelectedSubPackages, setFormSelectedSubPackages] = useState<string[]>([]);
+  const [subProcessSearch, setSubProcessSearch] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
@@ -161,20 +161,25 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     fetchOffices();
   }, [fetchOffices]);
 
-  // Derived options based on selected Process Types
-  const availableSubPackages = useMemo(() => {
-    if (formSelectedProcessTypes.length === 0) return masterSubPackages;
+  // Sub Processes search filtering
+  const filteredSubPackages = useMemo(() => {
+    if (!subProcessSearch.trim()) return masterSubPackages;
+    const q = subProcessSearch.toLowerCase().trim();
+    return masterSubPackages.filter(
+      (sp) =>
+        sp.name.toLowerCase().includes(q) ||
+        (sp.description && sp.description.toLowerCase().includes(q))
+    );
+  }, [masterSubPackages, subProcessSearch]);
 
-    const allowedSubPkgIds = new Set<string>();
-    masterProcessTypes.forEach((pt) => {
-      if (formSelectedProcessTypes.includes(pt.id)) {
-        pt.subPackageIds.forEach((id) => allowedSubPkgIds.add(id));
-      }
-    });
+  const handleSelectAllSubProcesses = () => {
+    const allIds = masterSubPackages.map((sp) => sp.id);
+    setFormSelectedSubPackages(allIds);
+  };
 
-    if (allowedSubPkgIds.size === 0) return masterSubPackages;
-    return masterSubPackages.filter((sp) => allowedSubPkgIds.has(sp.id));
-  }, [formSelectedProcessTypes, masterProcessTypes, masterSubPackages]);
+  const handleClearAllSubProcesses = () => {
+    setFormSelectedSubPackages([]);
+  };
 
   // Reset form
   const resetForm = () => {
@@ -184,9 +189,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     setFormConfirmPassword("");
     setFormShowPassword(false);
     setFormStatus(true);
-    setFormSelectedProcessTypes([]);
-    setFormSelectedCorePackage("");
     setFormSelectedSubPackages([]);
+    setSubProcessSearch("");
     setFormError(null);
   };
 
@@ -205,9 +209,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     setFormConfirmPassword("");
     setFormShowPassword(false);
     setFormStatus(office.status);
-    setFormSelectedProcessTypes(office.assignedProcessTypes.map((pt) => pt.id));
-    setFormSelectedCorePackage(office.corePackage ? office.corePackage.id : "");
     setFormSelectedSubPackages(office.assignedSubPackages.map((sp) => sp.id));
+    setSubProcessSearch("");
     setFormError(null);
     setIsEditOpen(true);
   };
@@ -248,8 +251,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
       return;
     }
 
-    if (!formSelectedSubPackages.includes(formSelectedCorePackage)) {
-      setFormError("Selected Main Process must also be checked in Assigned Sub Packages.");
+    if (!formSelectedSubPackages || formSelectedSubPackages.length === 0) {
+      setFormError("Please select at least one Sub Process.");
       return;
     }
 
@@ -263,8 +266,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
           email: formEmail,
           password: formPassword,
           confirmPassword: formConfirmPassword,
-          processTypes: formSelectedProcessTypes,
-          corePackageId: formSelectedCorePackage,
           subPackages: formSelectedSubPackages,
           status: formStatus,
         }),
@@ -303,8 +304,8 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
       return;
     }
 
-    if (!formSelectedSubPackages.includes(formSelectedCorePackage)) {
-      setFormError("Selected Main Process must also be checked in Assigned Sub Packages.");
+    if (!formSelectedSubPackages || formSelectedSubPackages.length === 0) {
+      setFormError("Please select at least one Sub Process.");
       return;
     }
 
@@ -318,8 +319,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
           email: formEmail,
           password: hasNewPassword ? formPassword : undefined,
           confirmPassword: hasNewPassword ? formConfirmPassword : undefined,
-          processTypes: formSelectedProcessTypes,
-          corePackageId: formSelectedCorePackage,
           subPackages: formSelectedSubPackages,
           status: formStatus,
         }),
@@ -874,116 +873,91 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
               </div>
 
-              {/* Process Type Assignment */}
+              {/* Assigned Sub Processes Checklist Section */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Assigned Process Types *
-                  </h3>
-                  <span className="text-xs text-slate-400">Multiple selection allowed</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Assigned Sub Processes *
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Select one or more Sub Processes assigned to this office.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSubProcesses}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-slate-300 dark:text-white/20">•</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllSubProcesses}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline dark:text-slate-400"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 max-h-40 overflow-y-auto p-1">
-                  {masterProcessTypes.map((pt) => {
-                    const isSelected = formSelectedProcessTypes.includes(pt.id);
-                    return (
-                      <button
-                        type="button"
-                        key={pt.id}
-                        onClick={() => {
-                          setFormSelectedProcessTypes((prev) =>
-                            isSelected ? prev.filter((id) => id !== pt.id) : [...prev, pt.id]
-                          );
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl border p-3 text-left transition-all text-xs font-semibold",
-                          isSelected
-                            ? "border-blue-500 bg-blue-50/80 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200"
-                            : "border-slate-200 bg-slate-50/40 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          readOnly
-                          className="rounded border-slate-300 text-blue-600"
-                        />
-                        <span className="truncate">{pt.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
 
-              {/* Main Process */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Main Process *
-                  </h3>
-                  <span className="text-xs text-amber-600 font-medium dark:text-amber-400">
-                    Mandatory process determining document completion
-                  </span>
+                {/* Search Box */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search Sub Processes..."
+                    value={subProcessSearch}
+                    onChange={(e) => setSubProcessSearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
+                  />
                 </div>
-                <select
-                  required
-                  value={formSelectedCorePackage}
-                  onChange={(e) => setFormSelectedCorePackage(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
-                >
-                  <option value="">-- Select ONE Main Process --</option>
-                  {availableSubPackages.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              {/* Assigned Sub Packages */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Assigned Sub Packages *
-                  </h3>
-                  <span className="text-xs text-slate-400">Main Process must be included</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 max-h-48 overflow-y-auto p-1">
-                  {availableSubPackages.map((sp) => {
-                    const isSelected = formSelectedSubPackages.includes(sp.id);
-                    const isCore = sp.id === formSelectedCorePackage;
-                    return (
-                      <button
-                        type="button"
-                        key={sp.id}
-                        onClick={() => {
-                          setFormSelectedSubPackages((prev) =>
-                            isSelected ? prev.filter((id) => id !== sp.id) : [...prev, sp.id]
-                          );
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl border p-3 text-left transition-all text-xs font-semibold",
-                          isSelected
-                            ? isCore
-                              ? "border-amber-500 bg-amber-50 text-amber-900 font-bold dark:bg-amber-500/20 dark:text-amber-200"
-                              : "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200"
-                            : "border-slate-200 bg-slate-50/40 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          readOnly
-                          className="rounded border-slate-300 text-blue-600"
-                        />
-                        <span className="truncate flex-1">{sp.name}</span>
-                        {isCore && (
-                          <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-500/30 dark:text-amber-100">
-                            CORE
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                {/* Cards Checklist Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+                  {filteredSubPackages.length === 0 ? (
+                    <div className="col-span-full p-4 text-center text-xs text-slate-400">
+                      No Sub Processes found matching your search.
+                    </div>
+                  ) : (
+                    filteredSubPackages.map((sp) => {
+                      const isSelected = formSelectedSubPackages.includes(sp.id);
+                      return (
+                        <button
+                          type="button"
+                          key={sp.id}
+                          onClick={() => {
+                            setFormSelectedSubPackages((prev) =>
+                              isSelected ? prev.filter((id) => id !== sp.id) : [...prev, sp.id]
+                            );
+                          }}
+                          className={cn(
+                            "flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+                            isSelected
+                              ? "border-blue-500 bg-blue-50/80 text-blue-900 shadow-xs dark:bg-blue-500/20 dark:border-blue-500/50 dark:text-blue-200"
+                              : "border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#0f1115] dark:text-slate-300 dark:hover:bg-white/5"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate leading-tight">{sp.name}</p>
+                            {sp.description && (
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-normal">
+                                {sp.description}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -1020,7 +994,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                   Edit Assigned Office
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Update credentials, process mappings, and main process.
+                  Update credentials and assigned sub processes.
                 </p>
               </div>
               <button
@@ -1113,95 +1087,91 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
               </div>
 
-              {/* Process Type Assignment */}
+              {/* Assigned Sub Processes Checklist Section */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Assigned Process Types *
-                  </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Assigned Sub Processes *
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Select one or more Sub Processes assigned to this office.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSubProcesses}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-slate-300 dark:text-white/20">•</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllSubProcesses}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline dark:text-slate-400"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 max-h-40 overflow-y-auto p-1">
-                  {masterProcessTypes.map((pt) => {
-                    const isSelected = formSelectedProcessTypes.includes(pt.id);
-                    return (
-                      <button
-                        type="button"
-                        key={pt.id}
-                        onClick={() => {
-                          setFormSelectedProcessTypes((prev) =>
-                            isSelected ? prev.filter((id) => id !== pt.id) : [...prev, pt.id]
-                          );
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl border p-3 text-left transition-all text-xs font-semibold",
-                          isSelected
-                            ? "border-blue-500 bg-blue-50/80 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200"
-                            : "border-slate-200 bg-slate-50/40 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-                        )}
-                      >
-                        <input type="checkbox" checked={isSelected} readOnly className="rounded" />
-                        <span className="truncate">{pt.name}</span>
-                      </button>
-                    );
-                  })}
+
+                {/* Search Box */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search Sub Processes..."
+                    value={subProcessSearch}
+                    onChange={(e) => setSubProcessSearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
+                  />
                 </div>
-              </div>
 
-              {/* Main Process */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Main Process *</h3>
-                <select
-                  required
-                  value={formSelectedCorePackage}
-                  onChange={(e) => setFormSelectedCorePackage(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-semibold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-[#0f1115] dark:text-white"
-                >
-                  <option value="">-- Select ONE Main Process --</option>
-                  {availableSubPackages.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Assigned Sub Packages */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Assigned Sub Packages *
-                </h3>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 max-h-48 overflow-y-auto p-1">
-                  {availableSubPackages.map((sp) => {
-                    const isSelected = formSelectedSubPackages.includes(sp.id);
-                    const isCore = sp.id === formSelectedCorePackage;
-                    return (
-                      <button
-                        type="button"
-                        key={sp.id}
-                        onClick={() => {
-                          setFormSelectedSubPackages((prev) =>
-                            isSelected ? prev.filter((id) => id !== sp.id) : [...prev, sp.id]
-                          );
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl border p-3 text-left transition-all text-xs font-semibold",
-                          isSelected
-                            ? isCore
-                              ? "border-amber-500 bg-amber-50 text-amber-900 font-bold dark:bg-amber-500/20 dark:text-amber-200"
-                              : "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200"
-                            : "border-slate-200 bg-slate-50/40 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-                        )}
-                      >
-                        <input type="checkbox" checked={isSelected} readOnly className="rounded" />
-                        <span className="truncate flex-1">{sp.name}</span>
-                        {isCore && (
-                          <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
-                            MAIN PROCESS
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                {/* Cards Checklist Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+                  {filteredSubPackages.length === 0 ? (
+                    <div className="col-span-full p-4 text-center text-xs text-slate-400">
+                      No Sub Processes found matching your search.
+                    </div>
+                  ) : (
+                    filteredSubPackages.map((sp) => {
+                      const isSelected = formSelectedSubPackages.includes(sp.id);
+                      return (
+                        <button
+                          type="button"
+                          key={sp.id}
+                          onClick={() => {
+                            setFormSelectedSubPackages((prev) =>
+                              isSelected ? prev.filter((id) => id !== sp.id) : [...prev, sp.id]
+                            );
+                          }}
+                          className={cn(
+                            "flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+                            isSelected
+                              ? "border-blue-500 bg-blue-50/80 text-blue-900 shadow-xs dark:bg-blue-500/20 dark:border-blue-500/50 dark:text-blue-200"
+                              : "border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#0f1115] dark:text-slate-300 dark:hover:bg-white/5"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate leading-tight">{sp.name}</p>
+                            {sp.description && (
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-normal">
+                                {sp.description}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 

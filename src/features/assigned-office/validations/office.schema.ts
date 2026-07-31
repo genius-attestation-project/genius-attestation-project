@@ -18,18 +18,14 @@ export const createOfficeSchema = z
         "Password must contain at least one uppercase letter, one lowercase letter, and one number"
       ),
     confirmPassword: z.string().min(1, "Please confirm password"),
-    processTypes: z.array(z.string()).min(1, "Select at least one Process Type"),
-    corePackageId: z.string().min(1, "Main Process is required"),
-    subPackages: z.array(z.string()).min(1, "Select at least one Sub Package"),
+    processTypes: z.array(z.string()).optional(),
+    corePackageId: z.string().optional(),
+    subPackages: z.array(z.string()).min(1, "Select at least one Sub Process"),
     status: z.boolean().default(true),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
-  .refine((data) => data.subPackages.includes(data.corePackageId), {
-    message: "Main Process must also be included inside Assigned Sub Packages",
-    path: ["corePackageId"],
   });
 
 export const updateOfficeSchema = z
@@ -49,9 +45,9 @@ export const updateOfficeSchema = z
         "Password must be at least 8 characters and contain uppercase, lowercase, and a number"
       ),
     confirmPassword: z.string().optional(),
-    processTypes: z.array(z.string()).min(1, "Select at least one Process Type").optional(),
-    corePackageId: z.string().min(1, "Main Process is required").optional(),
-    subPackages: z.array(z.string()).min(1, "Select at least one Sub Package").optional(),
+    processTypes: z.array(z.string()).optional(),
+    corePackageId: z.string().optional(),
+    subPackages: z.array(z.string()).min(1, "Select at least one Sub Process").optional(),
     status: z.boolean().optional(),
   })
   .refine(
@@ -76,18 +72,6 @@ export const updateOfficeSchema = z
     {
       message: "Passwords do not match.",
       path: ["confirmPassword"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.corePackageId && data.subPackages) {
-        return data.subPackages.includes(data.corePackageId);
-      }
-      return true;
-    },
-    {
-      message: "Main Process must also be included inside Assigned Sub Packages",
-      path: ["corePackageId"],
     }
   );
 
