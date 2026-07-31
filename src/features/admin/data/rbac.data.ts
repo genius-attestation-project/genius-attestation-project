@@ -140,20 +140,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
-        label: "Services",
-        href: "/dashboard/master-configuration/services",
-        icon: Settings2,
-        menuPermission: "menu.master-configuration.services",
-        pagePermission: "master_configuration.view",
-      },
-      {
-        label: "Process Status",
-        href: "/dashboard/master-configuration/process-status",
-        icon: ListChecks,
-        menuPermission: "menu.master-configuration.process-status",
-        pagePermission: "master_configuration.view",
-      },
-      {
         label: "Payment Mode",
         href: "/dashboard/master-configuration/payment-mode",
         icon: CreditCard,

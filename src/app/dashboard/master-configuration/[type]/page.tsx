@@ -19,8 +19,6 @@ const pageTitles: Record<string, string> = {
   "sub-packages": "Sub Process",
   "customer-types": "Customer Types",
   "lead-sources": "Lead Sources",
-  "services": "Services",
-  "process-status": "Process Status",
 };
 
 export default function MasterConfigurationDynamicPage({
@@ -30,6 +28,12 @@ export default function MasterConfigurationDynamicPage({
 }) {
   const router = useRouter();
   const { type: slug } = use(params);
+
+  useEffect(() => {
+    if (slug === "services" || slug === "process-status") {
+      router.replace("/dashboard/master-configuration/document-types");
+    }
+  }, [slug, router]);
   
   const isDocumentType = slug === "document-types";
   const isDocumentTypeCategory = slug === "document-type-categories";
