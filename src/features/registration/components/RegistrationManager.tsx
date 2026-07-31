@@ -28,7 +28,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
-import { FileUpload } from "@/components/common/FileUpload";
+import { FileUpload, MultiFileUpload } from "@/components/common/FileUpload";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
@@ -341,10 +341,10 @@ export function RegistrationManager({
     ...blankForm,
     trackingNumber: initialTrackingNumber,
   });
-  const [documentFileId, setDocumentFileId] = useState<string | null>(null);
-  const [invoiceFileId, setInvoiceFileId] = useState<string | null>(null);
-  const [supportingFileId, setSupportingFileId] = useState<string | null>(null);
-  const [advancePaymentFileId, setAdvancePaymentFileId] = useState<string | null>(null);
+  const [documentFileIds, setDocumentFileIds] = useState<string[]>([]);
+  const [invoiceFileIds, setInvoiceFileIds] = useState<string[]>([]);
+  const [supportingFileIds, setSupportingFileIds] = useState<string[]>([]);
+  const [advancePaymentFileIds, setAdvancePaymentFileIds] = useState<string[]>([]);
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -701,10 +701,10 @@ export function RegistrationManager({
       trackingNumber: initialTrackingNumber,
       regionOfRegistration: currentOfficeLocationName,
     });
-    setDocumentFileId(null);
-    setInvoiceFileId(null);
-    setSupportingFileId(null);
-    setAdvancePaymentFileId(null);
+    setDocumentFileIds([]);
+    setInvoiceFileIds([]);
+    setSupportingFileIds([]);
+    setAdvancePaymentFileIds([]);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -713,10 +713,10 @@ export function RegistrationManager({
   function openEdit(registration: Registration) {
     setSelected(registration);
     setForm(formFromRegistration(registration));
-    setDocumentFileId(null);
-    setInvoiceFileId(null);
-    setSupportingFileId(null);
-    setAdvancePaymentFileId(null);
+    setDocumentFileIds([]);
+    setInvoiceFileIds([]);
+    setSupportingFileIds([]);
+    setAdvancePaymentFileIds([]);
     setError("");
     setSuccess("");
     setDrawerMode("form");
@@ -740,12 +740,12 @@ export function RegistrationManager({
   }
 
   async function uploadSelectedFiles(registrationId: string) {
-    const files = [
-      { fileStorageId: documentFileId, category: "DOCUMENT" },
-      { fileStorageId: invoiceFileId, category: "INVOICE" },
-      { fileStorageId: supportingFileId, category: "SUPPORTING_DOCUMENT" },
-      { fileStorageId: advancePaymentFileId, category: "ADVANCE_PAYMENT" },
-    ].filter((item): item is { fileStorageId: string; category: string } => Boolean(item.fileStorageId));
+    const files: { fileStorageId: string; category: string }[] = [];
+
+    documentFileIds.forEach((fileStorageId) => files.push({ fileStorageId, category: "DOCUMENT" }));
+    invoiceFileIds.forEach((fileStorageId) => files.push({ fileStorageId, category: "INVOICE" }));
+    supportingFileIds.forEach((fileStorageId) => files.push({ fileStorageId, category: "SUPPORTING_DOCUMENT" }));
+    advancePaymentFileIds.forEach((fileStorageId) => files.push({ fileStorageId, category: "ADVANCE_PAYMENT" }));
 
     for (const { fileStorageId, category } of files) {
       await parseResponse(await fetch(`/api/registrations/${registrationId}/files`, {
@@ -776,10 +776,14 @@ export function RegistrationManager({
         return;
       }
 
+      const hasDocumentFile = documentFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "DOCUMENT"));
+      const hasInvoiceFile = invoiceFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL"));
+      const hasSupportingFile = supportingFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "SUPPORTING_DOCUMENT"));
+
       if (
-        (needsDocumentFile && !documentFileId) ||
-        (needsInvoiceFile && !invoiceFileId) ||
-        (needsSupportingFile && !supportingFileId)
+        (needsDocumentFile && !hasDocumentFile) ||
+        (needsInvoiceFile && !hasInvoiceFile) ||
+        (needsSupportingFile && !hasSupportingFile)
       ) {
         setError("Document, invoice, and supporting document uploads are required.");
         return;
@@ -1404,18 +1408,14 @@ export function RegistrationManager({
                 errorMessage={officeLocationsError}
               />
             </label>
-            <FileUpload
+            <MultiFileUpload
               label="Customer Document Upload"
               moduleName="Revenue Registration"
               accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onUploadComplete={(id) => setDocumentFileId(id)}
-              onRemove={() => {
-                const existing = selected?.files.find((f) => f.fileCategory === "DOCUMENT");
-                if (existing) handleRemoveExistingFile(existing.id);
-                setDocumentFileId(null);
-              }}
-              existingFile={selected?.files.find((f) => f.fileCategory === "DOCUMENT")}
-              required={needsDocumentFile}
+              onFilesChange={(ids) => setDocumentFileIds(ids)}
+              onRemoveExistingFile={handleRemoveExistingFile}
+              existingFiles={selected?.files.filter((f) => f.fileCategory === "DOCUMENT")}
+              required={needsDocumentFile && !selected?.files.some((f) => f.fileCategory === "DOCUMENT")}
             />
           </Section>
 
@@ -1448,17 +1448,13 @@ export function RegistrationManager({
               placeholder="Enter amount"
               onChange={(event) => updateField("advancePaid", event.target.value)}
             />
-            <FileUpload
+            <MultiFileUpload
               label="Advance Payment Upload"
               moduleName="Revenue Registration"
               accept=".jpg,.jpeg,.png,.webp,.pdf"
-              onUploadComplete={(id) => setAdvancePaymentFileId(id)}
-              onRemove={() => {
-                const existing = selected?.files.find((f) => f.fileCategory === "ADVANCE_PAYMENT");
-                if (existing) handleRemoveExistingFile(existing.id);
-                setAdvancePaymentFileId(null);
-              }}
-              existingFile={selected?.files.find((f) => f.fileCategory === "ADVANCE_PAYMENT")}
+              onFilesChange={(ids) => setAdvancePaymentFileIds(ids)}
+              onRemoveExistingFile={handleRemoveExistingFile}
+              existingFiles={selected?.files.filter((f) => f.fileCategory === "ADVANCE_PAYMENT")}
               required={false}
             />
             <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
@@ -1486,31 +1482,23 @@ export function RegistrationManager({
               readOnly
               description="Auto-filled from the logged-in user's office location"
             />
-            <FileUpload
+            <MultiFileUpload
               label="Bill Upload"
               moduleName="Revenue Registration"
               accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onUploadComplete={(id) => setInvoiceFileId(id)}
-              onRemove={() => {
-                const existing = selected?.files.find((f) => f.fileCategory === "INVOICE");
-                if (existing) handleRemoveExistingFile(existing.id);
-                setInvoiceFileId(null);
-              }}
-              existingFile={selected?.files.find((f) => f.fileCategory === "INVOICE")}
-              required={needsInvoiceFile}
+              onFilesChange={(ids) => setInvoiceFileIds(ids)}
+              onRemoveExistingFile={handleRemoveExistingFile}
+              existingFiles={selected?.files.filter((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
+              required={needsInvoiceFile && !selected?.files.some((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
             />
-            <FileUpload
+            <MultiFileUpload
               label="Supporting Documents Upload"
               moduleName="Revenue Registration"
               accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onUploadComplete={(id) => setSupportingFileId(id)}
-              onRemove={() => {
-                const existing = selected?.files.find((f) => f.fileCategory === "SUPPORTING_DOCUMENT");
-                if (existing) handleRemoveExistingFile(existing.id);
-                setSupportingFileId(null);
-              }}
-              existingFile={selected?.files.find((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
-              required={needsSupportingFile}
+              onFilesChange={(ids) => setSupportingFileIds(ids)}
+              onRemoveExistingFile={handleRemoveExistingFile}
+              existingFiles={selected?.files.filter((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
+              required={needsSupportingFile && !selected?.files.some((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
             />
           </Section>
 

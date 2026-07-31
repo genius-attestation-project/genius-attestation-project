@@ -160,34 +160,49 @@ export function RegistrationDetail({
           <FileText size={18} /> Uploaded Files
         </h3>
         {registration.files.length ? (
-          <div className="grid gap-2">
-            {registration.files.map((file) => (
-              <div
-                key={file.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
-              >
-                <span className="grid min-w-0 gap-1">
-                  <span>{file.fileName}</span>
-                  <span className="text-xs text-muted">{file.fileCategory.replace(/_/g, " ")}</span>
-                </span>
-                <div className="flex items-center gap-4 text-right">
-                  <span className="text-xs text-muted">
-                    {formatFileSize(file.fileSize)}
-                    <br />
-                    {new Date(file.uploadedAt).toLocaleString()}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => window.open(`/api/registrations/files/${file.id}`, "_blank")}
-                    >
-                      Preview
-                    </Button>
+          <div className="grid gap-4">
+            {["ADVANCE_PAYMENT", "INVOICE", "SUPPORTING_DOCUMENT", "DOCUMENT"].map((cat) => {
+              const catFiles = registration.files.filter((f) => f.fileCategory === cat || (cat === "INVOICE" && f.fileCategory === "BILL"));
+              if (!catFiles.length) return null;
+              const catLabels: Record<string, string> = {
+                ADVANCE_PAYMENT: "Advance Payment Upload",
+                INVOICE: "Bill Upload",
+                SUPPORTING_DOCUMENT: "Supporting Documents Upload",
+                DOCUMENT: "Customer Document Upload",
+              };
+
+              return (
+                <div key={cat} className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    {catLabels[cat] || cat.replace(/_/g, " ")} ({catFiles.length})
+                  </h4>
+                  <div className="grid gap-2">
+                    {catFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--border) bg-white/70 px-4 py-3 text-sm font-semibold text-blue-700 dark:bg-white/5 dark:text-blue-200"
+                      >
+                        <span className="grid min-w-0 gap-1">
+                          <span className="truncate">{file.fileName}</span>
+                          <span className="text-xs text-muted">
+                            {formatFileSize(file.fileSize)} • {new Date(file.uploadedAt).toLocaleString()}
+                          </span>
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => window.open(`/api/registrations/files/${file.id}`, "_blank")}
+                          >
+                            Preview / Download
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="rounded-2xl border border-dashed border-(--border) p-4 text-sm text-soft">

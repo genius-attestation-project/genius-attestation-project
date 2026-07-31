@@ -200,3 +200,5 @@ export function FileUpload({
     </div>
   );
 }
+
+export { MultiFileUpload } from "./MultiFileUpload";
