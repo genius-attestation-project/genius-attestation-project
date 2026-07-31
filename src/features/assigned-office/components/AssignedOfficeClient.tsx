@@ -140,7 +140,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
         pageSize: String(pageSize),
         search,
         status: statusFilter,
-        processTypeId: processTypeFilter,
         sortBy,
         sortOrder,
       });
@@ -155,7 +154,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, statusFilter, processTypeFilter, sortBy, sortOrder]);
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchOffices();
@@ -469,10 +468,10 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
       </div>
 
       {/* Filters Bar */}
-      <div className="grid gap-4 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f1115] lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2">
         {/* Search */}
-        <div className="relative lg:col-span-2">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search by username or email..."
@@ -492,22 +491,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-          </select>
-        </div>
-
-        {/* Process Type Filter */}
-        <div>
-          <select
-            value={processTypeFilter}
-            onChange={(e) => setProcessTypeFilter(e.target.value)}
-            className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 py-2.5 px-3 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
-          >
-            <option value="All">All Process Types</option>
-            {masterProcessTypes.map((pt) => (
-              <option key={pt.id} value={pt.id}>
-                {pt.name}
-              </option>
-            ))}
           </select>
         </div>
       </div>
@@ -539,9 +522,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                   </div>
                 </th>
                 <th className="p-4">Email</th>
-                <th className="p-4">Assigned Process Types</th>
-                <th className="p-4">Assigned Main Process</th>
-                <th className="p-4">Assigned Sub Packages</th>
+                <th className="p-4">Assigned Sub Processes</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Last Login</th>
                 <th className="p-4">Created Date</th>
@@ -551,14 +532,14 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
             <tbody className="divide-y divide-slate-200/60 dark:divide-white/10">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
                     <RefreshCw className="mx-auto h-6 w-6 animate-spin" />
                     <p className="mt-2 text-sm font-medium">Loading Assigned Offices...</p>
                   </td>
                 </tr>
               ) : offices.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-500">
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     No Assigned Offices found matching your criteria.
                   </td>
                 </tr>
@@ -582,40 +563,14 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     <td className="p-4 text-slate-600 dark:text-slate-300">{office.email}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1.5">
-                        {office.assignedProcessTypes.length > 0 ? (
-                          office.assignedProcessTypes.map((pt) => (
-                            <span
-                              key={pt.id}
-                              className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
-                            >
-                              {pt.name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-slate-400">None</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {office.corePackage ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">
-                          <Sparkles size={12} />
-                          {office.corePackage.name}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">Not set</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1.5">
                         {office.assignedSubPackages.length > 0 ? (
                           office.assignedSubPackages.map((sp) => (
                             <span
                               key={sp.id}
                               className={cn(
-                                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
                                 sp.isCorePackage
-                                  ? "bg-amber-100 text-amber-900 font-semibold dark:bg-amber-500/20 dark:text-amber-200"
+                                  ? "bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/30"
                                   : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
                               )}
                             >

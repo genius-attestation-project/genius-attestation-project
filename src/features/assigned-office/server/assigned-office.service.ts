@@ -712,9 +712,7 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
     return {
       Username: office.username,
       Email: office.email,
-      "Assigned Process Types": ptNames,
-      "Assigned Main Process": coreName,
-      "Assigned Sub Packages": spNames,
+      "Assigned Sub Processes": spNames,
       Status: office.status ? "Active" : "Inactive",
       "Last Login": office.lastLogin ? new Date(office.lastLogin).toLocaleString() : "Never",
       "Created Date": new Date(office.createdAt).toLocaleString(),
