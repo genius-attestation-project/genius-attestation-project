@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, FollowupActionType } from "@prisma/client";
 
 import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
 import { prisma } from "@/lib/prisma";
@@ -297,25 +297,6 @@ export async function createRegistration(
     throw new Error("Advance Paid cannot exceed Total Charges.");
   }
 
-  let countryChangedFromLead: { previous: string; new: string } | null = null;
-  if (input.leadId) {
-    const lead = await prisma.lead.findFirst({
-      where: { id: input.leadId, ownerAdminId },
-      select: { documentIssuedCountry: true },
-    });
-    if (
-      lead &&
-      lead.documentIssuedCountry &&
-      input.documentIssuedCountry &&
-      lead.documentIssuedCountry.trim() !== input.documentIssuedCountry.trim()
-    ) {
-      countryChangedFromLead = {
-        previous: lead.documentIssuedCountry,
-        new: input.documentIssuedCountry,
-      };
-    }
-  }
-
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
 
   const sourceOffice = await prisma.officeLocation.findFirst({
@@ -323,86 +304,129 @@ export async function createRegistration(
     select: { id: true },
   });
 
-  const registration = await prisma.registration.create({
-    data: {
-      ...buildRegistrationData({
-        ...input,
-        regionOfRegistration: sourceOfficeName,
-      }),
-      welcomeCallStatus: "Pending",
-      ownerAdminId,
-      createdBy: userId ?? null,
-      bmStatus: isHomeDelivery ? "Accepted" : "Pending",
-      acceptedAt: isHomeDelivery ? new Date() : null,
-      acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,
-      auditTrail: {
-        create: [
-          {
-            action: "Registration created",
-            description: `Registration ${input.trackingNumber} was created.`,
-            performedBy: performedBy ?? null,
-          },
-          ...(countryChangedFromLead
-            ? [
-                {
-                  action: "Document Issued Country updated",
-                  description: `Document Issued Country changed from auto-filled value "${countryChangedFromLead.previous}" to "${countryChangedFromLead.new}".`,
-                  performedBy: performedBy ?? null,
-                },
-              ]
-            : []),
-        ],
-      },
-      documentMovements: {
-        create: {
-          trackingNumber: input.trackingNumber,
-          currentOfficeId: sourceOffice?.id ?? null,
-          currentModule: "REGISTRATION",
-          status: "HOME",
-          movementType: "INITIAL",
-          createdBy: performedBy ?? null,
-          originOfficeId: sourceOffice?.id ?? null,
-          processChain: [],
+  const registrationResult = await prisma.$transaction(async (tx) => {
+    let countryChangedFromLead: { previous: string; new: string } | null = null;
+
+    if (input.leadId) {
+      const lead = await tx.lead.findFirst({
+        where: { id: input.leadId, ownerAdminId },
+        select: { id: true, documentIssuedCountry: true },
+      });
+
+      if (lead) {
+        const leadCountry = (lead.documentIssuedCountry ?? "").trim();
+        const selectedCountry = (input.documentIssuedCountry ?? "").trim();
+
+        if (selectedCountry && selectedCountry !== leadCountry) {
+          countryChangedFromLead = {
+            previous: leadCountry || "N/A",
+            new: selectedCountry,
+          };
+
+          // 1. Update linked Lead in the same transaction
+          await tx.lead.update({
+            where: { id: lead.id },
+            data: { documentIssuedCountry: selectedCountry },
+          });
+
+          // 2. Lead Audit log
+          await tx.leadFollowupHistory.create({
+            data: {
+              leadId: lead.id,
+              actionType: FollowupActionType.Rescheduled,
+              description: `Field: Document Issued Country | Old: ${leadCountry || "N/A"} | New: ${selectedCountry} | Updated From: Revenue Registration | Updated By: ${performedBy ?? "Current User"}`,
+              userId: userId ?? null,
+              ownerAdminId,
+            },
+          });
         }
       }
-    },
-    include: registrationInclude,
-  });
-
-  await prisma.movementHistory.create({
-    data: {
-      trackingNumber: input.trackingNumber,
-      action: "Created",
-      newStatus: "HOME",
-      newOffice: sourceOfficeName,
-      performedBy: performedBy ?? null,
     }
+
+    // 3. Create Revenue Registration
+    const reg = await tx.registration.create({
+      data: {
+        ...buildRegistrationData({
+          ...input,
+          regionOfRegistration: sourceOfficeName,
+        }),
+        welcomeCallStatus: "Pending",
+        ownerAdminId,
+        createdBy: userId ?? null,
+        bmStatus: isHomeDelivery ? "Accepted" : "Pending",
+        acceptedAt: isHomeDelivery ? new Date() : null,
+        acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,
+        auditTrail: {
+          create: [
+            {
+              action: "Registration created",
+              description: `Registration ${input.trackingNumber} was created.`,
+              performedBy: performedBy ?? null,
+            },
+            ...(countryChangedFromLead
+              ? [
+                  {
+                    action: "Document Issued Country updated",
+                    description: `Field: Document Issued Country | Old: ${countryChangedFromLead.previous} | New: ${countryChangedFromLead.new} | Changed By: ${performedBy ?? "Current User"}`,
+                    performedBy: performedBy ?? null,
+                  },
+                ]
+              : []),
+          ],
+        },
+        documentMovements: {
+          create: {
+            trackingNumber: input.trackingNumber,
+            currentOfficeId: sourceOffice?.id ?? null,
+            currentModule: "REGISTRATION",
+            status: "HOME",
+            movementType: "INITIAL",
+            createdBy: performedBy ?? null,
+            originOfficeId: sourceOffice?.id ?? null,
+            processChain: [],
+          },
+        },
+      },
+      include: registrationInclude,
+    });
+
+    await tx.movementHistory.create({
+      data: {
+        trackingNumber: input.trackingNumber,
+        action: "Created",
+        newStatus: "HOME",
+        newOffice: sourceOfficeName,
+        performedBy: performedBy ?? null,
+      },
+    });
+
+    return reg;
   });
 
   logRegistrationWorkflow("Created registration.", {
-    trackingNumber: registration.trackingNumber,
+    trackingNumber: registrationResult.trackingNumber,
     currentUserOffice: sourceOfficeName,
-    regionOfRegistration: registration.regionOfRegistration,
-    deliveryLocation: registration.deliveryLocation,
-    approvalStatus: registration.approvalStatus,
-    bmStatus: registration.bmStatus,
+    regionOfRegistration: registrationResult.regionOfRegistration,
+    deliveryLocation: registrationResult.deliveryLocation,
+    approvalStatus: registrationResult.approvalStatus,
+    bmStatus: registrationResult.bmStatus,
   });
 
   if ((input.advancePaid ?? 0) > 0) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
-      registrationId: registration.id,
+      registrationId: registrationResult.id,
       advanceAmount: input.advancePaid ?? 0,
       performedByUserId: userId,
     }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
   }
 
   const reloaded = await prisma.registration.findUnique({
-    where: { id: registration.id },
+    where: { id: registrationResult.id },
     include: registrationInclude,
   });
 
-  return mapRegistration(reloaded || registration);
+  return mapRegistration(reloaded || registrationResult);
 }
 
 export async function updateRegistration(
@@ -427,6 +451,7 @@ export async function updateRegistration(
       isBmLocked: true,
       advancePaymentStatus: true,
       documentIssuedCountry: true,
+      leadId: true,
     },
   });
 
@@ -445,61 +470,96 @@ export async function updateRegistration(
     Boolean(input.documentIssuedCountry) &&
     (existing.documentIssuedCountry ?? "").trim() !== (input.documentIssuedCountry ?? "").trim();
 
-  const registration = await prisma.registration.update({
-    where: { id: existing.id },
-    data: {
-      ...buildRegistrationData({
-        ...input,
-        regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName,
-      }),
-      auditTrail: {
-        create: [
-          {
-            action: paymentChanged ? "Payment updated" : "Registration updated",
-            description: paymentChanged
-              ? "Commercial or payment details were updated."
-              : "Registration details were updated.",
-            performedBy: performedBy ?? null,
+  const prevCountry = (existing.documentIssuedCountry ?? "").trim() || "N/A";
+  const newCountry = (input.documentIssuedCountry ?? "").trim();
+  const targetLeadId = existing.leadId || input.leadId;
+
+  const registrationResult = await prisma.$transaction(async (tx) => {
+    // Synchronize Lead if country changed and lead exists
+    if (countryChanged && targetLeadId) {
+      const lead = await tx.lead.findFirst({
+        where: { id: targetLeadId, ownerAdminId },
+        select: { id: true, documentIssuedCountry: true },
+      });
+
+      if (lead) {
+        const leadOldCountry = (lead.documentIssuedCountry ?? "").trim() || prevCountry;
+
+        await tx.lead.update({
+          where: { id: lead.id },
+          data: { documentIssuedCountry: newCountry },
+        });
+
+        await tx.leadFollowupHistory.create({
+          data: {
+            leadId: lead.id,
+            actionType: FollowupActionType.Rescheduled,
+            description: `Field: Document Issued Country | Old: ${leadOldCountry} | New: ${newCountry} | Updated From: Revenue Registration | Updated By: ${performedBy ?? "Current User"}`,
+            userId: null,
+            ownerAdminId,
           },
-          ...(countryChanged
-            ? [
-                {
-                  action: "Document Issued Country updated",
-                  description: `Document Issued Country changed from "${existing.documentIssuedCountry || "N/A"}" to "${input.documentIssuedCountry}".`,
-                  performedBy: performedBy ?? null,
-                },
-              ]
-            : []),
-        ],
+        });
+      }
+    }
+
+    const reg = await tx.registration.update({
+      where: { id: existing.id },
+      data: {
+        ...buildRegistrationData({
+          ...input,
+          regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName,
+        }),
+        auditTrail: {
+          create: [
+            {
+              action: paymentChanged ? "Payment updated" : "Registration updated",
+              description: paymentChanged
+                ? "Commercial or payment details were updated."
+                : "Registration details were updated.",
+              performedBy: performedBy ?? null,
+            },
+            ...(countryChanged
+              ? [
+                  {
+                    action: "Document Issued Country updated",
+                    description: `Field: Document Issued Country | Old: ${prevCountry} | New: ${newCountry} | Changed By: ${performedBy ?? "Current User"}`,
+                    performedBy: performedBy ?? null,
+                  },
+                ]
+              : []),
+          ],
+        },
       },
-    },
-    include: registrationInclude,
+      include: registrationInclude,
+    });
+
+    return reg;
   });
 
   if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
-      registrationId: registration.id,
+      registrationId: registrationResult.id,
       advanceAmount: input.advancePaid ?? 0,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
   }
 
   logRegistrationWorkflow("Updated registration.", {
-    trackingNumber: registration.trackingNumber,
+    trackingNumber: registrationResult.trackingNumber,
     currentUserOffice: sourceOfficeName,
-    regionOfRegistration: registration.regionOfRegistration,
-    deliveryLocation: registration.deliveryLocation,
-    approvalStatus: registration.approvalStatus,
-    bmStatus: registration.bmStatus,
+    regionOfRegistration: registrationResult.regionOfRegistration,
+    deliveryLocation: registrationResult.deliveryLocation,
+    approvalStatus: registrationResult.approvalStatus,
+    bmStatus: registrationResult.bmStatus,
   });
 
   const reloaded = await prisma.registration.findUnique({
-    where: { id: registration.id },
+    where: { id: registrationResult.id },
     include: registrationInclude,
   });
 
-  return mapRegistration(reloaded || registration);
+  return mapRegistration(reloaded || registrationResult);
 }
 
 export async function deleteRegistration(ownerAdminId: string, id: string, performedBy?: string) {

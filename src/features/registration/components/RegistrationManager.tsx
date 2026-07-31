@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+import { Country } from "country-state-city";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -467,13 +468,19 @@ export function RegistrationManager({
     return subs.map((sp: string) => ({ label: sp, value: sp }));
   }, [selectedProcessTypeOption]);
 
+  const allMasterCountries = useMemo(() => {
+    const list = Country.getAllCountries().map((c) => c.name);
+    const combined = Array.from(new Set([...list, ...countryOptions]));
+    return combined.sort((a, b) => a.localeCompare(b));
+  }, [countryOptions]);
+
   const countrySelectOptions = useMemo(() => {
-    const opts = countryOptions.map((c) => ({ label: c, value: c }));
+    const opts = allMasterCountries.map((c) => ({ label: c, value: c }));
     if (form.documentIssuedCountry && !opts.some((opt) => opt.value === form.documentIssuedCountry)) {
       return [{ label: form.documentIssuedCountry, value: form.documentIssuedCountry }, ...opts];
     }
     return opts;
-  }, [countryOptions, form.documentIssuedCountry]);
+  }, [allMasterCountries, form.documentIssuedCountry]);
 
   async function fetchRegistrations(search = query, currentFilters = filters, currentPage = page, currentPageSize = pageSize) {
     setLoading(true);
@@ -1073,7 +1080,7 @@ export function RegistrationManager({
               <SearchableSelect
                 value={filters.documentIssuedCountry}
                 onChange={(val) => setFilters(f => ({ ...f, documentIssuedCountry: val }))}
-                options={toSelectOptions(countryOptions)}
+                options={toSelectOptions(allMasterCountries)}
                 placeholder="Select country"
               />
             </label>
