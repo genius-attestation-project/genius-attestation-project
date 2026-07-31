@@ -8,6 +8,9 @@ const registrationInclude = {
   creator: {
     select: { id: true, name: true, email: true },
   },
+  corporateDetail: {
+    select: { id: true, companyName: true, contactPersonName: true, contactPersonMobile: true },
+  },
   files: {
     orderBy: { uploadedAt: "desc" as const },
     include: {
@@ -107,6 +110,7 @@ function buildRegistrationData(input: RegistrationInput) {
     state: input.state || null,
     city: input.city || null,
     customerType: input.customerType || null,
+    corporateDetailId: (input as any).corporateDetailId || null,
     documentType: input.documentType || null,
     documentIssuedCountry: input.documentIssuedCountry || null,
     processType: input.processType || null,

@@ -115,6 +115,9 @@ export function RegistrationDetail({
           <Field label="Mobile" value={registration.mobile} />
           <Field label="Email" value={registration.email} />
           <Field label="Customer Type" value={registration.customerType} />
+          {registration.corporateDetail && (
+            <Field label="Company Name" value={registration.corporateDetail.companyName} />
+          )}
           <Field label="Address" value={registration.address} />
           <Field label="Country" value={registration.country} />
           <Field label="State" value={registration.state} />

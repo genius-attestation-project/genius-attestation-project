@@ -410,6 +410,8 @@ model Registration {
   bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
   leadId                 String?   @map("lead_id")
   lead                   Lead?     @relation(fields: [leadId], references: [id])
+  corporateDetailId      String?   @map("corporate_detail_id")
+  corporateDetail        CorporateDetail? @relation(fields: [corporateDetailId], references: [id], onDelete: SetNull)
   ownerAdminId           String?   @map("owner_admin_id")
   createdBy              String?   @map("created_by")
   creator                User?     @relation("RegistrationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -606,12 +608,45 @@ model FileStorage {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   registrationFiles RegistrationFile[]
+  corporateDetails  CorporateDetail[]
 
   @@index([module])
   @@index([recordId])
   @@index([folder])
   @@index([uploadedBy])
   @@map("file_storage")
+}
+
+model CorporateDetail {
+  id                  String       @id @default(cuid())
+  companyName         String       @map("company_name")
+  contactPersonName   String       @map("contact_person_name")
+  contactPersonMobile String       @map("contact_person_mobile")
+  email               String?
+  address             String?      @db.Text
+  agreementFileId     String?      @map("agreement_file_id")
+  agreementFile       FileStorage? @relation(fields: [agreementFileId], references: [id], onDelete: SetNull)
+  approvalStatus      String       @default("Pending Approval") @map("approval_status")
+  rejectionReason     String?      @map("rejection_reason")
+  approvedBy          String?      @map("approved_by")
+  approvedAt          DateTime?    @map("approved_at")
+  rejectedBy          String?      @map("rejected_by")
+  rejectedAt          DateTime?    @map("rejected_at")
+  isActive            Boolean      @default(true) @map("is_active")
+  isArchived          Boolean      @default(false) @map("is_archived")
+  createdBy           String?      @map("created_by")
+  updatedBy           String?      @map("updated_by")
+  ownerAdminId        String       @map("owner_admin_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  registrations Registration[]
+
+  @@index([ownerAdminId])
+  @@index([companyName])
+  @@index([approvalStatus])
+  @@index([isActive])
+  @@map("corporate_details")
 }
 
 model RegistrationFile {

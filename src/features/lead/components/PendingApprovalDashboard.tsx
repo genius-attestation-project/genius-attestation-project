@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Textarea } from "@/components/ui/Textarea";
 
+import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
+import { Building2, CheckCircle2, Pencil, XCircle } from "lucide-react";
+
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
-type MainTabKey = "advance_payment" | "lob" | "inactive" | "overdue";
+type MainTabKey = "advance_payment" | "corporate_approval" | "lob" | "inactive" | "overdue";
 
 type Lead = any;
 type LeadWorkflowApproval = any;
@@ -66,9 +69,12 @@ export function PendingApprovalDashboard() {
   const router = useRouter();
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
+  const [corporateApprovals, setCorporateApprovals] = useState<any[]>([]);
   const [inactiveLeads, setInactiveLeads] = useState<Lead[]>([]);
   const [lobRequests, setLobRequests] = useState<LeadWorkflowApproval[]>([]);
   const [overdueFollowups, setOverdueFollowups] = useState<Lead[]>([]);
+
+  const [editingCorporate, setEditingCorporate] = useState<any>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,13 +97,15 @@ export function PendingApprovalDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [advanceRes, inactiveRes, lobRes, overdueRes] = await Promise.all([
+      const [advanceRes, corporateRes, inactiveRes, lobRes, overdueRes] = await Promise.all([
         parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval")),
+        parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details")),
         parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive")),
         parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob")),
         parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue")),
       ]);
       setAdvancePaymentRequests(advanceRes.items ?? []);
+      setCorporateApprovals(corporateRes.items ?? []);
       setInactiveLeads(inactiveRes.items ?? []);
       setLobRequests(lobRes.items ?? []);
       setOverdueFollowups(overdueRes.items ?? []);
@@ -119,7 +127,19 @@ export function PendingApprovalDashboard() {
     setSuccess("");
 
     try {
-      if (actionModal.requestType === "ADVANCE_PAYMENT") {
+      if (actionModal.requestType === "CORPORATE_DETAILS") {
+        const action = actionModal.type === "Approved" ? "approve" : "reject";
+        await parseResponse(
+          await fetch(`/api/lead-approvals/corporate-details/${actionModal.id}/action`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action,
+              rejectionReason: reason.trim(),
+            }),
+          })
+        );
+      } else if (actionModal.requestType === "ADVANCE_PAYMENT") {
         const endpoint =
           actionModal.type === "Approved"
             ? `/api/advance-payment-approvals/${actionModal.id}/approve`
@@ -192,6 +212,7 @@ export function PendingApprovalDashboard() {
         <div className="flex flex-wrap gap-3">
           {[
             { key: "advance_payment" as const, label: "Advance Payment Approvals", count: advancePaymentRequests.length },
+            { key: "corporate_approval" as const, label: "Corporate Details Approval", count: corporateApprovals.length },
             { key: "lob" as const, label: "LOB Requests", count: lobRequests.length },
             { key: "inactive" as const, label: "Inactive Leads", count: inactiveLeads.length },
             { key: "overdue" as const, label: "Overdue Follow-ups", count: overdueFollowups.length },
@@ -349,6 +370,116 @@ export function PendingApprovalDashboard() {
               </table>
             )}
 
+            {activeTab === "corporate_approval" && (
+              <table className="min-w-[1280px] text-left text-sm">
+                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                  <tr>
+                    <th className="px-5 py-4">Company Name</th>
+                    <th className="px-5 py-4">Contact Person</th>
+                    <th className="px-5 py-4">Mobile / Email</th>
+                    <th className="px-5 py-4">Address</th>
+                    <th className="px-5 py-4">Agreement</th>
+                    <th className="px-5 py-4">Created By & Date</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                  {corporateApprovals.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-soft">
+                        No pending corporate details approval requests.
+                      </td>
+                    </tr>
+                  ) : (
+                    corporateApprovals.map((item) => (
+                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                        <td className="px-5 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+                          {item.companyName}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                          {item.contactPersonName}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-900 dark:text-white">{item.contactPersonMobile}</p>
+                          {item.email && <p className="text-xs text-soft">{item.email}</p>}
+                        </td>
+                        <td className="px-5 py-4 text-slate-600 dark:text-slate-400">
+                          {item.address || "-"}
+                        </td>
+                        <td className="px-5 py-4">
+                          {item.agreementFile ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const url = item.agreementFile.url && !item.agreementFile.url.startsWith("http")
+                                  ? item.agreementFile.url
+                                  : `/api/files/${item.agreementFile.id}/view`;
+                                window.open(url, "_blank");
+                              }}
+                              className="text-xs text-blue-600 dark:text-blue-400"
+                            >
+                              <FileText size={14} className="mr-1" /> Agreement
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-soft">No Document</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-900 dark:text-white">{item.createdBy || "System User"}</p>
+                          <p className="text-xs text-soft">{new Date(item.createdAt).toLocaleDateString()}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={item.approvalStatus} />
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setEditingCorporate(item)}
+                              title="Edit Info"
+                            >
+                              <Pencil size={14} className="mr-1" /> Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                setActionModal({
+                                  type: "Approved",
+                                  requestType: "CORPORATE_DETAILS",
+                                  id: item.id,
+                                  title: `Approve Corporate Details (${item.companyName})`,
+                                })
+                              }
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() =>
+                                setActionModal({
+                                  type: "Rejected",
+                                  requestType: "CORPORATE_DETAILS",
+                                  id: item.id,
+                                  title: `Reject Corporate Details (${item.companyName})`,
+                                })
+                              }
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
             {activeTab === "lob" && (
               <table className="min-w-[1080px] text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
@@ -480,6 +611,15 @@ export function PendingApprovalDashboard() {
           </div>
         )}
       </FormDrawer>
+
+      <CorporateDetailFormModal
+        open={Boolean(editingCorporate)}
+        onClose={() => setEditingCorporate(null)}
+        onSuccess={() => void loadData()}
+        initialData={editingCorporate}
+        title="Edit Pending Corporate Details"
+        description="Update corporate details before approving or rejecting."
+      />
     </div>
   );
 }

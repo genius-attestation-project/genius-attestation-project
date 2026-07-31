@@ -105,9 +105,28 @@ export async function GET(
       });
     }
 
-    // Generic MasterData handler (including Process Types & Document Types)
+    // Generic MasterData handler (including Process Types & Document Types & Customer Types)
+    let targetType = type;
+    const isCustomerType = rawSlug === "customer-types" || type === "CUSTOMER_TYPES";
+    if (isCustomerType) {
+      targetType = "CUSTOMER_TYPES";
+      // Auto seed default Individual and Corporate records if none exist for this tenant
+      const count = await prisma.masterData.count({
+        where: { type: "CUSTOMER_TYPES", ownerAdminId, isArchived: false },
+      });
+      if (count === 0) {
+        await prisma.masterData.createMany({
+          data: [
+            { type: "CUSTOMER_TYPES", name: "Individual", sortOrder: 1, ownerAdminId, isActive: true },
+            { type: "CUSTOMER_TYPES", name: "Corporate", sortOrder: 2, ownerAdminId, isActive: true },
+          ],
+          skipDuplicates: true,
+        });
+      }
+    }
+
     const whereClause: any = {
-      type,
+      type: targetType,
       isArchived: false,
       ownerAdminId,
     };

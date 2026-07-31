@@ -62,6 +62,8 @@ export type Registration = {
   welcomeCalledBy: string | null;
   welcomeCalledAt: string | null;
   leadId?: string | null;
+  corporateDetailId?: string | null;
+  corporateDetail?: { id: string; companyName: string; contactPersonName: string; contactPersonMobile: string } | null;
   ownerAdminId?: string | null;
   createdBy?: { id: string; name: string | null; email: string | null } | null;
   createdById?: string | null;
@@ -82,6 +84,7 @@ export type RegistrationFormState = {
   state: string;
   city: string;
   customerType: string;
+  corporateDetailId?: string;
   documentType: string;
   documentIssuedCountry: string;
   processType: string;

@@ -26,6 +26,7 @@ import {
   BarChart3,
   Globe,
   FolderTree,
+  Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -137,6 +138,20 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         href: "/dashboard/master-configuration/sub-process",
         icon: Layers3,
         menuPermission: "menu.master-configuration.sub-process",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Customer Type",
+        href: "/dashboard/master-configuration/customer-types",
+        icon: UserCheck,
+        menuPermission: "menu.master-configuration.customer-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Corporate Details",
+        href: "/dashboard/master-configuration/corporate-details",
+        icon: Building2,
+        menuPermission: "menu.master-configuration.corporate-details",
         pagePermission: "master_configuration.view",
       },
       {
@@ -435,6 +450,24 @@ export const permissionModules: PermissionModuleDefinition[] = [
     label: "Payment Mode",
     description: "Payment Mode master data management.",
     actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "customer_type",
+    label: "Customer Type",
+    description: "Customer Type master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "corporate_details",
+    label: "Corporate Details",
+    description: "Corporate Details master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "corporate_details_approval",
+    label: "Corporate Details Approval",
+    description: "Corporate Details approval workflow access.",
+    actions: ["view", "edit", "approve", "reject"]
   },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
   { key: "subpackage", label: "Sub Package Workflow", description: "Sub Package workflow access.", actions: ["view", "transfer", "complete", "return", "reject"] },

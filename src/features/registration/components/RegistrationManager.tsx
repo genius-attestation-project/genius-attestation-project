@@ -33,6 +33,7 @@ import { calculatePaymentStatus } from "@/features/registration/server/payment-s
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
+import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   paymentStatusOptions,
@@ -360,6 +361,8 @@ export function RegistrationManager({
   const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>([]);
   const [customerTypeOptions, setCustomerTypeOptions] = useState<string[]>(["Individual", "Corporate"]); // Fallback
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
+  const [corporateOptions, setCorporateOptions] = useState<SelectOption[]>([]);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
 
@@ -621,9 +624,27 @@ export function RegistrationManager({
         setPaymentModeOptions(["Cash", "Bank Transfer", "Credit Card", "Cheque", "Online"]);
       }
 
+      async function fetchCorporateDetails() {
+        try {
+          const res = await fetch(`/api/master-data/corporate-details?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            const opts: SelectOption[] = (data.items || []).map((i: any) => ({
+              label: i.companyName,
+              value: i.id,
+              description: `Contact: ${i.contactPersonName} (${i.contactPersonMobile})`,
+            }));
+            setCorporateOptions(opts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch corporate-details", e);
+        }
+      }
+
       fetchDocumentTypes();
       fetchProcessTypes();
       fetchPaymentModes();
+      fetchCorporateDetails();
       fetchMaster("customer-types", setCustomerTypeOptions);
       fetchMaster("countries", setCountryOptions);
 
@@ -1326,12 +1347,55 @@ export function RegistrationManager({
             />
             <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} required />
             <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} required />
-            <Input
-              label="Customer Type"
-              value={form.customerType}
-              onChange={(event) => updateField("customerType", event.target.value)}
-              required
-            />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Customer Type *</span>
+              <SearchableSelect
+                value={form.customerType}
+                options={toSelectOptions(customerTypeOptions)}
+                onChange={(val) => {
+                  updateField("customerType", val);
+                  if (val !== "Corporate") updateField("corporateDetailId", "");
+                }}
+                placeholder="Select customer type"
+                name="customerType"
+              />
+            </label>
+
+            {form.customerType === "Corporate" && (
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold">Company *</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanyModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    title="Add New Company"
+                  >
+                    <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      value={form.corporateDetailId || ""}
+                      options={corporateOptions}
+                      onChange={(val) => updateField("corporateDetailId", val)}
+                      placeholder="Select corporate company"
+                      name="corporateDetailId"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsCompanyModalOpen(true)}
+                    className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                    title="Add New Company"
+                  >
+                    <Plus size={18} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Section>
 
           <Section title="Section 2: Document Details">
@@ -1544,6 +1608,25 @@ export function RegistrationManager({
           trackingNumber={timelineTrackingNumber}
         />
       )}
+
+      <CorporateDetailFormModal
+        open={isCompanyModalOpen}
+        onClose={() => setIsCompanyModalOpen(false)}
+        onSuccess={(newCompany) => {
+          const newOpt: SelectOption = {
+            label: newCompany.companyName,
+            value: newCompany.id,
+            description: `Contact: ${newCompany.contactPersonName} (${newCompany.contactPersonMobile})`,
+          };
+          setCorporateOptions((prev) => [newOpt, ...prev.filter((o) => o.value !== newCompany.id)]);
+          setForm((prev) => ({
+            ...prev,
+            corporateDetailId: newCompany.id,
+          }));
+        }}
+        title="Add New Corporate Company"
+        description="Fill company details to save and select immediately in registration."
+      />
     </div>
   );
 }
