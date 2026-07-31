@@ -748,7 +748,7 @@ export function AssignedOfficeWorkspaceClient({
       {/* TRANSFER TO SUB PACKAGE MODAL */}
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-white/10">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -756,7 +756,7 @@ export function AssignedOfficeWorkspaceClient({
                   Transfer To Sub Package
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Transfer all selected documents to a single Sub Package.
+                  Transfer all selected documents to a single Sub Package with full financial validation.
                 </p>
               </div>
               <button
@@ -773,37 +773,114 @@ export function AssignedOfficeWorkspaceClient({
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                   <span>Selected Documents ({selectedTrackingNumbers.length})</span>
                 </div>
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3.5 dark:border-white/10 dark:bg-white/5">
-                  <div className="space-y-2 max-h-52 overflow-y-auto p-1 pr-1">
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="space-y-3 max-h-80 overflow-y-auto p-1 pr-1">
                     {selectedTrackingNumbers.map((tNum) => {
                       const docItem = items.find((i) => i.trackingNumber === tNum);
+                      const totalAmt = docItem?.totalCharges ? Number(docItem.totalCharges) : 0;
+                      const advAmt = docItem?.advancePaid ? Number(docItem.advancePaid) : 0;
+                      const balAmt = docItem?.balanceAmount !== undefined && docItem?.balanceAmount !== null
+                        ? Number(docItem.balanceAmount)
+                        : Math.max(0, totalAmt - advAmt);
+                      const pStatus = docItem?.paymentStatus || (balAmt <= 0 && totalAmt > 0 ? "Paid" : advAmt > 0 ? "Partially Paid" : "Pending");
+                      const pMode = docItem?.paymentMode || "-";
+
+                      const renderPaymentBadge = (status: string) => {
+                        const st = status.toLowerCase();
+                        if (st.includes("paid") && !st.includes("partially") && !st.includes("partial")) {
+                          return (
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/40">
+                              Paid
+                            </span>
+                          );
+                        }
+                        if (st.includes("partial")) {
+                          return (
+                            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-800 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/40">
+                              Partially Paid
+                            </span>
+                          );
+                        }
+                        if (st.includes("overdue")) {
+                          return (
+                            <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/40">
+                              Overdue
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/40">
+                            {status || "Pending"}
+                          </span>
+                        );
+                      };
+
                       return (
                         <div
                           key={tNum}
-                          className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-2xs dark:border-white/10 dark:bg-[#0f1115] space-y-1.5"
+                          className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-xs dark:border-white/10 dark:bg-[#0f1115] space-y-3"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-100 pb-1.5 dark:border-white/10">
+                          {/* Header Line */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-white/10">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs sm:text-sm">
+                              <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
                                 Tracking Number : {tNum}
                               </span>
-                              <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                {docItem?.processType || docItem?.documentType || "UAE Attestation"}
-                              </span>
                             </div>
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                              Status : {docItem?.trackingStatus || docItem?.status || "In Hand"}
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
+                              Status : {docItem?.trackingStatus || docItem?.status || "Document In Hand"}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300 pt-0.5">
-                            <div><span className="text-slate-400">Customer : </span><span className="font-semibold text-slate-800 dark:text-slate-100">{docItem?.customerName || "-"}</span></div>
-                            <div><span className="text-slate-400">Mobile : </span><span className="font-medium">{docItem?.mobile || "-"}</span></div>
-                            <div><span className="text-slate-400">Document Type : </span><span className="font-medium">{docItem?.documentType || "-"}</span></div>
-                            <div><span className="text-slate-400">Service : </span><span className="font-medium">{docItem?.externalProcess || docItem?.processType || "-"}</span></div>
-                            <div><span className="text-slate-400">Main Process : </span><span className="font-medium">{docItem?.processType || "-"}</span></div>
-                            <div><span className="text-slate-400">Current Office : </span><span className="font-medium">{officeName || "Assigned Office"}</span></div>
-                            <div><span className="text-slate-400">Registered Date : </span><span className="font-medium">{docItem?.createdAt ? new Date(docItem.createdAt).toLocaleDateString() : "-"}</span></div>
+                          {/* General Information Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                            <div><span className="text-slate-400 font-medium">Customer : </span><span className="font-bold text-slate-900 dark:text-white">{docItem?.customerName || "-"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Mobile : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{docItem?.mobile || "-"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Document Type : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{docItem?.documentType || "-"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Service : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{docItem?.externalProcess || docItem?.processType || "-"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Main Process : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{docItem?.processType || "-"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Current Office : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{officeName || "Assigned Office"}</span></div>
+                            <div><span className="text-slate-400 font-medium">Registered Date : </span><span className="font-semibold text-slate-800 dark:text-slate-200">{docItem?.createdAt ? new Date(docItem.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</span></div>
+                          </div>
+
+                          {/* Financial Information Section */}
+                          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/5 space-y-2">
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 dark:border-white/10">
+                              <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                                Financial Information
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-400 font-medium">Payment Status:</span>
+                                {renderPaymentBadge(pStatus)}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                              <div>
+                                <span className="text-slate-400 font-medium">Total Amount : </span>
+                                <span className="font-bold text-blue-700 dark:text-blue-400">
+                                  ₹ {totalAmt.toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium">Advance Amount : </span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                  ₹ {advAmt.toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium">Balance Amount : </span>
+                                <span className={cn("font-bold", balAmt > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300")}>
+                                  ₹ {balAmt.toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium">Payment Mode : </span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                  {pMode}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
