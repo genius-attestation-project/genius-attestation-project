@@ -297,6 +297,25 @@ export async function createRegistration(
     throw new Error("Advance Paid cannot exceed Total Charges.");
   }
 
+  let countryChangedFromLead: { previous: string; new: string } | null = null;
+  if (input.leadId) {
+    const lead = await prisma.lead.findFirst({
+      where: { id: input.leadId, ownerAdminId },
+      select: { documentIssuedCountry: true },
+    });
+    if (
+      lead &&
+      lead.documentIssuedCountry &&
+      input.documentIssuedCountry &&
+      lead.documentIssuedCountry.trim() !== input.documentIssuedCountry.trim()
+    ) {
+      countryChangedFromLead = {
+        previous: lead.documentIssuedCountry,
+        new: input.documentIssuedCountry,
+      };
+    }
+  }
+
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
 
   const sourceOffice = await prisma.officeLocation.findFirst({
@@ -317,11 +336,22 @@ export async function createRegistration(
       acceptedAt: isHomeDelivery ? new Date() : null,
       acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,
       auditTrail: {
-        create: {
-          action: "Registration created",
-          description: `Registration ${input.trackingNumber} was created.`,
-          performedBy: performedBy ?? null,
-        },
+        create: [
+          {
+            action: "Registration created",
+            description: `Registration ${input.trackingNumber} was created.`,
+            performedBy: performedBy ?? null,
+          },
+          ...(countryChangedFromLead
+            ? [
+                {
+                  action: "Document Issued Country updated",
+                  description: `Document Issued Country changed from auto-filled value "${countryChangedFromLead.previous}" to "${countryChangedFromLead.new}".`,
+                  performedBy: performedBy ?? null,
+                },
+              ]
+            : []),
+        ],
       },
       documentMovements: {
         create: {
@@ -396,6 +426,7 @@ export async function updateRegistration(
       regionOfRegistration: true,
       isBmLocked: true,
       advancePaymentStatus: true,
+      documentIssuedCountry: true,
     },
   });
 
@@ -410,6 +441,10 @@ export async function updateRegistration(
     Number(existing.totalCharges) !== Number(input.totalCharges) ||
     Number(existing.advancePaid) !== Number(input.advancePaid);
 
+  const countryChanged =
+    Boolean(input.documentIssuedCountry) &&
+    (existing.documentIssuedCountry ?? "").trim() !== (input.documentIssuedCountry ?? "").trim();
+
   const registration = await prisma.registration.update({
     where: { id: existing.id },
     data: {
@@ -418,13 +453,24 @@ export async function updateRegistration(
         regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName,
       }),
       auditTrail: {
-        create: {
-          action: paymentChanged ? "Payment updated" : "Registration updated",
-          description: paymentChanged
-            ? "Commercial or payment details were updated."
-            : "Registration details were updated.",
-          performedBy: performedBy ?? null,
-        },
+        create: [
+          {
+            action: paymentChanged ? "Payment updated" : "Registration updated",
+            description: paymentChanged
+              ? "Commercial or payment details were updated."
+              : "Registration details were updated.",
+            performedBy: performedBy ?? null,
+          },
+          ...(countryChanged
+            ? [
+                {
+                  action: "Document Issued Country updated",
+                  description: `Document Issued Country changed from "${existing.documentIssuedCountry || "N/A"}" to "${input.documentIssuedCountry}".`,
+                  performedBy: performedBy ?? null,
+                },
+              ]
+            : []),
+        ],
       },
     },
     include: registrationInclude,

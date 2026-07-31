@@ -467,6 +467,14 @@ export function RegistrationManager({
     return subs.map((sp: string) => ({ label: sp, value: sp }));
   }, [selectedProcessTypeOption]);
 
+  const countrySelectOptions = useMemo(() => {
+    const opts = countryOptions.map((c) => ({ label: c, value: c }));
+    if (form.documentIssuedCountry && !opts.some((opt) => opt.value === form.documentIssuedCountry)) {
+      return [{ label: form.documentIssuedCountry, value: form.documentIssuedCountry }, ...opts];
+    }
+    return opts;
+  }, [countryOptions, form.documentIssuedCountry]);
+
   async function fetchRegistrations(search = query, currentFilters = filters, currentPage = page, currentPageSize = pageSize) {
     setLoading(true);
     setError("");
@@ -1327,14 +1335,16 @@ export function RegistrationManager({
                 groupByCategory={true}
               />
             </label>
-            <SelectField
-              label="Document Issued Country"
-              name="documentIssuedCountry"
-              value={form.documentIssuedCountry}
-              options={countryOptions}
-              onChange={updateField}
-              required
-            />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Document Issued Country</span>
+              <SearchableSelect
+                value={form.documentIssuedCountry}
+                options={countrySelectOptions}
+                onChange={(nextValue: string) => updateField("documentIssuedCountry", nextValue)}
+                placeholder="Select document issued country"
+                name="documentIssuedCountry"
+              />
+            </label>
             <label className="grid gap-2">
               <span className="text-sm font-bold">Process Type</span>
               <SearchableSelect
