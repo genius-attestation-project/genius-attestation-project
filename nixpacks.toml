@@ -1,4 +1,3 @@
-[providers]
 providers = ["node"]
 
 [variables]
@@ -13,7 +12,10 @@ cmds = ["npm ci --no-audit --no-fund"]
 cacheDirectories = []
 
 [phases.build]
-cmds = ["npx prisma generate", "npm run build"]
+cmds = [
+  "npx prisma generate",
+  "npm run build"
+]
 
 [start]
 cmd = "npx prisma db push --skip-generate && npm start"
