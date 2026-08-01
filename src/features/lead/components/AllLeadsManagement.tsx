@@ -435,6 +435,7 @@ export function AllLeadsManagement({
       source: lead.source,
       leadStatus: lead.status,
       clientType: lead.clientType,
+      corporateDetailId: lead.corporateDetailId ?? "",
       amount: lead.rawAmount ? String(lead.rawAmount) : "",
       workingDays: lead.workingDays,
       remark: lead.remark,

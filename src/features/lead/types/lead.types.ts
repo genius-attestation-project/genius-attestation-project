@@ -21,6 +21,8 @@ export type LeadRow = {
   documentIssuedCountry: string;
   source: string;
   clientType: string;
+  corporateDetailId?: string;
+  corporateCompanyName?: string;
   amount: string;
   workingDays: string;
   assignedUserId: string;

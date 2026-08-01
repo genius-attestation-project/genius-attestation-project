@@ -85,6 +85,7 @@ export const leadInputSchema = z.object({
   source: z.string().trim().optional().default(""),
   leadStatus: z.enum(leadStatusOptions, "Lead status is required."),
   clientType: z.string().trim().optional().default(""),
+  corporateDetailId: z.string().trim().optional().default(""),
   amount: numericString,
   workingDays: integerString,
   remark: z.string().trim().optional().default(""),

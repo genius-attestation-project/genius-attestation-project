@@ -15,6 +15,7 @@ export type LeadFormValues = {
   source: string;
   leadStatus: string;
   clientType: string;
+  corporateDetailId?: string;
   amount: string;
   workingDays: string;
   remark: string;
@@ -59,6 +60,7 @@ export const defaultLeadValues: LeadFormValues = {
   source: "",
   leadStatus: "New",
   clientType: "",
+  corporateDetailId: "",
   amount: "",
   workingDays: "",
   remark: "",

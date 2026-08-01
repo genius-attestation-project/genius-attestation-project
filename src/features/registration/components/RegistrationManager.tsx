@@ -619,6 +619,8 @@ export function RegistrationManager({
               documentType: lead.docType || "",
               documentIssuedCountry: lead.documentIssuedCountry || "",
               processType: lead.service || "",
+              customerType: lead.clientType || "",
+              corporateDetailId: lead.corporateDetailId || "",
             }));
           }
         })

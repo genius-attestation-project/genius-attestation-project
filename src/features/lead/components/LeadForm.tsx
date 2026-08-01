@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { RotateCcw } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Country, State } from "country-state-city";
 import Select from "react-select";
@@ -12,6 +12,7 @@ import { Loader } from "@/components/ui/Loader";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
+import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import {
   countryCodes,
   defaultLeadValues,
@@ -70,6 +71,8 @@ export function LeadForm({
   const [services, setServices] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [clientTypes, setClientTypes] = useState<string[]>([]);
+  const [corporateOptions, setCorporateOptions] = useState<{ label: string; value: string }[]>([]);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
   const allCountries = useMemo(() => 
     Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
@@ -139,11 +142,28 @@ export function LeadForm({
         }
       }
       
+      async function fetchCorporateDetails() {
+        try {
+          const res = await fetch(`/api/master-data/corporate-details?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            const opts = (data.items || []).map((i: any) => ({
+              label: i.companyName,
+              value: i.id,
+            }));
+            setCorporateOptions(opts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch corporate-details", e);
+        }
+      }
+
       if (!ignore) {
         fetchMaster("document-types", setDocTypes);
         fetchMaster("attestation-types", setServices);
         fetchMaster("lead-sources", setSources);
         fetchMaster("customer-types", setClientTypes);
+        fetchCorporateDetails();
       }
     }
 
@@ -465,11 +485,55 @@ export function LeadForm({
             label="Client Type"
             name="clientType"
             value={values.clientType}
-            onChange={(value) => updateField("clientType", value)}
+            onChange={(value) => {
+              updateField("clientType", value);
+              if (value !== "Corporate") {
+                updateField("corporateDetailId", "");
+              }
+            }}
             options={mapToOptions(clientTypes)}
             placeholder="Select client type"
           />
         </FieldWrapper>
+
+        {values.clientType === "Corporate" && (
+          <FieldWrapper className="md:col-span-2">
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Company *</span>
+                <button
+                  type="button"
+                  onClick={() => setIsCompanyModalOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Add New Company"
+                >
+                  <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    value={values.corporateDetailId || ""}
+                    options={corporateOptions}
+                    onChange={(val) => updateField("corporateDetailId", val)}
+                    placeholder="Select corporate company"
+                    name="corporateDetailId"
+                    groupByCategory={false}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsCompanyModalOpen(true)}
+                  className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                  title="Add New Company"
+                >
+                  <Plus size={18} />
+                </Button>
+              </div>
+            </div>
+          </FieldWrapper>
+        )}
       </LeadSection>
 
       <LeadSection title="Business Information">
@@ -532,6 +596,21 @@ export function LeadForm({
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
+
+      <CorporateDetailFormModal
+        open={isCompanyModalOpen}
+        onClose={() => setIsCompanyModalOpen(false)}
+        onSuccess={(newCompany) => {
+          const newOpt = {
+            label: newCompany.companyName,
+            value: newCompany.id,
+          };
+          setCorporateOptions((prev) => [newOpt, ...prev.filter((o) => o.value !== newCompany.id)]);
+          updateField("corporateDetailId", newCompany.id);
+        }}
+        title="Add New Corporate Company"
+        description="Fill company details to save and select immediately in lead."
+      />
     </form>
   );
 }

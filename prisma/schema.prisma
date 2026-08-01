@@ -229,6 +229,8 @@ model Lead {
   source                 String?
   leadStatus             LeadStatus     @default(New)
   clientType             String?
+  corporateDetailId      String?        @map("corporate_detail_id")
+  corporateDetail        CorporateDetail? @relation("LeadCorporateDetail", fields: [corporateDetailId], references: [id], onDelete: SetNull)
   amount                 Decimal        @default(0) @db.Decimal(12, 2)
   workingDays            Int?
   remark                 String?
@@ -658,6 +660,7 @@ model CorporateDetail {
   updatedAt           DateTime     @updatedAt @map("updated_at")
 
   registrations Registration[]
+  leads         Lead[]         @relation("LeadCorporateDetail")
 
   @@index([ownerAdminId])
   @@index([companyName])
