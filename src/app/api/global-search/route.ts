@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
             { paymentStatus: contains(query) },
             { trackingStatus: contains(query) },
             { documentType: contains(query) },
+            { documentName: contains(query) },
             { processType: contains(query) },
             { subPackage: contains(query) },
             { deliveryLocation: contains(query) },

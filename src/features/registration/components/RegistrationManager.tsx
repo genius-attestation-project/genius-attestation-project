@@ -62,6 +62,7 @@ const blankForm: RegistrationFormState = {
   city: "",
   customerType: "",
   documentType: "",
+  documentName: "",
   documentIssuedCountry: "",
   processType: "",
   externalProcess: "",
@@ -114,6 +115,7 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     city: registration.city ?? "",
     customerType: registration.customerType ?? "",
     documentType: registration.documentType ?? "",
+    documentName: registration.documentName ?? "",
     documentIssuedCountry: registration.documentIssuedCountry ?? "",
     processType: registration.processType ?? "",
     externalProcess: registration.externalProcess ?? "",
@@ -1492,6 +1494,14 @@ export function RegistrationManager({
                 name="documentIssuedCountry"
               />
             </label>
+            <Input
+              label="Document Name *"
+              value={form.documentName}
+              placeholder="Enter document name"
+              onChange={(event) => updateField("documentName", event.target.value)}
+              maxLength={255}
+              required
+            />
             <label className="grid gap-2">
               <span className="text-sm font-bold">Process Type</span>
               <SearchableSelect

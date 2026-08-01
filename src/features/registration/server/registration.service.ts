@@ -140,6 +140,7 @@ function buildRegistrationData(input: RegistrationInput) {
     customerType: input.customerType || null,
     corporateDetailId: (input as any).corporateDetailId || null,
     documentType: input.documentType || null,
+    documentName: input.documentName || null,
     documentIssuedCountry: input.documentIssuedCountry || null,
     processType: input.processType || null,
     subPackage: input.subPackage || null,
@@ -285,6 +286,7 @@ export async function listRegistrations(
       { processType: { contains: query } },
       { subPackage: { contains: query } },
       { documentType: { contains: query } },
+      { documentName: { contains: query } },
       { paymentStatus: { contains: query } },
       { approvalStatus: { contains: query } },
     ];

@@ -131,6 +131,7 @@ export function RegistrationDetail({
         </h3>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Document Type" value={registration.documentType} />
+          <Field label="Document Name" value={registration.documentName} />
           <Field label="Issued Country" value={registration.documentIssuedCountry} />
           <Field label="Process Type" value={registration.processType} />
           <Field label="Address Process" value={registration.externalProcess} />

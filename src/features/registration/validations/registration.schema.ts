@@ -63,6 +63,7 @@ export const registrationInputSchema = z.object({
   city: optionalText,
   customerType: requiredText("Customer type"),
   documentType: requiredText("Document type"),
+  documentName: requiredText("Document name").max(255, "Document name cannot exceed 255 characters."),
   documentIssuedCountry: requiredText("Document issued country"),
   processType: requiredText("Process type"),
   subPackage: optionalText,

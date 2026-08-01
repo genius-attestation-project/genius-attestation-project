@@ -366,6 +366,7 @@ model Registration {
   city                   String?
   customerType           String?   @map("customer_type")
   documentType           String?   @map("document_type")
+  documentName           String?   @map("document_name")
   documentIssuedCountry  String?   @map("document_issued_country")
   processType            String?   @map("process_type")
   subPackage             String?   @map("sub_package")

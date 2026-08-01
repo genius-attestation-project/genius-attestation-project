@@ -29,6 +29,7 @@ export type Registration = {
   city: string | null;
   customerType: string | null;
   documentType: string | null;
+  documentName: string | null;
   documentIssuedCountry: string | null;
   processType: string | null;
   subPackage: string | null;
@@ -102,6 +103,7 @@ export type RegistrationFormState = {
   customerType: string;
   corporateDetailId?: string;
   documentType: string;
+  documentName: string;
   documentIssuedCountry: string;
   processType: string;
   subPackage: string;
