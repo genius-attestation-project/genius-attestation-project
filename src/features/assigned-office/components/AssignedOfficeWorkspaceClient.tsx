@@ -406,7 +406,7 @@ export function AssignedOfficeWorkspaceClient({
                 </Button>
 
                 {/* Sub Process Dropdown */}
-                <div className="w-56 sm:w-64 min-w-[200px]">
+                <div className="w-56 sm:w-64 min-w-50">
                   <SearchableSelect
                     options={subProcessOptions}
                     value={selectedSubPackageId}
@@ -725,7 +725,7 @@ export function AssignedOfficeWorkspaceClient({
                           </span>
                           <PriorityBadge priority={reg?.priority} />
                           {reg?.customerName && (
-                            <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[140px]">
+                            <span className="font-semibold text-slate-900 dark:text-white truncate max-w-35">
                               • {reg.customerName}
                             </span>
                           )}

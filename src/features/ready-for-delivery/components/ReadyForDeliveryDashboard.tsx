@@ -84,7 +84,7 @@ function DetailSection({
 function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDeliveryDetail }) {
   return (
     <div className="grid gap-5">
-      <section className="rounded-[28px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.14),_transparent_42%),linear-gradient(135deg,_#ffffff,_#eff6ff)] p-5 shadow-(--shadow-card)">
+      <section className="rounded-[28px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-5 shadow-(--shadow-card)">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Ready For Delivery</p>
@@ -307,7 +307,7 @@ export function ReadyForDeliveryDashboard({
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_42%),linear-gradient(135deg,_#ffffff,_#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
+      <section className="overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Ready For Delivery</p>
@@ -421,7 +421,7 @@ export function ReadyForDeliveryDashboard({
         ) : items.length ? (
           <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
             <div className="overflow-x-auto">
-              <table className="min-w-[1680px] text-left text-sm">
+              <table className="min-w-420 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                   <tr>
                     <th className="px-5 py-4">Registration Number</th>

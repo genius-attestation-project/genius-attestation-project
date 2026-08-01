@@ -238,7 +238,7 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                         {data.timeline.map((movement) => (
                           <li key={movement.id} className="relative pl-20">
                             {/* Timeline Node */}
-                            <div className="absolute left-8 top-6 ml-[-5px] h-3 w-3 rounded-full border-2 border-white bg-primary shadow-sm ring-4 ring-white z-10" />
+                            <div className="absolute left-8 top-6 -ml-1.25 h-3 w-3 rounded-full border-2 border-white bg-primary shadow-sm ring-4 ring-white z-10" />
                             
                             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow relative">
                               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4 bg-gray-50/50 rounded-t-xl">
