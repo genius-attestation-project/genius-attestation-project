@@ -184,7 +184,6 @@ export function AssignedOfficeWorkspaceClient({
   const subProcessOptions: SelectOption[] = (officeSubPackages || []).map((sp: any) => ({
     label: sp.name || sp.subPackageName || sp.id,
     value: sp.id,
-    description: sp.isCorePackage ? "Main Process" : undefined,
   }));
 
   // Direct Transfer to Sub Process (Page Toolbar Action)
@@ -412,6 +411,7 @@ export function AssignedOfficeWorkspaceClient({
                     value={selectedSubPackageId}
                     onChange={setSelectedSubPackageId}
                     placeholder="Select Sub Process"
+                    groupByCategory={false}
                   />
                 </div>
 
