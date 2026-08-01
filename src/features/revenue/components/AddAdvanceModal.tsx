@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, X, FileUp, AlertCircle, Save } from "lucide-react";
+import { X, AlertCircle, Save, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -29,6 +29,40 @@ const PAYMENT_MODES = [
   "Online",
 ];
 
+// ─── Reusable Field Label ──────────────────────────────────────────────────
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+      {children}
+      {required && <span className="ml-0.5 text-rose-500">*</span>}
+    </span>
+  );
+}
+
+// ─── Reusable Select ──────────────────────────────────────────────────────
+function FieldSelect({
+  value,
+  onChange,
+  children,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <select
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:ring-blue-900/30"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      required={required}
+    >
+      {children}
+    </select>
+  );
+}
+
 export function AddAdvanceModal({
   isOpen,
   onClose,
@@ -43,6 +77,7 @@ export function AddAdvanceModal({
 }: AddAdvanceModalProps) {
   const todayStr = new Date().toISOString().split("T")[0];
 
+  // ── State (unchanged) ────────────────────────────────────────────────────
   const [advanceAmount, setAdvanceAmount] = useState<string>("");
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [paymentMode, setPaymentMode] = useState<string>("Cash");
@@ -71,9 +106,11 @@ export function AddAdvanceModal({
 
   if (!isOpen) return null;
 
+  // ── Derived (unchanged) ──────────────────────────────────────────────────
   const numAmount = parseFloat(advanceAmount) || 0;
   const isAmountValid = numAmount > 0 && numAmount <= currentBalance;
 
+  // ── Submit (unchanged business logic) ────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -137,189 +174,252 @@ export function AddAdvanceModal({
     }
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-white/10">
-          <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-              Registration #{trackingNumber}
-            </span>
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Add Advance Payment</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Customer: <span className="font-semibold text-slate-700 dark:text-slate-200">{customerName}</span>
+    /* ── Backdrop ── */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/*
+        ── Modal shell ──
+        • max-h-[90vh] keeps it within viewport
+        • flex flex-col lets header/footer stay fixed while body scrolls
+      */}
+      <div className="relative flex flex-col w-full max-w-[760px] max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+
+        {/* ────────────────────────────────────────────────────────────────
+            FIXED HEADER
+        ──────────────────────────────────────────────────────────────── */}
+        <div className="shrink-0 flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900">
+          <div className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-0.5">
+              Advance Payment Request · #{trackingNumber}
+            </p>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+              Add Advance Payment
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+              Customer:{" "}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {customerName}
+              </span>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+            className="shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+            title="Close"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Financial Overview Banner */}
-        <div className="my-4 grid grid-cols-3 gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-3 text-center text-xs dark:border-blue-900/40 dark:bg-blue-950/20">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Charges</span>
-            <span className="font-extrabold text-slate-900 dark:text-white">₹{totalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        {/* ────────────────────────────────────────────────────────────────
+            SCROLLABLE BODY
+        ──────────────────────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
+
+          {/* ── Financial Summary Cards ── */}
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
+            {[
+              {
+                label: "Total Charges",
+                value: `₹${totalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                color: "text-slate-700 dark:text-slate-200",
+                labelColor: "text-slate-400",
+              },
+              {
+                label: "Approved Advance",
+                value: `₹${currentApprovedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                color: "text-emerald-700 dark:text-emerald-300",
+                labelColor: "text-emerald-600 dark:text-emerald-400",
+              },
+              {
+                label: "Current Balance",
+                value: `₹${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                color: "text-blue-700 dark:text-blue-300",
+                labelColor: "text-blue-600 dark:text-blue-400",
+              },
+            ].map((card) => (
+              <div key={card.label} className="text-center">
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${card.labelColor}`}>
+                  {card.label}
+                </p>
+                <p className={`mt-0.5 text-sm font-extrabold ${card.color}`}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
           </div>
-          <div>
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Approved Advance</span>
-            <span className="font-extrabold text-emerald-700 dark:text-emerald-300">₹{currentApprovedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Current Balance</span>
-            <span className="font-extrabold text-blue-700 dark:text-blue-300">₹{currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+
+          {/* ── Error Banner ── */}
+          {error && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* ── Form Fields ── */}
+          <form id="advance-form" onSubmit={handleSubmit} className="space-y-3">
+
+            {/* Row 1: Amount + Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>Advance Amount</FieldLabel>
+                <Input
+                  label=""
+                  type="number"
+                  min="1"
+                  max={currentBalance}
+                  step="0.01"
+                  placeholder="Enter amount (₹)"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  required
+                />
+                {numAmount > currentBalance && numAmount > 0 && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                    ⚠ Exceeds remaining balance
+                  </p>
+                )}
+              </div>
+              <div>
+                <FieldLabel required>Payment Date</FieldLabel>
+                <Input
+                  label=""
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Mode + Reference */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>Payment Mode</FieldLabel>
+                <FieldSelect value={paymentMode} onChange={setPaymentMode} required>
+                  {PAYMENT_MODES.map((mode) => (
+                    <option key={mode} value={mode}>{mode}</option>
+                  ))}
+                </FieldSelect>
+              </div>
+              <div>
+                <FieldLabel>Reference Number</FieldLabel>
+                <Input
+                  label=""
+                  placeholder="Txn ID / Cheque No / Ref #"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Collected By + Proof Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Collected By</FieldLabel>
+                {personOptions.length > 0 ? (
+                  <FieldSelect value={collectedBy} onChange={setCollectedBy}>
+                    <option value="">Select person</option>
+                    {personOptions.map((opt) => (
+                      <option key={opt.value} value={opt.label}>{opt.label}</option>
+                    ))}
+                  </FieldSelect>
+                ) : (
+                  <Input
+                    label=""
+                    placeholder="Enter name"
+                    value={collectedBy}
+                    onChange={(e) => setCollectedBy(e.target.value)}
+                  />
+                )}
+              </div>
+              <div>
+                <FieldLabel>Proof Document Type</FieldLabel>
+                <FieldSelect value={proofFileType} onChange={setProofFileType}>
+                  <option value="Receipt">Receipt</option>
+                  <option value="Bank Slip">Bank Slip</option>
+                  <option value="UPI Screenshot">UPI Screenshot</option>
+                  <option value="Cheque Image">Cheque Image</option>
+                  <option value="Image">Image</option>
+                  <option value="PDF">PDF</option>
+                </FieldSelect>
+              </div>
+            </div>
+
+            {/* Row 4: Remarks */}
+            <div>
+              <FieldLabel>Remarks</FieldLabel>
+              <Textarea
+                label=""
+                placeholder="Enter remarks or payment notes..."
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Row 5: Upload Proof — compact wrapper overrides internal padding */}
+            <div>
+              <FieldLabel required>Upload Proof</FieldLabel>
+              <div className="[&_label.flex]:p-3 [&_label.flex]:min-h-0 [&_label.flex]:py-4">
+                <MultiFileUpload
+                  label=""
+                  moduleName="Advance Payment Approval"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  onFilesChange={(ids) => setProofFileIds(ids)}
+                  required
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                Accepted: JPG, PNG, WEBP, PDF · Required
+              </p>
+            </div>
+
+          </form>
+        </div>
+
+        {/* ────────────────────────────────────────────────────────────────
+            STICKY FOOTER — always visible, never scrolls away
+        ──────────────────────────────────────────────────────────────── */}
+        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 backdrop-blur-sm">
+          {/* Left: status hint */}
+          <p className="hidden sm:block text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            {proofFileIds.length > 0
+              ? `✓ ${proofFileIds.length} proof file${proofFileIds.length > 1 ? "s" : ""} attached`
+              : "Upload proof to enable submission"}
+          </p>
+
+          {/* Right: action buttons */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={submitting}
+              className="h-9 px-4 text-sm"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="advance-form"
+              disabled={submitting || !isAmountValid || proofFileIds.length === 0}
+              className="h-9 px-5 text-sm font-bold gap-1.5"
+            >
+              <Save size={15} />
+              {submitting ? "Submitting…" : "Submit Request"}
+            </Button>
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {/* Amount & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Input
-                label="Advance Amount *"
-                type="number"
-                min="1"
-                max={currentBalance}
-                step="0.01"
-                placeholder="Enter amount (₹)"
-                value={advanceAmount}
-                onChange={(e) => setAdvanceAmount(e.target.value)}
-                required
-              />
-              {numAmount > currentBalance && (
-                <p className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                  Exceeds remaining balance!
-                </p>
-              )}
-            </div>
-            <div>
-              <Input
-                label="Payment Date *"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Mode & Reference */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="grid gap-1.5">
-              <span className="font-bold text-slate-700 dark:text-slate-300">Payment Mode *</span>
-              <select
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white"
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                required
-              >
-                {PAYMENT_MODES.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {mode}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div>
-              <Input
-                label="Reference Number"
-                placeholder="e.g. Txn ID / Cheque No / Ref #"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Collected By & Proof Type */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="grid gap-1.5">
-              <span className="font-bold text-slate-700 dark:text-slate-300">Collected By</span>
-              {personOptions.length > 0 ? (
-                <select
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white"
-                  value={collectedBy}
-                  onChange={(e) => setCollectedBy(e.target.value)}
-                >
-                  <option value="">Select collected person</option>
-                  {personOptions.map((opt) => (
-                    <option key={opt.value} value={opt.label}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  label=""
-                  placeholder="Enter name"
-                  value={collectedBy}
-                  onChange={(e) => setCollectedBy(e.target.value)}
-                />
-              )}
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="font-bold text-slate-700 dark:text-slate-300">Proof Document Type</span>
-              <select
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white"
-                value={proofFileType}
-                onChange={(e) => setProofFileType(e.target.value)}
-              >
-                <option value="Receipt">Receipt</option>
-                <option value="Bank Slip">Bank Slip</option>
-                <option value="UPI Screenshot">UPI Screenshot</option>
-                <option value="Cheque Image">Cheque Image</option>
-                <option value="Image">Image</option>
-                <option value="PDF">PDF</option>
-              </select>
-            </label>
-          </div>
-
-          {/* Remarks */}
-          <div>
-            <Textarea
-              label="Remarks"
-              placeholder="Enter remarks or payment notes..."
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          {/* Upload Proof */}
-          <div className="pt-1">
-            <MultiFileUpload
-              label="Upload Proof *"
-              moduleName="Advance Payment Approval"
-              accept=".jpg,.jpeg,.png,.webp,.pdf"
-              onFilesChange={(ids) => setProofFileIds(ids)}
-              required
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-white/10">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || !isAmountValid || proofFileIds.length === 0}>
-              <Save size={16} className="mr-1.5" />
-              {submitting ? "Submitting..." : "Save Request"}
-            </Button>
-          </div>
-        </form>
       </div>
     </div>
   );
