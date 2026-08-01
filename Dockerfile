@@ -1,7 +1,7 @@
 # Multi-Stage Production Dockerfile for Next.js (Standalone) + Prisma
 FROM node:22-alpine AS base
 
-# Install OpenSSL for Prisma Engine compatibility
+# Install OpenSSL & libc6-compat for Prisma Engine compatibility
 RUN apk add --no-cache libc6-compat openssl
 
 # Stage 1: Dependencies
@@ -9,7 +9,7 @@ FROM base AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund && npm cache clean --force
 
 # Stage 2: Builder
 FROM base AS builder
@@ -18,13 +18,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Disable telemetry during build
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV production
+
 # Generate Prisma Client Engine
 RUN npx prisma generate
 
 # Build Next.js in Standalone Mode
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
-RUN npm run build
+RUN npm run build && npm cache clean --force
 
 # Stage 3: Production Runner
 FROM base AS runner
