@@ -32,6 +32,7 @@ import { RetrieveConfirmationModal } from "@/features/document-movement/componen
 import { StatsCard } from "@/components/ui/StatsCard";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { PriorityDot } from "@/components/ui/PriorityDot";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
@@ -592,6 +593,7 @@ export function ProcessDashboard() {
                         <>
                           <td className="px-5 py-4 font-bold text-blue-600">
                             <div className="flex items-center gap-2">
+                              <PriorityDot priority={item.priority} size={10} />
                               <button 
                                 type="button" 
                                 onClick={() => openTimeline(item.trackingNumber)} 
@@ -599,7 +601,6 @@ export function ProcessDashboard() {
                               >
                                 {item.trackingNumber}
                               </button>
-                              <PriorityBadge priority={item.priority} />
                             </div>
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">

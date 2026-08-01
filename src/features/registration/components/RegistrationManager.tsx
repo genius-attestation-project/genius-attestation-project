@@ -34,6 +34,7 @@ import { calculatePaymentStatus } from "@/features/registration/server/payment-s
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { PriorityDot } from "@/components/ui/PriorityDot";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
@@ -1312,8 +1313,8 @@ export function RegistrationManager({
                       </td>
                       <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
                         <div className="flex items-center gap-2">
+                          <PriorityDot priority={registration.priority} size={10} />
                           <span>{registration.trackingNumber}</span>
-                          <PriorityBadge priority={registration.priority} />
                         </div>
                       </td>
                       <td className="px-5 py-4">{registration.customerName}</td>

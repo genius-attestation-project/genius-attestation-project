@@ -26,6 +26,7 @@ import { cn } from "@/utils/cn";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { PriorityDot } from "@/components/ui/PriorityDot";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 
@@ -595,8 +596,8 @@ export function AssignedOfficeWorkspaceClient({
                           <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                             <div className="flex items-center gap-2">
+                              <PriorityDot priority={row.priority} size={10} />
                               <span>{row.trackingNumber}</span>
-                              <PriorityBadge priority={row.priority} />
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">

@@ -26,6 +26,7 @@ import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { PriorityDot } from "@/components/ui/PriorityDot";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 
 type HomeDashboardProps = {
@@ -429,8 +430,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600">
                             <div className="flex items-center gap-2">
+                              <PriorityDot priority={doc.priority} size={10} />
                               <span>{tNum}</span>
-                              <PriorityBadge priority={doc.priority} />
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700">
@@ -640,8 +641,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       <tr key={item.id} className="hover:bg-slate-50">
                         <td className="p-4 font-bold text-blue-600">
                           <div className="flex items-center gap-2">
+                            <PriorityDot priority={item.priority || item.registration?.priority} size={10} />
                             <span>{item.trackingNumber}</span>
-                            <PriorityBadge priority={item.priority || item.registration?.priority} />
                           </div>
                         </td>
                         <td className="p-4 font-semibold">{item.action}</td>
