@@ -1603,39 +1603,51 @@ export function RegistrationManager({
               placeholder="Enter amount"
               onChange={(event) => updateField("totalCharges", event.target.value)}
             />
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Advance Paid
                 </span>
-                {selected && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddAdvanceOpen(true)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Advance
-                  </button>
-                )}
+                <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
+                  Click to request advance
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <div className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-extrabold text-emerald-700 dark:border-white/10 dark:bg-white/5 dark:text-emerald-300">
-                    <span>₹ {Number(selected ? selected.advancePaid : (form.advancePaid || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved Only</span>
-                  </div>
-                </div>
-                {selected && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setIsAddAdvanceOpen(true)}
-                    className="h-10 px-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 font-bold text-xs gap-1"
-                  >
-                    <Plus size={16} /> Add Advance
-                  </Button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selected) {
+                    setIsAddAdvanceOpen(true);
+                  } else {
+                    setError("Please save the registration first before adding an advance payment request.");
+                  }
+                }}
+                title="Click to add an advance payment request"
+                className={[
+                  "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
+                  "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
+                  "transition-all duration-150 cursor-pointer",
+                  selected
+                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600"
+                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
+                ].join(" ")}
+              >
+                <span className="flex items-center gap-2">
+                  <span>
+                    ₹{" "}
+                    {Number(
+                      selected ? selected.advancePaid : 0
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  {selected && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                      <Plus size={12} /> Add Advance
+                    </span>
+                  )}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
+                  {selected ? "Approved Only" : "Save first"}
+                </span>
+              </button>
             </div>
             <MultiFileUpload
               label="Advance Payment Upload"

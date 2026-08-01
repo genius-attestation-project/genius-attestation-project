@@ -177,36 +177,36 @@ export function RegistrationDetail({
           <h3 className="flex items-center gap-2 text-lg font-extrabold">
             <IndianRupee size={18} /> Commercial Details
           </h3>
-          <Button
-            size="sm"
-            onClick={() => setIsAddAdvanceOpen(true)}
-            className="gap-1.5 font-bold text-xs"
-          >
-            <Plus size={16} /> Add Advance
-          </Button>
+          <span className="text-xs text-blue-500 dark:text-blue-400 font-semibold">
+            Click Advance Paid to add a request
+          </span>
         </div>
 
         {/* Advance Paid Layout Card */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Total Charges" value={`₹${registration.totalCharges.toFixed(2)}`} />
-          <div className="grid min-w-0 gap-1 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-950 dark:bg-emerald-950/20">
+          {/* Advance Paid — fully clickable interactive control */}
+          <button
+            type="button"
+            onClick={() => setIsAddAdvanceOpen(true)}
+            title="Click to add an advance payment request"
+            className="group grid min-w-0 gap-1 rounded-2xl border border-blue-200 bg-emerald-50/60 p-4 cursor-pointer text-left transition-all duration-150 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">
                 Advance Paid
               </span>
-              <button
-                type="button"
-                onClick={() => setIsAddAdvanceOpen(true)}
-                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-600 hover:underline dark:text-blue-400"
-              >
-                (+ Add Advance)
-              </button>
+              <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                <Plus size={10} /> Add Advance
+              </span>
             </div>
             <span className="text-lg font-extrabold text-emerald-800 dark:text-emerald-200">
               ₹{registration.advancePaid.toFixed(2)}
             </span>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Displays approved advances only</span>
-          </div>
+            <span className="text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors uppercase tracking-wider font-bold dark:text-slate-500">
+              Approved Only
+            </span>
+          </button>
 
           <Field label="Advance Status" value={registration.advancePaymentStatus || "Not Submitted"} />
           <Field label="Balance Amount" value={`₹${registration.balanceAmount.toFixed(2)}`} />
