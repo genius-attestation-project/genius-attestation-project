@@ -910,6 +910,7 @@ export async function listWorkspaceDocuments(params: {
   }
 
   // Default: 'in_hand'
+  // Excludes documents transferred to a Sub Package (currentStatus = "In Sub Package")
   return prisma.registration.findMany({
     where: {
       ownerAdminId: params.ownerAdminId,
@@ -918,7 +919,7 @@ export async function listWorkspaceDocuments(params: {
         some: {
           currentOfficeId: params.officeId,
           status: { in: ["Received", "Document In Hand", "In Hand"] },
-          currentStatus: { notIn: ["Completed", "Returned", "Rejected"] },
+          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package"] },
         },
       },
     },
@@ -1034,6 +1035,7 @@ export async function transferToSubPackage(params: {
 
       if (!reg) continue;
 
+      // Create sub package movement record
       await tx.subPackageMovement.create({
         data: {
           documentId: reg.id,
@@ -1043,6 +1045,19 @@ export async function transferToSubPackage(params: {
           status: "In Progress",
           createdBy: params.userName || params.userId,
           ownerAdminId: params.ownerAdminId,
+        },
+      });
+
+      // Update DocumentMovement to reflect the transfer out of Document In Hand.
+      // Setting currentStatus = "In Sub Package" causes the in_hand query to
+      // exclude this document immediately after a successful transfer.
+      await tx.documentMovement.updateMany({
+        where: {
+          trackingNumber: item.trackingNumber,
+          currentOfficeId: params.officeId,
+        },
+        data: {
+          currentStatus: "In Sub Package",
         },
       });
 
