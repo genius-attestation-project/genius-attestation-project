@@ -300,6 +300,7 @@ export async function listRealtimeDocumentMovements(params: MovementFilterParams
         currentHolder: currentHolder,
         lastUpdated: reg.updatedAt,
         bundleNumber: currentMov?.bundle?.bundleNumber ?? null,
+        priority: reg.priority || "Normal",
       };
     })
   );
@@ -720,6 +721,7 @@ function cleanSubPackageId(spId?: string | null): string {
       deliveryLocation: registration.deliveryLocation,
       trackingStatus: registration.trackingStatus,
       paymentStatus: registration.paymentStatus,
+      priority: registration.priority || "Normal",
       createdAt: registration.createdAt,
       updatedAt: registration.updatedAt,
     },

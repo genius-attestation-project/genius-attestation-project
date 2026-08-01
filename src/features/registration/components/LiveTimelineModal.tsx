@@ -12,6 +12,7 @@ import {
   FileText,
   AlertCircle
 } from "lucide-react";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 interface TimelineEvent {
   id: string;
@@ -32,6 +33,7 @@ interface TimelineResponse {
     customerName: string;
     service: string;
     status: string;
+    priority?: string;
     updatedAt: string;
   };
   currentLocation: {
@@ -134,8 +136,9 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                 <h3 className="text-lg font-semibold leading-6 text-gray-900">
                   Live Document Movement
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 flex items-center gap-2">
                   Tracking Number: <span className="font-medium text-gray-900">{trackingNumber}</span>
+                  <PriorityBadge priority={data?.registration?.priority} />
                 </p>
               </div>
             </div>

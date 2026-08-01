@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/cn";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type WorkspaceProps = {
   officeName: string;
@@ -561,7 +562,10 @@ export function AssignedOfficeWorkspaceClient({
                             />
                           </td>
                           <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {row.trackingNumber}
+                            <div className="flex items-center gap-2">
+                              <span>{row.trackingNumber}</span>
+                              <PriorityBadge priority={row.priority} />
+                            </div>
                           </td>
                           <td className="p-4">
                             <div className="font-semibold text-slate-900 dark:text-white">{row.customerName}</div>
@@ -695,6 +699,7 @@ export function AssignedOfficeWorkspaceClient({
                           <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                             {item.trackingNumber}
                           </span>
+                          <PriorityBadge priority={reg?.priority} />
                           {reg?.customerName && (
                             <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[140px]">
                               • {reg.customerName}

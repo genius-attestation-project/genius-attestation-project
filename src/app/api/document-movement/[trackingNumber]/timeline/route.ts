@@ -128,6 +128,7 @@ export async function GET(
         customerName: registration.customerName,
         service: registration.processType ?? registration.documentType ?? "-",
         status: registration.trackingStatus,
+        priority: registration.priority ?? "Normal",
         updatedAt: registration.updatedAt,
       },
       currentLocation: currentMovement ? {

@@ -33,6 +33,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
@@ -428,6 +429,15 @@ export function RegistrationManager({
   const [documentTypeOptions, setDocumentTypeOptions] = useState<SelectOption[]>([]);
   const [processTypeOptions, setProcessTypeOptions] = useState<SelectOption[]>([]);
   const [priorityOptions, setPriorityOptions] = useState<string[]>(["Normal", "Express", "Super Fast"]); // Fallback
+
+  const prioritySelectOptions: SelectOption[] = useMemo(
+    () => [
+      { label: "Normal", value: "Normal", customRender: <PriorityBadge priority="Normal" /> },
+      { label: "Express", value: "Express", customRender: <PriorityBadge priority="Express" /> },
+      { label: "Super Fast", value: "Super Fast", customRender: <PriorityBadge priority="Super Fast" /> },
+    ],
+    []
+  );
   const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>([]);
   const [customerTypeOptions, setCustomerTypeOptions] = useState<string[]>(["Individual", "Corporate"]); // Fallback
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
@@ -1301,7 +1311,10 @@ export function RegistrationManager({
                         {((page - 1) * pageSize) + index + 1}
                       </td>
                       <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
-                        {registration.trackingNumber}
+                        <div className="flex items-center gap-2">
+                          <span>{registration.trackingNumber}</span>
+                          <PriorityBadge priority={registration.priority} />
+                        </div>
                       </td>
                       <td className="px-5 py-4">{registration.customerName}</td>
                       <td className="px-5 py-4">{registration.mobile}</td>
@@ -1518,7 +1531,16 @@ export function RegistrationManager({
               onChange={(event) => updateField("externalProcess", event.target.value)}
               required
             />
-            <SelectField label="Special Processing Priority" name="priority" value={form.priority} options={priorityOptions} onChange={updateField} required />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Special Processing Priority *</span>
+              <SearchableSelect
+                value={form.priority}
+                options={prioritySelectOptions}
+                onChange={(nextValue: string) => updateField("priority", nextValue)}
+                placeholder="Select priority"
+                name="priority"
+              />
+            </label>
             <Input
               label="Committed Duration / SLA"
               value={form.committedDuration}

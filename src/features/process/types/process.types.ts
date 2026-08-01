@@ -34,6 +34,7 @@ export type ProcessItem = {
   bundleCode?: string;
   fromOfficeName?: string | null;
   toOfficeName?: string | null;
+  priority?: string;
 };
 
 export type ProcessStats = {

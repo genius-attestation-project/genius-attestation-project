@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DocumentMovementDetailsModal } from "./DocumentMovementDetailsModal";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type BmReportDashboardProps = {
   currentOfficeLocationName: string;
@@ -69,6 +70,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   const [processTypeFilter, setProcessTypeFilter] = useState("");
   const [subPackageFilter, setSubPackageFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -405,6 +407,20 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             <option value="Rejected">Rejected</option>
           </select>
 
+          <select
+            value={priorityFilter}
+            onChange={(e) => {
+              setPriorityFilter(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-xl border border-slate-300 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none"
+          >
+            <option value="">All Priorities</option>
+            <option value="Normal">Normal</option>
+            <option value="Express">Express</option>
+            <option value="Super Fast">Super Fast</option>
+          </select>
+
           <input
             type="date"
             value={startDate}
@@ -457,7 +473,9 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {items.map((item) => (
+                {items
+                  .filter((item) => !priorityFilter || (item.priority || "Normal") === priorityFilter)
+                  .map((item) => (
                   <tr
                     key={item.id}
                     className="hover:bg-blue-50/40 transition-colors cursor-pointer"
@@ -466,6 +484,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                     <td className="px-5 py-4 font-bold text-blue-600">
                       <div className="flex items-center gap-1.5">
                         <span>{item.trackingNumber}</span>
+                        <PriorityBadge priority={item.priority} size="xs" />
                       </div>
                       {item.bundleNumber && (
                         <span className="block text-[10px] font-mono font-medium text-slate-400 mt-0.5">

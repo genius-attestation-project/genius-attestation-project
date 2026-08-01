@@ -31,6 +31,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { StatsCard } from "@/components/ui/StatsCard";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
@@ -60,6 +61,7 @@ export function ProcessDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProcessTab>("in_hand");
   const [processType, setProcessType] = useState<string>("All");
+  const [priorityFilter, setPriorityFilter] = useState<string>("All");
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -89,6 +91,15 @@ export function ProcessDashboard() {
   const [availableProcessTypes, setAvailableProcessTypes] = useState<{ label: string; value: string }[]>([
     { label: "All", value: "All" }
   ]);
+
+  const priorityFilterOptions = [
+    { label: "All Priorities", value: "All" },
+    { label: "Normal", value: "Normal", customRender: <PriorityBadge priority="Normal" /> },
+    { label: "Express", value: "Express", customRender: <PriorityBadge priority="Express" /> },
+    { label: "Super Fast", value: "Super Fast", customRender: <PriorityBadge priority="Super Fast" /> },
+  ];
+
+  const displayedItems = items.filter((i) => priorityFilter === "All" || (i.priority || "Normal") === priorityFilter);
 
   // Load process types
   useEffect(() => {
@@ -321,6 +332,16 @@ export function ProcessDashboard() {
                 placeholder="Filter by Process Type"
               />
             </div>
+
+            {/* Priority Filter */}
+            <div className="w-full sm:w-48 shrink-0">
+              <SearchableSelect
+                options={priorityFilterOptions}
+                value={priorityFilter}
+                onChange={setPriorityFilter}
+                placeholder="Filter by Priority"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -485,7 +506,7 @@ export function ProcessDashboard() {
           <LoaderCircle size={28} className="mx-auto animate-spin text-blue-600" />
           <p className="mt-3 text-sm font-medium text-slate-600">Loading process documents...</p>
         </div>
-      ) : items.length === 0 ? (
+      ) : displayedItems.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
           title={`No documents in ${activeTab.replace("_", " ")}`}
@@ -499,7 +520,7 @@ export function ProcessDashboard() {
                 <tr>
                   <th className="px-4 py-4 w-10">
                     <button type="button" onClick={handleSelectAll} className="text-slate-600">
-                      {selectedTrackingNumbers.length === items.length && items.length > 0 ? (
+                      {selectedTrackingNumbers.length === displayedItems.length && displayedItems.length > 0 ? (
                         <CheckSquare className="h-5 w-5 text-blue-600" />
                       ) : (
                         <Square className="h-5 w-5 text-slate-400" />
@@ -517,7 +538,7 @@ export function ProcessDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-(--border) bg-white">
-                {items.map((item) => {
+                {displayedItems.map((item) => {
                   const isSelected = selectedTrackingNumbers.includes(item.trackingNumber);
                   return (
                     <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/70"}`}>
@@ -531,13 +552,16 @@ export function ProcessDashboard() {
                         </button>
                       </td>
                       <td className="px-5 py-4 font-bold text-blue-600">
-                        <button 
-                          type="button" 
-                          onClick={() => openTimeline(item.trackingNumber)} 
-                          className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
-                        >
-                          {item.trackingNumber}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            type="button" 
+                            onClick={() => openTimeline(item.trackingNumber)} 
+                            className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
+                          >
+                            {item.trackingNumber}
+                          </button>
+                          <PriorityBadge priority={item.priority} />
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="font-semibold text-slate-900 text-xs sm:text-sm">{item.customerName || item.clientName}</div>

@@ -5,6 +5,7 @@ import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle } from 
 import { Button } from "@/components/ui/Button";
 import type { Registration } from "@/features/registration/types/registration.types";
 import { CommunicationTimeline } from "@/features/communication/components/CommunicationTimeline";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type RegistrationDetailProps = {
   registration: Registration;
@@ -74,7 +75,10 @@ export function RegistrationDetail({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Tracking</p>
-            <h2 className="mt-2 wrap-break-word text-xl font-extrabold sm:text-2xl">{registration.trackingNumber}</h2>
+            <div className="flex items-center gap-2 mt-2">
+              <h2 className="wrap-break-word text-xl font-extrabold sm:text-2xl">{registration.trackingNumber}</h2>
+              <PriorityBadge priority={registration.priority} />
+            </div>
             <p className="mt-1 text-sm text-soft">{registration.customerName}</p>
           </div>
           <div className="flex flex-wrap gap-2">

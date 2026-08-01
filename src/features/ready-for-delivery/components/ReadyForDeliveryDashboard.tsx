@@ -24,6 +24,7 @@ import type {
   ReadyForDeliveryResponse,
   ReadyForDeliveryStats,
 } from "@/features/ready-for-delivery/types/ready-for-delivery.types";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type ReadyForDeliveryDashboardProps = {
   currentOfficeLocationName: string;
@@ -87,7 +88,10 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Ready For Delivery</p>
-            <h2 className="mt-2 wrap-break-word text-2xl font-extrabold text-slate-900">{registration.trackingNumber}</h2>
+            <div className="flex items-center gap-2 mt-2">
+              <h2 className="wrap-break-word text-2xl font-extrabold text-slate-900">{registration.trackingNumber}</h2>
+              <PriorityBadge priority={(registration as any).priority} />
+            </div>
             <p className="mt-2 text-sm text-slate-600">{registration.customerName}</p>
           </div>
           <div className="grid gap-2 text-right text-sm">
@@ -444,7 +448,12 @@ export function ReadyForDeliveryDashboard({
                 <tbody className="divide-y divide-(--border) bg-white">
                   {items.map((item) => (
                     <tr key={item.id} className="transition hover:bg-blue-50/70">
-                      <td className="px-5 py-4 font-bold text-blue-700">{item.registrationNumber}</td>
+                      <td className="px-5 py-4 font-bold text-blue-700">
+                        <div className="flex items-center gap-2">
+                          <span>{item.registrationNumber}</span>
+                          <PriorityBadge priority={(item as any).priority} />
+                        </div>
+                      </td>
                       <td className="px-5 py-4">{item.clientName}</td>
                       <td className="px-5 py-4">{item.mobile}</td>
                       <td className="px-5 py-4">{item.email}</td>

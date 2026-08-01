@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { OfficeMovementMap } from "./OfficeMovementMap";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type DocumentMovementDetailsModalProps = {
   trackingNumber: string;
@@ -73,6 +74,7 @@ export function DocumentMovementDetailsModal({
                 <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-mono">
                   {trackingNumber}
                 </span>
+                <PriorityBadge priority={details?.registration?.priority} />
               </div>
               <p className="text-xs text-slate-500">
                 Live chronological journey, visual map nodes, and sub package audit logs

@@ -25,6 +25,7 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -420,7 +421,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
-                          <td className="p-4 font-mono font-bold text-blue-600">{tNum}</td>
+                          <td className="p-4 font-mono font-bold text-blue-600">
+                            <div className="flex items-center gap-2">
+                              <span>{tNum}</span>
+                              <PriorityBadge priority={doc.priority} />
+                            </div>
+                          </td>
                           <td className="p-4">
                             <div className="font-semibold text-slate-900">{doc.customerName || doc.clientName}</div>
                             <div className="text-xs text-slate-500 font-mono">{doc.mobile || "-"}</div>
@@ -630,7 +636,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {movementHistory.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="p-4 font-bold text-blue-600">{item.trackingNumber}</td>
+                        <td className="p-4 font-bold text-blue-600">
+                          <div className="flex items-center gap-2">
+                            <span>{item.trackingNumber}</span>
+                            <PriorityBadge priority={item.priority || item.registration?.priority} />
+                          </div>
+                        </td>
                         <td className="p-4 font-semibold">{item.action}</td>
                         <td className="p-4 text-xs text-slate-500">{item.oldStatus || "-"}</td>
                         <td className="p-4 text-xs font-semibold text-emerald-600">
@@ -714,7 +725,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
-                          <td className="p-3 font-mono font-bold text-blue-600">{item.trackingNumber}</td>
+                          <td className="p-3 font-mono font-bold text-blue-600">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.trackingNumber}</span>
+                              <PriorityBadge priority={reg?.priority} size="xs" />
+                            </div>
+                          </td>
                           <td className="p-3 font-medium text-slate-900">{reg?.customerName || "-"}</td>
                           <td className="p-3 text-xs">{reg?.documentType || "-"}</td>
                           <td className="p-3 text-xs font-semibold text-slate-800">{reg?.processType || "-"}</td>

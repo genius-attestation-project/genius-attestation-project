@@ -131,6 +131,7 @@ export async function listProcessAssignments(
     bundleCode: mov.bundle?.bundleNumber,
     fromOfficeName: mov.fromOffice?.officeName || null,
     toOfficeName: mov.toOffice?.officeName || null,
+    priority: mov.registration?.priority || "Normal",
   }));
 }
 
@@ -444,6 +445,7 @@ export async function getProcessHistory(trackingNumber: string, ownerAdminId: st
         country: registration.country || "-",
         deliveryLocation: registration.deliveryLocation || "-",
         registeredDate: registration.createdAt ? formatDate(new Date(registration.createdAt)) : "-",
+        priority: registration.priority || "Normal",
       }
     : null;
 

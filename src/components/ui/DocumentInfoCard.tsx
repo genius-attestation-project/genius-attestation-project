@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
+import { PriorityBadge } from "./PriorityBadge";
 
 export type DocumentInfoCardData = {
   id?: string;
   trackingNumber: string;
+  priority?: string;
   status?: string;
   customerName?: string;
   mobile?: string;
@@ -192,6 +194,7 @@ export function DocumentInfoCard({
           <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm sm:text-base">
             Tracking Number : {tNum}
           </span>
+          <PriorityBadge priority={document.priority} />
           {subPkg !== "-" && (
             <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               {subPkg}

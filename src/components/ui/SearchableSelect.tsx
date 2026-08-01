@@ -9,6 +9,7 @@ export type SelectOption = {
   value: string;
   description?: string;
   category?: string;
+  customRender?: React.ReactNode;
 };
 
 interface SearchableSelectProps {
@@ -161,7 +162,7 @@ export function SearchableSelect({
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <span className={`truncate ${!selectedOption ? "text-slate-500" : "font-semibold text-slate-900 dark:text-slate-100"}`}>
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption?.customRender ? selectedOption.customRender : (selectedOption ? selectedOption.label : placeholder)}
         </span>
         <div className="flex items-center gap-1">
           {selectedOption && !disabled && (
@@ -242,14 +243,18 @@ export function SearchableSelect({
                             setIsOpen(false);
                           }}
                         >
-                          <span className="grid min-w-0 gap-0.5">
-                            <span className="truncate font-semibold text-slate-900 dark:text-white">
-                              {option.label}
+                          {option.customRender ? (
+                            option.customRender
+                          ) : (
+                            <span className="grid min-w-0 gap-0.5">
+                              <span className="truncate font-semibold text-slate-900 dark:text-white">
+                                {option.label}
+                              </span>
+                              <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
+                                {option.category || option.description || group.category}
+                              </span>
                             </span>
-                            <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                              {option.category || option.description || group.category}
-                            </span>
-                          </span>
+                          )}
                           {isSelected && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
                         </button>
                       );
@@ -276,16 +281,20 @@ export function SearchableSelect({
                         setIsOpen(false);
                       }}
                     >
-                      <span className="grid min-w-0 gap-0.5">
-                        <span className="truncate font-semibold text-slate-900 dark:text-white">
-                          {option.label}
-                        </span>
-                        {option.description || option.category ? (
-                          <span className="truncate text-xs text-slate-500 dark:text-slate-400">
-                            {option.category || option.description}
+                      {option.customRender ? (
+                        option.customRender
+                      ) : (
+                        <span className="grid min-w-0 gap-0.5">
+                          <span className="truncate font-semibold text-slate-900 dark:text-white">
+                            {option.label}
                           </span>
-                        ) : null}
-                      </span>
+                          {option.description || option.category ? (
+                            <span className="truncate text-xs text-slate-500 dark:text-slate-400">
+                              {option.category || option.description}
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
                       {isSelected && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
                     </button>
                   );
