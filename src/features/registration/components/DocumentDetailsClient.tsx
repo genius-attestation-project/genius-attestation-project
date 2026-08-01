@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { cn } from "@/utils/cn";
+import { formatDate, formatDateTime } from "@/utils/format";
 
 type Props = {
   trackingNumber: string;
@@ -194,7 +195,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             </div>
             <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-2xs dark:border-white/10 dark:bg-white/5">
               <span className="text-[10px] font-bold text-slate-400 uppercase block">Registered Date</span>
-              <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{new Date(reg.createdAt).toLocaleDateString()}</span>
+              <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{formatDate(reg.createdAt)}</span>
             </div>
             <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-2xs dark:border-white/10 dark:bg-white/5">
               <span className="text-[10px] font-bold text-slate-400 uppercase block">Registered By</span>
@@ -206,7 +207,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             </div>
             <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-2xs dark:border-white/10 dark:bg-white/5">
               <span className="text-[10px] font-bold text-slate-400 uppercase block">Last Updated</span>
-              <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{new Date(reg.updatedAt).toLocaleDateString()}</span>
+              <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{formatDate(reg.updatedAt)}</span>
             </div>
           </div>
         </div>
@@ -413,7 +414,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
                     Invoice #{update.invoiceNumber} — ₹{Number(update.amountPaid).toFixed(2)} ({update.paymentMode})
                   </p>
                   <p className="text-[10px] text-slate-400">
-                    Submitted by {update.submittedBy || "System"} on {new Date(update.submittedAt).toLocaleDateString()}
+                    Submitted by {update.submittedBy || "System"} on {formatDate(update.submittedAt)}
                   </p>
                 </div>
                 {update.receiptFileUrl && (
@@ -492,7 +493,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-bold text-xs text-blue-700 dark:text-blue-300">{step.workflowStep || step.status}</span>
                     <span className="text-[10px] font-semibold text-slate-400">
-                      {new Date(step.performedAt).toLocaleString()}
+                      {formatDateTime(step.performedAt)}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">{step.remarks || "No remarks logged."}</p>
@@ -529,7 +530,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {movementHistory.map((mov: any) => (
                   <tr key={mov.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5">
-                    <td className="p-3 whitespace-nowrap font-medium">{new Date(mov.performedAt).toLocaleString()}</td>
+                    <td className="p-3 whitespace-nowrap font-medium">{formatDateTime(mov.performedAt)}</td>
                     <td className="p-3 whitespace-nowrap font-semibold">{mov.oldOffice || "-"}</td>
                     <td className="p-3 whitespace-nowrap font-semibold text-blue-600 dark:text-blue-400">{mov.newOffice || "-"}</td>
                     <td className="p-3 whitespace-nowrap">{mov.performedBy || "-"}</td>
@@ -563,7 +564,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           <div>
             <span className="text-[11px] font-semibold text-slate-400 block uppercase">Approved Date</span>
             <span className="font-medium text-slate-800 dark:text-slate-200">
-              {reg.approvedAt ? new Date(reg.approvedAt).toLocaleString() : "-"}
+              {reg.approvedAt ? formatDateTime(reg.approvedAt) : "-"}
             </span>
           </div>
           {reg.rejectionReason && (
@@ -588,7 +589,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-400 block uppercase">Created Date</span>
-            <span className="font-medium text-slate-800 dark:text-slate-200">{new Date(reg.createdAt).toLocaleString()}</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">{formatDateTime(reg.createdAt)}</span>
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-400 block uppercase">Updated By</span>
@@ -596,7 +597,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-400 block uppercase">Updated Date</span>
-            <span className="font-medium text-slate-800 dark:text-slate-200">{new Date(reg.updatedAt).toLocaleString()}</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">{formatDateTime(reg.updatedAt)}</span>
           </div>
         </div>
       </section>

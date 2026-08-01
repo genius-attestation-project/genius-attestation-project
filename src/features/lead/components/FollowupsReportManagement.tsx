@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatDate } from "@/utils/format";
 import * as xlsx from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -106,7 +107,7 @@ export function FollowupsReportManagement() {
       "Lead Name": item.leadName,
       "Customer Name": item.customerName,
       "Mobile": item.mobile,
-      "Followup Date": item.followupDate ? new Date(item.followupDate).toLocaleDateString() : "",
+      "Followup Date": item.followupDate ? formatDate(item.followupDate) : "",
       "Followup Time": item.followupTime ? new Date(item.followupTime).toLocaleTimeString() : "",
       "Lead Status": item.leadStatus,
       "Assigned User": item.assignedUser,
@@ -153,7 +154,7 @@ export function FollowupsReportManagement() {
     const tableRows = items.map((item) => [
       item.leadName,
       item.mobile,
-      item.followupDate ? new Date(item.followupDate).toLocaleDateString() : "",
+      item.followupDate ? formatDate(item.followupDate) : "",
       item.followupTime ? new Date(item.followupTime).toLocaleTimeString() : "",
       item.leadStatus,
       item.assignedUser,
@@ -315,7 +316,7 @@ export function FollowupsReportManagement() {
                   <td className="px-4 py-3 font-medium text-slate-900">{item.leadName}</td>
                   <td className="px-4 py-3">{item.mobile}</td>
                   <td className="px-4 py-3">
-                    {item.followupDate ? new Date(item.followupDate).toLocaleDateString() : ""}
+                    {item.followupDate ? formatDate(item.followupDate) : ""}
                   </td>
                   <td className="px-4 py-3">
                     {item.followupTime ? new Date(item.followupTime).toLocaleTimeString() : ""}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { formatDate } from "@/utils/format";
 import { useReportFilters } from "../context/ReportFilterContext";
 import { DataTable } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/Button";
@@ -68,7 +69,7 @@ export default function DetailedReports() {
         { key: "mobileNumber", label: "Phone" },
         { key: "service", label: "Service" },
         { key: "leadStatus", label: "Status" },
-        { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+        { key: "createdAt", label: "Date", render: (row: any) => formatDate(row.createdAt) }
       ];
     } else if (activeTab === "registrations") {
       return [
@@ -79,7 +80,7 @@ export default function DetailedReports() {
         { key: "balanceAmount", label: "Balance (₹)", render: (row: any) => `₹${row.balanceAmount}` },
         { key: "paymentStatus", label: "Payment Status" },
         { key: "trackingStatus", label: "Process Status" },
-        { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+        { key: "createdAt", label: "Date", render: (row: any) => formatDate(row.createdAt) }
       ];
     } else if (activeTab === "advance-payments") {
       return [
@@ -88,21 +89,20 @@ export default function DetailedReports() {
         { key: "advanceAmount", label: "Advance Amount (₹)", render: (row: any) => `₹${row.advanceAmount}` },
         { key: "approvalStatus", label: "Approval Status" },
         { key: "approvedBy", label: "Approved By", render: (row: any) => row.approvedBy || "-" },
-        { key: "approvedDate", label: "Approved Date", render: (row: any) => row.approvedDate !== "-" ? new Date(row.approvedDate).toLocaleDateString() : "-" },
-        { key: "registeredBy", label: "Requested By" },
-        { key: "requestedDate", label: "Requested Date", render: (row: any) => new Date(row.requestedDate).toLocaleDateString() }
+        { key: "approvedDate", label: "Approved Date", render: (row: any) => row.approvedDate !== "-" ? formatDate(row.approvedDate) : "-" },
+        { key: "requestedDate", label: "Requested Date", render: (row: any) => formatDate(row.requestedDate) }
       ];
     } else if (activeTab === "followups") {
       return [
         { key: "lead", label: "Lead", render: (row: any) => `${row.lead?.firstName || ''} ${row.lead?.lastName || ''} (${row.lead?.leadCode || ''})` },
         { key: "actionType", label: "Action" },
         { key: "description", label: "Remarks", render: (row: any) => row.description || "-" },
-        { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+        { key: "createdAt", label: "Date", render: (row: any) => formatDate(row.createdAt) }
       ];
     } else if (activeTab === "attendance") {
       return [
         { key: "user", label: "Employee", render: (row: any) => row.user?.name || "-" },
-        { key: "attendanceDate", label: "Date", render: (row: any) => new Date(row.attendanceDate).toLocaleDateString() },
+        { key: "attendanceDate", label: "Date", render: (row: any) => formatDate(row.attendanceDate) },
         { key: "checkinTime", label: "Check-in", render: (row: any) => row.checkinTime ? new Date(row.checkinTime).toLocaleTimeString() : "-" },
         { key: "checkoutTime", label: "Check-out", render: (row: any) => row.checkoutTime ? new Date(row.checkoutTime).toLocaleTimeString() : "-" },
         { key: "workingHours", label: "Hours", render: (row: any) => `${row.workingHours || 0}h` },
@@ -115,7 +115,7 @@ export default function DetailedReports() {
         { key: "currentLocation", label: "Location" },
         { key: "status", label: "Status" },
         { key: "daysHeld", label: "Days Held" },
-        { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+        { key: "createdAt", label: "Date", render: (row: any) => formatDate(row.createdAt) }
       ];
     } else if (activeTab === "bm-movements") {
       return [
@@ -124,14 +124,14 @@ export default function DetailedReports() {
         { key: "toOffice", label: "To", render: (row: any) => row.toOffice?.officeName || "-" },
         { key: "status", label: "Status" },
         { key: "currentOffice", label: "Current Location", render: (row: any) => row.currentOffice?.officeName || "-" },
-        { key: "createdAt", label: "Date", render: (row: any) => new Date(row.createdAt).toLocaleDateString() }
+        { key: "createdAt", label: "Date", render: (row: any) => formatDate(row.createdAt) }
       ];
     } else if (activeTab === "delivery") {
       return [
         { key: "trackingNumber", label: "Tracking No." },
         { key: "customerName", label: "Customer" },
         { key: "trackingStatus", label: "Status" },
-        { key: "updatedAt", label: "Delivery Date", render: (row: any) => new Date(row.updatedAt).toLocaleDateString() }
+        { key: "updatedAt", label: "Delivery Date", render: (row: any) => formatDate(row.updatedAt) }
       ];
     } else if (activeTab === "welcome-calls") {
       return [
@@ -139,7 +139,7 @@ export default function DetailedReports() {
         { key: "customerName", label: "Customer" },
         { key: "welcomeCallStatus", label: "Outcome" },
         { key: "welcomeCalledBy", label: "Called By", render: (row: any) => row.welcomeCalledBy || "-" },
-        { key: "welcomeCalledAt", label: "Call Date", render: (row: any) => row.welcomeCalledAt ? new Date(row.welcomeCalledAt).toLocaleDateString() : "-" }
+        { key: "welcomeCalledAt", label: "Call Date", render: (row: any) => row.welcomeCalledAt ? formatDate(row.welcomeCalledAt) : "-" }
       ];
     }
     return [];

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
+import { formatDate } from "@/utils/format";
 import {
   Package,
   Send,
@@ -441,7 +442,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700">
-                            {doc.createdDate || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "-")}
+                            {formatDate(doc.createdDate || doc.createdAt)}
                           </td>
                           <td className="p-4 text-xs font-semibold text-slate-800">
                             {doc.regionOfRegistration || doc.sourceOffice || "Main"}
@@ -513,7 +514,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           {bundle.fromOffice?.officeName || "Origin Office"}
                         </td>
                         <td className="p-4 text-xs text-slate-600">
-                          {new Date(bundle.createdAt).toLocaleDateString()}
+                          {formatDate(bundle.createdAt)}
                         </td>
                         <td className="p-4 text-xs font-bold text-amber-700">
                           {calculateFinishedDays(bundle.createdAt)}
@@ -578,7 +579,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                             {bundle.toOffice?.officeName || "Destination"}
                           </td>
                           <td className="p-4 text-xs text-slate-600">
-                            {new Date(bundle.createdAt).toLocaleDateString()}
+                            {formatDate(bundle.createdAt)}
                           </td>
                           <td className="p-4 text-xs font-bold text-amber-700">
                             {calculateFinishedDays(bundle.createdAt)}

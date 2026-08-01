@@ -2,11 +2,10 @@ import { prisma } from "@/lib/prisma";
 import type { ProcessItem, ProcessStats, ProcessLocation } from "../types/process.types";
 
 function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en-IN", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export async function getProcessStats(ownerAdminId: string, officeLocationName: string, processType?: string): Promise<ProcessStats> {

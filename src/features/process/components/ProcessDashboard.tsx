@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDate } from "@/utils/format";
 import { 
   Building2, 
   CheckCheck, 
@@ -603,7 +604,7 @@ export function ProcessDashboard() {
                             </div>
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
-                            {item.registrationDate || item.receivedDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                            {formatDate(item.registrationDate || item.receivedDate || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-semibold text-slate-800">
                             {item.registeredOffice || item.fromOfficeName || "Main"}
@@ -681,8 +682,8 @@ export function ProcessDashboard() {
                           <td className="px-5 py-4 font-semibold text-slate-800">
                             {item.registeredOffice || item.fromOfficeName || "Origin Office"}
                           </td>
-                          <td className="px-5 py-4 text-xs text-slate-600">
-                            {item.receivedDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                            {formatDate(item.receivedDate || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
                             {calculateFinishedDays(item.receivedDate || item.createdAt)}
@@ -728,8 +729,8 @@ export function ProcessDashboard() {
                           <td className="px-5 py-4 font-semibold text-slate-800">
                             {item.toOfficeName || "Destination"}
                           </td>
-                          <td className="px-5 py-4 text-xs text-slate-600">
-                            {item.sentDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                            {formatDate(item.sentDate || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
                             {calculateFinishedDays(item.sentDate || item.createdAt)}

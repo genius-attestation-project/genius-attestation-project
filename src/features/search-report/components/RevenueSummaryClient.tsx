@@ -13,6 +13,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { formatDate } from "@/utils/format";
 import { useState, useEffect, useCallback } from "react";
 import { Download, Filter, Search } from "lucide-react";
 
@@ -153,7 +154,7 @@ export function RevenueSummaryClient() {
       row.advancePaid,
       row.balanceAmount,
       row.approvalStatus,
-      new Date(row.createdAt).toLocaleDateString(),
+      formatDate(row.createdAt),
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
@@ -456,7 +457,7 @@ export function RevenueSummaryClient() {
                           {row.approvalStatus}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{new Date(row.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3">{formatDate(row.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

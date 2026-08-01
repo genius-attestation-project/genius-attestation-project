@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { formatDate } from "@/utils/format";
 import {
   Inbox,
   FileCheck2,
@@ -493,7 +494,7 @@ export function AssignedOfficeWorkspaceClient({
                     <div className="flex justify-between text-slate-600 dark:text-slate-400">
                       <span>Transferred Date:</span>
                       <span className="font-semibold text-slate-900 dark:text-white">
-                        {new Date(bundle.createdAt).toLocaleDateString()}
+                        {formatDate(bundle.createdAt)}
                       </span>
                     </div>
 
@@ -601,7 +602,7 @@ export function AssignedOfficeWorkspaceClient({
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                            {row.createdDate || (row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "-")}
+                            {formatDate(row.createdDate || row.createdAt)}
                           </td>
                           <td className="p-4 font-semibold text-slate-900 dark:text-white">{row.customerName || row.clientName || "-"}</td>
                           <td className="p-4 text-xs font-medium text-slate-800 dark:text-slate-200">{row.documentType || "-"}</td>
@@ -691,7 +692,7 @@ export function AssignedOfficeWorkspaceClient({
                 {selectedBundle.items.map((item: any, index: number) => {
                   const isChecked = bundleSelectedTrackings.includes(item.trackingNumber);
                   const reg = item.registration;
-                  const regDate = reg?.createdDate || (reg?.createdAt ? new Date(reg.createdAt).toLocaleDateString() : (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"));
+                  const regDate = formatDate(reg?.createdDate || reg?.createdAt || item.createdAt);
                   const docName = reg?.documentName || reg?.customerName || "-";
                   const docType = reg?.documentType || "-";
                   const procType = reg?.processType || reg?.externalProcess || "-";

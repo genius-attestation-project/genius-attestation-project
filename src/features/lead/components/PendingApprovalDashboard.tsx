@@ -2,6 +2,7 @@
 
 import { BadgeCheck, Download, Eye, FileText, IndianRupee, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { formatDate } from "@/utils/format";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -300,7 +301,7 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900 dark:text-white">{item.registeredBy}</p>
                           <p className="text-xs text-soft">
-                            {new Date(item.registeredDate).toLocaleDateString()}
+                            {formatDate(item.registeredDate)}
                           </p>
                         </td>
                         <td className="px-5 py-4">
@@ -331,7 +332,7 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900 dark:text-white">{item.requestedBy}</p>
                           <p className="text-xs text-soft">
-                            {new Date(item.requestedDate).toLocaleDateString()}
+                            {formatDate(item.requestedDate)}
                           </p>
                         </td>
                         <td className="px-5 py-4">
@@ -415,7 +416,7 @@ export function PendingApprovalDashboard() {
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900 dark:text-white">{item.createdBy || "System User"}</p>
-                          <p className="text-xs text-soft">{new Date(item.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-soft">{formatDate(item.createdAt)}</p>
                         </td>
                         <td className="px-5 py-4">
                           <StatusBadge status={item.approvalStatus} />
@@ -484,7 +485,7 @@ export function PendingApprovalDashboard() {
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.lead?.leadCode}</td>
                         <td className="px-5 py-4">{item.requestedBy}</td>
-                        <td className="px-5 py-4">{new Date(item.requestedAt).toLocaleDateString()}</td>
+                        <td className="px-5 py-4">{formatDate(item.requestedAt)}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "LOB_REQUEST", id: item.id, title: "Approve LOB Request" })}>Approve</Button>
@@ -518,7 +519,7 @@ export function PendingApprovalDashboard() {
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
                         <td className="px-5 py-4">{item.service}</td>
-                        <td className="px-5 py-4 text-rose-600 font-semibold">{new Date(item.updatedAt).toLocaleDateString()}</td>
+                        <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.updatedAt)}</td>
                         <td className="px-5 py-4">{item.assignedUser || "Unassigned"}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
@@ -550,7 +551,7 @@ export function PendingApprovalDashboard() {
                     overdueFollowups.map((item) => (
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
-                        <td className="px-5 py-4 text-rose-600 font-semibold">{new Date(item.nextFollowupAt).toLocaleDateString()}</td>
+                        <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.nextFollowupAt)}</td>
                         <td className="px-5 py-4">{item.assignedUser || "Unassigned"}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
