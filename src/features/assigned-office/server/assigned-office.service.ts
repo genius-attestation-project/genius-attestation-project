@@ -918,7 +918,7 @@ export async function listWorkspaceDocuments(params: {
       documentMovements: {
         some: {
           currentOfficeId: params.officeId,
-          status: { in: ["Received", "Document In Hand", "In Hand"] },
+          status: { in: ["Received", "Document In Hand", "In Hand", "HOME"] },
           currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package"] },
         },
       },

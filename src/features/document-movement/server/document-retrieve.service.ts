@@ -86,8 +86,25 @@ export async function retrieveOutboundDocuments(
 
       if (!movement) continue;
 
-      // Verify destination has not received it
-      if (movement.status === "Received" || movement.status === "HOME") {
+      // Guard: skip if the document has truly been received at the destination office
+      // AND has not progressed further into the sub package or completed workflow.
+      // We must NOT skip documents that went through:
+      //   Received → In Sub Package → Completed
+      // because those are legitimately retrievable after sub package processing.
+      // The original "status === Received" guard was meant to prevent retrieval when
+      // the destination office already has the document, but it incorrectly blocked
+      // documents that have completed the sub package workflow back to Process Outbound.
+      const hasProgressedBeyondReceive =
+        movement.currentStatus === "Completed" ||
+        movement.currentStatus === "In Sub Package" ||
+        movement.currentStatus === "Document In Hand";
+
+      if (movement.status === "HOME") {
+        continue;
+      }
+
+      if (movement.status === "Received" && !hasProgressedBeyondReceive) {
+        // Document is genuinely received and sitting at destination — cannot retrieve
         continue;
       }
 
