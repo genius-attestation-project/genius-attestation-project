@@ -14,6 +14,7 @@ type ExportRecord = {
   totalCharges: number;
   advancePaid: number;
   balanceAmount: number;
+  createdBy?: { name: string | null } | null;
   createdByName?: string | null;
   registeredPerson: string | null;
   collectedPerson: string | null;
@@ -34,7 +35,7 @@ function mapRecordsToRows(records: ExportRecord[]) {
     record.totalCharges,
     record.advancePaid,
     record.balanceAmount,
-    record.registeredPerson || "-",
+    record.createdBy?.name || record.createdByName || record.registeredPerson || "-",
     record.collectedPerson || "-",
     record.regionOfRegistration || "-",
     record.approvalStatus,

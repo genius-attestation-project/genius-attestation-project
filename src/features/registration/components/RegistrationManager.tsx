@@ -1283,7 +1283,8 @@ export function RegistrationManager({
                     <th className="px-5 py-4">Tracking Number</th>
                     <th className="px-5 py-4">Customer Name</th>
                     <th className="px-5 py-4">Mobile</th>
-                    <th className="px-5 py-4">Created By</th>
+                    <th className="px-5 py-4">Registered By</th>
+                    <th className="px-5 py-4">Process Type</th>
                     <th className="px-5 py-4">Document Type</th>
                     <th className="px-5 py-4">Payment Status</th>
                     <th className="px-5 py-4">Approval Status</th>
@@ -1305,6 +1306,7 @@ export function RegistrationManager({
                       <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-300">
                         {registration.createdBy?.name || "Unknown"}
                       </td>
+                      <td className="px-5 py-4">{registration.processType || "-"}</td>
                       <td className="px-5 py-4">{registration.documentType || "-"}</td>
                       <td className="px-5 py-4">{registration.paymentStatus}</td>
                       <td className="px-5 py-4">{registration.approvalStatus}</td>
