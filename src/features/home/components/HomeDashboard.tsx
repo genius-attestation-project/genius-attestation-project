@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import {
   Package,
@@ -431,7 +432,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           <td className="p-4 font-mono font-bold text-blue-600">
                             <div className="flex items-center gap-2">
                               <PriorityDot priority={doc.priority} size={10} />
-                              <span>{tNum}</span>
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(tNum)}`}
+                                className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                              >
+                                {tNum}
+                              </Link>
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700">
@@ -642,7 +648,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                         <td className="p-4 font-bold text-blue-600">
                           <div className="flex items-center gap-2">
                             <PriorityDot priority={item.priority || item.registration?.priority} size={10} />
-                            <span>{item.trackingNumber}</span>
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                              className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                            >
+                              {item.trackingNumber}
+                            </Link>
                           </div>
                         </td>
                         <td className="p-4 font-semibold">{item.action}</td>

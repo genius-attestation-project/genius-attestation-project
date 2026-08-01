@@ -1,6 +1,7 @@
 "use client";
 
-import { FileSearch, Plus, Search } from "lucide-react";
+import { FileSearch, Plus, Search, Eye } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { FormEvent } from "react";
@@ -119,9 +120,16 @@ export function SearchReportClient() {
         <RegistrationDetail 
           registration={registration} 
           actionButton={
-            <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}>
-              <Route size={16} /> Timeline
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}>
+                <Button variant="primary" size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Eye size={16} /> View 360° Details
+                </Button>
+              </Link>
+              <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}>
+                <Route size={16} /> Timeline
+              </Button>
+            </div>
           }
         />
       ) : null}

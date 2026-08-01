@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Activity,
   ArrowRightLeft,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PriorityDot } from "@/components/ui/PriorityDot";
 import { DocumentMovementDetailsModal } from "./DocumentMovementDetailsModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
@@ -483,8 +485,13 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                   >
                     <td className="px-5 py-4 font-bold text-blue-600">
                       <div className="flex items-center gap-1.5">
-                        <span>{item.trackingNumber}</span>
-                        <PriorityBadge priority={item.priority} size="xs" />
+                        <PriorityDot priority={item.priority} size={10} />
+                        <Link
+                          href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                          className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          {item.trackingNumber}
+                        </Link>
                       </div>
                       {item.bundleNumber && (
                         <span className="block text-[10px] font-mono font-medium text-slate-400 mt-0.5">

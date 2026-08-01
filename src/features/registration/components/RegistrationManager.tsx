@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Eye,
   FilePlus2,
@@ -1315,7 +1316,12 @@ export function RegistrationManager({
                       <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
                         <div className="flex items-center gap-2">
                           <PriorityDot priority={registration.priority} size={10} />
-                          <span>{registration.trackingNumber}</span>
+                          <Link
+                            href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
+                            className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            {registration.trackingNumber}
+                          </Link>
                         </div>
                       </td>
                       <td className="px-5 py-4">{registration.customerName}</td>

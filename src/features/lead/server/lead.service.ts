@@ -81,13 +81,6 @@ const leadSelect = {
   documentIssuedCountry: true,
   source: true,
   clientType: true,
-  corporateDetailId: true,
-  corporateDetail: {
-    select: {
-      id: true,
-      companyName: true,
-    },
-  },
   workingDays: true,
   followupHistory: {
     orderBy: [{ createdAt: "desc" }],
@@ -252,8 +245,6 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     documentIssuedCountry: lead.documentIssuedCountry ?? "",
     source: lead.source ?? "",
     clientType: lead.clientType ?? "",
-    corporateDetailId: lead.corporateDetailId ?? "",
-    corporateCompanyName: lead.corporateDetail?.companyName ?? "",
     amount: formatCurrency(lead.amount),
     workingDays: lead.workingDays ? String(lead.workingDays) : "",
     assignedUserId: lead.assignedUserId ?? "",
@@ -663,7 +654,6 @@ function buildLeadData(
     source: input.source || null,
     leadStatus,
     clientType: input.clientType || null,
-    corporateDetailId: input.corporateDetailId || null,
     amount,
     workingDays:
       typeof input.workingDays === "number" && input.workingDays > 0 ? input.workingDays : null,

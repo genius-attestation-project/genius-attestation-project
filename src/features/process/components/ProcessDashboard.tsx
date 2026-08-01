@@ -594,13 +594,12 @@ export function ProcessDashboard() {
                           <td className="px-5 py-4 font-bold text-blue-600">
                             <div className="flex items-center gap-2">
                               <PriorityDot priority={item.priority} size={10} />
-                              <button 
-                                type="button" 
-                                onClick={() => openTimeline(item.trackingNumber)} 
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
                                 className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
                               >
                                 {item.trackingNumber}
-                              </button>
+                              </Link>
                             </div>
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
