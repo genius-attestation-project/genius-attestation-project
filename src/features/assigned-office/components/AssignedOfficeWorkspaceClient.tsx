@@ -687,47 +687,63 @@ export function AssignedOfficeWorkspaceClient({
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-2 rounded-2xl border border-slate-200/60 p-2 dark:border-white/10">
-                {selectedBundle.items.map((item: any) => {
+                {selectedBundle.items.map((item: any, index: number) => {
                   const isChecked = bundleSelectedTrackings.includes(item.trackingNumber);
                   const reg = item.registration;
+                  const regDate = reg?.createdDate || (reg?.createdAt ? new Date(reg.createdAt).toLocaleDateString() : (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"));
+                  const docName = reg?.documentName || reg?.customerName || "-";
+                  const docType = reg?.documentType || "-";
+                  const procType = reg?.processType || reg?.externalProcess || "-";
+                  const days = calculateNumberOfDays(item.receivedAt || item.updatedAt || item.createdAt || reg?.createdAt);
+
                   return (
                     <div
                       key={item.id}
                       onClick={() => toggleBundleItem(item.trackingNumber)}
                       className={cn(
-                        "cursor-pointer rounded-xl border p-3 text-xs transition-all space-y-1.5",
+                        "cursor-pointer rounded-xl border p-3 text-xs transition-all flex items-center gap-3",
                         isChecked
                           ? "border-blue-500 bg-blue-50/50 dark:bg-blue-500/10"
                           : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-[#0f1115]"
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          {isChecked ? (
-                            <CheckSquare className="text-blue-600 shrink-0" size={18} />
-                          ) : (
-                            <Square className="text-slate-300 shrink-0" size={18} />
-                          )}
-                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {item.trackingNumber}
-                          </span>
-                          <PriorityBadge priority={reg?.priority} />
-                          {reg?.customerName && (
-                            <span className="font-semibold text-slate-900 dark:text-white truncate max-w-35">
-                              • {reg.customerName}
-                            </span>
-                          )}
-                        </div>
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                          {item.status}
-                        </span>
+                      <div className="shrink-0">
+                        {isChecked ? (
+                          <CheckSquare className="text-blue-600 shrink-0" size={18} />
+                        ) : (
+                          <Square className="text-slate-300 shrink-0" size={18} />
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pl-7">
-                        <div>Doc Type: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.documentType || "-"}</span></div>
-                        <div>Main Process: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.processType || "-"}</span></div>
-                        <div>Sub Package: <span className="font-medium text-slate-700 dark:text-slate-200">{reg?.subPackage || "-"}</span></div>
-                        <div>Amount: <span className="font-bold text-slate-900 dark:text-white">₹{reg?.totalCharges ? Number(reg.totalCharges) : 0}</span></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 w-full items-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">SL No</span>
+                          <span className="font-semibold text-slate-600 dark:text-slate-400">{index + 1}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Tracking Number</span>
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{item.trackingNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Reg. Date</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{regDate}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Name</span>
+                          <span className="font-semibold text-slate-900 dark:text-white truncate block">{docName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Type</span>
+                          <span className="font-medium text-slate-800 dark:text-slate-200">{docType}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Process Type</span>
+                          <span className="font-bold text-blue-800 dark:text-blue-300">{procType}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold uppercase">Number of Days</span>
+                          <span className="font-bold text-amber-700 dark:text-amber-400">{days}</span>
+                        </div>
                       </div>
                     </div>
                   );
