@@ -29,6 +29,7 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { FileUpload, MultiFileUpload } from "@/components/common/FileUpload";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
@@ -205,18 +206,50 @@ function normalizePhoneValue(value: string) {
   return digits ? `${hasPrefix ? "+" : ""}${digits}` : "";
 }
 
+function getCountryCodeFromOffice(officeName: string, officeLocationsList: OfficeLocationOption[]): string {
+  if (!officeName) return "in";
+
+  const matchedOffice = officeLocationsList.find(
+    (o) => o.officeName?.toLowerCase().trim() === officeName.toLowerCase().trim()
+  );
+  const targetCountry = (matchedOffice?.location || officeName).toLowerCase().trim();
+
+  if (targetCountry.includes("india") || targetCountry.includes("kochi") || targetCountry.includes("delhi") || targetCountry.includes("mumbai")) return "in";
+  if (targetCountry.includes("uae") || targetCountry.includes("emirates") || targetCountry.includes("dubai") || targetCountry.includes("abu dhabi")) return "ae";
+  if (targetCountry.includes("qatar") || targetCountry.includes("doha")) return "qa";
+  if (targetCountry.includes("saudi") || targetCountry.includes("riyadh") || targetCountry.includes("jeddah")) return "sa";
+  if (targetCountry.includes("oman") || targetCountry.includes("muscat")) return "om";
+  if (targetCountry.includes("bahrain") || targetCountry.includes("manama")) return "bh";
+  if (targetCountry.includes("kuwait")) return "kw";
+  if (targetCountry.includes("malaysia") || targetCountry.includes("kuala lumpur")) return "my";
+  if (targetCountry.includes("singapore")) return "sg";
+  if (targetCountry.includes("uk") || targetCountry.includes("united kingdom") || targetCountry.includes("london")) return "gb";
+  if (targetCountry.includes("us") || targetCountry.includes("united states") || targetCountry.includes("america")) return "us";
+
+  const found = Country.getAllCountries().find(
+    (c) => c.name.toLowerCase() === targetCountry || targetCountry.includes(c.name.toLowerCase())
+  );
+  if (found) {
+    return found.isoCode.toLowerCase();
+  }
+
+  return "in";
+}
+
 function PhoneField({
   value,
   onChange,
+  defaultCountry = "in",
 }: {
   value: string;
   onChange: (value: string) => void;
+  defaultCountry?: string;
 }) {
   return (
     <label className="grid min-w-0 gap-2">
       <span className="text-sm font-bold">Mobile Number</span>
       <PhoneInput
-        defaultCountry="in"
+        defaultCountry={defaultCountry}
         value={value}
         onChange={(phone) => onChange(normalizePhoneValue(phone))}
         forceDialCode
@@ -359,6 +392,8 @@ export function RegistrationManager({
   hasImportPermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
+  const { user: currentUser } = useAuth();
+  const currentUserName = currentUser?.name || currentUser?.email || "";
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -383,6 +418,7 @@ export function RegistrationManager({
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
   const [officeLocationOptions, setOfficeLocationOptions] = useState<string[]>([]);
+  const [rawOfficeLocations, setRawOfficeLocations] = useState<OfficeLocationOption[]>([]);
   const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
@@ -473,6 +509,18 @@ export function RegistrationManager({
 
     return commissionUserOptions;
   }, [commissionUserOptions, form.commissionToEmail, form.commissionToName, form.commissionToUserId]);
+
+  const defaultPhoneCountry = useMemo(() => {
+    return getCountryCodeFromOffice(currentOfficeLocationName, rawOfficeLocations);
+  }, [currentOfficeLocationName, rawOfficeLocations]);
+
+  const personSelectOptions = useMemo(() => {
+    const list = [...personOptions];
+    if (currentUserName && !list.includes(currentUserName)) {
+      return [currentUserName, ...list];
+    }
+    return list;
+  }, [personOptions, currentUserName]);
 
   const documentTypeSelectOptions = useMemo(() => {
     if (form.documentType && !documentTypeOptions.some((opt) => opt.value === form.documentType)) {
@@ -572,9 +620,10 @@ export function RegistrationManager({
       setForm((current) => ({
         ...current,
         regionOfRegistration: current.regionOfRegistration || currentOfficeLocationName,
+        registeredPerson: current.registeredPerson || currentUserName,
       }));
     }
-  }, [currentOfficeLocationName, selected]);
+  }, [currentOfficeLocationName, currentUserName, selected]);
 
   useEffect(() => {
     async function fetchDropdownOptions() {
@@ -699,6 +748,7 @@ export function RegistrationManager({
       if (officeLocationsResponse.status === "fulfilled" && officeLocationsResponse.value.ok) {
         const payload = await officeLocationsResponse.value.json().catch(() => ({}));
         const officeLocations = (payload.officeLocations ?? []) as OfficeLocationOption[];
+        setRawOfficeLocations(officeLocations);
         const names = officeLocations
           .map((officeLocation) => officeLocation.officeName)
           .filter(Boolean);
@@ -740,6 +790,7 @@ export function RegistrationManager({
       ...blankForm,
       trackingNumber: initialTrackingNumber,
       regionOfRegistration: currentOfficeLocationName,
+      registeredPerson: currentUserName,
     });
     setDocumentFileIds([]);
     setInvoiceFileIds([]);
@@ -1343,7 +1394,7 @@ export function RegistrationManager({
               onChange={(event) => updateField("customerName", event.target.value)}
               required
             />
-            <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} />
+            <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} defaultCountry={defaultPhoneCountry} />
             <Input
               label="Email"
               type="email"
@@ -1730,7 +1781,7 @@ export function RegistrationManager({
                 errorMessage={usersError}
               />
             </label>
-            <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personOptions} onChange={updateField} />
+            <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personSelectOptions} onChange={updateField} />
             <Input
               label="Region of Registration"
               value={form.regionOfRegistration}
