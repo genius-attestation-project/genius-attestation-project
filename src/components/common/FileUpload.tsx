@@ -4,6 +4,7 @@ import { CheckCircle2, Download, Eye, FileText, FileUp, Loader2, RefreshCw, Tras
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { FilePreviewModal } from "./FilePreviewModal";
 
 type FileUploadProps = {
   label: string;
@@ -35,6 +36,7 @@ export function FileUpload({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,21 +100,14 @@ export function FileUpload({
   if (existingFile && !file) {
     const fileName = existingFile.fileName || "Uploaded File";
     const ext = (fileName.split(".").pop() || "").toLowerCase().replace(".", "");
-    const isPreviewable = ["pdf", "jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+    const isPreviewable =
+      ["pdf", "jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext);
 
     const fileUrl = existingFile.id
       ? `/api/files/${existingFile.id}/view`
       : existingFile.url && !existingFile.url.startsWith("http")
       ? existingFile.url
       : existingFile.url || "#";
-
-    const handleView = () => {
-      if (isPreviewable) {
-        window.open(fileUrl, "_blank");
-      } else {
-        handleDownload();
-      }
-    };
 
     const handleDownload = () => {
       const a = document.createElement("a");
@@ -122,6 +117,14 @@ export function FileUpload({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+    };
+
+    const handleView = () => {
+      if (isPreviewable) {
+        setPreviewOpen(true);
+      } else {
+        handleDownload();
+      }
     };
 
     return (
@@ -169,6 +172,12 @@ export function FileUpload({
             </Button>
           </div>
         </div>
+
+        <FilePreviewModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          file={existingFile}
+        />
       </div>
     );
   }

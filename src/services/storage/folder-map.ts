@@ -8,6 +8,8 @@ export const FOLDER_MAP: Record<string, string> = {
   "Payroll": "payroll",
   "Leave": "leave",
   "Company": "company",
+  "Corporate Details": "company",
+  "Corporate Details Approval": "company",
 };
 
 export function getFolderForModule(moduleName: string): string {
