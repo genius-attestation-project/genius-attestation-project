@@ -467,6 +467,10 @@ export async function createRegistration(
       ownerAdminId,
       registrationId: registrationResult.id,
       advanceAmount: input.advancePaid ?? 0,
+      paymentDate: new Date(),
+      paymentMode: input.paymentMode || "Cash",
+      referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
+      collectedBy: input.collectedPerson || null,
       performedByUserId: userId,
     }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
   }
@@ -591,6 +595,10 @@ export async function updateRegistration(
       ownerAdminId,
       registrationId: registrationResult.id,
       advanceAmount: input.advancePaid ?? 0,
+      paymentDate: new Date(),
+      paymentMode: input.paymentMode || "Cash",
+      referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
+      collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
   }
@@ -680,6 +688,8 @@ export async function addRegistrationFile(
       ownerAdminId,
       registrationId: registration.id,
       advanceAmount: Number(registration.advancePaid),
+      paymentDate: new Date(),
+      paymentMode: registration.paymentMode || "Cash",
       receiptFileId: file.fileStorageId,
     }).catch((err) => console.error("[registration] Advance payment file upload approval error:", err));
   }

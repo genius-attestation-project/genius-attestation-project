@@ -56,8 +56,8 @@ export async function GET(
       );
     }
 
-    // Fetch related timeline, subpackage movements, and audit history
-    const [subPackageMovements, movementHistory, workflowHistory] = await Promise.all([
+    // Fetch related timeline, subpackage movements, advance payment approvals, and audit history
+    const [subPackageMovements, movementHistory, workflowHistory, advancePaymentApprovals] = await Promise.all([
       (prisma as any).subPackageMovement.findMany({
         where: { trackingNumber: trackingNumber.trim() },
         orderBy: { createdAt: "desc" },
@@ -69,6 +69,11 @@ export async function GET(
       (prisma as any).documentWorkflowHistory.findMany({
         where: { trackingNumber: trackingNumber.trim() },
         orderBy: { performedAt: "desc" },
+      }),
+      prisma.advancePaymentApproval.findMany({
+        where: { registrationId: registration.id },
+        orderBy: { requestedAt: "desc" },
+        include: { auditLogs: { orderBy: { createdAt: "desc" } } },
       }),
     ]);
 
@@ -122,6 +127,45 @@ export async function GET(
       subPackageMovements,
       movementHistory,
       workflowHistory,
+      advancePaymentApprovals: advancePaymentApprovals.map((item) => ({
+        id: item.id,
+        registrationId: item.registrationId,
+        trackingNumber: item.trackingNumber,
+        leadId: item.leadId || "-",
+        customerName: item.customerName,
+        documentName: item.documentName || "-",
+        totalAmount: Number(item.totalAmount),
+        advanceAmount: Number(item.advanceAmount),
+        remainingBalance: Number(item.remainingBalance),
+        currentAdvancePaid: item.currentAdvancePaid ? Number(item.currentAdvancePaid) : 0,
+        currentBalance: item.currentBalance ? Number(item.currentBalance) : 0,
+        paymentDate: item.paymentDate ? item.paymentDate.toISOString() : item.requestedAt.toISOString(),
+        paymentMode: item.paymentMode || "Cash",
+        referenceNumber: item.referenceNumber || "-",
+        collectedBy: item.collectedBy || item.requestedByName || "-",
+        remarks: item.remarks || null,
+        proofFileType: item.proofFileType || null,
+        receiptFileId: item.receiptFileId || null,
+        receiptFileUrl: item.receiptFileUrl || null,
+        receiptFileName: item.receiptFileName || null,
+        status: item.status,
+        requestedBy: item.requestedByName || "-",
+        requestedById: item.requestedById,
+        requestedDate: item.requestedAt.toISOString(),
+        approvedBy: item.approvedByName || null,
+        approvedDate: item.approvedAt?.toISOString() || null,
+        rejectedBy: item.rejectedByName || null,
+        rejectedDate: item.rejectedAt?.toISOString() || null,
+        rejectionReason: item.rejectionReason || null,
+        auditLogs: item.auditLogs.map((log) => ({
+          id: log.id,
+          action: log.action,
+          performedBy: log.performedByName || log.performedBy,
+          remarks: log.remarks,
+          ipAddress: log.ipAddress,
+          createdAt: log.createdAt.toISOString(),
+        })),
+      })),
     });
   } catch (error: any) {
     console.error("[GET_DOCUMENT_DETAILS_ERROR]", error);

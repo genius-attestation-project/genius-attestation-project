@@ -38,6 +38,7 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
+import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   paymentStatusOptions,
@@ -445,6 +446,7 @@ export function RegistrationManager({
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
   const [corporateOptions, setCorporateOptions] = useState<SelectOption[]>([]);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isAddAdvanceOpen, setIsAddAdvanceOpen] = useState(false);
 
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
 
@@ -1601,15 +1603,40 @@ export function RegistrationManager({
               placeholder="Enter amount"
               onChange={(event) => updateField("totalCharges", event.target.value)}
             />
-            <Input
-              label="Advance Paid"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.advancePaid}
-              placeholder="Enter amount"
-              onChange={(event) => updateField("advancePaid", event.target.value)}
-            />
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  Advance Paid
+                </span>
+                {selected && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddAdvanceOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Advance
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <div className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-extrabold text-emerald-700 dark:border-white/10 dark:bg-white/5 dark:text-emerald-300">
+                    <span>₹ {Number(selected ? selected.advancePaid : (form.advancePaid || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved Only</span>
+                  </div>
+                </div>
+                {selected && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsAddAdvanceOpen(true)}
+                    className="h-10 px-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 font-bold text-xs gap-1"
+                  >
+                    <Plus size={16} /> Add Advance
+                  </Button>
+                )}
+              </div>
+            </div>
             <MultiFileUpload
               label="Advance Payment Upload"
               moduleName="Revenue Registration"
@@ -1911,6 +1938,23 @@ export function RegistrationManager({
         title="Add New Corporate Company"
         description="Fill company details to save and select immediately in registration."
       />
+
+      {selected && (
+        <AddAdvanceModal
+          isOpen={isAddAdvanceOpen}
+          onClose={() => setIsAddAdvanceOpen(false)}
+          registrationId={selected.id}
+          trackingNumber={selected.trackingNumber}
+          customerName={selected.customerName}
+          totalCharges={Number(selected.totalCharges)}
+          currentApprovedAdvance={Number(selected.advancePaid)}
+          currentBalance={Number(selected.balanceAmount)}
+          personOptions={toSelectOptions(personOptions)}
+          onSuccess={() => {
+            fetchRegistrations(query, filters);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,18 +1,16 @@
 "use client";
 
-import { BadgeCheck, Download, Eye, FileText, IndianRupee, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Download, Eye, FileText, IndianRupee, ShieldCheck, Building2, CheckCircle2, Pencil, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { formatDate } from "@/utils/format";
+import { formatDate, formatDateTime } from "@/utils/format";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Textarea } from "@/components/ui/Textarea";
-
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
-import { Building2, CheckCircle2, Pencil, XCircle } from "lucide-react";
-
 import { AgreementCell } from "@/components/common/AgreementCell";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
 type MainTabKey = "advance_payment" | "corporate_approval" | "lob" | "inactive" | "overdue";
@@ -27,12 +25,19 @@ type AdvancePaymentApprovalItem = {
   leadId: string;
   customerName: string;
   mobile: string;
+  documentName?: string;
   office: string;
   registeredBy: string;
   registeredDate: string;
   totalAmount: number;
   advanceAmount: number;
   remainingBalance: number;
+  currentAdvancePaid?: number;
+  currentBalance?: number;
+  paymentMode?: string;
+  referenceNumber?: string;
+  collectedBy?: string;
+  remarks?: string;
   receiptFileId: string | null;
   receiptFileUrl: string | null;
   receiptFileName: string | null;
@@ -70,6 +75,14 @@ function StatusBadge({ status }: { status: string }) {
 
 export function PendingApprovalDashboard() {
   const router = useRouter();
+  const { user: currentUser } = useAuth();
+
+  const canApprove =
+    currentUser?.isSuperAdmin ||
+    currentUser?.permissions?.includes("advance_payment_approval.approve") ||
+    currentUser?.permissions?.includes("pending_approval.edit") ||
+    currentUser?.permissions?.includes("pendingApproval.approve") ||
+    currentUser?.permissions?.includes("*");
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [corporateApprovals, setCorporateApprovals] = useState<any[]>([]);
@@ -93,8 +106,6 @@ export function PendingApprovalDashboard() {
   } | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const [selectedReceipt, setSelectedReceipt] = useState<{ url: string | null; fileId: string | null; fileName: string | null } | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -192,22 +203,22 @@ export function PendingApprovalDashboard() {
   }
 
   const viewReceipt = (item: AdvancePaymentApprovalItem) => {
-    if (item.receiptFileId) {
-      window.open(`/api/files/${item.receiptFileId}/view`, "_blank");
-    } else if (item.receiptFileUrl) {
+    if (item.receiptFileUrl) {
       window.open(item.receiptFileUrl, "_blank");
+    } else if (item.receiptFileId) {
+      window.open(`/api/files/${item.receiptFileId}/view`, "_blank");
     } else {
-      setError("No uploaded receipt file found for this advance payment request.");
+      setError("No uploaded proof file found for this advance payment request.");
     }
   };
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8 dark:border-blue-900/40 dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_42%),linear-gradient(135deg,#0f172a,#1e293b)]">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Lead Management</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Lead & Financial Approvals</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pending Approval</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Review supervisor approval requests for advance payments, restricted lead status changes, inactive leads, and overdue follow-ups.
+          Review enterprise approval requests for advance payment approvals, corporate details, restricted lead status changes, and follow-ups.
         </p>
       </section>
 
@@ -254,24 +265,24 @@ export function PendingApprovalDashboard() {
 
       {loading ? (
         <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card) dark:bg-white/5">
-          Loading queues...
+          Loading approval queues...
         </div>
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:bg-white/5">
           <div className="overflow-x-auto">
             {activeTab === "advance_payment" && (
-              <table className="min-w-[1280px] text-left text-sm">
+              <table className="min-w-[1380px] text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
-                    <th className="px-5 py-4">Tracking / Reg No</th>
-                    <th className="px-5 py-4">Lead ID</th>
-                    <th className="px-5 py-4">Customer & Mobile</th>
-                    <th className="px-5 py-4">Office</th>
-                    <th className="px-5 py-4">Registered By & Date</th>
-                    <th className="px-5 py-4">Amounts</th>
-                    <th className="px-5 py-4">Receipt File</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4">Requested By</th>
+                    <th className="px-5 py-4">Tracking Number</th>
+                    <th className="px-5 py-4">Customer Name</th>
+                    <th className="px-5 py-4">Document</th>
+                    <th className="px-5 py-4">Current Status</th>
+                    <th className="px-5 py-4">Requested Advance</th>
+                    <th className="px-5 py-4">Payment Mode & Ref</th>
+                    <th className="px-5 py-4">Uploaded Proof</th>
+                    <th className="px-5 py-4">Remarks</th>
+                    <th className="px-5 py-4">Requested By & Date</th>
                     <th className="px-5 py-4">Actions</th>
                   </tr>
                 </thead>
@@ -285,31 +296,34 @@ export function PendingApprovalDashboard() {
                   ) : (
                     advancePaymentRequests.map((item) => (
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">
+                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
                           {item.trackingNumber}
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {item.leadId}
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
                           <p className="text-xs text-soft">{item.mobile}</p>
                         </td>
                         <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                          {item.office}
+                          {item.documentName || "-"}
                         </td>
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-900 dark:text-white">{item.registeredBy}</p>
-                          <p className="text-xs text-soft">
-                            {formatDate(item.registeredDate)}
+                        <td className="px-5 py-4 text-xs">
+                          <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                            Approved: {formatCurrency(item.currentAdvancePaid ?? 0)}
+                          </p>
+                          <p className="text-slate-500 dark:text-slate-400">
+                            Balance: {formatCurrency(item.currentBalance ?? (item.totalAmount - (item.currentAdvancePaid ?? 0)))}
                           </p>
                         </td>
                         <td className="px-5 py-4">
-                          <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                            Advance: {formatCurrency(item.advanceAmount)}
+                          <p className="font-extrabold text-blue-700 dark:text-blue-300 text-base">
+                            {formatCurrency(item.advanceAmount)}
                           </p>
-                          <p className="text-xs text-soft">
-                            Total: {formatCurrency(item.totalAmount)} | Bal: {formatCurrency(item.remainingBalance)}
+                          <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
+                          <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                            Ref: {item.referenceNumber || "-"}
                           </p>
                         </td>
                         <td className="px-5 py-4">
@@ -318,53 +332,57 @@ export function PendingApprovalDashboard() {
                               size="sm"
                               variant="secondary"
                               onClick={() => viewReceipt(item)}
-                              className="gap-1.5"
+                              className="gap-1.5 font-bold text-xs"
                             >
-                              <Eye size={14} /> View Receipt
+                              <Eye size={14} /> View Proof
                             </Button>
                           ) : (
-                            <span className="text-xs text-soft">No File Uploaded</span>
+                            <span className="text-xs text-soft italic">No Proof Uploaded</span>
                           )}
                         </td>
-                        <td className="px-5 py-4">
-                          <StatusBadge status={item.status} />
+                        <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                          {item.remarks || "-"}
+                        </td>
+                        <td className="px-5 py-4 text-xs">
+                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedBy}</p>
+                          <p className="text-soft">{formatDate(item.requestedDate)}</p>
                         </td>
                         <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-900 dark:text-white">{item.requestedBy}</p>
-                          <p className="text-xs text-soft">
-                            {formatDate(item.requestedDate)}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                setActionModal({
-                                  type: "Approved",
-                                  requestType: "ADVANCE_PAYMENT",
-                                  id: item.id,
-                                  title: `Approve Advance Payment (${item.trackingNumber})`,
-                                })
-                              }
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() =>
-                                setActionModal({
-                                  type: "Rejected",
-                                  requestType: "ADVANCE_PAYMENT",
-                                  id: item.id,
-                                  title: `Reject Advance Payment (${item.trackingNumber})`,
-                                })
-                              }
-                            >
-                              Reject
-                            </Button>
-                          </div>
+                          {canApprove ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Approved",
+                                    requestType: "ADVANCE_PAYMENT",
+                                    id: item.id,
+                                    title: `Approve Advance Payment (${item.trackingNumber})`,
+                                  })
+                                }
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Rejected",
+                                    requestType: "ADVANCE_PAYMENT",
+                                    id: item.id,
+                                    title: `Reject Advance Payment (${item.trackingNumber})`,
+                                  })
+                                }
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs italic text-slate-400" title="Approval permission required">
+                              Approval Permission Required
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))

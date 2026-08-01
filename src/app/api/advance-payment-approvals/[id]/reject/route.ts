@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { rejectAdvancePayment } from "@/features/revenue/server/advance-payment-approval.service";
 import { auth } from "@/lib/auth";
 
@@ -11,6 +12,19 @@ export async function POST(
     const session = await auth();
     if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isAuthorized =
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "advance_payment_approval.reject") ||
+      hasPermission(session.user, "pending_approval.edit") ||
+      hasPermission(session.user, "pendingApproval.reject");
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: "You do not have permission to reject advance payments." },
+        { status: 403 },
+      );
     }
 
     const { id } = await params;

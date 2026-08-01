@@ -1,11 +1,14 @@
 "use client";
 
-import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import type { Registration } from "@/features/registration/types/registration.types";
 import { CommunicationTimeline } from "@/features/communication/components/CommunicationTimeline";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { AdvanceHistoryTable, type AdvanceHistoryItem } from "@/features/revenue/components/AdvanceHistoryTable";
+import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 
 type RegistrationDetailProps = {
   registration: Registration;
@@ -13,6 +16,7 @@ type RegistrationDetailProps = {
   onReject?: () => void;
   approving?: boolean;
   actionButton?: React.ReactNode;
+  onRefreshRegistration?: () => void;
 };
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
@@ -50,7 +54,32 @@ export function RegistrationDetail({
   onReject,
   approving = false,
   actionButton,
+  onRefreshRegistration,
 }: RegistrationDetailProps) {
+  const [history, setHistory] = useState<AdvanceHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isAddAdvanceOpen, setIsAddAdvanceOpen] = useState(false);
+
+  const fetchHistory = async () => {
+    if (!registration.id) return;
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/advance-payment-approvals/history?registrationId=${encodeURIComponent(registration.id)}`);
+      const json = await res.json();
+      if (res.ok) {
+        setHistory(json.items || []);
+      }
+    } catch (err) {
+      console.error("Failed to load advance history:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchHistory();
+  }, [registration.id]);
+
   const commissionTo = registration.commissionToName && registration.commissionToEmail
     ? `${registration.commissionToName} (${registration.commissionToEmail})`
     : registration.commissionToName || registration.commissionToEmail;
@@ -104,9 +133,6 @@ export function RegistrationDetail({
               Rejected by {registration.advancePaymentRejectedBy} on {registration.advancePaymentRejectedAt ? new Date(registration.advancePaymentRejectedAt).toLocaleString() : "-"}
             </p>
           )}
-          <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
-            Please edit this registration to change the Advance Amount or upload a new payment receipt to re-submit for approval.
-          </p>
         </div>
       )}
 
@@ -147,14 +173,43 @@ export function RegistrationDetail({
       </section>
 
       <section className="grid gap-3">
-        <h3 className="flex items-center gap-2 text-lg font-extrabold">
-          <IndianRupee size={18} /> Commercial Details
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-extrabold">
+            <IndianRupee size={18} /> Commercial Details
+          </h3>
+          <Button
+            size="sm"
+            onClick={() => setIsAddAdvanceOpen(true)}
+            className="gap-1.5 font-bold text-xs"
+          >
+            <Plus size={16} /> Add Advance
+          </Button>
+        </div>
+
+        {/* Advance Paid Layout Card */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Total Charges" value={registration.totalCharges.toFixed(2)} />
-          <Field label="Advance Paid" value={registration.advancePaid.toFixed(2)} />
-          <Field label="Advance Payment Status" value={registration.advancePaymentStatus || "Not Submitted"} />
-          <Field label="Balance Amount" value={registration.balanceAmount.toFixed(2)} />
+          <Field label="Total Charges" value={`₹${registration.totalCharges.toFixed(2)}`} />
+          <div className="grid min-w-0 gap-1 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-950 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">
+                Advance Paid
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddAdvanceOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-600 hover:underline dark:text-blue-400"
+              >
+                (+ Add Advance)
+              </button>
+            </div>
+            <span className="text-lg font-extrabold text-emerald-800 dark:text-emerald-200">
+              ₹{registration.advancePaid.toFixed(2)}
+            </span>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Displays approved advances only</span>
+          </div>
+
+          <Field label="Advance Status" value={registration.advancePaymentStatus || "Not Submitted"} />
+          <Field label="Balance Amount" value={`₹${registration.balanceAmount.toFixed(2)}`} />
           <Field label="Payment Mode" value={registration.paymentMode} />
           {registration.upiTransactionId && <Field label="UPI Transaction ID" value={registration.upiTransactionId} />}
           {registration.bankName && <Field label="Bank Name" value={registration.bankName} />}
@@ -176,6 +231,15 @@ export function RegistrationDetail({
           <Field label="Commission To" value={commissionTo} />
           <Field label="Registered Person" value={registration.registeredPerson} />
           <Field label="Region of Registration" value={registration.regionOfRegistration} />
+        </div>
+
+        {/* Advance Payment History Table */}
+        <div className="mt-4">
+          <AdvanceHistoryTable
+            history={history}
+            loading={loadingHistory}
+            onRefresh={fetchHistory}
+          />
         </div>
       </section>
 
@@ -281,6 +345,24 @@ export function RegistrationDetail({
           )}
         </div>
       </section>
+
+      {/* Add Advance Modal */}
+      <AddAdvanceModal
+        isOpen={isAddAdvanceOpen}
+        onClose={() => setIsAddAdvanceOpen(false)}
+        registrationId={registration.id}
+        trackingNumber={registration.trackingNumber}
+        customerName={registration.customerName}
+        totalCharges={Number(registration.totalCharges)}
+        currentApprovedAdvance={Number(registration.advancePaid)}
+        currentBalance={Number(registration.balanceAmount)}
+        onSuccess={() => {
+          void fetchHistory();
+          if (onRefreshRegistration) {
+            onRefreshRegistration();
+          }
+        }}
+      />
     </div>
   );
 }

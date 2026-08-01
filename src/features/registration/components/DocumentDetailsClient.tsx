@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/Button";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { cn } from "@/utils/cn";
 import { formatDate, formatDateTime } from "@/utils/format";
+import { AdvanceHistoryTable } from "@/features/revenue/components/AdvanceHistoryTable";
 
 type Props = {
   trackingNumber: string;
@@ -397,6 +398,18 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             <span className="font-bold text-slate-800 dark:text-slate-200">{reg.regionOfRegistration || "-"}</span>
           </div>
         </div>
+      </section>
+
+      {/* ADVANCE PAYMENT HISTORY SECTION */}
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xs dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3 dark:border-white/10">
+          <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Advance Payment History & Approvals</h2>
+        </div>
+        <AdvanceHistoryTable
+          history={data.advancePaymentApprovals || []}
+          onRefresh={fetchDetails}
+        />
       </section>
 
       {/* SECTION 5: PAYMENT DOCUMENTS */}
