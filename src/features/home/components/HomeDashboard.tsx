@@ -719,6 +719,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                     {selectedBundle.items?.map((item: any, index: number) => {
                       const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
                       const reg = item.registration;
+                      const docName = reg?.documentName || reg?.customerName || "-";
+                      const procType = reg?.processType || reg?.externalProcess || "-";
                       return (
                         <tr key={item.id} className={isChecked ? "bg-emerald-50/30" : ""}>
                           <td className="p-3">
@@ -740,16 +742,22 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           <td className="p-3 text-xs font-semibold text-slate-800">{reg?.regionOfRegistration || "-"}</td>
                           <td className="p-3 text-xs text-slate-600">{reg?.deliveryLocation || "-"}</td>
                           <td className="p-3 text-xs text-slate-700">{reg?.collectedPerson || "-"}</td>
-                          <td className="p-3 font-medium text-slate-900">{reg?.customerName || "-"}</td>
+                          <td className="p-3 font-medium text-slate-900">{docName}</td>
                           <td className="p-3 text-xs">{reg?.documentType || "-"}</td>
-                          <td className="p-3 text-xs font-semibold text-slate-800">{reg?.processType || "-"}</td>
+                          <td className="p-3 text-xs font-semibold text-slate-800">{procType}</td>
                           <td className="p-3 font-mono text-xs text-slate-600">{reg?.mobile || "-"}</td>
                           <td className="p-3 text-xs">
                             <PriorityBadge priority={reg?.priority} size="xs" />
                           </td>
-                          <td className="p-3 text-xs font-bold text-slate-900">₹{Number(reg?.totalCharges || 0).toFixed(2)}</td>
-                          <td className="p-3 text-xs font-bold text-emerald-700">₹{Number(reg?.advancePaid || 0).toFixed(2)}</td>
-                          <td className="p-3 text-xs font-bold text-blue-700">₹{Number(reg?.balanceAmount || 0).toFixed(2)}</td>
+                          <td className="p-3 text-xs font-bold text-slate-900">
+                            {reg?.totalCharges ? `₹${Number(reg.totalCharges).toFixed(2)}` : "-"}
+                          </td>
+                          <td className="p-3 text-xs font-bold text-emerald-700">
+                            {reg?.advancePaid !== undefined && reg?.advancePaid !== null ? `₹${Number(reg.advancePaid).toFixed(2)}` : "-"}
+                          </td>
+                          <td className="p-3 text-xs font-bold text-blue-700">
+                            {reg?.balanceAmount !== undefined && reg?.balanceAmount !== null ? `₹${Number(reg.balanceAmount).toFixed(2)}` : "-"}
+                          </td>
                         </tr>
                       );
                     })}

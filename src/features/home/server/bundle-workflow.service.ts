@@ -258,7 +258,11 @@ export async function listInboundBundles(params: {
     include: {
       fromOffice: true,
       toOffice: true,
-      items: true,
+      items: {
+        include: {
+          registration: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -283,7 +287,11 @@ export async function listOutboundBundles(params: {
     include: {
       fromOffice: true,
       toOffice: true,
-      items: true,
+      items: {
+        include: {
+          registration: true,
+        },
+      },
     },
   });
 }
