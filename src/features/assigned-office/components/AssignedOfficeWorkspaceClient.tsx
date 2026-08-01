@@ -597,12 +597,7 @@ export function AssignedOfficeWorkspaceClient({
                           <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                             <div className="flex items-center gap-2">
                               <PriorityDot priority={row.priority} size={10} />
-                              <Link
-                                href={`/dashboard/document-details/${encodeURIComponent(row.trackingNumber)}`}
-                                className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                              >
-                                {row.trackingNumber}
-                              </Link>
+                              <span>{row.trackingNumber}</span>
                             </div>
                           </td>
                           <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
