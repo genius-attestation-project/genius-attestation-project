@@ -112,6 +112,7 @@ export async function retrieveOutboundDocuments(
           data: {
             trackingNumber: reg.trackingNumber,
             registrationId: reg.id,
+            currentModule: "REGISTRATION",
             currentOfficeId: userOfficeId,
             toOfficeId: userOfficeId,
             status: "HOME",
@@ -161,16 +162,33 @@ export async function retrieveOutboundDocuments(
         },
       });
 
-      // 3. Return DocumentMovement back to origin office (userOfficeId) & Document In Hand
-      await tx.documentMovement.update({
+      console.log(`[DEBUG Retrieve Service] BEFORE update #${trackingNumber}:`, {
+        currentModule: movement.currentModule,
+        currentOfficeId: movement.currentOfficeId,
+        toOfficeId: movement.toOfficeId,
+        status: movement.status,
+        currentStatus: movement.currentStatus,
+      });
+
+      // 3. Return DocumentMovement back to origin office (userOfficeId), REGISTRATION module & Document In Hand
+      const updatedMovement = await tx.documentMovement.update({
         where: { trackingNumber },
         data: {
+          currentModule: "REGISTRATION",
           currentOfficeId: userOfficeId,
           toOfficeId: userOfficeId,
           status: "HOME",
           currentStatus: "Document In Hand",
           remarks: reason || `Retrieved by ${userOfficeName}`,
         },
+      });
+
+      console.log(`[DEBUG Retrieve Service] AFTER update #${trackingNumber}:`, {
+        currentModule: updatedMovement.currentModule,
+        currentOfficeId: updatedMovement.currentOfficeId,
+        toOfficeId: updatedMovement.toOfficeId,
+        status: updatedMovement.status,
+        currentStatus: updatedMovement.currentStatus,
       });
 
       // 4. Record MovementHistory entry
