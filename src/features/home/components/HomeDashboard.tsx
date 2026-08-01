@@ -182,7 +182,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
   // Inbound Bundle click -> Open Details Modal
   const handleOpenBundleModal = (bundle: any) => {
     setSelectedBundle(bundle);
-    setBundleReceivedSelections(bundle.items.map((i: any) => i.trackingNumber));
+    setBundleReceivedSelections([]);
   };
 
   const handleToggleReceiveItem = (trackingNumber: string) => {
@@ -777,7 +777,9 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Confirm Receive ({bundleReceivedSelections.length})
+                {bundleReceivedSelections.length > 0
+                  ? `Confirm Receive (${bundleReceivedSelections.length})`
+                  : "Confirm Receive"}
               </Button>
             </div>
           </div>
