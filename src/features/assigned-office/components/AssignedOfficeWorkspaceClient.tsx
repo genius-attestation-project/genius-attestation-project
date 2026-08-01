@@ -731,15 +731,15 @@ export function AssignedOfficeWorkspaceClient({
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Name</span>
-                          <span className="font-semibold text-slate-900 dark:text-white break-words block">{docName}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white wrap-break-word block">{docName}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Type</span>
-                          <span className="font-medium text-slate-800 dark:text-slate-200 break-words block">{docType}</span>
+                          <span className="font-medium text-slate-800 dark:text-slate-200 wrap-break-word block">{docType}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Process Type</span>
-                          <span className="font-bold text-blue-800 dark:text-blue-300 break-words block">{procType}</span>
+                          <span className="font-bold text-blue-800 dark:text-blue-300 wrap-break-word block">{procType}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Number of Days</span>

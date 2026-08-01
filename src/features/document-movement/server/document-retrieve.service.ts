@@ -108,7 +108,7 @@ export async function retrieveOutboundDocuments(
           continue;
         }
 
-        movement = await tx.documentMovement.create({
+        movement = (await tx.documentMovement.create({
           data: {
             trackingNumber: reg.trackingNumber,
             registrationId: reg.id,
@@ -118,13 +118,12 @@ export async function retrieveOutboundDocuments(
             status: "HOME",
             currentStatus: "Document In Hand",
             createdBy: userName || userId,
-            ownerAdminId,
           },
           include: {
             fromOffice: true,
             toOffice: true,
           },
-        });
+        })) as any;
         console.log(`[DEBUG Retrieve Service] Created new DocumentMovement for #${trackingNumber}`);
       } else {
         // Guard: skip only if the document was sent to another office and already received by that destination office
@@ -139,6 +138,8 @@ export async function retrieveOutboundDocuments(
           continue;
         }
       }
+
+      if (!movement) continue;
 
       const destinationOfficeName = movement.toOffice?.officeName || "Destination Office";
 
