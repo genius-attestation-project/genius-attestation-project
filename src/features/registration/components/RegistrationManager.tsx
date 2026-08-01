@@ -445,7 +445,7 @@ export function RegistrationManager({
   const documentTypeSelectOptions = useMemo(() => {
     if (form.documentType && !documentTypeOptions.some((opt) => opt.value === form.documentType)) {
       return [
-        { label: form.documentType, value: form.documentType, description: "General", category: "General" },
+        { label: form.documentType, value: form.documentType },
         ...documentTypeOptions,
       ];
     }
@@ -462,15 +462,6 @@ export function RegistrationManager({
     return processTypeOptions;
   }, [processTypeOptions, form.processType]);
 
-  const selectedProcessTypeOption = useMemo(() => {
-    return processTypeOptions.find((opt: any) => opt.value === form.processType);
-  }, [processTypeOptions, form.processType]);
-
-  const availableSubPackageOptions = useMemo(() => {
-    const subs = (selectedProcessTypeOption as any)?.subPackages || [];
-    return subs.map((sp: string) => ({ label: sp, value: sp }));
-  }, [selectedProcessTypeOption]);
-
   const allMasterCountries = useMemo(() => {
     const list = Country.getAllCountries().map((c) => c.name);
     const combined = Array.from(new Set([...list, ...countryOptions]));
@@ -478,12 +469,15 @@ export function RegistrationManager({
   }, [countryOptions]);
 
   const countrySelectOptions = useMemo(() => {
-    const opts = allMasterCountries.map((c) => ({ label: c, value: c }));
+    let opts = allMasterCountries.map((c) => ({ label: c, value: c }));
+    if (form.country && !opts.some((opt) => opt.value === form.country)) {
+      opts = [{ label: form.country, value: form.country }, ...opts];
+    }
     if (form.documentIssuedCountry && !opts.some((opt) => opt.value === form.documentIssuedCountry)) {
-      return [{ label: form.documentIssuedCountry, value: form.documentIssuedCountry }, ...opts];
+      opts = [{ label: form.documentIssuedCountry, value: form.documentIssuedCountry }, ...opts];
     }
     return opts;
-  }, [allMasterCountries, form.documentIssuedCountry]);
+  }, [allMasterCountries, form.country, form.documentIssuedCountry]);
 
   async function fetchRegistrations(search = query, currentFilters = filters, currentPage = page, currentPageSize = pageSize) {
     setLoading(true);
@@ -577,8 +571,6 @@ export function RegistrationManager({
             const opts: SelectOption[] = (data.items || []).map((i: any) => ({
               label: i.name,
               value: i.name,
-              description: i.categoryRel?.name || i.category || "General",
-              category: i.categoryRel?.name || i.category || "General",
             }));
             setDocumentTypeOptions(opts);
           }
@@ -592,15 +584,10 @@ export function RegistrationManager({
           const res = await fetch(`/api/master-data/attestation-types?active=true`);
           if (res.ok) {
             const data = await res.json();
-            const opts: SelectOption[] = (data.items || []).map((i: any) => {
-              const subs = (i.subPackages || []).map((sp: any) => sp.name);
-              return {
-                label: i.name,
-                value: i.name,
-                description: subs.length > 0 ? subs.join(", ") : undefined,
-                subPackages: subs,
-              };
-            });
+            const opts: SelectOption[] = (data.items || []).map((i: any) => ({
+              label: i.name,
+              value: i.name,
+            }));
             setProcessTypeOptions(opts);
           }
         } catch (e) {
@@ -1097,7 +1084,6 @@ export function RegistrationManager({
                 onChange={(val) => setFilters(f => ({ ...f, documentType: val }))}
                 options={documentTypeSelectOptions}
                 placeholder="Select document"
-                groupByCategory={true}
               />
             </label>
             <label className="grid gap-2">
@@ -1339,14 +1325,16 @@ export function RegistrationManager({
               onChange={(event) => updateField("address", event.target.value)}
               required
             />
-            <Input
-              label="Country"
-              value={form.country}
-              onChange={(event) => updateField("country", event.target.value)}
-              required
-            />
-            <Input label="State" value={form.state} onChange={(event) => updateField("state", event.target.value)} required />
-            <Input label="City" value={form.city} onChange={(event) => updateField("city", event.target.value)} required />
+            <label className="grid gap-2">
+              <span className="text-sm font-bold">Country *</span>
+              <SearchableSelect
+                value={form.country}
+                options={countrySelectOptions}
+                onChange={(nextValue: string) => updateField("country", nextValue)}
+                placeholder="Select country"
+                name="country"
+              />
+            </label>
             <label className="grid gap-2">
               <span className="text-sm font-bold">Customer Type *</span>
               <SearchableSelect
@@ -1407,7 +1395,6 @@ export function RegistrationManager({
                 onChange={(nextValue: string) => updateField("documentType", nextValue)}
                 placeholder="Select document type"
                 name="documentType"
-                groupByCategory={true}
               />
             </label>
             <label className="grid gap-2">
@@ -1425,26 +1412,11 @@ export function RegistrationManager({
               <SearchableSelect
                 value={form.processType}
                 options={processTypeSelectOptions}
-                onChange={(nextValue: string) => {
-                  updateField("processType", nextValue);
-                  updateField("subPackage", "");
-                }}
+                onChange={(nextValue: string) => updateField("processType", nextValue)}
                 placeholder="Select process type"
                 name="processType"
               />
             </label>
-            {availableSubPackageOptions.length > 0 && (
-              <label className="grid gap-2">
-                <span className="text-sm font-bold">Sub Package</span>
-                <SearchableSelect
-                  value={form.subPackage}
-                  options={availableSubPackageOptions}
-                  onChange={(nextValue: string) => updateField("subPackage", nextValue)}
-                  placeholder="Select sub package"
-                  name="subPackage"
-                />
-              </label>
-            )}
             <Input
               label="Address Process"
               value={form.externalProcess}
