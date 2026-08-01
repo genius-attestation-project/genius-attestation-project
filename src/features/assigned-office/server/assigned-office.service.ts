@@ -1109,14 +1109,23 @@ export async function listSubPackageItemsForOffice(params: {
 
   const configSubPkgIds = officeSubPackages.map((sp: any) => sp.subPackageId);
   const movementSubPkgIds = movements.map((m: any) => m.subPackageId);
+  // NOTE: allSubPkgIds is the broad merge used for movement/history tracking only.
+  // The Transfer dropdown must ONLY use configSubPkgIds (explicitly assigned to the office).
   const allSubPkgIds = Array.from(
     new Set([...configSubPkgIds, ...processTypeSubPkgIds, ...movementSubPkgIds])
   );
 
   const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
 
+  // Broad list for sub-package history/movements view
   const subPackages = await prisma.subPackage.findMany({
     where: { id: { in: allSubPkgIds } },
+    orderBy: { name: "asc" },
+  });
+
+  // Strict list: ONLY sub packages explicitly assigned to this office (for Transfer dropdown)
+  const assignedSubPackages = await prisma.subPackage.findMany({
+    where: { id: { in: configSubPkgIds } },
     orderBy: { name: "asc" },
   });
 
@@ -1129,6 +1138,14 @@ export async function listSubPackageItemsForOffice(params: {
 
   return {
     coreSubPackageId: coreItem ? coreItem.subPackageId : null,
+    // assignedSubPackages: ONLY the sub packages saved on the Assigned Office record.
+    // Use this for the Transfer To Sub Process dropdown.
+    assignedSubPackages: assignedSubPackages.map((sp: any) => ({
+      ...sp,
+      isCorePackage: sp.id === coreItem?.subPackageId,
+    })),
+    // subPackages: broader list including processType and movement history sub packages.
+    // Kept for backward compatibility with sub-package history/movements views.
     subPackages: subPackages.map((sp: any) => ({
       ...sp,
       isCorePackage: sp.id === coreItem?.subPackageId,

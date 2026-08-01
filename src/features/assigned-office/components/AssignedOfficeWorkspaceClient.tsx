@@ -107,15 +107,20 @@ export function AssignedOfficeWorkspaceClient({
     }
   }, [officeId, activeTab, search]);
 
-  // Fetch Office SubPackages
+  // Fetch Office SubPackages — use `assignedSubPackages` (explicitly assigned to this office)
+  // to populate the Transfer To Sub Process dropdown. This avoids showing sub packages
+  // that belong to the assigned Main Process type but were NOT explicitly assigned.
   useEffect(() => {
     fetch(`/api/assigned-office/workspace?action=subpackage_items&officeId=${officeId}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.subPackages) setOfficeSubPackages(data.subPackages);
+        // Use assignedSubPackages for the transfer dropdown (strict: only what's saved on the office)
+        if (data.assignedSubPackages) setOfficeSubPackages(data.assignedSubPackages);
+        else if (data.subPackages) setOfficeSubPackages(data.subPackages); // fallback
       })
       .catch((err) => console.error("Failed to load office subpackages", err));
   }, [officeId]);
+
 
   useEffect(() => {
     fetchStats();
