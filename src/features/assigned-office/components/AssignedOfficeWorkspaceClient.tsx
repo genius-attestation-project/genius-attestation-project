@@ -26,6 +26,7 @@ import { cn } from "@/utils/cn";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { calculateNumberOfDays } from "@/utils/days-calculator";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 
 type WorkspaceProps = {
@@ -513,6 +514,7 @@ export function AssignedOfficeWorkspaceClient({
                 <thead className="border-b border-slate-200/80 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5">
                   <tr>
                     {activeTab !== "history" && <th className="p-4 w-10"></th>}
+                    <th className="p-4">SL No</th>
                     {activeTab === "history" ? (
                       <>
                         <th className="p-4">Tracking Number</th>
@@ -525,12 +527,11 @@ export function AssignedOfficeWorkspaceClient({
                     ) : (
                       <>
                         <th className="p-4">Tracking Number</th>
-                        <th className="p-4">Customer Name</th>
-                        <th className="p-4">Document Details</th>
-                        <th className="p-4">Process / Package</th>
-                        <th className="p-4">Office & Location</th>
-                        <th className="p-4">Date & Amount</th>
-                        <th className="p-4">Status</th>
+                        <th className="p-4">Registration Date</th>
+                        <th className="p-4">Document Name</th>
+                        <th className="p-4">Document Type</th>
+                        <th className="p-4">Process Type</th>
+                        <th className="p-4">Number of Days</th>
                         {(activeTab === "complete" || activeTab === "return") && <th className="p-4 text-right">Actions</th>}
                       </>
                     )}
@@ -544,10 +545,11 @@ export function AssignedOfficeWorkspaceClient({
                       </td>
                     </tr>
                   ) : (
-                    items.map((row: any) => {
+                    items.map((row: any, index: number) => {
                       if (activeTab === "history") {
                         return (
                           <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5">
+                            <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                             <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                               {row.trackingNumber}
                             </td>
@@ -585,40 +587,21 @@ export function AssignedOfficeWorkspaceClient({
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
+                          <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                             <div className="flex items-center gap-2">
                               <span>{row.trackingNumber}</span>
                               <PriorityBadge priority={row.priority} />
                             </div>
                           </td>
-                          <td className="p-4">
-                            <div className="font-semibold text-slate-900 dark:text-white">{row.customerName}</div>
-                            <div className="text-xs text-slate-500 font-mono">{row.mobile || "-"}</div>
+                          <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                            {row.createdDate || (row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "-")}
                           </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-medium text-slate-800 dark:text-slate-200">{row.documentType || "-"}</div>
-                            <div className="text-[11px] text-slate-500">Service: {row.externalProcess || row.processType || "-"}</div>
-                          </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-bold text-blue-800 dark:text-blue-300">{row.processType || "-"}</div>
-                            {row.subPackage && row.subPackage !== "-" && (
-                              <div className="text-[11px] text-slate-500">SubPkg: {row.subPackage}</div>
-                            )}
-                          </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-medium text-slate-800 dark:text-slate-200">{row.regionOfRegistration || "Main Office"}</div>
-                            <div className="text-[11px] text-slate-500">{row.deliveryLocation || "-"}</div>
-                          </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-semibold text-slate-700 dark:text-slate-300">
-                              {new Date(row.updatedAt || row.createdAt).toLocaleDateString()}
-                            </div>
-                            <div className="font-bold text-slate-900 dark:text-white">₹{row.totalCharges ? Number(row.totalCharges) : 0}</div>
-                          </td>
-                          <td className="p-4">
-                            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                              {row.trackingStatus || row.documentMovements?.[0]?.currentStatus || row.status || "Active"}
-                            </span>
+                          <td className="p-4 font-semibold text-slate-900 dark:text-white">{row.customerName || row.clientName || "-"}</td>
+                          <td className="p-4 text-xs font-medium text-slate-800 dark:text-slate-200">{row.documentType || "-"}</td>
+                          <td className="p-4 text-xs font-bold text-blue-800 dark:text-blue-300">{row.processType || row.externalProcess || "-"}</td>
+                          <td className="p-4 text-xs font-bold text-amber-700 dark:text-amber-400">
+                            {calculateNumberOfDays(row.receivedAt || row.documentMovements?.[0]?.updatedAt || row.updatedAt || row.createdAt)}
                           </td>
                           {(activeTab === "complete" || activeTab === "return") && (
                             <td className="p-4 text-right">

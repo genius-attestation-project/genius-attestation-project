@@ -32,6 +32,7 @@ import { RetrieveConfirmationModal } from "@/features/document-movement/componen
 import { StatsCard } from "@/components/ui/StatsCard";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
@@ -518,91 +519,176 @@ export function ProcessDashboard() {
             <table className="w-full min-w-255 text-left text-sm">
               <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <tr>
-                  <th className="px-4 py-4 w-10">
-                    <button type="button" onClick={handleSelectAll} className="text-slate-600">
-                      {selectedTrackingNumbers.length === displayedItems.length && displayedItems.length > 0 ? (
-                        <CheckSquare className="h-5 w-5 text-blue-600" />
-                      ) : (
-                        <Square className="h-5 w-5 text-slate-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-5 py-4">Tracking Number</th>
-                  <th className="px-5 py-4">Customer Name</th>
-                  <th className="px-5 py-4">Document Details</th>
-                  <th className="px-5 py-4">Process / Package</th>
-                  <th className="px-5 py-4">Office & Location</th>
-                  <th className="px-5 py-4">Date & Amount</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4 text-right">Process Operations</th>
+                  {(activeTab === "in_hand" || activeTab === "inbound") && (
+                    <th className="px-4 py-4 w-10">
+                      <button type="button" onClick={handleSelectAll} className="text-slate-600">
+                        {selectedTrackingNumbers.length === displayedItems.length && displayedItems.length > 0 ? (
+                          <CheckSquare className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Square className="h-5 w-5 text-slate-400" />
+                        )}
+                      </button>
+                    </th>
+                  )}
+                  <th className="px-4 py-4">SL No</th>
+
+                  {activeTab === "in_hand" && (
+                    <>
+                      <th className="px-5 py-4">Tracking Number</th>
+                      <th className="px-5 py-4">Registration Date</th>
+                      <th className="px-5 py-4">Registration Office</th>
+                      <th className="px-5 py-4">Document Name</th>
+                      <th className="px-5 py-4">Document Type</th>
+                      <th className="px-5 py-4">Delivery At</th>
+                      <th className="px-5 py-4">Process Type</th>
+                      <th className="px-5 py-4">Number of Days</th>
+                      <th className="px-5 py-4">Total Amount</th>
+                      <th className="px-5 py-4">Advance Amount</th>
+                      <th className="px-5 py-4 text-right">Action</th>
+                    </>
+                  )}
+
+                  {activeTab === "inbound" && (
+                    <>
+                      <th className="px-5 py-4">Bundle Number</th>
+                      <th className="px-5 py-4">From</th>
+                      <th className="px-5 py-4">Date Received</th>
+                      <th className="px-5 py-4">Finished Days</th>
+                      <th className="px-5 py-4 text-right">Action</th>
+                    </>
+                  )}
+
+                  {(activeTab === "outbound" || activeTab === "bundle") && (
+                    <>
+                      <th className="px-5 py-4">Bundle Number</th>
+                      <th className="px-5 py-4">From (Current Office)</th>
+                      <th className="px-5 py-4">To (Destination Office)</th>
+                      <th className="px-5 py-4">Date Sent</th>
+                      <th className="px-5 py-4">Finished Days</th>
+                      <th className="px-5 py-4 text-right">Action</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-(--border) bg-white">
-                {displayedItems.map((item) => {
+                {displayedItems.map((item: any, index: number) => {
                   const isSelected = selectedTrackingNumbers.includes(item.trackingNumber);
                   return (
                     <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/70"}`}>
-                      <td className="px-4 py-4">
-                        <button type="button" onClick={() => handleToggleSelect(item.trackingNumber)} className="text-slate-600">
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-blue-600" />
-                          ) : (
-                            <Square className="h-5 w-5 text-slate-400" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-5 py-4 font-bold text-blue-600">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            type="button" 
-                            onClick={() => openTimeline(item.trackingNumber)} 
-                            className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
-                          >
-                            {item.trackingNumber}
+                      {(activeTab === "in_hand" || activeTab === "inbound") && (
+                        <td className="px-4 py-4">
+                          <button type="button" onClick={() => handleToggleSelect(item.trackingNumber)} className="text-slate-600">
+                            {isSelected ? (
+                              <CheckSquare className="h-5 w-5 text-blue-600" />
+                            ) : (
+                              <Square className="h-5 w-5 text-slate-400" />
+                            )}
                           </button>
-                          <PriorityBadge priority={item.priority} />
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-900 text-xs sm:text-sm">{item.customerName || item.clientName}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">{item.mobile || "-"}</div>
-                      </td>
-                      <td className="px-5 py-4 text-xs">
-                        <div className="font-medium text-slate-800">{item.documentType || "-"}</div>
-                        <div className="text-[11px] text-slate-500">Service: {item.service || "-"}</div>
-                      </td>
-                      <td className="px-5 py-4 text-xs">
-                        <div className="font-bold text-blue-800 dark:text-blue-300">{item.mainProcess || item.processType}</div>
-                        {item.subPackage && item.subPackage !== "-" && (
-                          <div className="text-[11px] text-slate-500">SubPkg: {item.subPackage}</div>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 text-xs">
-                        <div className="font-medium text-slate-800">{item.registeredOffice || item.fromOfficeName || "Main"}</div>
-                        <div className="text-[11px] text-slate-500">{item.deliveryLocation || "-"}</div>
-                      </td>
-                      <td className="px-5 py-4 text-xs">
-                        <div className="font-semibold text-slate-700">{item.receivedDate}</div>
-                        <div className="font-bold text-slate-900">₹{item.totalAmount || 0}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          item.status === "COMPLETED"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : item.status === "REJECTED"
-                            ? "bg-rose-50 text-rose-700"
-                            : item.status === "INBOUND" || item.status === "Pending Receive"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-blue-50 text-blue-700"
-                        }`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
-                          {/* Dedicated Action Buttons */}
-                          {activeTab === "inbound" && (
-                            <>
+                        </td>
+                      )}
+                      <td className="px-4 py-4 font-semibold text-slate-500">{index + 1}</td>
+
+                      {activeTab === "in_hand" && (
+                        <>
+                          <td className="px-5 py-4 font-bold text-blue-600">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                type="button" 
+                                onClick={() => openTimeline(item.trackingNumber)} 
+                                className="hover:underline flex items-center gap-1.5 font-mono text-xs sm:text-sm"
+                              >
+                                {item.trackingNumber}
+                              </button>
+                              <PriorityBadge priority={item.priority} />
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                            {item.registrationDate || item.receivedDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-semibold text-slate-800">
+                            {item.registeredOffice || item.fromOfficeName || "Main"}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-slate-900 text-xs sm:text-sm">
+                            {item.customerName || item.clientName || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-medium text-slate-800">
+                            {item.documentType || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-xs text-slate-600">
+                            {item.deliveryLocation || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-blue-800">
+                            {item.mainProcess || item.processType || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                            {calculateNumberOfDays(item.receivedAt || item.receivedDate || item.createdAt)}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-slate-900">
+                            ₹{Number(item.totalAmount || item.totalCharges || 0).toFixed(2)}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-emerald-700">
+                            ₹{Number(item.advancePaid || 0).toFixed(2)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-2.5 py-1"
+                                onClick={() => openBulkMovementModal("TRANSFER_TO_HOME", item.trackingNumber, item.id)}
+                              >
+                                Transfer To Home
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-2.5 py-1"
+                                onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE", item.trackingNumber, item.id)}
+                              >
+                                Transfer To Assigned Office
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-50 text-xs px-2 py-1"
+                                onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50 text-xs px-2 py-1"
+                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-2.5 py-1"
+                                onClick={() => openBulkMovementModal("COMPLETED", item.trackingNumber, item.id)}
+                              >
+                                Complete
+                              </Button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+
+                      {activeTab === "inbound" && (
+                        <>
+                          <td className="px-5 py-4 font-mono font-bold text-blue-600">
+                            {item.bundleNumber || item.trackingNumber}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-slate-800">
+                            {item.registeredOffice || item.fromOfficeName || "Origin Office"}
+                          </td>
+                          <td className="px-5 py-4 text-xs text-slate-600">
+                            {item.receivedDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                            {calculateFinishedDays(item.receivedDate || item.createdAt)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -626,86 +712,54 @@ export function ProcessDashboard() {
                               >
                                 Reject
                               </Button>
-                            </>
-                          )}
+                            </div>
+                          </td>
+                        </>
+                      )}
 
-                          {activeTab === "in_hand" && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                                onClick={() => openBulkMovementModal("TRANSFER_TO_HOME", item.trackingNumber, item.id)}
-                              >
-                                Transfer To Home
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
-                                onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE", item.trackingNumber, item.id)}
-                              >
-                                Transfer To Assigned Office
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                                onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
-                              >
-                                Return
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
-                              >
-                                Reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                                onClick={() => openBulkMovementModal("COMPLETED", item.trackingNumber, item.id)}
-                              >
-                                Complete
-                              </Button>
-                            </>
-                          )}
-
-                          {(activeTab === "outbound" || activeTab === "bundle") && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="border-slate-200 text-slate-700 hover:bg-slate-100 gap-1.5"
-                              onClick={() => openTimeline(item.trackingNumber)}
-                            >
-                              <History size={14} />
-                              Movement History
-                            </Button>
-                          )}
-                          {activeTab === "outbound" && (
-                            item.status !== "Received" && item.status !== "COMPLETED" ? (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setRetrieveItem(item)}
-                                className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
-                              >
-                                <RotateCcw size={14} /> Retrieve
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled
-                                title="Cannot retrieve because destination office has already received this document."
-                                className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
-                              >
-                                <RotateCcw size={14} /> Retrieve
-                              </Button>
-                            )
-                          )}
-                        </div>
-                      </td>
+                      {(activeTab === "outbound" || activeTab === "bundle") && (
+                        <>
+                          <td className="px-5 py-4 font-mono font-bold text-blue-600">
+                            {item.bundleNumber || item.trackingNumber}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-slate-800">
+                            {item.fromOfficeName || "Current Office"}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-slate-800">
+                            {item.toOfficeName || "Destination"}
+                          </td>
+                          <td className="px-5 py-4 text-xs text-slate-600">
+                            {item.sentDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-")}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                            {calculateFinishedDays(item.sentDate || item.createdAt)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {item.status !== "Received" && item.status !== "COMPLETED" ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setRetrieveItem(item)}
+                                  className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                                >
+                                  <RotateCcw size={14} /> Retrieve
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  title="Cannot retrieve because destination office has already received this document."
+                                  className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
+                                >
+                                  <RotateCcw size={14} /> Retrieve
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}

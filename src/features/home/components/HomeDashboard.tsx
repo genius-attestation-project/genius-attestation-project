@@ -26,6 +26,7 @@ import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -394,17 +395,21 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           )}
                         </button>
                       </th>
+                      <th className="p-4">SL No</th>
                       <th className="p-4">Tracking Number</th>
-                      <th className="p-4">Customer Name</th>
-                      <th className="p-4">Document Details</th>
-                      <th className="p-4">Process / Package</th>
-                      <th className="p-4">Office & Location</th>
-                      <th className="p-4">Date & Amount</th>
-                      <th className="p-4">Status</th>
+                      <th className="p-4">Registration Date</th>
+                      <th className="p-4">Registration Office</th>
+                      <th className="p-4">Document Name</th>
+                      <th className="p-4">Document Type</th>
+                      <th className="p-4">Delivery At</th>
+                      <th className="p-4">Process Type</th>
+                      <th className="p-4">Number of Days</th>
+                      <th className="p-4">Total Amount</th>
+                      <th className="p-4">Advance Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {inHandDocs.map((doc: any) => {
+                    {inHandDocs.map((doc: any, index: number) => {
                       const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber || doc.registrationNumber);
                       const tNum = doc.trackingNumber || doc.registrationNumber;
                       return (
@@ -421,38 +426,39 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
+                          <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600">
                             <div className="flex items-center gap-2">
                               <span>{tNum}</span>
                               <PriorityBadge priority={doc.priority} />
                             </div>
                           </td>
-                          <td className="p-4">
-                            <div className="font-semibold text-slate-900">{doc.customerName || doc.clientName}</div>
-                            <div className="text-xs text-slate-500 font-mono">{doc.mobile || "-"}</div>
+                          <td className="p-4 text-xs font-medium text-slate-700">
+                            {doc.createdDate || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "-")}
                           </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-medium text-slate-800">{doc.documentType || "-"}</div>
-                            <div className="text-[11px] text-slate-500">Service: {doc.service || "-"}</div>
+                          <td className="p-4 text-xs font-semibold text-slate-800">
+                            {doc.regionOfRegistration || doc.sourceOffice || "Main"}
                           </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-bold text-blue-800">{doc.mainProcess || doc.processType || "-"}</div>
-                            {doc.subPackage && doc.subPackage !== "-" && (
-                              <div className="text-[11px] text-slate-500">SubPkg: {doc.subPackage}</div>
-                            )}
+                          <td className="p-4 font-semibold text-slate-900">
+                            {doc.customerName || doc.clientName || "-"}
                           </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-medium text-slate-800">{doc.regionOfRegistration || doc.sourceOffice || "Main"}</div>
-                            <div className="text-[11px] text-slate-500">{doc.deliveryLocation || "-"}</div>
+                          <td className="p-4 text-xs font-medium text-slate-800">
+                            {doc.documentType || "-"}
                           </td>
-                          <td className="p-4 text-xs">
-                            <div className="font-semibold text-slate-700">{doc.createdDate || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "-")}</div>
-                            <div className="font-bold text-slate-900">₹{doc.totalCharges || 0}</div>
+                          <td className="p-4 text-xs text-slate-600">
+                            {doc.deliveryLocation || "-"}
                           </td>
-                          <td className="p-4">
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                              {doc.trackingStatus || doc.status || "In Hand"}
-                            </span>
+                          <td className="p-4 text-xs font-bold text-blue-800">
+                            {doc.processType || doc.mainProcess || "-"}
+                          </td>
+                          <td className="p-4 text-xs font-bold text-amber-700">
+                            {calculateNumberOfDays(doc.receivedAt || doc.documentMovements?.[0]?.updatedAt || doc.createdAt)}
+                          </td>
+                          <td className="p-4 text-xs font-bold text-slate-900">
+                            ₹{Number(doc.totalCharges || 0).toFixed(2)}
+                          </td>
+                          <td className="p-4 text-xs font-bold text-emerald-700">
+                            ₹{Number(doc.advancePaid || 0).toFixed(2)}
                           </td>
                         </tr>
                       );
@@ -474,46 +480,50 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 description="There are currently no inbound document bundles waiting to be received."
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {inboundBundles.map((bundle) => (
-                  <div
-                    key={bundle.id}
-                    onClick={() => handleOpenBundleModal(bundle)}
-                    className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md hover:border-blue-400 transition-all"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-                      <span className="font-mono text-base font-bold text-blue-600">
-                        {bundle.bundleNumber}
-                      </span>
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                        {bundle.status}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm text-slate-600">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">From Office:</span>
-                        <span className="font-semibold text-slate-800">
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                    <tr>
+                      <th className="p-4">SL No</th>
+                      <th className="p-4">Bundle Number</th>
+                      <th className="p-4">From</th>
+                      <th className="p-4">Date Received</th>
+                      <th className="p-4">Finished Days</th>
+                      <th className="p-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {inboundBundles.map((bundle: any, index: number) => (
+                      <tr key={bundle.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
+                        <td
+                          onClick={() => handleOpenBundleModal(bundle)}
+                          className="p-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          {bundle.bundleNumber}
+                        </td>
+                        <td className="p-4 font-semibold text-slate-800">
                           {bundle.fromOffice?.officeName || "Origin Office"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Total Documents:</span>
-                        <span className="font-bold text-slate-900">{bundle.items?.length || 0}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Transferred On:</span>
-                        <span>{new Date(bundle.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-                      <span className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1">
-                        View & Receive Details →
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="p-4 text-xs text-slate-600">
+                          {new Date(bundle.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4 text-xs font-bold text-amber-700">
+                          {calculateFinishedDays(bundle.createdAt)}
+                        </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenBundleModal(bundle)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                          >
+                            Receive
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -533,46 +543,38 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 <table className="w-full text-left text-sm text-slate-700">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
                     <tr>
+                      <th className="p-4">SL No</th>
                       <th className="p-4">Bundle Number</th>
-                      <th className="p-4">Destination Office</th>
-                      <th className="p-4">Document Count</th>
-                      <th className="p-4">Transferred By</th>
-                      <th className="p-4">Transferred Date</th>
-                      <th className="p-4">Received Status</th>
-                      <th className="p-4 text-right">Actions</th>
+                      <th className="p-4">From (Current Office)</th>
+                      <th className="p-4">To (Destination Office)</th>
+                      <th className="p-4">Date Sent</th>
+                      <th className="p-4">Finished Days</th>
+                      <th className="p-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {outboundBundles.map((bundle) => {
+                    {outboundBundles.map((bundle: any, index: number) => {
                       const isFullyReceived = bundle.status === "Received";
                       const isRetrieved = bundle.status === "Retrieved";
                       const canRetrieve = !isFullyReceived && !isRetrieved;
 
                       return (
                         <tr key={bundle.id} className="hover:bg-slate-50">
+                          <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600">
                             {bundle.bundleNumber}
                           </td>
                           <td className="p-4 font-semibold text-slate-800">
+                            {bundle.fromOffice?.officeName || "Current Office"}
+                          </td>
+                          <td className="p-4 font-semibold text-slate-800">
                             {bundle.toOffice?.officeName || "Destination"}
                           </td>
-                          <td className="p-4 font-bold text-slate-900">{bundle.items?.length || 0}</td>
-                          <td className="p-4">{bundle.createdBy || "User"}</td>
-                          <td className="p-4 text-xs text-slate-500">
-                            {new Date(bundle.createdAt).toLocaleString()}
+                          <td className="p-4 text-xs text-slate-600">
+                            {new Date(bundle.createdAt).toLocaleDateString()}
                           </td>
-                          <td className="p-4">
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                isFullyReceived
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : isRetrieved
-                                  ? "bg-rose-50 text-rose-700"
-                                  : "bg-amber-50 text-amber-700"
-                              }`}
-                            >
-                              {bundle.status}
-                            </span>
+                          <td className="p-4 text-xs font-bold text-amber-700">
+                            {calculateFinishedDays(bundle.createdAt)}
                           </td>
                           <td className="p-4 text-right">
                             {canRetrieve ? (
@@ -698,17 +700,23 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                   <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
                     <tr>
                       <th className="p-3 w-10">Receive</th>
+                      <th className="p-3">SL No</th>
                       <th className="p-3">Tracking Number</th>
-                      <th className="p-3">Customer Name</th>
+                      <th className="p-3">Registration Office</th>
+                      <th className="p-3">Delivery At</th>
+                      <th className="p-3">Collection Of</th>
+                      <th className="p-3">Document Name</th>
                       <th className="p-3">Document Type</th>
-                      <th className="p-3">Main Process</th>
-                      <th className="p-3">Sub Package</th>
-                      <th className="p-3">Amount</th>
-                      <th className="p-3">Status</th>
+                      <th className="p-3">Process Type</th>
+                      <th className="p-3">Mobile Number</th>
+                      <th className="p-3">Express Priority</th>
+                      <th className="p-3">Total Amount</th>
+                      <th className="p-3">Advance Amount</th>
+                      <th className="p-3">Balance Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {selectedBundle.items?.map((item: any) => {
+                    {selectedBundle.items?.map((item: any, index: number) => {
                       const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
                       const reg = item.registration;
                       return (
@@ -725,22 +733,23 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
+                          <td className="p-3 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-3 font-mono font-bold text-blue-600">
-                            <div className="flex items-center gap-1.5">
-                              <span>{item.trackingNumber}</span>
-                              <PriorityBadge priority={reg?.priority} size="xs" />
-                            </div>
+                            {item.trackingNumber}
                           </td>
+                          <td className="p-3 text-xs font-semibold text-slate-800">{reg?.regionOfRegistration || "-"}</td>
+                          <td className="p-3 text-xs text-slate-600">{reg?.deliveryLocation || "-"}</td>
+                          <td className="p-3 text-xs text-slate-700">{reg?.collectedPerson || "-"}</td>
                           <td className="p-3 font-medium text-slate-900">{reg?.customerName || "-"}</td>
                           <td className="p-3 text-xs">{reg?.documentType || "-"}</td>
                           <td className="p-3 text-xs font-semibold text-slate-800">{reg?.processType || "-"}</td>
-                          <td className="p-3 text-xs text-slate-600">{reg?.subPackage || "-"}</td>
-                          <td className="p-3 text-xs font-bold text-slate-900">₹{reg?.totalCharges ? Number(reg.totalCharges) : 0}</td>
-                          <td className="p-3">
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                              {item.status}
-                            </span>
+                          <td className="p-3 font-mono text-xs text-slate-600">{reg?.mobile || "-"}</td>
+                          <td className="p-3 text-xs">
+                            <PriorityBadge priority={reg?.priority} size="xs" />
                           </td>
+                          <td className="p-3 text-xs font-bold text-slate-900">₹{Number(reg?.totalCharges || 0).toFixed(2)}</td>
+                          <td className="p-3 text-xs font-bold text-emerald-700">₹{Number(reg?.advancePaid || 0).toFixed(2)}</td>
+                          <td className="p-3 text-xs font-bold text-blue-700">₹{Number(reg?.balanceAmount || 0).toFixed(2)}</td>
                         </tr>
                       );
                     })}

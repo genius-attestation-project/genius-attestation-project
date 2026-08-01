@@ -57,6 +57,7 @@ function mapRegistration(registration: RegistrationRecord) {
     welcomeCallStatus: welcomeRegistration.welcomeCallStatus ?? "Pending",
     welcomeCalledBy: welcomeRegistration.welcomeCalledBy ?? null,
     welcomeCalledAt: welcomeRegistration.welcomeCalledAt?.toISOString() ?? null,
+    documentName: registration.documentName ?? null,
     createdAt: registration.createdAt.toISOString(),
     updatedAt: registration.updatedAt.toISOString(),
     createdDate: formatDate(registration.createdAt),
