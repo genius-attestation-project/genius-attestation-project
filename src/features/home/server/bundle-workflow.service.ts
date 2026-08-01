@@ -38,15 +38,14 @@ export async function listDocumentInHand(params: {
     }
   }
 
+  const officeNamesToMatch = params.officeId ? [params.officeId] : [];
+  if (officeName && !officeNamesToMatch.includes(officeName)) {
+    officeNamesToMatch.push(officeName);
+  }
+
   const officeMatchConditions: any[] = [];
   if (params.officeId) {
-    const officeNamesToMatch = [params.officeId];
-    if (officeName) officeNamesToMatch.push(officeName);
-
     officeMatchConditions.push(
-      {
-        regionOfRegistration: { in: officeNamesToMatch },
-      },
       {
         documentMovements: {
           some: {
@@ -54,9 +53,13 @@ export async function listDocumentInHand(params: {
               { currentOfficeId: params.officeId },
               ...(officeName ? [{ currentOffice: { officeName } }] : []),
             ],
-            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "In Transit", "INBOUND_PENDING", "Pending Receive"] },
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed"] },
           },
         },
+      },
+      {
+        regionOfRegistration: { in: officeNamesToMatch },
+        documentMovements: { none: {} },
       }
     );
   }
@@ -64,6 +67,9 @@ export async function listDocumentInHand(params: {
   const registrations = await prisma.registration.findMany({
     where: {
       ...whereClause,
+      trackingStatus: {
+        notIn: ["In Transfer", "Transferred", "INBOUND_PENDING", "In Transit"],
+      },
       ...(officeMatchConditions.length > 0 ? { OR: officeMatchConditions } : {}),
     },
     include: {
@@ -168,7 +174,7 @@ export async function createTransferBundle(params: {
           fromModule: "HOME",
           toModule: destinationModule,
           currentModule: destinationModule,
-          currentOfficeId: toLocation.id,
+          currentOfficeId: fromLocation.id,
           status: "INBOUND_PENDING",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -182,7 +188,7 @@ export async function createTransferBundle(params: {
           fromModule: "HOME",
           toModule: destinationModule,
           currentModule: destinationModule,
-          currentOfficeId: toLocation.id,
+          currentOfficeId: fromLocation.id,
           status: "INBOUND_PENDING",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -249,7 +255,7 @@ export async function listInboundBundles(params: {
   const officeIds = [params.toOfficeId];
   if (office) officeIds.push(office.id);
 
-  return db.bundle.findMany({
+  const bundles = await db.bundle.findMany({
     where: {
       toOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
@@ -258,14 +264,31 @@ export async function listInboundBundles(params: {
     include: {
       fromOffice: true,
       toOffice: true,
-      items: {
-        include: {
-          registration: true,
-        },
-      },
+      items: true,
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const trackingNumbers = bundles.flatMap((b: any) =>
+    (b.items || []).map((i: any) => i.trackingNumber).filter(Boolean)
+  );
+
+  if (trackingNumbers.length > 0) {
+    const registrations = await db.registration.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+    });
+    const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
+
+    for (const b of bundles) {
+      if (b.items) {
+        for (const item of b.items) {
+          item.registration = regMap.get(item.trackingNumber) || null;
+        }
+      }
+    }
+  }
+
+  return bundles;
 }
 
 export async function listOutboundBundles(params: {
@@ -279,7 +302,7 @@ export async function listOutboundBundles(params: {
   const officeIds = [params.fromOfficeId];
   if (office) officeIds.push(office.id);
 
-  return db.bundle.findMany({
+  const bundles = await db.bundle.findMany({
     where: {
       fromOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
@@ -287,13 +310,31 @@ export async function listOutboundBundles(params: {
     include: {
       fromOffice: true,
       toOffice: true,
-      items: {
-        include: {
-          registration: true,
-        },
-      },
+      items: true,
     },
+    orderBy: { createdAt: "desc" },
   });
+
+  const trackingNumbers = bundles.flatMap((b: any) =>
+    (b.items || []).map((i: any) => i.trackingNumber).filter(Boolean)
+  );
+
+  if (trackingNumbers.length > 0) {
+    const registrations = await db.registration.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+    });
+    const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
+
+    for (const b of bundles) {
+      if (b.items) {
+        for (const item of b.items) {
+          item.registration = regMap.get(item.trackingNumber) || null;
+        }
+      }
+    }
+  }
+
+  return bundles;
 }
 
 export async function receiveBundle(params: {
