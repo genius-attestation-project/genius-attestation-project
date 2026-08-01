@@ -74,6 +74,22 @@ function mapRegistration(registration: RegistrationRecord) {
       ...item,
       createdAt: item.createdAt.toISOString(),
     })),
+    transferDate: (registration as any).transferDate ? (registration as any).transferDate.toISOString().split("T")[0] : null,
+    chequeDate: (registration as any).chequeDate ? (registration as any).chequeDate.toISOString().split("T")[0] : null,
+    ddDate: (registration as any).ddDate ? (registration as any).ddDate.toISOString().split("T")[0] : null,
+    upiTransactionId: (registration as any).upiTransactionId ?? null,
+    bankName: (registration as any).bankName ?? null,
+    transactionRefNo: (registration as any).transactionRefNo ?? null,
+    chequeNumber: (registration as any).chequeNumber ?? null,
+    ddNumber: (registration as any).ddNumber ?? null,
+    cardLast4: (registration as any).cardLast4 ?? null,
+    approvalCode: (registration as any).approvalCode ?? null,
+    paymentGateway: (registration as any).paymentGateway ?? null,
+    onlineTransactionId: (registration as any).onlineTransactionId ?? null,
+    walletName: (registration as any).walletName ?? null,
+    walletTransactionId: (registration as any).walletTransactionId ?? null,
+    paymentReferenceNo: (registration as any).paymentReferenceNo ?? null,
+    paymentDescription: (registration as any).paymentDescription ?? null,
     createdById: registration.createdBy,
     createdBy: registration.creator ? {
       id: registration.creator.id,
@@ -100,6 +116,18 @@ function buildRegistrationData(input: RegistrationInput) {
     balanceAmount: Number(balanceAmount),
   });
 
+  const mode = (input.paymentMode || "").trim().toLowerCase();
+  const isUpi = mode === "upi";
+  const isBank = mode.includes("bank") || mode === "bank transfer";
+  const isCheque = mode === "cheque" || mode === "check";
+  const isDD = mode.includes("demand draft") || mode === "dd";
+  const isCard = mode === "credit card" || mode === "debit card" || mode.includes("credit") || mode.includes("debit");
+  const isOnline = mode.includes("online") || mode === "online payment";
+  const isWallet = mode === "wallet";
+  const isOther = mode === "other";
+
+  const parseDate = (d?: string | null) => (d ? new Date(d) : null);
+
   return {
     trackingNumber: input.trackingNumber,
     customerName: input.customerName,
@@ -123,6 +151,22 @@ function buildRegistrationData(input: RegistrationInput) {
     advancePaid,
     balanceAmount,
     paymentMode: input.paymentMode || null,
+    upiTransactionId: isUpi ? input.upiTransactionId || null : null,
+    bankName: isBank || isCheque || isDD ? input.bankName || null : null,
+    transactionRefNo: isBank ? input.transactionRefNo || null : null,
+    transferDate: isBank ? parseDate(input.transferDate) : null,
+    chequeNumber: isCheque ? input.chequeNumber || null : null,
+    chequeDate: isCheque ? parseDate(input.chequeDate) : null,
+    ddNumber: isDD ? input.ddNumber || null : null,
+    ddDate: isDD ? parseDate(input.ddDate) : null,
+    cardLast4: isCard ? input.cardLast4 || null : null,
+    approvalCode: isCard ? input.approvalCode || null : null,
+    paymentGateway: isOnline ? input.paymentGateway || null : null,
+    onlineTransactionId: isOnline ? input.onlineTransactionId || null : null,
+    walletName: isWallet ? input.walletName || null : null,
+    walletTransactionId: isWallet ? input.walletTransactionId || null : null,
+    paymentReferenceNo: isOther ? input.paymentReferenceNo || null : null,
+    paymentDescription: isOther ? input.paymentDescription || null : null,
     paymentStatus: computedPaymentStatus,
     collectedPerson: input.collectedPerson || null,
     leadId: input.leadId || null,

@@ -151,6 +151,22 @@ export function RegistrationDetail({
           <Field label="Advance Payment Status" value={registration.advancePaymentStatus || "Not Submitted"} />
           <Field label="Balance Amount" value={registration.balanceAmount.toFixed(2)} />
           <Field label="Payment Mode" value={registration.paymentMode} />
+          {registration.upiTransactionId && <Field label="UPI Transaction ID" value={registration.upiTransactionId} />}
+          {registration.bankName && <Field label="Bank Name" value={registration.bankName} />}
+          {registration.transactionRefNo && <Field label="Transaction Reference No" value={registration.transactionRefNo} />}
+          {registration.transferDate && <Field label="Transfer Date" value={registration.transferDate} />}
+          {registration.chequeNumber && <Field label="Cheque Number" value={registration.chequeNumber} />}
+          {registration.chequeDate && <Field label="Cheque Date" value={registration.chequeDate} />}
+          {registration.ddNumber && <Field label="DD Number" value={registration.ddNumber} />}
+          {registration.ddDate && <Field label="DD Date" value={registration.ddDate} />}
+          {registration.cardLast4 && <Field label="Card Last 4 Digits" value={registration.cardLast4} />}
+          {registration.approvalCode && <Field label="Approval Code" value={registration.approvalCode} />}
+          {registration.paymentGateway && <Field label="Payment Gateway" value={registration.paymentGateway} />}
+          {registration.onlineTransactionId && <Field label="Online Transaction ID" value={registration.onlineTransactionId} />}
+          {registration.walletName && <Field label="Wallet Name" value={registration.walletName} />}
+          {registration.walletTransactionId && <Field label="Wallet Transaction ID" value={registration.walletTransactionId} />}
+          {registration.paymentReferenceNo && <Field label="Reference Number" value={registration.paymentReferenceNo} />}
+          {registration.paymentDescription && <Field label="Description" value={registration.paymentDescription} />}
           <Field label="Collected Person" value={registration.collectedPerson} />
           <Field label="Commission To" value={commissionTo} />
           <Field label="Registered Person" value={registration.registeredPerson} />

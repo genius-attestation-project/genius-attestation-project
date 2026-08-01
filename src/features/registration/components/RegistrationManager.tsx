@@ -70,6 +70,22 @@ const blankForm: RegistrationFormState = {
   totalCharges: "",
   advancePaid: "",
   paymentMode: "",
+  upiTransactionId: "",
+  bankName: "",
+  transactionRefNo: "",
+  transferDate: "",
+  chequeNumber: "",
+  chequeDate: "",
+  ddNumber: "",
+  ddDate: "",
+  cardLast4: "",
+  approvalCode: "",
+  paymentGateway: "",
+  onlineTransactionId: "",
+  walletName: "",
+  walletTransactionId: "",
+  paymentReferenceNo: "",
+  paymentDescription: "",
   paymentStatus: "Pending",
   collectedPerson: "",
   commissionToUserId: "",
@@ -106,6 +122,22 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     totalCharges: String(registration.totalCharges),
     advancePaid: String(registration.advancePaid),
     paymentMode: registration.paymentMode ?? "",
+    upiTransactionId: registration.upiTransactionId ?? "",
+    bankName: registration.bankName ?? "",
+    transactionRefNo: registration.transactionRefNo ?? "",
+    transferDate: registration.transferDate ? String(registration.transferDate).split("T")[0] : "",
+    chequeNumber: registration.chequeNumber ?? "",
+    chequeDate: registration.chequeDate ? String(registration.chequeDate).split("T")[0] : "",
+    ddNumber: registration.ddNumber ?? "",
+    ddDate: registration.ddDate ? String(registration.ddDate).split("T")[0] : "",
+    cardLast4: registration.cardLast4 ?? "",
+    approvalCode: registration.approvalCode ?? "",
+    paymentGateway: registration.paymentGateway ?? "",
+    onlineTransactionId: registration.onlineTransactionId ?? "",
+    walletName: registration.walletName ?? "",
+    walletTransactionId: registration.walletTransactionId ?? "",
+    paymentReferenceNo: registration.paymentReferenceNo ?? "",
+    paymentDescription: registration.paymentDescription ?? "",
     paymentStatus: registration.paymentStatus,
     collectedPerson: registration.collectedPerson ?? "",
     commissionToUserId: registration.commissionToUserId ?? "",
@@ -1495,6 +1527,193 @@ export function RegistrationManager({
             />
             <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
             <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
+            {(() => {
+              const mode = (form.paymentMode || "").trim().toLowerCase();
+              if (!mode || mode === "cash") return null;
+
+              if (mode === "upi") {
+                return (
+                  <Input
+                    label="UPI Transaction ID *"
+                    value={form.upiTransactionId || ""}
+                    placeholder="Enter UPI Transaction ID"
+                    onChange={(e) => updateField("upiTransactionId", e.target.value)}
+                    required
+                  />
+                );
+              }
+
+              if (mode.includes("bank") || mode === "bank transfer") {
+                return (
+                  <>
+                    <Input
+                      label="Bank Name *"
+                      value={form.bankName || ""}
+                      placeholder="Enter Bank Name"
+                      onChange={(e) => updateField("bankName", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Transaction Reference Number *"
+                      value={form.transactionRefNo || ""}
+                      placeholder="Enter Reference Number"
+                      onChange={(e) => updateField("transactionRefNo", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Transfer Date *"
+                      type="date"
+                      value={form.transferDate || ""}
+                      onChange={(e) => updateField("transferDate", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode === "cheque" || mode === "check") {
+                return (
+                  <>
+                    <Input
+                      label="Cheque Number *"
+                      value={form.chequeNumber || ""}
+                      placeholder="Enter Cheque Number"
+                      onChange={(e) => updateField("chequeNumber", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Bank Name *"
+                      value={form.bankName || ""}
+                      placeholder="Enter Bank Name"
+                      onChange={(e) => updateField("bankName", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Cheque Date *"
+                      type="date"
+                      value={form.chequeDate || ""}
+                      onChange={(e) => updateField("chequeDate", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode.includes("demand draft") || mode === "dd" || mode === "demand draft") {
+                return (
+                  <>
+                    <Input
+                      label="DD Number *"
+                      value={form.ddNumber || ""}
+                      placeholder="Enter Demand Draft Number"
+                      onChange={(e) => updateField("ddNumber", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Bank Name *"
+                      value={form.bankName || ""}
+                      placeholder="Enter Bank Name"
+                      onChange={(e) => updateField("bankName", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="DD Date *"
+                      type="date"
+                      value={form.ddDate || ""}
+                      onChange={(e) => updateField("ddDate", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode === "credit card" || mode === "debit card" || mode.includes("credit") || mode.includes("debit")) {
+                return (
+                  <>
+                    <Input
+                      label="Card Last 4 Digits *"
+                      value={form.cardLast4 || ""}
+                      placeholder="e.g. 4321"
+                      maxLength={4}
+                      onChange={(e) => updateField("cardLast4", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Approval Code *"
+                      value={form.approvalCode || ""}
+                      placeholder="Enter Approval Code"
+                      onChange={(e) => updateField("approvalCode", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode.includes("online") || mode === "online payment") {
+                return (
+                  <>
+                    <Input
+                      label="Payment Gateway *"
+                      value={form.paymentGateway || ""}
+                      placeholder="e.g. Razorpay / Stripe"
+                      onChange={(e) => updateField("paymentGateway", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Transaction ID *"
+                      value={form.onlineTransactionId || ""}
+                      placeholder="Enter Transaction ID"
+                      onChange={(e) => updateField("onlineTransactionId", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode === "wallet") {
+                return (
+                  <>
+                    <Input
+                      label="Wallet Name *"
+                      value={form.walletName || ""}
+                      placeholder="e.g. Paytm / PhonePe"
+                      onChange={(e) => updateField("walletName", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Wallet Transaction ID *"
+                      value={form.walletTransactionId || ""}
+                      placeholder="Enter Wallet Transaction ID"
+                      onChange={(e) => updateField("walletTransactionId", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              if (mode === "other") {
+                return (
+                  <>
+                    <Input
+                      label="Reference Number *"
+                      value={form.paymentReferenceNo || ""}
+                      placeholder="Enter Reference Number"
+                      onChange={(e) => updateField("paymentReferenceNo", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Description *"
+                      value={form.paymentDescription || ""}
+                      placeholder="Enter Payment Description"
+                      onChange={(e) => updateField("paymentDescription", e.target.value)}
+                      required
+                    />
+                  </>
+                );
+              }
+
+              return null;
+            })()}
             <Input label="Payment Status" value={computedPaymentStatus} readOnly placeholder="System Generated" />
             <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
             <label className="grid gap-2">
