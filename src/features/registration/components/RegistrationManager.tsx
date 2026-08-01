@@ -713,7 +713,6 @@ export function RegistrationManager({
             const opts: SelectOption[] = (data.items || []).map((i: any) => ({
               label: i.companyName,
               value: i.id,
-              description: `Contact: ${i.contactPersonName} (${i.contactPersonMobile})`,
             }));
             setCorporateOptions(opts);
           }
@@ -1471,6 +1470,7 @@ export function RegistrationManager({
                       onChange={(val) => updateField("corporateDetailId", val)}
                       placeholder="Select corporate company"
                       name="corporateDetailId"
+                      groupByCategory={false}
                     />
                   </div>
                   <Button
@@ -1893,7 +1893,6 @@ export function RegistrationManager({
           const newOpt: SelectOption = {
             label: newCompany.companyName,
             value: newCompany.id,
-            description: `Contact: ${newCompany.contactPersonName} (${newCompany.contactPersonMobile})`,
           };
           setCorporateOptions((prev) => [newOpt, ...prev.filter((o) => o.value !== newCompany.id)]);
           setForm((prev) => ({
