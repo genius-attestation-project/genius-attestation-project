@@ -27,8 +27,22 @@ export async function POST(request: NextRequest) {
       return jsonError("Current user office location not found.", 404);
     }
 
+    console.log("[DEBUG Retrieve Route] session.user:", {
+      userId,
+      ownerAdminId,
+      userName,
+      officeLocationName,
+      userOfficeId,
+    });
+
     const body = await request.json().catch(() => ({}));
     const { bundleId, trackingNumbers, reason } = body;
+
+    console.log("[DEBUG Retrieve Route] Request body:", {
+      bundleId,
+      trackingNumbers,
+      reason,
+    });
 
     if (!bundleId && (!trackingNumbers || !Array.isArray(trackingNumbers) || trackingNumbers.length === 0)) {
       return jsonError("Bundle ID or tracking numbers are required for retrieval.", 400);
@@ -44,6 +58,8 @@ export async function POST(request: NextRequest) {
       trackingNumbers,
       reason,
     });
+
+    console.log("[DEBUG Retrieve Route] Result:", result);
 
     return jsonOk(result);
   } catch (error: any) {

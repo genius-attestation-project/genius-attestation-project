@@ -71,12 +71,15 @@ export async function retrieveOutboundDocuments(
       throw new Error("No eligible unreceived documents found to retrieve.");
     }
 
+    console.log("[DEBUG Retrieve Service] Target tracking numbers:", targetTrackingNumbers);
+    console.log("[DEBUG Retrieve Service] User office ID:", userOfficeId, "User office name:", userOfficeName);
+
     const now = new Date();
     let retrievedCount = 0;
 
     for (const trackingNumber of targetTrackingNumbers) {
       // Find latest document movement
-      const movement = await tx.documentMovement.findUnique({
+      let movement = await tx.documentMovement.findUnique({
         where: { trackingNumber },
         include: {
           fromOffice: true,
@@ -84,28 +87,56 @@ export async function retrieveOutboundDocuments(
         },
       });
 
-      if (!movement) continue;
+      console.log(`[DEBUG Retrieve Service] Initial DocumentMovement for #${trackingNumber}:`, movement ? {
+        id: movement.id,
+        trackingNumber: movement.trackingNumber,
+        status: movement.status,
+        currentStatus: movement.currentStatus,
+        fromOfficeId: movement.fromOfficeId,
+        toOfficeId: movement.toOfficeId,
+        currentOfficeId: movement.currentOfficeId,
+      } : "NOT FOUND IN DB");
 
-      // Guard: skip if the document has truly been received at the destination office
-      // AND has not progressed further into the sub package or completed workflow.
-      // We must NOT skip documents that went through:
-      //   Received → In Sub Package → Completed
-      // because those are legitimately retrievable after sub package processing.
-      // The original "status === Received" guard was meant to prevent retrieval when
-      // the destination office already has the document, but it incorrectly blocked
-      // documents that have completed the sub package workflow back to Process Outbound.
-      const hasProgressedBeyondReceive =
-        movement.currentStatus === "Completed" ||
-        movement.currentStatus === "In Sub Package" ||
-        movement.currentStatus === "Document In Hand";
+      if (!movement) {
+        // Fallback: check if registration exists
+        const reg = await tx.registration.findUnique({
+          where: { trackingNumber },
+        });
 
-      if (movement.status === "HOME") {
-        continue;
-      }
+        if (!reg) {
+          console.log(`[DEBUG Retrieve Service] Registration not found for #${trackingNumber}. Skipping.`);
+          continue;
+        }
 
-      if (movement.status === "Received" && !hasProgressedBeyondReceive) {
-        // Document is genuinely received and sitting at destination — cannot retrieve
-        continue;
+        movement = await tx.documentMovement.create({
+          data: {
+            trackingNumber: reg.trackingNumber,
+            registrationId: reg.id,
+            currentOfficeId: userOfficeId,
+            toOfficeId: userOfficeId,
+            status: "HOME",
+            currentStatus: "Document In Hand",
+            createdBy: userName || userId,
+            ownerAdminId,
+          },
+          include: {
+            fromOffice: true,
+            toOffice: true,
+          },
+        });
+        console.log(`[DEBUG Retrieve Service] Created new DocumentMovement for #${trackingNumber}`);
+      } else {
+        // Guard: skip only if the document was sent to another office and already received by that destination office
+        const isReceivedAtOtherOffice =
+          movement.toOfficeId &&
+          movement.toOfficeId !== userOfficeId &&
+          movement.status === "Received" &&
+          movement.currentStatus === "Received";
+
+        if (isReceivedAtOtherOffice) {
+          console.log(`[DEBUG Retrieve Service] Skipped #${trackingNumber} because it was received by destination office ${movement.toOfficeId}`);
+          continue;
+        }
       }
 
       const destinationOfficeName = movement.toOffice?.officeName || "Destination Office";
@@ -118,7 +149,19 @@ export async function retrieveOutboundDocuments(
         },
       });
 
-      // 2. Return DocumentMovement back to origin office (userOfficeId)
+      // 2. Clear active Sub Package assignment if transferred to a subpackage
+      await (tx as any).subPackageMovement.updateMany({
+        where: {
+          trackingNumber,
+          status: "In Progress",
+        },
+        data: {
+          status: "Retrieved",
+          completedAt: now,
+        },
+      });
+
+      // 3. Return DocumentMovement back to origin office (userOfficeId) & Document In Hand
       await tx.documentMovement.update({
         where: { trackingNumber },
         data: {
@@ -126,11 +169,11 @@ export async function retrieveOutboundDocuments(
           toOfficeId: userOfficeId,
           status: "HOME",
           currentStatus: "Document In Hand",
-          remarks: reason || `Retrieved by ${userOfficeName} before receiving`,
+          remarks: reason || `Retrieved by ${userOfficeName}`,
         },
       });
 
-      // 3. Record MovementHistory entry
+      // 4. Record MovementHistory entry
       await tx.movementHistory.create({
         data: {
           trackingNumber,
@@ -140,11 +183,11 @@ export async function retrieveOutboundDocuments(
           oldOffice: destinationOfficeName,
           newOffice: userOfficeName,
           performedBy: userName || userId,
-          remarks: reason || `Retrieved by ${userOfficeName} before destination office received`,
+          remarks: reason || `Retrieved by ${userOfficeName}`,
         },
       });
 
-      // 4. Record DocumentWorkflowHistory entry
+      // 5. Record DocumentWorkflowHistory entry
       const reg = await tx.registration.findUnique({
         where: { trackingNumber },
         select: { id: true },
@@ -158,13 +201,13 @@ export async function retrieveOutboundDocuments(
             workflowStep: "Document Retrieve",
             status: "Retrieved",
             performedBy: userName || userId,
-            remarks: reason || `Retrieved by ${userOfficeName} from ${destinationOfficeName}`,
+            remarks: reason || `Retrieved by ${userOfficeName}`,
             ownerAdminId,
           },
         });
       }
 
-      // 5. Update BranchMovementRecord if present
+      // 6. Update BranchMovementRecord if present
       const latestBranchMovement = await tx.branchMovementRecord.findFirst({
         where: {
           trackingNumber,
@@ -185,6 +228,7 @@ export async function retrieveOutboundDocuments(
       }
 
       retrievedCount++;
+      console.log(`[DEBUG Retrieve Service] Successfully retrieved #${trackingNumber}. Total retrieved count: ${retrievedCount}`);
     }
 
     let isPartial = false;
@@ -243,6 +287,8 @@ export async function retrieveOutboundDocuments(
         console.error("[retrieveOutboundDocuments] Notification error:", notifErr);
       }
     }
+
+    console.log("[DEBUG Retrieve Service] Final retrievedCount:", retrievedCount);
 
     return {
       success: true,
