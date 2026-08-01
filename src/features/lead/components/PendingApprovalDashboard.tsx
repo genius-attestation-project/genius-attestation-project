@@ -214,7 +214,7 @@ export function PendingApprovalDashboard() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8 dark:border-blue-900/40 dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_42%),linear-gradient(135deg,#0f172a,#1e293b)]">
+      <section className="overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8 dark:border-blue-900/40 dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_42%),linear-gradient(135deg,#0f172a,#1e293b)]">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Lead & Financial Approvals</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pending Approval</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -271,7 +271,7 @@ export function PendingApprovalDashboard() {
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:bg-white/5">
           <div className="overflow-x-auto">
             {activeTab === "advance_payment" && (
-              <table className="min-w-[1380px] text-left text-sm">
+              <table className="min-w-345 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Tracking Number</th>
@@ -392,7 +392,7 @@ export function PendingApprovalDashboard() {
             )}
 
             {activeTab === "corporate_approval" && (
-              <table className="min-w-[1280px] text-left text-sm">
+              <table className="min-w-7xl text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Company Name</th>
@@ -486,7 +486,7 @@ export function PendingApprovalDashboard() {
             )}
 
             {activeTab === "lob" && (
-              <table className="min-w-[1080px] text-left text-sm">
+              <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
@@ -519,7 +519,7 @@ export function PendingApprovalDashboard() {
             )}
 
             {activeTab === "inactive" && (
-              <table className="min-w-[1080px] text-left text-sm">
+              <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
@@ -553,7 +553,7 @@ export function PendingApprovalDashboard() {
             )}
 
             {activeTab === "overdue" && (
-              <table className="min-w-[1080px] text-left text-sm">
+              <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>

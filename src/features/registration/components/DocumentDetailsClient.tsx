@@ -156,7 +156,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
       {/* HERO HEADER CARD */}
       <section className="relative overflow-hidden rounded-3xl border border-blue-200/60 bg-linear-to-br from-white via-blue-50/40 to-slate-50 p-6 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-3 min-w-[280px]">
+          <div className="space-y-3 min-w-70">
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 Document Details

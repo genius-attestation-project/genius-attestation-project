@@ -188,7 +188,7 @@ export function AddAdvanceModal({
         • max-h-[90vh] keeps it within viewport
         • flex flex-col lets header/footer stay fixed while body scrolls
       */}
-      <div className="relative flex flex-col w-full max-w-[760px] max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+      <div className="relative flex flex-col w-full max-w-190 max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
 
         {/* ────────────────────────────────────────────────────────────────
             FIXED HEADER
@@ -224,7 +224,7 @@ export function AddAdvanceModal({
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
 
           {/* ── Financial Summary Cards ── */}
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-blue-100 bg-linear-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
             {[
               {
                 label: "Total Charges",
