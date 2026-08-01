@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { listRealtimeDocumentMovements } from "@/features/bm-report/server/bm-tracking.service";
+import { getBmLocationTrackingData, type BmTrackingTab } from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError } from "@/utils/response";
 
 export async function GET(request: NextRequest) {
@@ -17,51 +17,56 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") ?? "csv";
-    const query = searchParams.get("query") ?? undefined;
-    const processType = searchParams.get("processType") ?? undefined;
-    const subPackage = searchParams.get("subPackage") ?? undefined;
-    const status = searchParams.get("status") ?? undefined;
+    const registrationOffice = searchParams.get("registrationOffice") ?? undefined;
+    const tab = (searchParams.get("tab") as BmTrackingTab) || "in_hand";
+    const search = searchParams.get("search") ?? undefined;
 
-    const result = await listRealtimeDocumentMovements({
+    const sections = await getBmLocationTrackingData({
       ownerAdminId,
-      query,
-      processType,
-      subPackage,
-      status,
-      page: 1,
-      limit: 1000,
+      registrationOffice,
+      tab,
+      search,
     });
 
+    const allDocuments = sections.flatMap((sec) =>
+      sec.documents.map((doc) => ({
+        locationName: sec.locationName,
+        ...doc,
+      }))
+    );
+
     if (format === "json") {
-      return NextResponse.json(result.data);
+      return NextResponse.json(allDocuments);
     }
 
     const headers = [
+      "SL No",
       "Tracking Number",
-      "Customer Name",
-      "Mobile",
+      "Registration Date",
+      "Document Name",
+      "Registration Office",
+      "Collected Person",
+      "Number of Days",
+      "Delivery At",
+      "Document Type",
       "Process Type",
-      "Current Office",
-      "Current Module",
-      "Sub Package",
-      "Current Status",
-      "Last Movement",
-      "Current Holder",
-      "Last Updated",
+      "Total Amount",
+      "Current Location",
     ];
 
-    const rows = result.data.map((item) => [
-      item.trackingNumber,
-      `"${item.customerName.replace(/"/g, '""')}"`,
-      item.mobile || "",
-      item.processType,
-      `"${item.currentOffice.replace(/"/g, '""')}"`,
-      item.currentModule,
-      item.currentSubPackage,
-      item.currentStatus,
-      `"${item.lastMovement.replace(/"/g, '""')}"`,
-      `"${item.currentHolder.replace(/"/g, '""')}"`,
-      new Date(item.lastUpdated).toISOString(),
+    const rows = allDocuments.map((doc, idx) => [
+      idx + 1,
+      doc.trackingNumber,
+      doc.registrationDate,
+      `"${(doc.documentName || "").replace(/"/g, '""')}"`,
+      `"${(doc.registrationOffice || "").replace(/"/g, '""')}"`,
+      `"${(doc.collectedPerson || "").replace(/"/g, '""')}"`,
+      doc.numberOfDays,
+      `"${(doc.deliveryAt || "").replace(/"/g, '""')}"`,
+      `"${(doc.documentType || "").replace(/"/g, '""')}"`,
+      `"${(doc.processType || "").replace(/"/g, '""')}"`,
+      `"${(doc.totalAmount || "").replace(/"/g, '""')}"`,
+      `"${(doc.locationName || "").replace(/"/g, '""')}"`,
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -70,11 +75,11 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="bm_report_movements_${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Content-Disposition": `attachment; filename="bm_location_tracking_${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   } catch (error) {
-    console.error("Failed to export BM report movements", error);
+    console.error("Failed to export BM location tracking report", error);
     return jsonError("Unable to export tracking records.", 500);
   }
 }

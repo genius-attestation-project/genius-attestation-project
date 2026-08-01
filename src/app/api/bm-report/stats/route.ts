@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { getRealtimeMovementStats } from "@/features/bm-report/server/bm-tracking.service";
+import { getBmLocationTrackingData } from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET(request: NextRequest) {
@@ -15,16 +15,19 @@ export async function GET(request: NextRequest) {
       return jsonError("No owner admin ID found.", 401);
     }
 
-    const isSuperAdmin = session?.user?.isSuperAdmin ?? false;
-    const userOfficeLocationId = session?.user?.officeLocationId ?? undefined;
-
-    const stats = await getRealtimeMovementStats(
+    const sections = await getBmLocationTrackingData({
       ownerAdminId,
-      userOfficeLocationId,
-      isSuperAdmin
-    );
+      tab: "in_hand",
+    });
 
-    return jsonOk({ stats });
+    const totalDocuments = sections.reduce((sum, sec) => sum + sec.documents.length, 0);
+
+    return jsonOk({
+      stats: {
+        totalSections: sections.length,
+        totalDocuments,
+      },
+    });
   } catch (error) {
     console.error("Failed to load BM realtime stats", error);
     return jsonError("Unable to load movement tracking stats.", 500);

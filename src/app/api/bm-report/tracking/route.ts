@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { listRealtimeDocumentMovements } from "@/features/bm-report/server/bm-tracking.service";
+import {
+  getBmLocationTrackingData,
+  getRegistrationOffices,
+  type BmTrackingTab,
+} from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET(request: NextRequest) {
@@ -16,41 +20,27 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get("query") ?? undefined;
-    const trackingNumber = searchParams.get("trackingNumber") ?? undefined;
-    const customerName = searchParams.get("customerName") ?? undefined;
-    const officeId = searchParams.get("officeId") ?? undefined;
-    const processType = searchParams.get("processType") ?? undefined;
-    const subPackage = searchParams.get("subPackage") ?? undefined;
-    const status = searchParams.get("status") ?? undefined;
-    const startDate = searchParams.get("startDate") ?? undefined;
-    const endDate = searchParams.get("endDate") ?? undefined;
-    const page = searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : 1;
-    const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : 20;
+    const action = searchParams.get("action");
 
-    const isSuperAdmin = session?.user?.isSuperAdmin ?? false;
-    const userOfficeLocationId = session?.user?.officeLocationId ?? undefined;
+    if (action === "offices") {
+      const offices = await getRegistrationOffices(ownerAdminId);
+      return jsonOk({ offices });
+    }
 
-    const result = await listRealtimeDocumentMovements({
+    const registrationOffice = searchParams.get("registrationOffice") ?? undefined;
+    const tab = (searchParams.get("tab") as BmTrackingTab) || "in_hand";
+    const search = searchParams.get("search") ?? undefined;
+
+    const sections = await getBmLocationTrackingData({
       ownerAdminId,
-      isSuperAdmin,
-      userOfficeLocationId,
-      query,
-      trackingNumber,
-      customerName,
-      officeId,
-      processType,
-      subPackage,
-      status,
-      startDate,
-      endDate,
-      page,
-      limit,
+      registrationOffice,
+      tab,
+      search,
     });
 
-    return jsonOk(result);
+    return jsonOk({ sections });
   } catch (error) {
-    console.error("Failed to list BM realtime tracking records", error);
+    console.error("Failed to list BM location tracking records", error);
     return jsonError("Unable to load document movement tracking records.", 500);
   }
 }
