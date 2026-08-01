@@ -130,7 +130,7 @@ export function AssignedOfficeWorkspaceClient({
   // Click Bundle Card (Inbound)
   const handleOpenBundleModal = (bundle: any) => {
     setSelectedBundle(bundle);
-    setBundleSelectedTrackings(bundle.items.map((item: any) => item.trackingNumber));
+    setBundleSelectedTrackings([]);
   };
 
   // Toggle item selection in bundle modal
@@ -646,7 +646,7 @@ export function AssignedOfficeWorkspaceClient({
       {/* BUNDLE RECEIVE MODAL */}
       {selectedBundle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
+          <div className="w-full max-w-3xl sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#0f1115] dark:border dark:border-white/10 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-white/10">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -715,7 +715,7 @@ export function AssignedOfficeWorkspaceClient({
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 w-full items-center text-xs">
+                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-3 w-full items-center text-xs">
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">SL No</span>
                           <span className="font-semibold text-slate-600 dark:text-slate-400">{index + 1}</span>
@@ -730,15 +730,15 @@ export function AssignedOfficeWorkspaceClient({
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Name</span>
-                          <span className="font-semibold text-slate-900 dark:text-white truncate block">{docName}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white break-words block">{docName}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Doc Type</span>
-                          <span className="font-medium text-slate-800 dark:text-slate-200">{docType}</span>
+                          <span className="font-medium text-slate-800 dark:text-slate-200 break-words block">{docType}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Process Type</span>
-                          <span className="font-bold text-blue-800 dark:text-blue-300">{procType}</span>
+                          <span className="font-bold text-blue-800 dark:text-blue-300 break-words block">{procType}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase">Number of Days</span>
