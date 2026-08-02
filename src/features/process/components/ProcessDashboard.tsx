@@ -781,11 +781,6 @@ export function ProcessDashboard() {
       <BundlePreviewModal
         open={Boolean(previewItem)}
         onClose={() => setPreviewItem(null)}
-        onContinueReceive={() => {
-          if (previewItem) {
-            openBulkMovementModal("RECEIVE", previewItem.trackingNumber, previewItem.id);
-          }
-        }}
         bundleData={previewItem}
       />
 

@@ -685,11 +685,6 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       <BundlePreviewModal
         open={Boolean(previewBundle)}
         onClose={() => setPreviewBundle(null)}
-        onContinueReceive={() => {
-          if (previewBundle) {
-            handleOpenBundleModal(previewBundle);
-          }
-        }}
         bundleData={previewBundle}
       />
 
