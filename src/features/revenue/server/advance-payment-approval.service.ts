@@ -45,8 +45,19 @@ export async function submitAdvancePaymentApproval(args: {
     throw new Error("Payment Mode is mandatory.");
   }
 
+  const targetId = (args.registrationId || "").trim();
+  if (!targetId) {
+    throw new Error("Registration ID is required.");
+  }
+
   const registration = await prisma.registration.findFirst({
-    where: { id: args.registrationId, ownerAdminId: args.ownerAdminId },
+    where: {
+      ownerAdminId: args.ownerAdminId,
+      OR: [
+        { id: targetId },
+        { trackingNumber: targetId },
+      ],
+    },
     include: {
       creator: { select: { id: true, name: true, email: true, supervisorUserId: true } },
       files: {
@@ -60,7 +71,7 @@ export async function submitAdvancePaymentApproval(args: {
   });
 
   if (!registration) {
-    throw new Error("Registration not found.");
+    throw new Error(`Registration not found for ID or tracking number "${targetId}".`);
   }
 
   // Calculate current approved advance total and current remaining balance
@@ -68,7 +79,7 @@ export async function submitAdvancePaymentApproval(args: {
   const totalAmount = Number(registration.totalCharges);
   const currentBalance = Math.max(0, totalAmount - currentApprovedAdvance);
 
-  if (advanceAmount > currentBalance) {
+  if (totalAmount > 0 && advanceAmount > currentBalance) {
     throw new Error(
       `Advance Amount (₹${advanceAmount.toLocaleString()}) cannot exceed remaining balance (₹${currentBalance.toLocaleString()}).`,
     );
@@ -84,6 +95,20 @@ export async function submitAdvancePaymentApproval(args: {
     if (storage) {
       receiptFileUrl = `/api/files/${storage.id}/view`;
       receiptFileName = storage.originalName;
+
+      // Link fileStorage to registration files if not already linked
+      const existingRef = await prisma.registrationFile.findFirst({
+        where: { registrationId: registration.id, fileStorageId: storage.id },
+      });
+      if (!existingRef) {
+        await prisma.registrationFile.create({
+          data: {
+            registrationId: registration.id,
+            fileStorageId: storage.id,
+            fileCategory: "ADVANCE_PAYMENT",
+          },
+        }).catch(() => null);
+      }
     }
   } else if (registration.files.length > 0 && registration.files[0].fileStorage) {
     receiptFileId = registration.files[0].fileStorageId;

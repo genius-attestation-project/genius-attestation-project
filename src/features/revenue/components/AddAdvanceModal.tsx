@@ -208,21 +208,29 @@ export function AddAdvanceModal({
     }
 
     setSubmitting(true);
+    const payload = {
+      registrationId,
+      revenueRegistrationId: registrationId,
+      advanceAmount: numAmount,
+      amount: numAmount,
+      paymentDate,
+      paymentMode,
+      referenceNumber: referenceNumber.trim() || null,
+      collectedBy: collectedBy.trim() || null,
+      remarks: remarks.trim() || null,
+      proofFileType,
+      receiptFileId: proofFileIds[0] || null,
+      proofFileId: proofFileIds[0] || null,
+      proofFiles: proofFileIds,
+    };
+
+    console.log("[Frontend] Advance payment submission payload before fetch():", payload);
+
     try {
       const res = await fetch("/api/advance-payment-approvals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registrationId,
-          advanceAmount: numAmount,
-          paymentDate,
-          paymentMode,
-          referenceNumber: referenceNumber.trim() || null,
-          collectedBy: collectedBy.trim() || null,
-          remarks: remarks.trim() || null,
-          proofFileType,
-          receiptFileId: proofFileIds[0] || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();

@@ -46,28 +46,34 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
+    console.log("[Backend POST /api/advance-payment-approvals] Received request body:", body);
+
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
+
+    const registrationId = (body.registrationId || body.revenueRegistrationId || body.id || body.trackingNumber || "").toString().trim();
+    const advanceAmount = Number(body.advanceAmount ?? body.amount ?? 0);
+    const receiptFileId = body.receiptFileId || body.proofFileId || (Array.isArray(body.proofFiles) ? body.proofFiles[0] : null) || null;
 
     const approval = await submitAdvancePaymentApproval({
       ownerAdminId: session.user.ownerAdminId,
-      registrationId: body.registrationId,
-      advanceAmount: Number(body.advanceAmount),
+      registrationId,
+      advanceAmount,
       paymentDate: body.paymentDate,
       paymentMode: body.paymentMode,
       referenceNumber: body.referenceNumber || null,
       collectedBy: body.collectedBy || null,
       remarks: body.remarks || null,
       proofFileType: body.proofFileType || null,
-      receiptFileId: body.receiptFileId || null,
+      receiptFileId,
       performedByUserId: session.user.id,
       ipAddress,
     });
 
     return NextResponse.json({ success: true, item: approval });
   } catch (error: any) {
-    console.error("[POST /api/advance-payment-approvals] Error:", error);
+    console.error("[Backend POST /api/advance-payment-approvals] Validation / Error:", error?.message || error);
     return NextResponse.json(
-      { error: error.message || "Failed to submit advance payment request." },
+      { error: error?.message || "Failed to submit advance payment request." },
       { status: 400 },
     );
   }
