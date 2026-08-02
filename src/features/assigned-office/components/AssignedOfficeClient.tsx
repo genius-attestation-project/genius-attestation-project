@@ -88,9 +88,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(true);
 
-  // Selection
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
   // Master Options
   const [masterProcessTypes, setMasterProcessTypes] = useState<ProcessTypeOption[]>([]);
   const [masterSubPackages, setMasterSubPackages] = useState<SubPackageOption[]>([]);
@@ -440,22 +437,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
     window.open("/api/assigned-office/export", "_blank");
   };
 
-  // Select all rows
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedIds(offices.map((o) => o.id));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  // Select single row
-  const handleSelectRow = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
   return (
     <div className="space-y-6 w-full pb-12">
       {/* Top Header */}
@@ -473,16 +454,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/assigned-office/workspace">
-            <Button
-              variant="secondary"
-              className="gap-2 rounded-xl border-blue-200 text-blue-700 bg-blue-50/60 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
-            >
-              <Building2 size={16} />
-              Open Workspace
-            </Button>
-          </Link>
-
           {permissions["assigned_office.export"] && (
             <Button
               variant="secondary"
@@ -539,14 +510,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="border-b border-slate-200/80 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
               <tr>
-                <th className="p-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={offices.length > 0 && selectedIds.length === offices.length}
-                    onChange={handleSelectAll}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </th>
                 <th
                   onClick={() => {
                     setSortBy("username");
@@ -570,14 +533,14 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
             <tbody className="divide-y divide-slate-200/60 dark:divide-white/10">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
                     <RefreshCw className="mx-auto h-6 w-6 animate-spin" />
                     <p className="mt-2 text-sm font-medium">Loading Assigned Offices...</p>
                   </td>
                 </tr>
               ) : offices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     No Assigned Offices found matching your criteria.
                   </td>
                 </tr>
@@ -587,14 +550,6 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     key={office.id}
                     className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors"
                   >
-                    <td className="p-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(office.id)}
-                        onChange={() => handleSelectRow(office.id)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </td>
                     <td className="p-4 font-semibold text-slate-900 dark:text-white">
                       {office.username}
                     </td>
