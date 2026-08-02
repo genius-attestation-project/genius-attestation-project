@@ -475,6 +475,8 @@ export function LeadForm({
             loading={usersLoading}
             errorMessage={usersError}
             emptyMessage="No active users found"
+            groupByCategory={false}
+            showDescription={false}
           />
         </FieldWrapper>
         <FieldWrapper>

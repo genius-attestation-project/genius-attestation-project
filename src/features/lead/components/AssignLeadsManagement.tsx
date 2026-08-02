@@ -256,6 +256,8 @@ export function AssignLeadsManagement() {
             onChange={(value) => setFilters((current) => ({ ...current, assignedUserId: value }))}
             options={assignedFilterOptions}
             placeholder="All users"
+            groupByCategory={false}
+            showDescription={false}
           />
           <SearchableSelect
             label="Lead Status"
@@ -305,6 +307,8 @@ export function AssignLeadsManagement() {
               onChange={setReassignTo}
               options={userOptions}
               placeholder="Select new owner"
+              groupByCategory={false}
+              showDescription={false}
             />
           </div>
           <Button onClick={() => void assignSelectedLeads()} disabled={assigning || selectedLeadIds.length === 0 || !reassignTo}>

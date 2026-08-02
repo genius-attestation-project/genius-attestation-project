@@ -26,6 +26,7 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   errorMessage?: string;
   groupByCategory?: boolean;
+  showDescription?: boolean;
 }
 
 function getCategoryIcon(categoryName: string) {
@@ -52,6 +53,7 @@ export function SearchableSelect({
   emptyMessage = "No results found.",
   errorMessage = "",
   groupByCategory = true,
+  showDescription = true,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -84,8 +86,8 @@ export function SearchableSelect({
   }, [searchTerm]);
 
   const hasCategories = useMemo(() => {
-    return groupByCategory && options.some((opt) => opt.category || opt.description);
-  }, [options, groupByCategory]);
+    return groupByCategory && options.some((opt) => opt.category || (showDescription && opt.description));
+  }, [options, groupByCategory, showDescription]);
 
   const filteredOptions = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -250,9 +252,11 @@ export function SearchableSelect({
                               <span className="truncate font-semibold text-slate-900 dark:text-white">
                                 {option.label}
                               </span>
-                              <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                                {option.category || option.description || group.category}
-                              </span>
+                              {showDescription && (option.category || option.description) ? (
+                                <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
+                                  {option.category || option.description}
+                                </span>
+                              ) : null}
                             </span>
                           )}
                           {isSelected && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
@@ -288,7 +292,7 @@ export function SearchableSelect({
                           <span className="truncate font-semibold text-slate-900 dark:text-white">
                             {option.label}
                           </span>
-                          {option.description || option.category ? (
+                          {showDescription && (option.description || option.category) ? (
                             <span className="truncate text-xs text-slate-500 dark:text-slate-400">
                               {option.category || option.description}
                             </span>
