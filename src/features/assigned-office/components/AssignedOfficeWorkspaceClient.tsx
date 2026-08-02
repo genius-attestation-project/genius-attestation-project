@@ -31,6 +31,7 @@ import { PriorityDot } from "@/components/ui/PriorityDot";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
+import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 
 type WorkspaceProps = {
   officeName: string;
@@ -66,6 +67,9 @@ export function AssignedOfficeWorkspaceClient({
 
   // Bundle Preview state before receiving
   const [previewBundle, setPreviewBundle] = useState<any | null>(null);
+
+  // Receive Selection state for Inbound Receive button
+  const [receiveSelectionBundle, setReceiveSelectionBundle] = useState<any | null>(null);
 
   // Bundle Receive Modal
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -168,6 +172,37 @@ export function AssignedOfficeWorkspaceClient({
         setSelectedBundle(null);
         fetchStats();
         fetchTabData();
+      }
+    } catch (err) {
+      console.error("Failed to receive bundle", err);
+    } finally {
+      setReceiving(false);
+    }
+  };
+
+  // Handle Receive from ReceiveSelectionModal
+  const handleConfirmReceiveSelection = async (selectedTrackings: string[]) => {
+    if (!receiveSelectionBundle || selectedTrackings.length === 0) return;
+    setReceiving(true);
+    try {
+      const res = await fetch("/api/assigned-office/workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "receive_bundle",
+          officeId,
+          bundleId: receiveSelectionBundle.id,
+          selectedTrackingNumbers: selectedTrackings,
+        }),
+      });
+
+      if (res.ok) {
+        setReceiveSelectionBundle(null);
+        fetchStats();
+        fetchTabData();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to receive bundle.");
       }
     } catch (err) {
       console.error("Failed to receive bundle", err);
@@ -510,8 +545,18 @@ export function AssignedOfficeWorkspaceClient({
                     </div>
                   </div>
 
-                  <div className="mt-4 border-t border-slate-100 pt-3 text-center text-xs font-bold text-blue-600 dark:border-white/10 dark:text-blue-400">
-                    Click to Open Bundle & Receive →
+                  <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between gap-2 dark:border-white/10">
+                    <span className="text-[11px] font-medium text-slate-400">Click card for preview</span>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReceiveSelectionBundle(bundle);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4"
+                    >
+                      Receive
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -654,6 +699,15 @@ export function AssignedOfficeWorkspaceClient({
         open={Boolean(previewBundle)}
         onClose={() => setPreviewBundle(null)}
         bundleData={previewBundle}
+      />
+
+      {/* RECEIVE SELECTION MODAL */}
+      <ReceiveSelectionModal
+        open={Boolean(receiveSelectionBundle)}
+        onClose={() => setReceiveSelectionBundle(null)}
+        onConfirmReceive={handleConfirmReceiveSelection}
+        bundleData={receiveSelectionBundle}
+        isReceiving={receiving}
       />
 
       {/* BUNDLE RECEIVE MODAL */}

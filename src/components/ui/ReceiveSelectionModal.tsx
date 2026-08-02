@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckCircle2, CheckSquare, Square, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { formatBundleNumber } from "@/utils/format";
+import { formatDate, formatBundleNumber } from "@/utils/format";
+import { calculateNumberOfDays } from "@/utils/days-calculator";
 
 export type ReceiveSelectionModalProps = {
   open: boolean;
@@ -22,20 +23,25 @@ export function ReceiveSelectionModal({
 }: ReceiveSelectionModalProps) {
   const [selectedTrackings, setSelectedTrackings] = useState<string[]>([]);
 
-  // Parse items into strict 6-field document list
+  // Parse items into strict document selection list
   const rawItems: any[] = bundleData && Array.isArray(bundleData.items) && bundleData.items.length > 0
     ? bundleData.items
     : bundleData ? [bundleData] : [];
 
   const documents = rawItems.map((item: any, idx: number) => {
     const reg = item.registration || item;
+    const rawDate = reg?.createdDate || reg?.createdAt || item.createdAt;
+    const regDate = formatDate(rawDate);
+    const days = calculateNumberOfDays(item.receivedAt || item.updatedAt || item.createdAt || rawDate);
+
     return {
       slNo: idx + 1,
       trackingNumber: item.trackingNumber || reg.trackingNumber || "-",
-      registrationOffice: reg.regionOfRegistration || reg.registeredOffice || item.registeredOffice || item.fromOfficeName || "Main Office",
+      registrationDate: regDate,
       documentName: reg.documentName || reg.customerName || item.customerName || item.clientName || "-",
       documentType: reg.documentType || item.documentType || "-",
       processType: reg.processType || reg.mainProcess || reg.externalProcess || item.processType || item.mainProcess || "-",
+      numberOfDays: days,
     };
   });
 
@@ -76,7 +82,7 @@ export function ReceiveSelectionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] rounded-3xl bg-white shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden">
+      <div className="flex flex-col w-full max-w-5xl max-h-[90vh] rounded-3xl bg-white shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden">
         
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-white/10 dark:bg-white/5">
@@ -94,7 +100,7 @@ export function ReceiveSelectionModal({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Select documents to receive into your office inventory ({selectedTrackings.length} of {documents.length} selected)
+                Select documents to receive ({selectedTrackings.length} of {documents.length} selected)
               </p>
             </div>
           </div>
@@ -128,10 +134,11 @@ export function ReceiveSelectionModal({
                   </th>
                   <th className="p-3.5 w-16">SL No</th>
                   <th className="p-3.5">Tracking Number</th>
-                  <th className="p-3.5">Registration Office</th>
+                  <th className="p-3.5">Registration Date</th>
                   <th className="p-3.5">Document Name</th>
                   <th className="p-3.5">Document Type</th>
                   <th className="p-3.5">Process Type</th>
+                  <th className="p-3.5">Number of Days</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/10">
@@ -160,8 +167,8 @@ export function ReceiveSelectionModal({
                       <td className="p-3.5 font-mono font-bold text-blue-600 dark:text-blue-400">
                         {doc.trackingNumber}
                       </td>
-                      <td className="p-3.5 font-semibold text-slate-800 dark:text-slate-200">
-                        {doc.registrationOffice}
+                      <td className="p-3.5 font-medium text-slate-700 dark:text-slate-300">
+                        {doc.registrationDate}
                       </td>
                       <td className="p-3.5 font-bold text-slate-900 dark:text-white">
                         {doc.documentName}
@@ -171,6 +178,9 @@ export function ReceiveSelectionModal({
                       </td>
                       <td className="p-3.5 font-bold text-blue-800 dark:text-blue-300">
                         {doc.processType}
+                      </td>
+                      <td className="p-3.5 font-bold text-amber-700 dark:text-amber-400">
+                        {doc.numberOfDays}
                       </td>
                     </tr>
                   );
