@@ -909,7 +909,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
 
                 {/* Cards Checklist Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/2">
                   {filteredSubPackages.length === 0 ? (
                     <div className="col-span-full p-4 text-center text-xs text-slate-400">
                       No Sub Processes found matching your search.
@@ -1123,7 +1123,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                 </div>
 
                 {/* Cards Checklist Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1.5 border border-slate-100 rounded-2xl dark:border-white/5 bg-slate-50/30 dark:bg-white/2">
                   {filteredSubPackages.length === 0 ? (
                     <div className="col-span-full p-4 text-center text-xs text-slate-400">
                       No Sub Processes found matching your search.
