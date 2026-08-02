@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === "subpackages_for_process_type") {
-      const subPackages = await getSubPackagesForProcessType(processType, ownerAdminId);
+      const subPackages = await getSubPackagesForProcessType(processType, ownerAdminId, officeId);
       return NextResponse.json({ subPackages });
     }
 

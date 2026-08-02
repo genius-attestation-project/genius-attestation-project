@@ -48,7 +48,11 @@ export async function getAssignedOfficeMasterOptions(ownerAdminId: string) {
 /**
  * Fetch Sub Packages dynamically filtered by Process Type name
  */
-export async function getSubPackagesForProcessType(processTypeName: string | null | undefined, ownerAdminId: string) {
+export async function getSubPackagesForProcessType(
+  processTypeName: string | null | undefined,
+  ownerAdminId: string,
+  officeId?: string
+) {
   if (processTypeName) {
     const ptMaster = await prisma.masterData.findFirst({
       where: {
@@ -72,7 +76,33 @@ export async function getSubPackagesForProcessType(processTypeName: string | nul
     }
   }
 
-  // Fallback to all active subpackages
+  // If officeId is provided, scope fallback to sub-packages assigned to that office only.
+  // This prevents showing ALL system sub-processes in the transfer dropdown.
+  if (officeId) {
+    const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
+      where: { assignedOfficeId: officeId },
+    });
+    const assignedIds: string[] = officeSubPackages.map((sp: any) => sp.subPackageId as string);
+    const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
+
+    if (assignedIds.length > 0) {
+      const subPackages = await prisma.subPackage.findMany({
+        where: { id: { in: assignedIds }, isActive: true },
+        orderBy: { name: "asc" },
+      });
+      return subPackages.map((sp) => ({
+        id: sp.id,
+        name: sp.name,
+        description: sp.description,
+        isCorePackage: sp.id === coreItem?.subPackageId,
+      }));
+    }
+
+    // No sub-packages assigned to this office — return empty list
+    return [];
+  }
+
+  // Fallback to all active subpackages for this owner (used only when no officeId is known)
   const allSubPackages = await prisma.subPackage.findMany({
     where: { ownerAdminId, isActive: true },
     orderBy: { name: "asc" },
@@ -1094,21 +1124,32 @@ export async function listSubPackageItemsForOffice(params: {
   officeId: string;
   ownerAdminId: string;
 }) {
-  // 1. Fetch office assigned subpackages configuration for this specific office
+  if (!params.officeId) {
+    return { coreSubPackageId: null, assignedSubPackages: [], subPackages: [], items: [] };
+  }
+
+  // 1. Fetch office assigned subpackages configuration for this specific office ONLY
   const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
     where: { assignedOfficeId: params.officeId },
   });
 
-  const configSubPkgIds = officeSubPackages.map((sp: any) => sp.subPackageId);
+  const configSubPkgIds: string[] = officeSubPackages.map((sp: any) => sp.subPackageId as string);
   const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
 
-  // 2. Fetch ONLY subpackages explicitly assigned to this office
+  // Early return: if no sub-packages are assigned to this office, return empty workspace
+  if (configSubPkgIds.length === 0) {
+    return { coreSubPackageId: null, assignedSubPackages: [], subPackages: [], items: [] };
+  }
+
+  // 2. Fetch ONLY subpackages explicitly assigned to this office (strictly bounded by configSubPkgIds)
   const assignedSubPackages = await prisma.subPackage.findMany({
     where: { id: { in: configSubPkgIds } },
     orderBy: { name: "asc" },
   });
 
   // 3. Fetch subpackage movements ONLY for this office and ONLY for assigned subpackages
+  //    Both filters are required: assignedOfficeId guards per-office security,
+  //    subPackageId ensures only assigned sub-processes are visible.
   const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
       assignedOfficeId: params.officeId,
@@ -1119,9 +1160,11 @@ export async function listSubPackageItemsForOffice(params: {
   });
 
   const trackingNumbers = Array.from(new Set(movements.map((m: any) => m.trackingNumber))) as string[];
-  const registrations = await prisma.registration.findMany({
-    where: { trackingNumber: { in: trackingNumbers } },
-  });
+  const registrations = trackingNumbers.length > 0
+    ? await prisma.registration.findMany({
+        where: { trackingNumber: { in: trackingNumbers } },
+      })
+    : [];
 
   const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
 
