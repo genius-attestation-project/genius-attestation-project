@@ -82,6 +82,11 @@ export function ProcessDashboard() {
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
   const [loadingOffices, setLoadingOffices] = useState(false);
 
+  // Document In Hand transfer bar: office-location records only.
+  const [destinationOfficeId, setDestinationOfficeId] = useState("");
+  const [destinationOffices, setDestinationOffices] = useState<{ id: string; officeName: string }[]>([]);
+  const [isTransferring, setIsTransferring] = useState(false);
+
   // Modals state
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [targetAction, setTargetAction] = useState<ModalAction>("COMPLETED");
@@ -129,6 +134,24 @@ export function ProcessDashboard() {
       }
     }
     fetchProcessTypes();
+  }, []);
+
+  useEffect(() => {
+    async function fetchDestinationOffices() {
+      try {
+        const res = await fetch("/api/offices/all");
+        if (!res.ok) return;
+        const payload = await res.json();
+        // The shared endpoint also returns Assigned Office accounts. The Process
+        // toolbar intentionally exposes only persisted Office Location records.
+        setDestinationOffices(
+          (payload.offices || payload.data || []).filter((office: any) => office.type === "Office Location")
+        );
+      } catch (err) {
+        console.error("Failed to load destination offices", err);
+      }
+    }
+    fetchDestinationOffices();
   }, []);
 
   // Load active assigned office accounts for selector
@@ -262,6 +285,40 @@ export function ProcessDashboard() {
       setError(err instanceof Error ? err.message : "Unable to receive documents");
     } finally {
       setIsReceiving(false);
+    }
+  }
+
+  async function transferSelectedDocuments() {
+    if (selectedTrackingNumbers.length === 0 || !destinationOfficeId) return;
+
+    setIsTransferring(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch("/api/process/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trackingNumbers: selectedTrackingNumbers,
+          action: "TRANSFER_TO_HOME",
+          targetOfficeId: destinationOfficeId,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.message || payload.error || "Failed to transfer documents");
+      }
+
+      setSelectedTrackingNumbers([]);
+      setDestinationOfficeId("");
+      setSuccessMessage(
+        `${selectedTrackingNumbers.length} document${selectedTrackingNumbers.length === 1 ? "" : "s"} transferred successfully.`
+      );
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to transfer documents");
+    } finally {
+      setIsTransferring(false);
     }
   }
 
@@ -468,64 +525,37 @@ export function ProcessDashboard() {
       {items.length > 0 && (activeTab === "in_hand" || activeTab === "inbound") && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50/80 border border-blue-200 p-4 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
-            <span>Selected: {selectedTrackingNumbers.length} of {items.length} documents</span>
+            <span>
+              {activeTab === "in_hand"
+                ? `Selected: ${selectedTrackingNumbers.length} documents`
+                : `Selected: ${selectedTrackingNumbers.length} of ${items.length} documents`}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === "in_hand" && (
-              <>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">Select Destination Office:</span>
+                <select
+                  value={destinationOfficeId}
+                  onChange={(event) => setDestinationOfficeId(event.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="">Select Office</option>
+                  {destinationOffices.map((office) => (
+                    <option key={office.id} value={office.id}>{office.officeName}</option>
+                  ))}
+                </select>
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 shadow-sm"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("TRANSFER_TO_HOME")}
+                  disabled={selectedTrackingNumbers.length === 0 || !destinationOfficeId || isTransferring}
+                  onClick={transferSelectedDocuments}
                 >
                   <Send size={14} />
-                  Transfer To Home
+                  {isTransferring ? "Transferring..." : "Transfer"}
                 </Button>
-
-                <Button
-                  size="sm"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 shadow-sm"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE")}
-                >
-                  <Building2 size={14} />
-                  Transfer To Assigned Office
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold gap-1.5"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("RETURN")}
-                >
-                  <RotateCcw size={14} />
-                  Return
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold gap-1.5"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("REJECTED")}
-                >
-                  <XCircle size={14} />
-                  Reject
-                </Button>
-
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("COMPLETED")}
-                >
-                  <CheckCircle2 size={14} />
-                  Complete
-                </Button>
-              </>
+              </div>
             )}
 
             {activeTab === "inbound" && (
