@@ -1875,7 +1875,13 @@ export function RegistrationManager({
                 showDescription={false}
               />
             </label>
-            <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personSelectOptions} onChange={updateField} />
+            <Input
+              label="Registered Person"
+              name="registeredPerson"
+              value={form.registeredPerson}
+              readOnly
+              className="bg-slate-100 dark:bg-white/5 cursor-not-allowed text-slate-700 dark:text-slate-300 font-medium"
+            />
             <Input
               label="Region of Registration"
               value={form.regionOfRegistration}
