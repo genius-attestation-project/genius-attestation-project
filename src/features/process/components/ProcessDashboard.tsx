@@ -39,6 +39,7 @@ import { ProcessItem, ProcessStats } from "../types/process.types";
 import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -87,6 +88,9 @@ export function ProcessDashboard() {
   
   // Retrieve Modal State
   const [retrieveItem, setRetrieveItem] = useState<any | null>(null);
+  
+  // Bundle Preview state before receiving
+  const [previewItem, setPreviewItem] = useState<any | null>(null);
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -676,7 +680,10 @@ export function ProcessDashboard() {
 
                       {activeTab === "inbound" && (
                         <>
-                          <td className="px-5 py-4 font-mono font-bold text-blue-600">
+                          <td
+                            onClick={() => setPreviewItem(item)}
+                            className="px-5 py-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                          >
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
@@ -693,7 +700,7 @@ export function ProcessDashboard() {
                               <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                onClick={() => openBulkMovementModal("RECEIVE", item.trackingNumber, item.id)}
+                                onClick={() => setPreviewItem(item)}
                               >
                                 Receive
                               </Button>
@@ -769,6 +776,18 @@ export function ProcessDashboard() {
           </div>
         </div>
       )}
+
+      {/* Pre-Receive Bundle Information Preview Modal */}
+      <BundlePreviewModal
+        open={Boolean(previewItem)}
+        onClose={() => setPreviewItem(null)}
+        onContinueReceive={() => {
+          if (previewItem) {
+            openBulkMovementModal("RECEIVE", previewItem.trackingNumber, previewItem.id);
+          }
+        }}
+        bundleData={previewItem}
+      />
 
       {/* Operation Action Modal */}
       {movementModalOpen && (

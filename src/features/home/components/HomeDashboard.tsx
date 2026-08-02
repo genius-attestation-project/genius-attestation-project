@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { PriorityDot } from "@/components/ui/PriorityDot";
+import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 
 type HomeDashboardProps = {
@@ -58,6 +59,9 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
   // Selection state for Document In Hand
   const [selectedTrackingNumbers, setSelectedTrackingNumbers] = useState<string[]>([]);
+
+  // Bundle Preview state before receiving
+  const [previewBundle, setPreviewBundle] = useState<any | null>(null);
 
   // Popup Modal state for Inbound Bundle Details
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -505,7 +509,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       <tr key={bundle.id} className="hover:bg-slate-50">
                         <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                         <td
-                          onClick={() => handleOpenBundleModal(bundle)}
+                          onClick={() => setPreviewBundle(bundle)}
                           className="p-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
                         >
                           {formatBundleNumber(bundle.bundleNumber)}
@@ -522,7 +526,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                         <td className="p-4 text-right">
                           <Button
                             size="sm"
-                            onClick={() => handleOpenBundleModal(bundle)}
+                            onClick={() => setPreviewBundle(bundle)}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                           >
                             Receive
@@ -676,6 +680,18 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
           </div>
         )}
       </div>
+
+      {/* Bundle Information Preview Modal */}
+      <BundlePreviewModal
+        open={Boolean(previewBundle)}
+        onClose={() => setPreviewBundle(null)}
+        onContinueReceive={() => {
+          if (previewBundle) {
+            handleOpenBundleModal(previewBundle);
+          }
+        }}
+        bundleData={previewBundle}
+      />
 
       {/* Bundle Receive Modal */}
       {selectedBundle && (

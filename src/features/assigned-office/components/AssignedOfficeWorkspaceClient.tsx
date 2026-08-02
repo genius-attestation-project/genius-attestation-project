@@ -30,6 +30,7 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
+import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
 
 type WorkspaceProps = {
   officeName: string;
@@ -62,6 +63,9 @@ export function AssignedOfficeWorkspaceClient({
 
   // Assigned Sub Packages for this office (for Transfer modal)
   const [officeSubPackages, setOfficeSubPackages] = useState<any[]>([]);
+
+  // Bundle Preview state before receiving
+  const [previewBundle, setPreviewBundle] = useState<any | null>(null);
 
   // Bundle Receive Modal
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -471,7 +475,7 @@ export function AssignedOfficeWorkspaceClient({
               {items.map((bundle) => (
                 <div
                   key={bundle.id}
-                  onClick={() => handleOpenBundleModal(bundle)}
+                  onClick={() => setPreviewBundle(bundle)}
                   className="cursor-pointer rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all hover:border-blue-500 hover:shadow-md dark:border-white/10 dark:bg-[#0f1115]"
                 >
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-white/10">
@@ -644,6 +648,18 @@ export function AssignedOfficeWorkspaceClient({
           </div>
         )}
       </div>
+
+      {/* PRE-RECEIVE BUNDLE INFORMATION PREVIEW MODAL */}
+      <BundlePreviewModal
+        open={Boolean(previewBundle)}
+        onClose={() => setPreviewBundle(null)}
+        onContinueReceive={() => {
+          if (previewBundle) {
+            handleOpenBundleModal(previewBundle);
+          }
+        }}
+        bundleData={previewBundle}
+      />
 
       {/* BUNDLE RECEIVE MODAL */}
       {selectedBundle && (
