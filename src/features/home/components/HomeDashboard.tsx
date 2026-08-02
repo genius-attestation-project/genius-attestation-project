@@ -30,6 +30,7 @@ import { RetrieveConfirmationModal } from "@/features/document-movement/componen
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
+import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 
 type HomeDashboardProps = {
@@ -62,6 +63,9 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
   // Bundle Preview state before receiving
   const [previewBundle, setPreviewBundle] = useState<any | null>(null);
+
+  // Receive Selection state for Inbound Receive button
+  const [receiveSelectionBundle, setReceiveSelectionBundle] = useState<any | null>(null);
 
   // Popup Modal state for Inbound Bundle Details
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -233,6 +237,43 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       }
 
       setSelectedBundle(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || "Receive error");
+    } finally {
+      setIsReceiving(false);
+    }
+  };
+
+  // Confirm Receive from ReceiveSelectionModal
+  const handleConfirmReceiveSelection = async (selectedTrackingNumbers: string[]) => {
+    if (!receiveSelectionBundle) return;
+    try {
+      setIsReceiving(true);
+      const res = await fetch("/api/home", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "receive",
+          bundleId: receiveSelectionBundle.id,
+          receivedTrackingNumbers: selectedTrackingNumbers,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error || "Failed to receive bundle");
+      }
+
+      if (body.isSplit) {
+        alert(
+          `Received ${selectedTrackingNumbers.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
+        );
+      } else {
+        alert(`Bundle ${body.bundleNumber} fully received!`);
+      }
+
+      setReceiveSelectionBundle(null);
       fetchData();
     } catch (err: any) {
       alert(err.message || "Receive error");
@@ -526,7 +567,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                         <td className="p-4 text-right">
                           <Button
                             size="sm"
-                            onClick={() => setPreviewBundle(bundle)}
+                            onClick={() => setReceiveSelectionBundle(bundle)}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                           >
                             Receive
@@ -685,12 +726,16 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       <BundlePreviewModal
         open={Boolean(previewBundle)}
         onClose={() => setPreviewBundle(null)}
-        onContinueReceive={() => {
-          if (previewBundle) {
-            handleOpenBundleModal(previewBundle);
-          }
-        }}
         bundleData={previewBundle}
+      />
+
+      {/* Receive Selection Modal */}
+      <ReceiveSelectionModal
+        open={Boolean(receiveSelectionBundle)}
+        onClose={() => setReceiveSelectionBundle(null)}
+        onConfirmReceive={handleConfirmReceiveSelection}
+        bundleData={receiveSelectionBundle}
+        isReceiving={isReceiving}
       />
 
       {/* Bundle Receive Modal */}

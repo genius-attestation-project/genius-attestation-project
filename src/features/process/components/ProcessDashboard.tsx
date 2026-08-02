@@ -40,6 +40,7 @@ import { MovementModal } from "./MovementModal";
 import { ProcessHistoryTimeline } from "./ProcessHistoryTimeline";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
+import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 
 const emptyStats: ProcessStats = {
   inbound: 0,
@@ -91,6 +92,9 @@ export function ProcessDashboard() {
   
   // Bundle Preview state before receiving
   const [previewItem, setPreviewItem] = useState<any | null>(null);
+  
+  // Receive Selection state before receiving
+  const [receiveSelectionItem, setReceiveSelectionItem] = useState<any | null>(null);
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -700,7 +704,7 @@ export function ProcessDashboard() {
                               <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                onClick={() => setPreviewItem(item)}
+                                onClick={() => setReceiveSelectionItem(item)}
                               >
                                 Receive
                               </Button>
@@ -781,12 +785,20 @@ export function ProcessDashboard() {
       <BundlePreviewModal
         open={Boolean(previewItem)}
         onClose={() => setPreviewItem(null)}
-        onContinueReceive={() => {
-          if (previewItem) {
-            openBulkMovementModal("RECEIVE", previewItem.trackingNumber, previewItem.id);
+        bundleData={previewItem}
+      />
+
+      {/* Receive Selection Modal */}
+      <ReceiveSelectionModal
+        open={Boolean(receiveSelectionItem)}
+        onClose={() => setReceiveSelectionItem(null)}
+        onConfirmReceive={(selectedTrackingNumbers) => {
+          if (receiveSelectionItem) {
+            openBulkMovementModal("RECEIVE", selectedTrackingNumbers.join(","), receiveSelectionItem.id);
+            setReceiveSelectionItem(null);
           }
         }}
-        bundleData={previewItem}
+        bundleData={receiveSelectionItem}
       />
 
       {/* Operation Action Modal */}

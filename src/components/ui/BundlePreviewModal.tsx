@@ -25,7 +25,7 @@ export type BundlePreviewItemData = {
 export type BundlePreviewModalProps = {
   open: boolean;
   onClose: () => void;
-  onContinueReceive: () => void;
+  onContinueReceive?: () => void;
   bundleData: any; // Can be a Bundle object or single ProcessItem object
 };
 
@@ -229,20 +229,9 @@ export function BundlePreviewModal({
             type="button"
             variant="secondary"
             onClick={onClose}
-            className="rounded-xl px-5"
+            className="rounded-xl px-5 font-semibold"
           >
             Close
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              onClose();
-              onContinueReceive();
-            }}
-            className="gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"
-          >
-            <span>Continue Receive</span>
-            <ArrowRight size={16} />
           </Button>
         </div>
       </div>
