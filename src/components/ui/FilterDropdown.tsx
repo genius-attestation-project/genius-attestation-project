@@ -3,6 +3,7 @@
 import { ChevronDown, Check } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatTitleCase } from "@/utils/format";
 
 type FilterOption = {
   label: string;
@@ -56,7 +57,7 @@ export function FilterDropdown({
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
-      {label && <span className="mb-1.5 block font-semibold text-slate-700 dark:text-slate-300 text-sm">{label}</span>}
+      {label && <span className="mb-1.5 block font-semibold text-slate-700 dark:text-slate-300 text-sm">{formatTitleCase(label)}</span>}
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`inline-flex h-12 w-full min-w-0 items-center justify-between gap-3 rounded-xl ring-1 px-4 text-sm transition-all duration-200 ${
@@ -68,7 +69,7 @@ export function FilterDropdown({
         }`}
       >
         <span className="truncate font-medium text-slate-700 dark:text-slate-200">
-          {selectedOption?.label ?? "Select option"}
+          {formatTitleCase(selectedOption?.label ?? "Select option")}
         </span>
         <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </div>
@@ -93,7 +94,7 @@ export function FilterDropdown({
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
-                <span className="truncate">{option.label}</span>
+                <span className="truncate">{formatTitleCase(option.label)}</span>
                 {value === option.value && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
               </button>
             ))}

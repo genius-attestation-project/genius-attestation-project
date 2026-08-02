@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatTitleCase } from "@/utils/format";
 
 export type SelectOption = {
   label: string;
@@ -154,7 +155,7 @@ export function SearchableSelect({
     <div className="relative w-full" ref={dropdownRef}>
       {label && (
         <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          {label}
+          {formatTitleCase(label)}
         </label>
       )}
       <div
@@ -164,7 +165,7 @@ export function SearchableSelect({
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <span className={`truncate ${!selectedOption ? "text-slate-500" : "font-semibold text-slate-900 dark:text-slate-100"}`}>
-          {selectedOption?.customRender ? selectedOption.customRender : (selectedOption ? selectedOption.label : placeholder)}
+          {selectedOption?.customRender ? selectedOption.customRender : (selectedOption ? formatTitleCase(selectedOption.label) : formatTitleCase(placeholder))}
         </span>
         <div className="flex items-center gap-1">
           {selectedOption && !disabled && (
@@ -222,7 +223,7 @@ export function SearchableSelect({
                     {/* Category Sticky Header */}
                     <div className="sticky top-0 z-10 flex items-center gap-2 border-y border-slate-100 bg-slate-50/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-800/90 dark:text-slate-300">
                       <span>{getCategoryIcon(group.category)}</span>
-                      <span>{group.category}</span>
+                      <span>{formatTitleCase(group.category)}</span>
                     </div>
 
                     {/* Group Items */}
@@ -250,11 +251,11 @@ export function SearchableSelect({
                           ) : (
                             <span className="grid min-w-0 gap-0.5">
                               <span className="truncate font-semibold text-slate-900 dark:text-white">
-                                {option.label}
+                                {formatTitleCase(option.label)}
                               </span>
                               {showDescription && (option.category || option.description) ? (
                                 <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                                  {option.category || option.description}
+                                  {formatTitleCase(option.category || option.description)}
                                 </span>
                               ) : null}
                             </span>
@@ -290,11 +291,11 @@ export function SearchableSelect({
                       ) : (
                         <span className="grid min-w-0 gap-0.5">
                           <span className="truncate font-semibold text-slate-900 dark:text-white">
-                            {option.label}
+                            {formatTitleCase(option.label)}
                           </span>
                           {showDescription && (option.description || option.category) ? (
                             <span className="truncate text-xs text-slate-500 dark:text-slate-400">
-                              {option.category || option.description}
+                              {formatTitleCase(option.category || option.description)}
                             </span>
                           ) : null}
                         </span>

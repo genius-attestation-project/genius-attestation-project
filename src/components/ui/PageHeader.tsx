@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatTitleCase } from "@/utils/format";
 
 type PageHeaderProps = {
   eyebrow?: string;
@@ -18,11 +19,11 @@ export function PageHeader({
       <div className="min-w-0 max-w-3xl">
         {eyebrow ? (
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-            {eyebrow}
+            {formatTitleCase(eyebrow)}
           </p>
         ) : null}
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl dark:text-white">
-          {title}
+          {formatTitleCase(title)}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
           {description}

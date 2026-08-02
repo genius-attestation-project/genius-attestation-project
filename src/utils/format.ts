@@ -9,6 +9,27 @@ export function getInitials(name?: string | null, email?: string | null) {
 }
 
 /**
+ * Display-only title casing. It capitalizes the first character of each word
+ * without lowercasing the remaining characters, so acronyms and existing values
+ * retain their original spelling.
+ */
+export function formatTitleCase(value?: string | null): string {
+  if (!value) return value ?? "";
+  return value.replace(/(^|[\s\-/&:(])([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+}
+
+/** Capitalize only the first character of user-entered text. */
+export function capitalizeFirstCharacter(value: string): string {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
+}
+
+/** Identifiers and case-sensitive fields must retain the exact user input. */
+export function shouldCapitalizeUserInput(name?: string, type?: string): boolean {
+  if (type && ["email", "password", "url", "number", "date", "datetime-local", "time", "file", "hidden"].includes(type)) return false;
+  return !/(email|password|url|tracking|reference|transaction|invoice|cheque|card|wallet|code|(^|[_-])id$|id$|number|mobile|phone|amount|date|key)/i.test(name || "");
+}
+
+/**
  * Standardized Date Formatter for the entire Application: DD/MM/YYYY
  * Example: 03/07/2026, 08/01/2026, 31/12/2026
  */

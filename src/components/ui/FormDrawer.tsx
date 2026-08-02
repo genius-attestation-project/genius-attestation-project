@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { formatTitleCase } from "@/utils/format";
 
 type FormDrawerProps = {
   open: boolean;
@@ -51,7 +52,7 @@ export function FormDrawer({
           >
             <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
               <div className="min-w-0">
-                <h2 className="text-xl font-extrabold sm:text-2xl">{title}</h2>
+                <h2 className="text-xl font-extrabold sm:text-2xl">{formatTitleCase(title)}</h2>
                 <p className="mt-2 text-sm leading-6 text-soft">{description}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose}>

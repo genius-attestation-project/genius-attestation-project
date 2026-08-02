@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { formatTitleCase } from "@/utils/format";
 
 type EmptyStateProps = {
   icon: LucideIcon;
@@ -20,7 +21,7 @@ export function EmptyState({
         <Icon size={24} />
       </span>
       <div className="grid gap-2">
-        <h3 className="text-xl font-extrabold">{title}</h3>
+        <h3 className="text-xl font-extrabold">{formatTitleCase(title)}</h3>
         <p className="max-w-md text-sm leading-6 text-soft">{description}</p>
       </div>
       {action}

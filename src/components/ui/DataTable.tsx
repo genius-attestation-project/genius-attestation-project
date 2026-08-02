@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/utils/cn";
+import { formatTitleCase } from "@/utils/format";
 
 type DataTableColumn<T> = {
   key: keyof T | string;
@@ -30,7 +31,7 @@ export function DataTable<T extends Record<string, unknown>>({
             <tr>
               {columns.map((column) => (
                 <th key={String(column.key)} className={cn("px-4 py-3 sm:px-5 sm:py-4", column.className)}>
-                  {column.label}
+                  {formatTitleCase(column.label)}
                 </th>
               ))}
             </tr>

@@ -15,6 +15,7 @@ import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/utils/cn";
+import { formatTitleCase } from "@/utils/format";
 
 type GlobalSearchItem = {
   id: string;
@@ -224,7 +225,7 @@ export function SearchBar({
             }
           }}
           className="h-full min-w-0 flex-1 bg-transparent text-(--text) outline-none placeholder:text-[color:var(--text-muted)]"
-          placeholder={placeholder}
+          placeholder={formatTitleCase(placeholder)}
           autoComplete="off"
         />
         {global && loading ? (

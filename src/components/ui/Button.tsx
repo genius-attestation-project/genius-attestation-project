@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/utils/cn";
+import { formatTitleCase } from "@/utils/format";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -43,7 +44,7 @@ export function Button({
       )}
       {...props}
     >
-      {children}
+      {typeof children === "string" ? formatTitleCase(children) : children}
     </button>
   );
 }
