@@ -304,8 +304,27 @@ export async function DELETE(
         return NextResponse.json({ message: "Record not found" }, { status: 404 });
       }
 
-      await prisma.subPackage.delete({
-        where: { id: params.id },
+      // Delete in a transaction: clean orphaned Assigned Office mappings first,
+      // then remove the SubPackage itself. This prevents deleted sub-processes
+      // from appearing as "Unknown Sub Package" in Assigned Office.
+      await prisma.$transaction(async (tx: any) => {
+        // 1. Remove all AssignedOfficeSubPackage mappings referencing this sub-process
+        await tx.assignedOfficeSubPackage.deleteMany({
+          where: { subPackageId: params.id },
+        });
+
+        // 2. Detach from any Process Type (MasterData) subPackages relation
+        //    (handled automatically by Prisma many-to-many implicit table cleanup
+        //     but we clear coreSubPackageId references explicitly)
+        await tx.masterData.updateMany({
+          where: { coreSubPackageId: params.id, ownerAdminId },
+          data: { coreSubPackageId: null },
+        });
+
+        // 3. Hard-delete the SubPackage record
+        await tx.subPackage.delete({
+          where: { id: params.id },
+        });
       });
 
       return NextResponse.json({ success: true, message: "Sub Package deleted." });

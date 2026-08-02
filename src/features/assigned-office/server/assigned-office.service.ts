@@ -193,7 +193,7 @@ export async function listAssignedOffices(params: {
       select: { id: true, name: true },
     }),
     prisma.subPackage.findMany({
-      where: { id: { in: allSubPackageIds } },
+      where: { id: { in: allSubPackageIds }, isActive: true },
       select: { id: true, name: true },
     }),
   ]);
@@ -207,19 +207,29 @@ export async function listAssignedOffices(params: {
       name: ptMap.get(pt.processTypeId) || "Unknown Process Type",
     }));
 
-    const assignedSubPackages = office.subPackages.map((sp: any) => ({
-      id: sp.subPackageId,
-      name: spMap.get(sp.subPackageId) || "Unknown Sub Package",
-      isCorePackage: sp.isCorePackage,
-    }));
+    // Only include sub-packages that still exist in the master table.
+    // Orphaned mappings (where the SubPackage was deleted) are silently
+    // excluded so deleted sub-processes never appear as "Unknown Sub Package".
+    const assignedSubPackages = office.subPackages
+      .filter((sp: any) => spMap.has(sp.subPackageId))
+      .map((sp: any) => ({
+        id: sp.subPackageId,
+        name: spMap.get(sp.subPackageId) as string,
+        isCorePackage: sp.isCorePackage,
+      }));
 
-    const corePackageItem = office.subPackages.find((sp: any) => sp.isCorePackage);
+
+    // Resolve corePackage: only if the mapping's sub-package still exists
+    const corePackageItem = office.subPackages.find(
+      (sp: any) => sp.isCorePackage && spMap.has(sp.subPackageId)
+    );
     const corePackage = corePackageItem
       ? {
         id: corePackageItem.subPackageId,
-        name: spMap.get(corePackageItem.subPackageId) || "Unknown Main Process",
+        name: spMap.get(corePackageItem.subPackageId) as string,
       }
       : null;
+
 
     return {
       id: office.id,
@@ -273,7 +283,7 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
       select: { id: true, name: true },
     }),
     prisma.subPackage.findMany({
-      where: { id: { in: spIds } },
+      where: { id: { in: spIds }, isActive: true },
       select: { id: true, name: true },
     }),
   ]);
@@ -297,15 +307,19 @@ export async function getAssignedOfficeById(id: string, ownerAdminId: string) {
       id: pt.processTypeId,
       name: ptMap.get(pt.processTypeId) || "Unknown",
     })),
-    subPackages: office.subPackages.map((sp: any) => ({
-      id: sp.subPackageId,
-      name: spMap.get(sp.subPackageId) || "Unknown",
-      isCorePackage: sp.isCorePackage,
-    })),
-    corePackage: coreItem
+    // Exclude orphaned sub-package mappings (deleted SubPackage records)
+    subPackages: office.subPackages
+      .filter((sp: any) => spMap.has(sp.subPackageId))
+      .map((sp: any) => ({
+        id: sp.subPackageId,
+        name: spMap.get(sp.subPackageId) as string,
+        isCorePackage: sp.isCorePackage,
+      })),
+    // Exclude corePackage if its sub-package no longer exists
+    corePackage: coreItem && spMap.has(coreItem.subPackageId)
       ? {
         id: coreItem.subPackageId,
-        name: spMap.get(coreItem.subPackageId) || "Unknown",
+        name: spMap.get(coreItem.subPackageId) as string,
       }
       : null,
     auditLogs: office.auditLogs,
@@ -1141,20 +1155,26 @@ export async function listSubPackageItemsForOffice(params: {
     return { coreSubPackageId: null, assignedSubPackages: [], subPackages: [], items: [] };
   }
 
-  // 2. Fetch ONLY subpackages explicitly assigned to this office (strictly bounded by configSubPkgIds)
+  // 2. Fetch ONLY active subpackages explicitly assigned to this office (strictly bounded by configSubPkgIds)
   const assignedSubPackages = await prisma.subPackage.findMany({
-    where: { id: { in: configSubPkgIds } },
+    where: { id: { in: configSubPkgIds }, isActive: true },
     orderBy: { name: "asc" },
   });
 
-  // 3. Fetch subpackage movements ONLY for this office and ONLY for assigned subpackages
+  const validSubPkgIds = assignedSubPackages.map((sp) => sp.id);
+
+  if (validSubPkgIds.length === 0) {
+    return { coreSubPackageId: null, assignedSubPackages: [], subPackages: [], items: [] };
+  }
+
+  // 3. Fetch subpackage movements ONLY for this office and ONLY for assigned active subpackages
   //    Both filters are required: assignedOfficeId guards per-office security,
-  //    subPackageId ensures only assigned sub-processes are visible.
+  //    subPackageId ensures only active assigned sub-processes are visible.
   const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
       assignedOfficeId: params.officeId,
       ownerAdminId: params.ownerAdminId,
-      subPackageId: { in: configSubPkgIds },
+      subPackageId: { in: validSubPkgIds },
     },
     orderBy: { startedAt: "desc" },
   });
