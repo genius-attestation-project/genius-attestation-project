@@ -58,12 +58,9 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
         setCoreSubPackageId(data.coreSubPackageId || null);
         setItems(data.items || []);
 
-        // Filter out core package for tabs
-        const displaySubPkgs = (data.subPackages || []).filter((sp: any) => sp.id !== data.coreSubPackageId);
-        if (displaySubPkgs.length > 0 && (!activeSubPackageId || !displaySubPkgs.some((sp: any) => sp.id === activeSubPackageId))) {
-          setActiveSubPackageId(displaySubPkgs[0].id);
-        } else if (data.subPackages?.length > 0 && !activeSubPackageId) {
-          setActiveSubPackageId(data.subPackages[0].id);
+        const allSubPkgs = data.subPackages || [];
+        if (allSubPkgs.length > 0 && (!activeSubPackageId || !allSubPkgs.some((sp: any) => sp.id === activeSubPackageId))) {
+          setActiveSubPackageId(allSubPkgs[0].id);
         }
       }
     } catch (err) {
@@ -77,8 +74,8 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
     fetchData();
   }, [fetchData]);
 
-  // Exclude Core Package from tabs as specified by prompt rules
-  const displayTabs = subPackages.filter((sp) => sp.id !== coreSubPackageId);
+  // Display ALL assigned Sub Processes as tabs (no legacy core package filtering)
+  const displayTabs = subPackages;
 
   // Filter items assigned to the active subpackage tab that are actively in progress
   const activeTabItems = items.filter(

@@ -605,12 +605,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                           office.assignedSubPackages.map((sp) => (
                             <span
                               key={sp.id}
-                              className={cn(
-                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                sp.isCorePackage
-                                  ? "bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/30"
-                                  : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                              )}
+                              className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300"
                             >
                               {sp.name}
                             </span>
@@ -1276,14 +1271,9 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     {selectedOffice.assignedSubPackages.map((sp) => (
                       <span
                         key={sp.id}
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                          sp.isCorePackage
-                            ? "bg-amber-100 text-amber-900 font-bold"
-                            : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                        )}
+                        className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300"
                       >
-                        {sp.name} {sp.isCorePackage ? "(MAIN PROCESS)" : ""}
+                        {sp.name}
                       </span>
                     ))}
                   </div>
