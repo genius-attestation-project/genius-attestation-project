@@ -216,6 +216,16 @@ export function ProcessDashboard() {
     setMovementModalOpen(true);
   }
 
+  function openReceiveSelection(item: ProcessItem) {
+    // A bundle stays intact: the popup merely exposes its existing documents for
+    // selection and submits their existing tracking identifiers to the receive API.
+    const bundleDocuments = item.bundleId
+      ? items.filter((candidate) => candidate.bundleId === item.bundleId)
+      : [item];
+
+    setReceiveSelectionItem({ items: bundleDocuments });
+  }
+
   function openTimeline(tracking: string) {
     setTimelineTracking(tracking);
     setTimelineOpen(true);
@@ -704,7 +714,7 @@ export function ProcessDashboard() {
                               <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                onClick={() => setReceiveSelectionItem(item)}
+                                onClick={() => openReceiveSelection(item)}
                               >
                                 Receive
                               </Button>
@@ -793,10 +803,13 @@ export function ProcessDashboard() {
         open={Boolean(receiveSelectionItem)}
         onClose={() => setReceiveSelectionItem(null)}
         onConfirmReceive={(selectedTrackingNumbers) => {
-          if (receiveSelectionItem) {
-            openBulkMovementModal("RECEIVE", selectedTrackingNumbers.join(","), receiveSelectionItem.id);
-            setReceiveSelectionItem(null);
-          }
+          // Preserve the receive API contract: it expects an array of selected
+          // tracking identifiers, never a comma-delimited single identifier.
+          setModalTrackingNumbers(selectedTrackingNumbers);
+          setModalAssignmentId(undefined);
+          setTargetAction("RECEIVE");
+          setMovementModalOpen(true);
+          setReceiveSelectionItem(null);
         }}
         bundleData={receiveSelectionItem}
       />

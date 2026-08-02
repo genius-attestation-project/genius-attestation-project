@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckCircle2, CheckSquare, Square, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { formatDate, formatBundleNumber } from "@/utils/format";
-import { calculateNumberOfDays } from "@/utils/days-calculator";
 
 export type ReceiveSelectionModalProps = {
   open: boolean;
@@ -30,18 +28,14 @@ export function ReceiveSelectionModal({
 
   const documents = rawItems.map((item: any, idx: number) => {
     const reg = item.registration || item;
-    const rawDate = reg?.createdDate || reg?.createdAt || item.createdAt;
-    const regDate = formatDate(rawDate);
-    const days = calculateNumberOfDays(item.receivedAt || item.updatedAt || item.createdAt || rawDate);
 
     return {
       slNo: idx + 1,
       trackingNumber: item.trackingNumber || reg.trackingNumber || "-",
-      registrationDate: regDate,
+      registrationOffice: reg.regionOfRegistration || reg.registeredOffice || item.registeredOffice || "-",
       documentName: reg.documentName || reg.customerName || item.customerName || item.clientName || "-",
       documentType: reg.documentType || item.documentType || "-",
       processType: reg.processType || reg.mainProcess || reg.externalProcess || item.processType || item.mainProcess || "-",
-      numberOfDays: days,
     };
   });
 
@@ -55,9 +49,6 @@ export function ReceiveSelectionModal({
   }, [open, bundleData]);
 
   if (!open || !bundleData) return null;
-
-  const rawBundleNo = bundleData.bundleNumber || bundleData.trackingNumber || "-";
-  const displayBundleNo = formatBundleNumber(rawBundleNo);
 
   const toggleSelect = (trackingNumber: string) => {
     setSelectedTrackings((prev) =>
@@ -91,14 +82,9 @@ export function ReceiveSelectionModal({
               <Inbox className="h-5 w-5" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Receive Documents Selection
-                </h2>
-                <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-mono font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                  Bundle #{displayBundleNo}
-                </span>
-              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                Receive Documents
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Select documents to receive ({selectedTrackings.length} of {documents.length} selected)
               </p>
@@ -134,11 +120,10 @@ export function ReceiveSelectionModal({
                   </th>
                   <th className="p-3.5 w-16">SL No</th>
                   <th className="p-3.5">Tracking Number</th>
-                  <th className="p-3.5">Registration Date</th>
+                  <th className="p-3.5">Registration Office</th>
                   <th className="p-3.5">Document Name</th>
                   <th className="p-3.5">Document Type</th>
                   <th className="p-3.5">Process Type</th>
-                  <th className="p-3.5">Number of Days</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/10">
@@ -168,7 +153,7 @@ export function ReceiveSelectionModal({
                         {doc.trackingNumber}
                       </td>
                       <td className="p-3.5 font-medium text-slate-700 dark:text-slate-300">
-                        {doc.registrationDate}
+                        {doc.registrationOffice}
                       </td>
                       <td className="p-3.5 font-bold text-slate-900 dark:text-white">
                         {doc.documentName}
@@ -178,9 +163,6 @@ export function ReceiveSelectionModal({
                       </td>
                       <td className="p-3.5 font-bold text-blue-800 dark:text-blue-300">
                         {doc.processType}
-                      </td>
-                      <td className="p-3.5 font-bold text-amber-700 dark:text-amber-400">
-                        {doc.numberOfDays}
                       </td>
                     </tr>
                   );

@@ -127,6 +127,7 @@ export async function listProcessAssignments(
     assignedUserId: mov.acceptedBy,
     assignedToName: mov.acceptedBy,
     remarks: mov.remarks,
+    bundleId: mov.bundleId,
     bundleCode: mov.bundle?.bundleNumber,
     fromOfficeName: mov.fromOffice?.officeName || null,
     toOfficeName: mov.toOffice?.officeName || null,

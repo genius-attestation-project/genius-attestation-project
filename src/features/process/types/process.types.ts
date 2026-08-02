@@ -31,6 +31,7 @@ export type ProcessItem = {
   assignedUserId: string | null;
   assignedToName: string | null;
   remarks: string | null;
+  bundleId?: string | null;
   bundleCode?: string;
   fromOfficeName?: string | null;
   toOfficeName?: string | null;
