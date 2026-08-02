@@ -56,8 +56,8 @@ function StatusBadge({ status }: { status: string }) {
   }
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${bgClass}`}>
-      <Icon size={12} />
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider print:border-none print:bg-transparent print:text-black print:p-0 print:font-bold ${bgClass}`}>
+      <Icon size={12} className="print:hidden" />
       {status === "Pending Approval" ? "Pending" : status}
     </span>
   );
