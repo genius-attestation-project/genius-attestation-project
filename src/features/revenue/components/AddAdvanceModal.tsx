@@ -90,6 +90,13 @@ export function AddAdvanceModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Financial summary state (initialized from props, updated via live API call) ──
+  const [financials, setFinancials] = useState({
+    totalCharges: totalCharges || 0,
+    currentApprovedAdvance: currentApprovedAdvance || 0,
+    currentBalance: currentBalance || 0,
+  });
+
   useEffect(() => {
     if (isOpen) {
       setAdvanceAmount("");
@@ -101,14 +108,49 @@ export function AddAdvanceModal({
       setProofFileIds([]);
       setProofFileType("Receipt");
       setError(null);
+
+      const initTotal = Number(totalCharges || 0);
+      const initAdvance = Number(currentApprovedAdvance || 0);
+      const initBalance = currentBalance > 0 ? Number(currentBalance) : Math.max(0, initTotal - initAdvance);
+
+      setFinancials({
+        totalCharges: initTotal,
+        currentApprovedAdvance: initAdvance,
+        currentBalance: initBalance,
+      });
+
+      if (registrationId) {
+        fetch(`/api/registrations/${encodeURIComponent(registrationId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.registration) {
+              const reg = data.registration;
+              const liveTotal = Number(reg.totalCharges || 0);
+              const liveAdvance = Number(reg.advancePaid || 0);
+              const liveBalance = Number(reg.balanceAmount ?? (liveTotal - liveAdvance));
+              setFinancials({
+                totalCharges: liveTotal,
+                currentApprovedAdvance: liveAdvance,
+                currentBalance: liveBalance,
+              });
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to load registration financials:", err);
+          });
+      }
     }
-  }, [isOpen, todayStr]);
+  }, [isOpen, registrationId, totalCharges, currentApprovedAdvance, currentBalance, todayStr]);
 
   if (!isOpen) return null;
 
-  // ── Derived (unchanged) ──────────────────────────────────────────────────
+  // ── Derived financial values ──
+  const effectiveTotalCharges = financials.totalCharges;
+  const effectiveApprovedAdvance = financials.currentApprovedAdvance;
+  const effectiveBalance = financials.currentBalance;
+
   const numAmount = parseFloat(advanceAmount) || 0;
-  const isAmountValid = numAmount > 0 && numAmount <= currentBalance;
+  const isAmountValid = numAmount > 0 && numAmount <= effectiveBalance;
 
   // ── Submit (unchanged business logic) ────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,8 +162,8 @@ export function AddAdvanceModal({
       return;
     }
 
-    if (numAmount > currentBalance) {
-      setError(`Advance Amount cannot exceed current remaining balance (₹${currentBalance.toLocaleString()}).`);
+    if (numAmount > effectiveBalance) {
+      setError(`Advance Amount cannot exceed current remaining balance (₹${effectiveBalance.toLocaleString()}).`);
       return;
     }
 
@@ -228,19 +270,19 @@ export function AddAdvanceModal({
             {[
               {
                 label: "Total Charges",
-                value: `₹${totalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                value: `₹${effectiveTotalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
                 color: "text-slate-700 dark:text-slate-200",
                 labelColor: "text-slate-400",
               },
               {
                 label: "Approved Advance",
-                value: `₹${currentApprovedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                value: `₹${effectiveApprovedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
                 color: "text-emerald-700 dark:text-emerald-300",
                 labelColor: "text-emerald-600 dark:text-emerald-400",
               },
               {
                 label: "Current Balance",
-                value: `₹${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                value: `₹${effectiveBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
                 color: "text-blue-700 dark:text-blue-300",
                 labelColor: "text-blue-600 dark:text-blue-400",
               },
@@ -275,14 +317,14 @@ export function AddAdvanceModal({
                   label=""
                   type="number"
                   min="1"
-                  max={currentBalance}
+                  max={effectiveBalance}
                   step="0.01"
                   placeholder="Enter amount (₹)"
                   value={advanceAmount}
                   onChange={(e) => setAdvanceAmount(e.target.value)}
                   required
                 />
-                {numAmount > currentBalance && numAmount > 0 && (
+                {numAmount > effectiveBalance && numAmount > 0 && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
                     ⚠ Exceeds remaining balance
                   </p>

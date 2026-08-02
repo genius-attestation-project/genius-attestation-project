@@ -1961,10 +1961,14 @@ export function RegistrationManager({
           onClose={() => setIsAddAdvanceOpen(false)}
           registrationId={selected.id}
           trackingNumber={selected.trackingNumber}
-          customerName={selected.customerName}
-          totalCharges={Number(selected.totalCharges)}
-          currentApprovedAdvance={Number(selected.advancePaid)}
-          currentBalance={Number(selected.balanceAmount)}
+          customerName={selected.customerName || form.customerName}
+          totalCharges={Number(form.totalCharges || selected.totalCharges || 0)}
+          currentApprovedAdvance={Number(selected.advancePaid || 0)}
+          currentBalance={
+            Number(form.totalCharges || selected.totalCharges || 0) > 0
+              ? Math.max(0, Number(form.totalCharges || selected.totalCharges || 0) - Number(selected.advancePaid || 0))
+              : Number(selected.balanceAmount || 0)
+          }
           personOptions={toSelectOptions(personOptions)}
           onSuccess={() => {
             fetchRegistrations(query, filters);
