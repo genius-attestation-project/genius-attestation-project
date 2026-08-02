@@ -1,24 +1,44 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Printer,
-  Clock,
-  History,
-  AlertCircle,
-  Eye,
-  Download,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowLeft, Clock, Download, Eye, History, Printer, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDate, formatDateTime } from "@/utils/format";
 import { AdvanceHistoryTable } from "@/features/revenue/components/AdvanceHistoryTable";
 
-type Props = {
-  trackingNumber: string;
-};
+type Props = { trackingNumber: string };
+type DetailField = { label: string; value: React.ReactNode };
+
+function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
+  return (
+    <section id={id} className="print-section overflow-hidden bg-white text-slate-900">
+      <h2 className="bg-[#195b8e] px-4 py-3 text-center text-base font-extrabold uppercase tracking-wide text-white sm:text-lg">
+        {title}
+      </h2>
+      <div className="p-4 sm:p-6">{children}</div>
+    </section>
+  );
+}
+
+function DetailsGrid({ fields }: { fields: DetailField[] }) {
+  return (
+    <dl className="grid grid-cols-1 gap-x-12 gap-y-4 md:grid-cols-2">
+      {fields.map(({ label, value }) => (
+        <div key={label} className="grid grid-cols-[minmax(9rem,38%)_1fr] gap-3 text-sm sm:text-base">
+          <dt className="font-bold text-slate-500">{label}</dt>
+          <dd className="font-semibold text-slate-900 wrap-break-word">{value ?? "-"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function statusClass(status: string) {
+  if (/reject|cancel|fail/i.test(status)) return "text-red-600";
+  if (/pending|transfer|hold|inbound/i.test(status)) return "text-amber-600";
+  return "text-lime-700";
+}
 
 export function DocumentDetailsClient({ trackingNumber }: Props) {
   const [data, setData] = useState<any>(null);
@@ -31,9 +51,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
     try {
       const res = await fetch(`/api/document-details/${encodeURIComponent(trackingNumber)}`);
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message || "Failed to load document details.");
-      }
+      if (!res.ok) throw new Error(json.message || "Failed to load document details.");
       setData(json);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -42,526 +60,125 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
     }
   };
 
-  useEffect(() => {
-    fetchDetails();
-  }, [trackingNumber]);
+  useEffect(() => { fetchDetails(); }, [trackingNumber]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-white text-black p-8">
-        <RefreshCw className="h-10 w-10 animate-spin text-black" />
-        <p className="text-lg font-bold text-black uppercase tracking-wider">
-          Loading Document Details for #{trackingNumber}...
-        </p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 bg-white p-8 text-lg font-bold text-slate-700"><RefreshCw className="animate-spin text-[#195b8e]" /> Loading document details...</div>;
+  if (error || !data) return <div className="mx-auto my-8 max-w-3xl bg-white p-8 text-center"><p className="mb-5 text-lg font-bold text-red-700">{error || "Unable to locate record."}</p><Link href="/dashboard/revenue-registration"><Button variant="secondary">Back to Registrations</Button></Link></div>;
 
-  if (error || !data) {
-    return (
-      <div className="p-8 max-w-4xl mx-auto text-center space-y-6 bg-white border-2 border-black text-black my-8">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-black text-white font-bold">
-          <AlertCircle className="h-8 w-8" />
-        </div>
-        <h2 className="text-3xl font-extrabold text-black uppercase">Document Not Found</h2>
-        <p className="text-lg font-bold text-black">{error || "Unable to locate record."}</p>
-        <div className="pt-2 no-print">
-          <Link href="/dashboard/revenue-registration">
-            <Button variant="secondary" className="gap-2 font-bold text-black border-2 border-black bg-white hover:bg-black hover:text-white">
-              <ArrowLeft className="h-5 w-5" /> Back to Registrations
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const { registration: reg, currentProcess: proc, movementHistory, workflowHistory } = data;
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const scrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  };
+  const { registration: reg, currentProcess: proc, movementHistory = [], workflowHistory = [], advancePaymentApprovals = [] } = data;
+  const currentStatus = proc.currentStatus || reg.trackingStatus || "Registered";
+  const paymentFields: DetailField[] = [
+    { label: "Total Amount", value: `₹${Number(reg.totalCharges || 0).toFixed(2)}` },
+    { label: "Advance", value: `₹${Number(reg.advancePaid || 0).toFixed(2)}` },
+    { label: "Balance", value: `₹${Number(reg.balanceAmount || 0).toFixed(2)}` },
+    { label: "Balance Received", value: `₹${Number(reg.balanceReceivedAmount || 0).toFixed(2)}` },
+    { label: "Payment Mode", value: reg.paymentMode || "-" },
+    { label: "Payment Status", value: reg.paymentStatus || "Pending" },
+    { label: "Payment Reference Number", value: reg.paymentReferenceNo },
+    { label: "UPI Transaction ID", value: reg.upiTransactionId },
+    { label: "Bank Name", value: reg.bankName },
+    { label: "Transaction Reference", value: reg.transactionRefNo },
+    { label: "Transfer Date", value: reg.transferDate ? formatDate(reg.transferDate) : null },
+    { label: "Cheque Number", value: reg.chequeNumber },
+    { label: "Cheque Date", value: reg.chequeDate ? formatDate(reg.chequeDate) : null },
+    { label: "DD Number", value: reg.ddNumber },
+    { label: "DD Date", value: reg.ddDate ? formatDate(reg.ddDate) : null },
+    { label: "Card (Last 4)", value: reg.cardLast4 },
+    { label: "Approval Code", value: reg.approvalCode },
+    { label: "Payment Gateway", value: reg.paymentGateway },
+    { label: "Online Transaction ID", value: reg.onlineTransactionId },
+    { label: "Wallet", value: reg.walletName },
+    { label: "Wallet Transaction ID", value: reg.walletTransactionId },
+    { label: "Payment Description", value: reg.paymentDescription },
+  ].filter((field) => field.value !== null && field.value !== undefined && field.value !== "");
 
   return (
-    <div className="bg-white text-black min-h-screen p-4 sm:p-8 space-y-8 max-w-5xl mx-auto font-sans print:p-0 print:max-w-none print:m-0 print:space-y-6">
-      {/* Top Screen-Only Navigation & Control Bar */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-4 pb-4 border-b-2 border-black">
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="inline-flex items-center gap-2 text-base font-extrabold text-black hover:underline uppercase tracking-wider"
-        >
-          <ArrowLeft className="h-5 w-5" /> Back
-        </button>
-
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => scrollToSection("section-timeline")}
-            className="gap-2 text-sm font-bold text-black border-2 border-black bg-white hover:bg-black hover:text-white"
-          >
-            <Clock className="h-4 w-4" /> Timeline
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => scrollToSection("section-history")}
-            className="gap-2 text-sm font-bold text-black border-2 border-black bg-white hover:bg-black hover:text-white"
-          >
-            <History className="h-4 w-4" /> History
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={handlePrint}
-            className="gap-2 text-sm font-bold text-white bg-black hover:bg-slate-800 border-2 border-black"
-          >
-            <Printer className="h-4 w-4" /> Print Details
-          </Button>
-        </div>
-      </div>
-
-      {/* HEADER SECTION / DOCUMENT SUMMARY */}
-      <header className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <div className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-black pb-6">
-          <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-black">
-              DOCUMENT DETAILS
-            </h1>
-            <div className="text-4xl sm:text-5xl font-extrabold tracking-tight text-black font-mono">
-              {reg.trackingNumber}
-            </div>
-            <p className="text-lg font-bold text-black">
-              CUSTOMER: {reg.customerName} ({reg.mobile})
-            </p>
-          </div>
-
-          <div className="text-right space-y-2">
-            <div className="text-sm font-bold uppercase tracking-wider text-black">Current Status</div>
-            <div className="text-2xl sm:text-3xl font-extrabold uppercase text-black">
-              {proc.currentStatus || reg.trackingStatus || "Registered"}
-            </div>
-            <div className="text-base font-bold text-black uppercase">
-              Priority: {reg.priority || "Normal"}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Details Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-black pt-2">
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Current Office</span>
-            <span className="text-lg font-bold text-black block">{proc.currentOffice || "-"}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Department</span>
-            <span className="text-lg font-bold text-black block">{proc.currentDepartment || "-"}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Current Stage</span>
-            <span className="text-lg font-bold text-black block">{proc.currentStage || "-"}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Handler</span>
-            <span className="text-lg font-bold text-black block">{proc.currentHandler || "-"}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Registered Date</span>
-            <span className="text-lg font-bold text-black block">{formatDate(reg.createdAt)}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Registered By</span>
-            <span className="text-lg font-bold text-black block">{reg.registeredPerson || reg.createdBy || "System"}</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Number of Days</span>
-            <span className="text-lg font-bold text-black block">{proc.daysCount} Days</span>
-          </div>
-          <div>
-            <span className="text-sm font-bold uppercase tracking-wider text-black block">Last Updated</span>
-            <span className="text-lg font-bold text-black block">{formatDate(reg.updatedAt)}</span>
-          </div>
+    <div className="mx-auto min-h-screen max-w-7xl bg-white p-3 text-slate-900 sm:p-6 print:max-w-none print:p-0">
+      <header className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-2 pb-4">
+        <button type="button" onClick={() => window.history.back()} className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-[#195b8e]"><ArrowLeft size={17} /> Back</button>
+        <div className="flex flex-wrap items-center gap-1">
+          <button aria-label="View timeline" title="Timeline" onClick={() => document.getElementById("timeline")?.scrollIntoView({ behavior: "smooth" })} className="rounded-lg p-2 text-[#195b8e] hover:bg-blue-50"><Clock size={21} /></button>
+          <button aria-label="View history" title="History" onClick={() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth" })} className="rounded-lg p-2 text-[#195b8e] hover:bg-blue-50"><History size={21} /></button>
+          <button aria-label="Print details" title="Print Details" onClick={() => window.print()} className="rounded-lg p-2 text-[#195b8e] hover:bg-blue-50"><Printer size={21} /></button>
         </div>
       </header>
 
-      {/* SECTION 1: CUSTOMER INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          1. CUSTOMER INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Tracking Number</span>
-            <span className="text-lg sm:text-xl font-bold font-mono text-black block">{reg.trackingNumber}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Customer Name</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.customerName}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Mobile Number</span>
-            <span className="text-lg sm:text-xl font-bold font-mono text-black block">{reg.mobile}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Email</span>
-            <span className="text-lg sm:text-xl font-bold text-black block wrap-break-word">{reg.email || "-"}</span>
-          </div>
-          <div className="sm:col-span-2">
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Address</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.address || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Country</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.country || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Customer Type</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.customerType || "Individual"}</span>
-          </div>
-          {reg.customerType === "Corporate" && (
-            <div className="sm:col-span-2">
-              <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Company Name</span>
-              <span className="text-lg sm:text-xl font-bold text-black block">
-                {reg.corporateDetail?.companyName || "-"}
-              </span>
-            </div>
-          )}
-        </div>
-      </section>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2 py-3 print:mb-2">
+        <h1 className="text-lg font-extrabold uppercase text-slate-950 sm:text-xl">Track No : {reg.trackingNumber}</h1>
+        <p className={`text-base font-extrabold sm:text-lg ${statusClass(currentStatus)}`}>Status :: {currentStatus}</p>
+      </div>
 
-      {/* SECTION 2: DOCUMENT INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          2. DOCUMENT INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Document Name</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.documentName || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Document Type</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.documentType || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Issued Country</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.documentIssuedCountry || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Process Type</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.processType || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Address Process</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.externalProcess || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Special Processing Priority</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.priority || "Normal"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Committed SLA / Duration</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.committedDuration || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Delivery Location</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.deliveryLocation || "-"}</span>
-          </div>
-        </div>
-      </section>
+      <div className="space-y-5 print:space-y-4">
+        <Section title="Document Type">
+          <DetailsGrid fields={[
+            { label: "Document Type", value: reg.documentType }, { label: "Process Type", value: reg.processType },
+            { label: "Committed Duration / SLA", value: reg.committedDuration }, { label: "Priority", value: reg.priority || "Normal" },
+            { label: "Customer Type", value: reg.customerType || "Individual" }, { label: "Issued Country", value: reg.documentIssuedCountry },
+            { label: "Delivery Location", value: reg.deliveryLocation }, { label: "Address Process", value: reg.externalProcess },
+            { label: "Current Office", value: proc.currentOffice }, { label: "Current Stage", value: proc.currentStage },
+            { label: "Current Status", value: currentStatus }, { label: "Current Sub Package", value: proc.currentSubPackage },
+          ]} />
+        </Section>
 
-      {/* SECTION 3: CUSTOMER DOCUMENTS */}
-      {reg.files && reg.files.length > 0 && (
-        <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-          <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-            3. CUSTOMER DOCUMENTS
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-black">
-            {reg.files.map((file: any) => {
-              const storage = file.fileStorage || {};
-              const fileName = storage.originalName || file.fileCategory || "Document";
-              const fileUrl = storage.url || "#";
-              return (
-                <div key={file.id} className="border-2 border-black p-4 space-y-2 bg-white">
-                  <span className="text-xs font-bold uppercase text-black block tracking-wider">{file.fileCategory}</span>
-                  <p className="font-bold text-base text-black truncate">{fileName}</p>
-                  {fileUrl !== "#" && (
-                    <div className="flex items-center gap-3 no-print pt-1">
-                      <a href={fileUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-black hover:underline inline-flex items-center gap-1">
-                        <Eye className="h-4 w-4" /> View
-                      </a>
-                      <a href={fileUrl} download className="text-sm font-bold text-black hover:underline inline-flex items-center gap-1">
-                        <Download className="h-4 w-4" /> Download
-                      </a>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+        <Section title="Document Details">
+          <DetailsGrid fields={[
+            { label: "Document Name", value: reg.documentName }, { label: "Document Type", value: reg.documentType },
+            { label: "Process Type", value: reg.processType }, { label: "Issued Country", value: reg.documentIssuedCountry },
+            { label: "Additional Process", value: reg.externalProcess }, { label: "Sub Package", value: reg.subPackage },
+            { label: "Registered Date", value: formatDate(reg.createdAt) }, { label: "Region of Registration", value: reg.regionOfRegistration },
+            { label: "Registered By", value: reg.registeredPerson || reg.createdBy }, { label: "Collected By", value: reg.collectedPerson },
+          ]} />
+        </Section>
 
-      {/* SECTION 4: COMMERCIAL & PAYMENT INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          4. COMMERCIAL & PAYMENT INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 text-black">
-          <div className="border-2 border-black p-4">
-            <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Total Charges</span>
-            <span className="text-xl sm:text-2xl font-extrabold text-black block">₹{reg.totalCharges?.toFixed(2)}</span>
-          </div>
-          <div className="border-2 border-black p-4">
-            <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Advance Paid</span>
-            <span className="text-xl sm:text-2xl font-extrabold text-black block">₹{reg.advancePaid?.toFixed(2)}</span>
-          </div>
-          <div className="border-2 border-black p-4">
-            <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Balance Amount</span>
-            <span className="text-xl sm:text-2xl font-extrabold text-black block">₹{reg.balanceAmount?.toFixed(2)}</span>
-          </div>
-          <div className="border-2 border-black p-4">
-            <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Payment Mode</span>
-            <span className="text-lg font-bold text-black block">{reg.paymentMode || "-"}</span>
-          </div>
-          <div className="border-2 border-black p-4">
-            <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Payment Status</span>
-            <span className="text-lg font-extrabold text-black uppercase block">{reg.paymentStatus || "Pending"}</span>
-          </div>
-        </div>
+        <Section title="Customer Information">
+          <DetailsGrid fields={[
+            { label: "Customer Name", value: reg.customerName }, { label: "Mobile", value: reg.mobile },
+            { label: "Email", value: reg.email }, { label: "Country", value: reg.country },
+            { label: "Address", value: reg.address }, { label: "Customer Type", value: reg.customerType || "Individual" },
+            { label: "State", value: reg.state }, { label: "City", value: reg.city },
+          ]} />
+        </Section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-black pt-4 border-t-2 border-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Collected Person</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.collectedPerson || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Registered Person</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.registeredPerson || reg.createdBy || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Commission To</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.commissionToName || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Region of Registration</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.regionOfRegistration || "-"}</span>
-          </div>
-        </div>
-      </section>
+        {reg.customerType === "Corporate" && reg.corporateDetail && <Section title="Corporate Details"><DetailsGrid fields={[
+          { label: "Corporate Name", value: reg.corporateDetail.companyName }, { label: "Contact Person", value: reg.corporateDetail.contactPersonName },
+          { label: "Mobile", value: reg.corporateDetail.contactPersonMobile }, { label: "Email", value: reg.corporateDetail.email },
+          { label: "Address", value: reg.corporateDetail.address },
+          { label: "Agreement File", value: reg.corporateDetail.agreementFile?.url ? <span className="inline-flex gap-3"><a className="text-[#195b8e] hover:underline" href={reg.corporateDetail.agreementFile.url} target="_blank" rel="noreferrer">View</a><a className="text-[#195b8e] hover:underline" href={reg.corporateDetail.agreementFile.url} download>Download</a></span> : "-" },
+        ]} /></Section>}
 
-      {/* ADVANCE PAYMENT HISTORY & APPROVALS */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          ADVANCE PAYMENT HISTORY & APPROVALS
-        </h2>
-        <div className="text-black">
-          <AdvanceHistoryTable
-            history={data.advancePaymentApprovals || []}
-            onRefresh={fetchDetails}
-          />
-        </div>
-      </section>
+        <Section title="Payment Details"><DetailsGrid fields={paymentFields} /></Section>
 
-      {/* SECTION 5: PAYMENT DOCUMENTS */}
-      {reg.paymentUpdates && reg.paymentUpdates.length > 0 && (
-        <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-          <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-            5. PAYMENT RECEIPTS & DOCUMENTS
-          </h2>
-          <div className="space-y-4 text-black">
-            {reg.paymentUpdates.map((update: any) => (
-              <div key={update.id} className="flex flex-wrap items-center justify-between gap-4 border-2 border-black p-4">
-                <div>
-                  <p className="font-extrabold text-lg text-black">
-                    INVOICE #{update.invoiceNumber} — ₹{Number(update.amountPaid).toFixed(2)} ({update.paymentMode})
-                  </p>
-                  <p className="text-base font-bold text-black">
-                    Submitted by {update.submittedBy || "System"} on {formatDate(update.submittedAt)}
-                  </p>
-                </div>
-                {update.receiptFileUrl && (
-                  <div className="flex items-center gap-3 no-print">
-                    <a href={update.receiptFileUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-black hover:underline inline-flex items-center gap-1">
-                      <Eye className="h-4 w-4" /> Preview
-                    </a>
-                    <a href={update.receiptFileUrl} download className="text-sm font-bold text-black hover:underline inline-flex items-center gap-1">
-                      <Download className="h-4 w-4" /> Download
-                    </a>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+        {reg.files?.length > 0 && <Section title="Supporting Documents"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{reg.files.map((file: any) => {
+          const storage = file.fileStorage || {}; const url = storage.url;
+          return <div key={file.id} className="flex items-center justify-between gap-3 border border-slate-200 p-3"><p className="font-bold text-slate-800">{file.fileCategory || "Supporting Document"}</p>{url && <div className="no-print flex gap-2"><a title="View file" href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-bold text-[#195b8e] hover:bg-blue-50"><Eye size={16} /> View</a><a title="Download file" href={url} download className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-bold text-[#195b8e] hover:bg-blue-50"><Download size={16} /> Download</a></div>}</div>;
+        })}</div></Section>}
 
-      {/* SECTION 6: CURRENT PROCESS INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          6. CURRENT PROCESS INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Office</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentOffice}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Department</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentDepartment}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Package</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentPackage}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Sub Package</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentSubPackage}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Assigned User</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentHandler}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Status</span>
-            <span className="text-lg sm:text-xl font-extrabold text-black uppercase block">{proc.currentStatus}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Current Stage</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{proc.currentStage}</span>
-          </div>
-        </div>
-      </section>
+        <Section title="Current Process"><DetailsGrid fields={[
+          { label: "Current Office", value: proc.currentOffice }, { label: "Current Department", value: proc.currentDepartment },
+          { label: "Current Package", value: proc.currentPackage }, { label: "Current Sub Package", value: proc.currentSubPackage },
+          { label: "Current Assigned User", value: proc.currentHandler }, { label: "Current Status", value: currentStatus },
+          { label: "Current Stage", value: proc.currentStage }, { label: "Number of Days", value: `${proc.daysCount} Days` },
+        ]} /></Section>
 
-      {/* SECTION 7: DOCUMENT MOVEMENT TIMELINE */}
-      <section id="section-timeline" className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          7. DOCUMENT MOVEMENT TIMELINE
-        </h2>
+        <Section title="Advance Payment History & Approvals"><AdvanceHistoryTable history={advancePaymentApprovals} onRefresh={fetchDetails} /></Section>
 
-        {workflowHistory && workflowHistory.length > 0 ? (
-          <div className="relative pl-8 space-y-6 border-l-4 border-black">
-            {workflowHistory.map((step: any, index: number) => (
-              <div key={step.id || index} className="relative">
-                <div className="absolute -left-[41px] top-1.5 h-5 w-5 rounded-full bg-black border-2 border-white" />
-                <div className="border-2 border-black p-5 space-y-2 bg-white">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-2">
-                    <span className="font-extrabold text-lg uppercase text-black">{step.workflowStep || step.status}</span>
-                    <span className="text-base font-bold text-black">
-                      {formatDateTime(step.performedAt)}
-                    </span>
-                  </div>
-                  <p className="text-base font-bold text-black">{step.remarks || "No remarks logged."}</p>
-                  <p className="text-sm font-bold text-black uppercase">Performed by: {step.performedBy || "System"}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-base font-bold italic text-black">No workflow timeline recorded.</p>
-        )}
-      </section>
+        {reg.paymentUpdates?.length > 0 && <Section title="Payment Receipts & Documents"><div className="space-y-3">{reg.paymentUpdates.map((update: any) => <div key={update.id} className="flex flex-wrap items-center justify-between gap-3 border border-slate-200 p-3"><div><p className="font-bold">Invoice #{update.invoiceNumber} — ₹{Number(update.amountPaid).toFixed(2)}</p><p className="text-sm text-slate-600">{update.paymentMode} · {formatDate(update.submittedAt)}</p></div>{update.receiptFileUrl && <div className="no-print flex gap-2"><a href={update.receiptFileUrl} target="_blank" rel="noreferrer" className="text-[#195b8e] hover:underline">View</a><a href={update.receiptFileUrl} download className="text-[#195b8e] hover:underline">Download</a></div>}</div>)}</div></Section>}
 
-      {/* SECTION 8: DOCUMENT MOVEMENT HISTORY */}
-      <section id="section-history" className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          8. DOCUMENT MOVEMENT HISTORY
-        </h2>
+        <Section title="Document Movement Timeline" id="timeline">{workflowHistory.length ? <div className="space-y-3">{workflowHistory.map((step: any) => <div key={step.id} className="border-l-4 border-[#195b8e] pl-4"><div className="flex flex-wrap justify-between gap-2 font-bold"><span>{step.workflowStep || step.status}</span><span className="text-slate-500">{formatDateTime(step.performedAt)}</span></div><p className="mt-1 text-sm text-slate-700">{step.remarks || "No remarks logged."}</p><p className="text-xs font-semibold text-slate-500">Performed by: {step.performedBy || "System"}</p></div>)}</div> : <p className="text-slate-500">No workflow timeline recorded.</p>}</Section>
 
-        {movementHistory && movementHistory.length > 0 ? (
-          <div className="overflow-x-auto border-2 border-black">
-            <table className="w-full text-left text-base">
-              <thead className="bg-white text-black border-b-2 border-black font-extrabold uppercase">
-                <tr>
-                  <th className="p-3 border-r-2 border-black">Date & Time</th>
-                  <th className="p-3 border-r-2 border-black">From Office</th>
-                  <th className="p-3 border-r-2 border-black">To Office</th>
-                  <th className="p-3 border-r-2 border-black">User</th>
-                  <th className="p-3 border-r-2 border-black">Action</th>
-                  <th className="p-3">Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y-2 divide-black">
-                {movementHistory.map((mov: any) => (
-                  <tr key={mov.id}>
-                    <td className="p-3 font-bold border-r-2 border-black whitespace-nowrap">{formatDateTime(mov.performedAt)}</td>
-                    <td className="p-3 font-bold border-r-2 border-black">{mov.oldOffice || "-"}</td>
-                    <td className="p-3 font-bold border-r-2 border-black">{mov.newOffice || "-"}</td>
-                    <td className="p-3 font-bold border-r-2 border-black">{mov.performedBy || "-"}</td>
-                    <td className="p-3 font-extrabold border-r-2 border-black">{mov.action}</td>
-                    <td className="p-3 font-bold text-black">{mov.remarks || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-base font-bold italic text-black">No movement history entries.</p>
-        )}
-      </section>
+        <Section title="Document Movement History" id="history">{movementHistory.length ? <div className="overflow-x-auto"><table className="w-full min-w-175 text-left text-sm"><thead className="bg-slate-100 text-xs uppercase text-slate-600"><tr><th className="p-3">Date & Time</th><th className="p-3">From Office</th><th className="p-3">To Office</th><th className="p-3">User</th><th className="p-3">Action</th><th className="p-3">Remarks</th></tr></thead><tbody>{movementHistory.map((mov: any) => <tr key={mov.id} className="border-b border-slate-200"><td className="p-3">{formatDateTime(mov.performedAt)}</td><td className="p-3">{mov.oldOffice || "-"}</td><td className="p-3">{mov.newOffice || "-"}</td><td className="p-3">{mov.performedBy || "-"}</td><td className="p-3 font-semibold">{mov.action}</td><td className="p-3">{mov.remarks || "-"}</td></tr>)}</tbody></table></div> : <p className="text-slate-500">No movement history entries.</p>}</Section>
 
-      {/* SECTION 9: APPROVAL INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          9. APPROVAL INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Approval Status</span>
-            <span className="text-lg sm:text-xl font-extrabold text-black uppercase block">{reg.approvalStatus || "Pending"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Approved By</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.approvedBy || "-"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Approved Date</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">
-              {reg.approvedAt ? formatDateTime(reg.approvedAt) : "-"}
-            </span>
-          </div>
-          {reg.rejectionReason && (
-            <div className="col-span-full border-2 border-black p-4">
-              <span className="text-base font-bold text-black uppercase tracking-wider block mb-1">Rejection Reason</span>
-              <span className="text-lg font-bold text-black block">{reg.rejectionReason}</span>
-            </div>
-          )}
-        </div>
-      </section>
+        <Section title="Approval Information"><DetailsGrid fields={[
+          { label: "Approval Status", value: reg.approvalStatus }, { label: "Approved By", value: reg.approvedBy },
+          { label: "Approved Date", value: reg.approvedAt ? formatDateTime(reg.approvedAt) : "-" }, { label: "Rejection Reason", value: reg.rejectionReason },
+          { label: "Finance Approval Status", value: reg.financeApprovalStatus }, { label: "Payment Update Status", value: reg.paymentUpdateStatus },
+        ]} /></Section>
 
-      {/* SECTION 10: AUDIT INFORMATION */}
-      <section className="print-section bg-white border-2 border-black p-6 sm:p-8 space-y-6 text-black shadow-none rounded-none">
-        <h2 className="text-2xl sm:text-3xl font-extrabold uppercase text-black border-b-2 border-black pb-3 tracking-wide">
-          10. AUDIT INFORMATION
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-black">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Created By</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.createdBy || "System"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Created Date</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{formatDateTime(reg.createdAt)}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Updated By</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{reg.updatedBy || reg.createdBy || "System"}</span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-bold text-black uppercase tracking-wider block mb-1">Updated Date</span>
-            <span className="text-lg sm:text-xl font-bold text-black block">{formatDateTime(reg.updatedAt)}</span>
-          </div>
-        </div>
-      </section>
+        <Section title="Audit Information"><DetailsGrid fields={[
+          { label: "Created By", value: reg.createdBy || "System" }, { label: "Created Date", value: formatDateTime(reg.createdAt) },
+          { label: "Updated By", value: reg.updatedBy || reg.createdBy || "System" }, { label: "Updated Date", value: formatDateTime(reg.updatedAt) },
+        ]} /></Section>
+      </div>
     </div>
   );
 }
