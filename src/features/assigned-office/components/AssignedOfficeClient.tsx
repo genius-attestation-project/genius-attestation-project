@@ -272,7 +272,26 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || "Failed to create Assigned Office");
+        let errMessage = data.message || "Failed to create Assigned Office";
+        if (data.errors && typeof data.errors === "object") {
+          const fieldMsgs: string[] = [];
+          const extract = (obj: any) => {
+            if (!obj) return;
+            if (Array.isArray(obj._errors) && obj._errors.length > 0) {
+              fieldMsgs.push(...obj._errors);
+            }
+            for (const k of Object.keys(obj)) {
+              if (k !== "_errors" && typeof obj[k] === "object") {
+                extract(obj[k]);
+              }
+            }
+          };
+          extract(data.errors);
+          if (fieldMsgs.length > 0) {
+            errMessage = fieldMsgs.join(" | ");
+          }
+        }
+        throw new Error(errMessage);
       }
 
       setIsCreateOpen(false);
@@ -325,7 +344,26 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || "Failed to update Assigned Office");
+        let errMessage = data.message || "Failed to update Assigned Office";
+        if (data.errors && typeof data.errors === "object") {
+          const fieldMsgs: string[] = [];
+          const extract = (obj: any) => {
+            if (!obj) return;
+            if (Array.isArray(obj._errors) && obj._errors.length > 0) {
+              fieldMsgs.push(...obj._errors);
+            }
+            for (const k of Object.keys(obj)) {
+              if (k !== "_errors" && typeof obj[k] === "object") {
+                extract(obj[k]);
+              }
+            }
+          };
+          extract(data.errors);
+          if (fieldMsgs.length > 0) {
+            errMessage = fieldMsgs.join(" | ");
+          }
+        }
+        throw new Error(errMessage);
       }
 
       setIsEditOpen(false);

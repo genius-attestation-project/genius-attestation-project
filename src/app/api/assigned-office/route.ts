@@ -63,8 +63,12 @@ export async function POST(req: NextRequest) {
     const parsed = createOfficeSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues?.[0];
+      const detailMsg = firstIssue
+        ? `${firstIssue.path.join(".") ? `${firstIssue.path.join(".")}: ` : ""}${firstIssue.message}`
+        : "Invalid form data.";
       return NextResponse.json(
-        { message: "Invalid form data.", errors: parsed.error.format() },
+        { message: `Invalid form data. ${detailMsg}`, errors: parsed.error.format() },
         { status: 400 }
       );
     }
