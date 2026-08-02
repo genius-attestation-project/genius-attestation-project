@@ -10,12 +10,19 @@ export const FOLDER_MAP: Record<string, string> = {
   "Company": "company",
   "Corporate Details": "company",
   "Corporate Details Approval": "company",
+  "Advance Payment Approval": "revenue",
+  "Advance Payment": "revenue",
+  "Advance Payment Request": "revenue",
+  "Payment Approval": "revenue",
+  "Payment Update": "revenue",
+  "Account Update": "revenue",
 };
 
 export function getFolderForModule(moduleName: string): string {
   const folder = FOLDER_MAP[moduleName];
   if (!folder) {
-    throw new Error(`Unknown module: ${moduleName}. Cannot resolve storage folder.`);
+    const slug = moduleName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return slug || "general";
   }
   return folder;
 }
