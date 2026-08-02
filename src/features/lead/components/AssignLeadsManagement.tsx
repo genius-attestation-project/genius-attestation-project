@@ -80,7 +80,7 @@ export function AssignLeadsManagement() {
 
   async function loadServices() {
     try {
-      const res = await fetch("/api/master-data/attestation-types?active=true", { cache: "no-store" });
+      const res = await fetch("/api/master-data/process-types?active=true", { cache: "no-store" });
       if (res.ok) {
         const payload = await res.json();
         setServices(payload.items.map((i: any) => i.name));

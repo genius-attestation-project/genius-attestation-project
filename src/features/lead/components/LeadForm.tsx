@@ -160,7 +160,7 @@ export function LeadForm({
 
       if (!ignore) {
         fetchMaster("document-types", setDocTypes);
-        fetchMaster("attestation-types", setServices);
+        fetchMaster("process-types", setServices);
         fetchMaster("lead-sources", setSources);
         fetchMaster("customer-types", setClientTypes);
         fetchCorporateDetails();

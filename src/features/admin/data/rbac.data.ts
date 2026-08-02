@@ -127,8 +127,8 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.view",
       },
       {
-        label: "Attestation Types",
-        href: "/dashboard/master-configuration/attestation-types",
+        label: "Process Type",
+        href: "/dashboard/master-configuration/process-types",
         icon: Layers3,
         menuPermission: "menu.master-configuration.attestation-types",
         pagePermission: "master_configuration.view",

@@ -680,7 +680,7 @@ export function RegistrationManager({
 
       async function fetchProcessTypes() {
         try {
-          const res = await fetch(`/api/master-data/attestation-types?active=true`);
+          const res = await fetch(`/api/master-data/process-types?active=true`);
           if (res.ok) {
             const data = await res.json();
             const opts: SelectOption[] = (data.items || []).map((i: any) => ({

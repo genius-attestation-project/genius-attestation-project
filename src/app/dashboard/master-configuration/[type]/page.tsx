@@ -13,8 +13,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 const pageTitles: Record<string, string> = {
   "document-types": "Document Types",
   "document-type-categories": "Document Type Categories",
-  "attestation-types": "Attestation Types",
-  "process-types": "Attestation Types",
+  "attestation-types": "Process Type",
+  "process-types": "Process Type",
   "sub-process": "Sub Process",
   "sub-packages": "Sub Process",
   "customer-types": "Customer Types",
@@ -237,7 +237,7 @@ export default function MasterConfigurationDynamicPage({
           : isDocumentTypeCategory
           ? "Category Name"
           : isProcessType 
-          ? "Attestation Type" 
+          ? "Process Type" 
           : "Name", 
         accessorKey: "name" 
       },
