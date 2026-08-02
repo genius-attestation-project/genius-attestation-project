@@ -1342,6 +1342,7 @@ export async function sendDocumentsToInHand(params: {
 
 /**
  * WORKSPACE: Transfer documents back to Process Module
+ * Preserves existing bundle ID & bundle relationship if documents belong to a bundle.
  */
 export async function transferBackToProcess(params: {
   trackingNumbers: string[];
@@ -1349,13 +1350,10 @@ export async function transferBackToProcess(params: {
   userId: string;
   userName?: string;
   ownerAdminId: string;
+  bundleId?: string;
   remarks?: string;
 }) {
   return prisma.$transaction(async (tx: any) => {
-    // Generate Bundle Number
-    const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
-    const bundleNumber = `BND-PROC-${String(count + 1).padStart(5, "0")}`;
-
     const office = await tx.assignedOffice.findUnique({
       where: { id: params.officeId },
     });
@@ -1389,23 +1387,87 @@ export async function transferBackToProcess(params: {
       mainOffice = sourceOffice;
     }
 
-    const bundle = await tx.bundle.create({
-      data: {
-        bundleNumber,
-        fromOfficeId: sourceOffice.id,
-        toOfficeId: mainOffice.id,
-        status: "Pending Receive",
-        createdBy: params.userName || params.userId,
-        ownerAdminId: params.ownerAdminId,
-        items: {
-          create: params.trackingNumbers.map((tNum) => ({
-            trackingNumber: tNum,
-            status: "Pending Receive",
-          })),
-        },
-      },
-    });
+    // 1. Identify if documents already belong to an existing bundle
+    let bundle: any = null;
 
+    if (params.bundleId) {
+      bundle = await tx.bundle.findUnique({
+        where: { id: params.bundleId },
+      });
+    }
+
+    if (!bundle && params.trackingNumbers.length > 0) {
+      const existingMovement = await tx.documentMovement.findFirst({
+        where: {
+          trackingNumber: { in: params.trackingNumbers },
+          bundleId: { not: null },
+        },
+        select: { bundleId: true },
+      });
+
+      if (existingMovement?.bundleId) {
+        bundle = await tx.bundle.findUnique({
+          where: { id: existingMovement.bundleId },
+        });
+      }
+    }
+
+    // 2. Update existing bundle OR create a new bundle if unbundled
+    if (bundle) {
+      // Preserve existing bundle! Update status and routing offices
+      await tx.bundle.update({
+        where: { id: bundle.id },
+        data: {
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: mainOffice.id,
+          status: "Pending Receive",
+        },
+      });
+
+      // Update/create bundleItems for selected tracking numbers
+      for (const tNum of params.trackingNumbers) {
+        const existingItem = await tx.bundleItem.findFirst({
+          where: { bundleId: bundle.id, trackingNumber: tNum },
+        });
+        if (existingItem) {
+          await tx.bundleItem.update({
+            where: { id: existingItem.id },
+            data: { status: "Pending Receive" },
+          });
+        } else {
+          await tx.bundleItem.create({
+            data: {
+              bundleId: bundle.id,
+              trackingNumber: tNum,
+              status: "Pending Receive",
+            },
+          });
+        }
+      }
+    } else {
+      // Create new bundle for unbundled documents
+      const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
+      const bundleNumber = `BND-PROC-${String(count + 1).padStart(5, "0")}`;
+
+      bundle = await tx.bundle.create({
+        data: {
+          bundleNumber,
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: mainOffice.id,
+          status: "Pending Receive",
+          createdBy: params.userName || params.userId,
+          ownerAdminId: params.ownerAdminId,
+          items: {
+            create: params.trackingNumbers.map((tNum) => ({
+              trackingNumber: tNum,
+              status: "Pending Receive",
+            })),
+          },
+        },
+      });
+    }
+
+    // 3. Update documentMovement records for all tracking numbers
     for (const tNum of params.trackingNumbers) {
       await tx.documentMovement.updateMany({
         where: { trackingNumber: tNum },
@@ -1413,6 +1475,8 @@ export async function transferBackToProcess(params: {
           fromModule: "ASSIGNED_OFFICE",
           toModule: "PROCESS_MODULE",
           currentModule: "PROCESS_MODULE",
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: mainOffice.id,
           status: "INBOUND",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -1428,13 +1492,13 @@ export async function transferBackToProcess(params: {
             workflowStep: "Back To Process Transfer",
             status: "Pending Receive",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || `Transferred back to Process Module via Bundle ${bundleNumber}`,
+            remarks: params.remarks || `Transferred back to Process Module via Bundle ${bundle.bundleNumber}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
       }
     }
 
-    return { success: true, bundleNumber };
+    return { success: true, bundleNumber: bundle.bundleNumber, bundleId: bundle.id };
   });
 }
