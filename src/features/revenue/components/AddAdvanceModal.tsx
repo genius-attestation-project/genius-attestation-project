@@ -109,6 +109,12 @@ export function AddAdvanceModal({
       setProofFileType("Receipt");
       setError(null);
 
+      console.log("Modal received props:", {
+        totalCharges,
+        approvedAdvance: currentApprovedAdvance,
+        balanceAmount: currentBalance,
+      });
+
       const initTotal = Number(totalCharges || 0);
       const initAdvance = Number(currentApprovedAdvance || 0);
       const initBalance = currentBalance > 0 ? Number(currentBalance) : Math.max(0, initTotal - initAdvance);
@@ -123,11 +129,17 @@ export function AddAdvanceModal({
         fetch(`/api/registrations/${encodeURIComponent(registrationId)}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data?.registration) {
-              const reg = data.registration;
-              const liveTotal = Number(reg.totalCharges || 0);
-              const liveAdvance = Number(reg.advancePaid || 0);
+            console.log("API response:", data);
+            const reg = data?.registration || data;
+            if (reg) {
+              const liveTotal = Number(reg.totalCharges ?? 0);
+              const liveAdvance = Number(reg.advancePaid ?? 0);
               const liveBalance = Number(reg.balanceAmount ?? (liveTotal - liveAdvance));
+              console.log("API response financial summary:", {
+                totalCharges: liveTotal,
+                approvedAdvance: liveAdvance,
+                balanceAmount: liveBalance,
+              });
               setFinancials({
                 totalCharges: liveTotal,
                 currentApprovedAdvance: liveAdvance,
@@ -144,10 +156,23 @@ export function AddAdvanceModal({
 
   if (!isOpen) return null;
 
-  // ── Derived financial values ──
-  const effectiveTotalCharges = financials.totalCharges;
-  const effectiveApprovedAdvance = financials.currentApprovedAdvance;
-  const effectiveBalance = financials.currentBalance;
+  // ── Derived financial values with full multi-level fallbacks ──
+  const effectiveTotalCharges =
+    financials.totalCharges > 0
+      ? financials.totalCharges
+      : Number(totalCharges || 0);
+
+  const effectiveApprovedAdvance =
+    financials.currentApprovedAdvance > 0
+      ? financials.currentApprovedAdvance
+      : Number(currentApprovedAdvance || 0);
+
+  const effectiveBalance =
+    financials.currentBalance > 0
+      ? financials.currentBalance
+      : currentBalance > 0
+      ? Number(currentBalance)
+      : Math.max(0, effectiveTotalCharges - effectiveApprovedAdvance);
 
   const numAmount = parseFloat(advanceAmount) || 0;
   const isAmountValid = numAmount > 0 && numAmount <= effectiveBalance;

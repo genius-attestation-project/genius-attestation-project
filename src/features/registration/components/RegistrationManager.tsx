@@ -1618,6 +1618,14 @@ export function RegistrationManager({
                 type="button"
                 onClick={() => {
                   if (selected) {
+                    const tc = Number(form.totalCharges || selected.totalCharges || 0);
+                    const adv = Number(selected.advancePaid || 0);
+                    const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected.balanceAmount || 0);
+                    console.log("Parent before opening modal:", {
+                      totalCharges: tc,
+                      approvedAdvance: adv,
+                      balanceAmount: bal,
+                    });
                     setIsAddAdvanceOpen(true);
                   } else {
                     setError("Please save the registration first before adding an advance payment request.");
