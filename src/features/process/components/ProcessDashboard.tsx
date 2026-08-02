@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDate } from "@/utils/format";
+import { formatDate, formatBundleNumber } from "@/utils/format";
 import { 
   Building2, 
   CheckCheck, 
@@ -677,7 +677,7 @@ export function ProcessDashboard() {
                       {activeTab === "inbound" && (
                         <>
                           <td className="px-5 py-4 font-mono font-bold text-blue-600">
-                            {item.bundleNumber || item.trackingNumber}
+                            {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
                             {item.registeredOffice || item.fromOfficeName || "Origin Office"}
@@ -721,7 +721,7 @@ export function ProcessDashboard() {
                       {(activeTab === "outbound" || activeTab === "bundle") && (
                         <>
                           <td className="px-5 py-4 font-mono font-bold text-blue-600">
-                            {item.bundleNumber || item.trackingNumber}
+                            {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
                             {item.fromOfficeName || "Current Office"}

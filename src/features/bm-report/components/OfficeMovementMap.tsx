@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { formatBundleNumber } from "@/utils/format";
 
 type MovementNode = {
   stepNumber: number;
@@ -349,7 +350,7 @@ export function OfficeMovementMap({
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Bunch No</span>
               <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                {bundleDetails?.bundleNumber || "BND-2026-07-0001"}
+                {formatBundleNumber(bundleDetails?.bundleNumber)}
               </span>
             </div>
 

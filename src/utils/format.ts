@@ -44,3 +44,31 @@ export function formatDateTime(dateInput?: Date | string | number | null): strin
 
   return `${dateStr} ${hoursStr}:${minutes} ${ampm}`;
 }
+
+/**
+ * Standardized Bundle Number Formatter: Displays trailing 4-digit numeric portion.
+ * Examples:
+ * - "HOME-20260802-2699" -> "2699"
+ * - "HOME-20260802-0005" -> "0005"
+ * - "HOME-20260802-5"    -> "0005"
+ * - "2699"               -> "2699"
+ */
+export function formatBundleNumber(bundleNumber?: string | null): string {
+  if (!bundleNumber) return "-";
+  const str = String(bundleNumber).trim();
+  if (!str) return "-";
+
+  const parts = str.split("-");
+  const lastPart = parts[parts.length - 1];
+
+  if (/^\d+$/.test(lastPart)) {
+    return lastPart.padStart(4, "0");
+  }
+
+  const match = str.match(/\d+$/);
+  if (match) {
+    return match[0].padStart(4, "0");
+  }
+
+  return str;
+}

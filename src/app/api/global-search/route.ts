@@ -3,6 +3,7 @@ import { LeadStatus } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
+import { formatBundleNumber } from "@/utils/format";
 import { NextRequest } from "next/server";
 
 type SearchItem = {
@@ -261,8 +262,8 @@ export async function GET(request: NextRequest) {
       })),
       bundles: bundles.map((bundle) => ({
         id: bundle.id,
-        title: bundle.bundleNumber,
-        subtitle: `Bundle • ${bundle.fromOffice?.officeName ?? "Origin"} -> ${bundle.toOffice?.officeName ?? "Destination"} • ${bundle.status}`,
+        title: formatBundleNumber(bundle.bundleNumber),
+        subtitle: `Bundle (${formatBundleNumber(bundle.bundleNumber)}) • ${bundle.fromOffice?.officeName ?? "Origin"} -> ${bundle.toOffice?.officeName ?? "Destination"} • ${bundle.status}`,
         href: `/dashboard/home?search=${encodeURIComponent(bundle.bundleNumber)}`,
       })),
       users: users.map((user) => ({

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { formatDate } from "@/utils/format";
+import { formatDate, formatBundleNumber } from "@/utils/format";
 import {
   Package,
   Send,
@@ -508,7 +508,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           onClick={() => handleOpenBundleModal(bundle)}
                           className="p-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
                         >
-                          {bundle.bundleNumber}
+                          {formatBundleNumber(bundle.bundleNumber)}
                         </td>
                         <td className="p-4 font-semibold text-slate-800">
                           {bundle.fromOffice?.officeName || "Origin Office"}
@@ -570,7 +570,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                         <tr key={bundle.id} className="hover:bg-slate-50">
                           <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600">
-                            {bundle.bundleNumber}
+                            {formatBundleNumber(bundle.bundleNumber)}
                           </td>
                           <td className="p-4 font-semibold text-slate-800">
                             {bundle.fromOffice?.officeName || "Current Office"}
@@ -684,7 +684,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">
-                  Inbound Bundle Details ({selectedBundle.bundleNumber})
+                  Inbound Bundle Details ({formatBundleNumber(selectedBundle.bundleNumber)})
                 </h3>
                 <p className="text-xs text-slate-500">
                   From: {selectedBundle.fromOffice?.officeName || "Origin Office"}
@@ -801,7 +801,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       <RetrieveConfirmationModal
         open={Boolean(retrieveBundle)}
         onClose={() => setRetrieveBundle(null)}
-        itemTitle={retrieveBundle?.bundleNumber}
+        itemTitle={formatBundleNumber(retrieveBundle?.bundleNumber)}
         documentCount={retrieveBundle?.items?.length}
         onConfirm={async (reason) => {
           if (!retrieveBundle) return;

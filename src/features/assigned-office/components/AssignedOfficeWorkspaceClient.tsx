@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { formatDate } from "@/utils/format";
+import { formatDate, formatBundleNumber } from "@/utils/format";
 import {
   Inbox,
   FileCheck2,
@@ -476,7 +476,7 @@ export function AssignedOfficeWorkspaceClient({
                 >
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-white/10">
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                      {bundle.bundleNumber}
+                      {formatBundleNumber(bundle.bundleNumber)}
                     </span>
                     <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
                       {bundle.status}
@@ -652,7 +652,7 @@ export function AssignedOfficeWorkspaceClient({
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-white/10">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Bundle Details: {selectedBundle.bundleNumber}
+                  Bundle Details: {formatBundleNumber(selectedBundle.bundleNumber)}
                 </h2>
                 <p className="text-xs text-slate-500">
                   Select documents to receive into Document In Hand. Partial receive supported.

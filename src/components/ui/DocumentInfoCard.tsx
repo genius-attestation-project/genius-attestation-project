@@ -2,6 +2,7 @@
 
 import React from "react";
 import { PriorityBadge } from "./PriorityBadge";
+import { formatBundleNumber } from "@/utils/format";
 
 export type DocumentInfoCardData = {
   id?: string;
@@ -314,7 +315,7 @@ export function DocumentInfoCard({
             {bundleNo !== "-" && (
               <div>
                 <span className="text-slate-400 font-medium">Bundle No : </span>
-                <span className="font-mono font-bold text-blue-600">{bundleNo}</span>
+                <span className="font-mono font-bold text-blue-600">{formatBundleNumber(bundleNo)}</span>
               </div>
             )}
             {transDate !== "-" && (

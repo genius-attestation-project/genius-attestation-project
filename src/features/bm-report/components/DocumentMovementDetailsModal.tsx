@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { OfficeMovementMap } from "./OfficeMovementMap";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { formatBundleNumber } from "@/utils/format";
 
 type DocumentMovementDetailsModalProps = {
   trackingNumber: string;
@@ -326,7 +327,7 @@ export function DocumentMovementDetailsModal({
                         >
                           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                             <span className="font-mono text-xs font-bold text-blue-600">
-                              {bh.bundleNumber}
+                              {formatBundleNumber(bh.bundleNumber)}
                             </span>
                             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                               {bh.status}

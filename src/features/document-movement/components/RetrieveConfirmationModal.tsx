@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Textarea } from "@/components/ui/Textarea";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
+import { formatBundleNumber } from "@/utils/format";
 
 type RetrieveConfirmationModalProps = {
   open: boolean;
@@ -68,7 +69,7 @@ export function RetrieveConfirmationModal({
           </p>
           {itemTitle && (
             <div className="mt-2.5 pt-2 border-t border-amber-200/60 font-semibold text-amber-800 dark:border-amber-800/40 dark:text-amber-300">
-              Target: <span className="font-mono">{itemTitle}</span>
+              Target: <span className="font-mono">{formatBundleNumber(itemTitle)}</span>
               {documentCount !== undefined && ` (${documentCount} document${documentCount === 1 ? "" : "s"})`}
             </div>
           )}
