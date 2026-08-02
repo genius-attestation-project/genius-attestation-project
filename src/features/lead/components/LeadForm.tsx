@@ -372,31 +372,6 @@ export function LeadForm({
             placeholder="Enter email address"
           />
         </FieldWrapper>
-      </LeadSection>
-
-      <LeadSection title="Document Information">
-        <FieldWrapper>
-          <SearchableSelect
-            label="Doc Type"
-            name="docType"
-            value={values.docType}
-            onChange={(value) => updateField("docType", value)}
-            options={mapToOptions(docTypes)}
-            placeholder="Select document type"
-          />
-        </FieldWrapper>
-        <FieldWrapper>
-          <Input
-            label="No Of Documents"
-            name="noOfDocuments"
-            value={values.noOfDocuments}
-            onChange={(event) => updateField("noOfDocuments", event.target.value)}
-            placeholder="Enter document count"
-          />
-        </FieldWrapper>
-      </LeadSection>
-
-      <LeadSection title="Location Information">
         <FieldWrapper error={errors.country}>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Country
@@ -421,6 +396,28 @@ export function LeadForm({
             disabled={!values.country}
           />
           <input type="hidden" name="state" value={values.state} />
+        </FieldWrapper>
+      </LeadSection>
+
+      <LeadSection title="Document Information">
+        <FieldWrapper>
+          <SearchableSelect
+            label="Doc Type"
+            name="docType"
+            value={values.docType}
+            onChange={(value) => updateField("docType", value)}
+            options={mapToOptions(docTypes)}
+            placeholder="Select document type"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <Input
+            label="No Of Documents"
+            name="noOfDocuments"
+            value={values.noOfDocuments}
+            onChange={(event) => updateField("noOfDocuments", event.target.value)}
+            placeholder="Enter document count"
+          />
         </FieldWrapper>
         <FieldWrapper className="md:col-span-2">
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -482,7 +479,7 @@ export function LeadForm({
         </FieldWrapper>
         <FieldWrapper>
           <SearchableSelect
-            label="Client Type"
+            label="Customer Type"
             name="clientType"
             value={values.clientType}
             onChange={(value) => {
@@ -492,7 +489,7 @@ export function LeadForm({
               }
             }}
             options={mapToOptions(clientTypes)}
-            placeholder="Select client type"
+            placeholder="Select customer type"
           />
         </FieldWrapper>
 
