@@ -225,7 +225,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
           >
             {displayTabs.length === 0 ? (
               <div className="px-4 py-2 text-xs font-semibold text-slate-400">
-                No Sub Packages Assigned
+                No Sub Processes assigned to this Assigned Office.
               </div>
             ) : (
               displayTabs.map((sp) => {
@@ -414,7 +414,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                       <Package size={24} className="text-slate-400" />
                     </div>
                     <p className="mt-3 text-sm font-bold text-slate-800 dark:text-slate-200">
-                      No documents assigned to this Sub Package.
+                      No documents assigned to this Sub Process.
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       Documents transferred from Document In Hand to {activeTabName} will appear here.

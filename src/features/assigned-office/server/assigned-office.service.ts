@@ -1094,54 +1094,28 @@ export async function listSubPackageItemsForOffice(params: {
   officeId: string;
   ownerAdminId: string;
 }) {
-  // 1. Fetch office assigned subpackages configuration
+  // 1. Fetch office assigned subpackages configuration for this specific office
   const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
     where: { assignedOfficeId: params.officeId },
   });
 
-  // 2. Fetch office assigned process types
-  const officeProcessTypes = await (prisma as any).assignedOfficeProcessType.findMany({
-    where: { assignedOfficeId: params.officeId },
-  });
-  const processTypeIds = officeProcessTypes.map((pt: any) => pt.processTypeId);
+  const configSubPkgIds = officeSubPackages.map((sp: any) => sp.subPackageId);
+  const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
 
-  const masterProcessTypes = await prisma.masterData.findMany({
-    where: { id: { in: processTypeIds } },
-    include: { subPackages: true },
+  // 2. Fetch ONLY subpackages explicitly assigned to this office
+  const assignedSubPackages = await prisma.subPackage.findMany({
+    where: { id: { in: configSubPkgIds } },
+    orderBy: { name: "asc" },
   });
-  const processTypeSubPkgIds = masterProcessTypes.flatMap((pt: any) =>
-    (pt.subPackages || []).map((sp: any) => sp.id)
-  );
 
-  // 3. Fetch all subpackage movements for this office
+  // 3. Fetch subpackage movements ONLY for this office and ONLY for assigned subpackages
   const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
       assignedOfficeId: params.officeId,
       ownerAdminId: params.ownerAdminId,
+      subPackageId: { in: configSubPkgIds },
     },
     orderBy: { startedAt: "desc" },
-  });
-
-  const configSubPkgIds = officeSubPackages.map((sp: any) => sp.subPackageId);
-  const movementSubPkgIds = movements.map((m: any) => m.subPackageId);
-  // NOTE: allSubPkgIds is the broad merge used for movement/history tracking only.
-  // The Transfer dropdown must ONLY use configSubPkgIds (explicitly assigned to the office).
-  const allSubPkgIds = Array.from(
-    new Set([...configSubPkgIds, ...processTypeSubPkgIds, ...movementSubPkgIds])
-  );
-
-  const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
-
-  // Broad list for sub-package history/movements view
-  const subPackages = await prisma.subPackage.findMany({
-    where: { id: { in: allSubPkgIds } },
-    orderBy: { name: "asc" },
-  });
-
-  // Strict list: ONLY sub packages explicitly assigned to this office (for Transfer dropdown)
-  const assignedSubPackages = await prisma.subPackage.findMany({
-    where: { id: { in: configSubPkgIds } },
-    orderBy: { name: "asc" },
   });
 
   const trackingNumbers = Array.from(new Set(movements.map((m: any) => m.trackingNumber))) as string[];
@@ -1151,20 +1125,15 @@ export async function listSubPackageItemsForOffice(params: {
 
   const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
 
+  const formattedAssignedSubPackages = assignedSubPackages.map((sp: any) => ({
+    ...sp,
+    isCorePackage: sp.id === coreItem?.subPackageId,
+  }));
+
   return {
     coreSubPackageId: coreItem ? coreItem.subPackageId : null,
-    // assignedSubPackages: ONLY the sub packages saved on the Assigned Office record.
-    // Use this for the Transfer To Sub Process dropdown.
-    assignedSubPackages: assignedSubPackages.map((sp: any) => ({
-      ...sp,
-      isCorePackage: sp.id === coreItem?.subPackageId,
-    })),
-    // subPackages: broader list including processType and movement history sub packages.
-    // Kept for backward compatibility with sub-package history/movements views.
-    subPackages: subPackages.map((sp: any) => ({
-      ...sp,
-      isCorePackage: sp.id === coreItem?.subPackageId,
-    })),
+    assignedSubPackages: formattedAssignedSubPackages,
+    subPackages: formattedAssignedSubPackages,
     items: movements.map((m: any) => ({
       ...m,
       registration: regMap.get(m.trackingNumber) || null,
