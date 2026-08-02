@@ -259,6 +259,88 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
   }
 
   return prisma.$transaction(async (tx: any) => {
+    const sourceOffice = await tx.officeLocation.findFirst({
+      where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
+    });
+    const fromOfficeId = sourceOffice?.id || params.targetAssignedOfficeId;
+
+    // 1. Identify if selected tracking numbers belong to an existing bundle
+    const existingMovement = await tx.documentMovement.findFirst({
+      where: {
+        trackingNumber: { in: params.trackingNumbers },
+        bundleId: { not: null },
+      },
+      select: { bundleId: true },
+    });
+
+    let bundle: any = null;
+
+    if (existingMovement?.bundleId) {
+      bundle = await tx.bundle.findUnique({
+        where: { id: existingMovement.bundleId },
+      });
+    }
+
+    // 2. Update existing bundle OR create a new bundle for this transfer
+    if (bundle) {
+      // Preserve existing bundle! Route it to targetAssignedOfficeId with Pending Receive status
+      await tx.bundle.update({
+        where: { id: bundle.id },
+        data: {
+          fromOfficeId,
+          toOfficeId: params.targetAssignedOfficeId,
+          status: "Pending Receive",
+        },
+      });
+
+      for (const tNum of params.trackingNumbers) {
+        const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
+        if (!reg) continue;
+
+        const existingItem = await tx.bundleItem.findFirst({
+          where: { bundleId: bundle.id, trackingNumber: tNum },
+        });
+
+        if (existingItem) {
+          await tx.bundleItem.update({
+            where: { id: existingItem.id },
+            data: { status: "Pending Receive" },
+          });
+        } else {
+          await tx.bundleItem.create({
+            data: {
+              bundleId: bundle.id,
+              registrationId: reg.id,
+              trackingNumber: tNum,
+              status: "Pending Receive",
+            },
+          });
+        }
+      }
+    } else {
+      // Create new bundle for unbundled documents
+      const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
+      const bundleNumber = `BND-OFFICE-${String(count + 1).padStart(5, "0")}`;
+
+      bundle = await tx.bundle.create({
+        data: {
+          bundleNumber,
+          fromOfficeId,
+          toOfficeId: params.targetAssignedOfficeId,
+          status: "Pending Receive",
+          createdBy: params.userName || params.userId,
+          ownerAdminId: params.ownerAdminId,
+          items: {
+            create: params.trackingNumbers.map((tNum) => ({
+              trackingNumber: tNum,
+              status: "Pending Receive",
+            })),
+          },
+        },
+      });
+    }
+
+    // 3. Update documentMovement records for all tracking numbers
     for (const trackingNumber of params.trackingNumbers) {
       const reg = await tx.registration.findUnique({ where: { trackingNumber } });
       if (!reg) continue;
@@ -269,12 +351,15 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           fromModule: "PROCESS_MODULE",
           toModule: "ASSIGNED_OFFICE",
           currentModule: "ASSIGNED_OFFICE",
+          fromOfficeId,
           toOfficeId: params.targetAssignedOfficeId,
           currentOfficeId: params.targetAssignedOfficeId,
-          status: "Pending Receive",
+          status: "INBOUND",
+          currentStatus: "Pending Receive",
+          bundleId: bundle.id,
           sentAt: new Date(),
           remarks: params.remarks,
-        },
+        } as any,
       });
 
       if (tx.documentWorkflowHistory) {
@@ -285,7 +370,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
             workflowStep: "Process Transfer to Assigned Office",
             status: "Pending Receive",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || `Transferred to Assigned Office ID: ${params.targetAssignedOfficeId}`,
+            remarks: params.remarks || `Transferred to Assigned Office in Bundle ${bundle.bundleNumber}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
@@ -298,12 +383,12 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           oldStatus: "IN_HAND",
           newStatus: "Pending Receive",
           performedBy: params.userName || params.userId,
-          remarks: params.remarks,
+          remarks: params.remarks || `Added to Bundle ${bundle.bundleNumber}`,
         },
       });
     }
 
-    return { success: true, count: params.trackingNumbers.length };
+    return { success: true, count: params.trackingNumbers.length, bundleNumber: bundle.bundleNumber, bundleId: bundle.id };
   });
 }
 
