@@ -70,6 +70,7 @@ export function ProcessDashboard() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [items, setItems] = useState<ProcessItem[]>([]);
   const [stats, setStats] = useState<ProcessStats>(emptyStats);
 
@@ -95,6 +96,7 @@ export function ProcessDashboard() {
   
   // Receive Selection state before receiving
   const [receiveSelectionItem, setReceiveSelectionItem] = useState<any | null>(null);
+  const [isReceiving, setIsReceiving] = useState(false);
   
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTracking, setTimelineTracking] = useState<string | null>(null);
@@ -224,6 +226,43 @@ export function ProcessDashboard() {
       : [item];
 
     setReceiveSelectionItem({ items: bundleDocuments });
+  }
+
+  async function receiveSelectedDocuments(selectedTrackingNumbers: string[]) {
+    if (selectedTrackingNumbers.length === 0) return;
+
+    setIsReceiving(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch("/api/process/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trackingNumbers: selectedTrackingNumbers,
+          action: "RECEIVE",
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.message || payload.error || "Failed to receive documents");
+      }
+
+      setReceiveSelectionItem(null);
+      setSelectedTrackingNumbers((current) =>
+        current.filter((trackingNumber) => !selectedTrackingNumbers.includes(trackingNumber))
+      );
+      setSuccessMessage(
+        `${selectedTrackingNumbers.length} document${selectedTrackingNumbers.length === 1 ? "" : "s"} received successfully.`
+      );
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to receive documents");
+    } finally {
+      setIsReceiving(false);
+    }
   }
 
   function openTimeline(tracking: string) {
@@ -418,6 +457,13 @@ export function ProcessDashboard() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <CheckCircle2 size={18} />
+          <p>{successMessage}</p>
+        </div>
+      )}
+
       {/* Bulk Operations Toolbar */}
       {items.length > 0 && (activeTab === "in_hand" || activeTab === "inbound") && (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50/80 border border-blue-200 p-4 shadow-sm">
@@ -487,11 +533,11 @@ export function ProcessDashboard() {
                 <Button
                   size="sm"
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("RECEIVE")}
+                  disabled={selectedTrackingNumbers.length === 0 || isReceiving}
+                  onClick={() => receiveSelectedDocuments(selectedTrackingNumbers)}
                 >
                   <CheckCheck size={14} />
-                  Receive Selected ({selectedTrackingNumbers.length})
+                  {isReceiving ? "Receiving..." : `Receive Selected (${selectedTrackingNumbers.length})`}
                 </Button>
 
                 <Button
@@ -802,16 +848,9 @@ export function ProcessDashboard() {
       <ReceiveSelectionModal
         open={Boolean(receiveSelectionItem)}
         onClose={() => setReceiveSelectionItem(null)}
-        onConfirmReceive={(selectedTrackingNumbers) => {
-          // Preserve the receive API contract: it expects an array of selected
-          // tracking identifiers, never a comma-delimited single identifier.
-          setModalTrackingNumbers(selectedTrackingNumbers);
-          setModalAssignmentId(undefined);
-          setTargetAction("RECEIVE");
-          setMovementModalOpen(true);
-          setReceiveSelectionItem(null);
-        }}
+        onConfirmReceive={receiveSelectedDocuments}
         bundleData={receiveSelectionItem}
+        isReceiving={isReceiving}
       />
 
       {/* Operation Action Modal */}
