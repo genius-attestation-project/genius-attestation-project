@@ -1124,6 +1124,8 @@ export function RegistrationManager({
                 onChange={(val) => setFilters(f => ({ ...f, createdBy: val }))}
                 options={commissionUserOptions}
                 placeholder="Select user"
+                groupByCategory={false}
+                showDescription={false}
               />
             </label>
             <label className="grid gap-2">
@@ -1861,6 +1863,8 @@ export function RegistrationManager({
                 loadingMessage="Loading users..."
                 emptyMessage="No users found"
                 errorMessage={usersError}
+                groupByCategory={false}
+                showDescription={false}
               />
             </label>
             <SelectField label="Registered Person" name="registeredPerson" value={form.registeredPerson} options={personSelectOptions} onChange={updateField} />
