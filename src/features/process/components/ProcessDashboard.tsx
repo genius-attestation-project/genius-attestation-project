@@ -580,17 +580,6 @@ export function ProcessDashboard() {
                   <RotateCcw size={14} />
                   Return Selected
                 </Button>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold gap-1.5"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("REJECTED")}
-                >
-                  <XCircle size={14} />
-                  Reject Selected
-                </Button>
               </>
             )}
           </div>
@@ -772,14 +761,6 @@ export function ProcessDashboard() {
                                 onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
                               >
                                 Return
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
-                              >
-                                Reject
                               </Button>
                             </div>
                           </td>
