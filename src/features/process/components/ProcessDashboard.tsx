@@ -728,40 +728,11 @@ export function ProcessDashboard() {
                             <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               <Button
                                 size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-2.5 py-1"
-                                onClick={() => openBulkMovementModal("TRANSFER_TO_HOME", item.trackingNumber, item.id)}
-                              >
-                                Transfer To Home
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-2.5 py-1"
-                                onClick={() => openBulkMovementModal("TRANSFER_TO_ASSIGNED_OFFICE", item.trackingNumber, item.id)}
-                              >
-                                Transfer To Assigned Office
-                              </Button>
-                              <Button
-                                size="sm"
                                 variant="secondary"
                                 className="border-amber-200 text-amber-700 hover:bg-amber-50 text-xs px-2 py-1"
                                 onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
                               >
                                 Return
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="border-rose-200 text-rose-600 hover:bg-rose-50 text-xs px-2 py-1"
-                                onClick={() => openBulkMovementModal("REJECTED", item.trackingNumber, item.id)}
-                              >
-                                Reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-2.5 py-1"
-                                onClick={() => openBulkMovementModal("COMPLETED", item.trackingNumber, item.id)}
-                              >
-                                Complete
                               </Button>
                             </div>
                           </td>
