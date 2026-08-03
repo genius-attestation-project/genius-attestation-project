@@ -110,7 +110,7 @@ export async function DashboardOverview({
       description: "Awaiting review",
       icon: ClipboardList,
       tone: "amber",
-      href: "/dashboard/lead-management/pending-approval",
+      href: "/dashboard/pending-approval",
     });
 
     if (stats.pendingAdvanceApprovals !== undefined) {
@@ -121,7 +121,7 @@ export async function DashboardOverview({
         description: "Advance payments awaiting review",
         icon: ClipboardList,
         tone: "amber",
-        href: "/dashboard/lead-management/pending-approval",
+        href: "/dashboard/pending-approval",
       });
       cards.push({
         label: "Approved Advances",
@@ -130,7 +130,7 @@ export async function DashboardOverview({
         description: "Confirmed advance payments",
         icon: BadgeCheck,
         tone: "emerald",
-        href: "/dashboard/lead-management/pending-approval",
+        href: "/dashboard/pending-approval",
       });
       cards.push({
         label: "Rejected Advances",
@@ -139,7 +139,7 @@ export async function DashboardOverview({
         description: "Rejected advance requests",
         icon: BadgeCheck,
         tone: "rose",
-        href: "/dashboard/lead-management/pending-approval",
+        href: "/dashboard/pending-approval",
       });
       cards.push({
         label: "Total Advance Amount",

@@ -116,11 +116,6 @@ export const leadManagementLinks: SidebarItem[] = [
   { label: "All Leads", href: "/dashboard/lead-management/all-leads", icon: Users },
   { label: "Followups", href: "/dashboard/lead-management/followups", icon: Clock3 },
   { label: "Assign Leads", href: "/dashboard/lead-management/assign-leads", icon: UserRoundPlus },
-  {
-    label: "Pending Approval",
-    href: "/dashboard/lead-management/pending-approval",
-    icon: BadgeCheck,
-  },
   { label: "LOB", href: "/dashboard/lead-management/lob", icon: Layers3 },
   { label: "Closed", href: "/dashboard/lead-management/closed", icon: PencilLine },
 ];

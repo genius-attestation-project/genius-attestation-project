@@ -61,7 +61,7 @@ const modules: SearchItem[] = [
     id: "pending-approval",
     title: "Pending Approval",
     subtitle: "Lead approval queue",
-    href: "/dashboard/lead-management/pending-approval",
+    href: "/dashboard/pending-approval",
   },
   {
     id: "office-locations",

@@ -206,13 +206,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "assigned_leads.view",
       },
       {
-        label: "Pending Approval",
-        href: "/dashboard/lead-management/pending-approval",
-        icon: BadgeCheck,
-        menuPermission: "menu.lead-management.pending-approval",
-        pagePermission: "pending_approval.view",
-      },
-      {
         label: "LOB",
         href: "/dashboard/lead-management/lob",
         icon: Layers3,
@@ -227,6 +220,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "closed_leads.view",
       },
     ],
+  },
+  {
+    label: "Pending Approval",
+    href: "/dashboard/pending-approval",
+    icon: BadgeCheck,
+    menuPermission: "menu.lead-management.pending-approval",
+    pagePermission: "pending_approval.view",
   },
   {
     label: "Revenue Registration",
