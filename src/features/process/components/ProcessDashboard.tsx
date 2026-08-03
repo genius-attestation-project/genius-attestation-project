@@ -705,7 +705,7 @@ export function ProcessDashboard() {
                             {item.mainProcess || item.processType || "-"}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
-                            {calculateNumberOfDays(item.receivedAt || item.receivedDate || item.createdAt)}
+                            {calculateNumberOfDays(item.currentStageEnteredAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-slate-900">
                             ₹{Number(item.totalAmount || item.totalCharges || 0).toFixed(2)}

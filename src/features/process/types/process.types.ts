@@ -27,6 +27,7 @@ export type ProcessItem = {
   currentLocation: ProcessLocation;
   status: ProcessStatus;
   receivedDate: string;
+  currentStageEnteredAt?: string;
   daysHeld: number;
   assignedUserId: string | null;
   assignedToName: string | null;

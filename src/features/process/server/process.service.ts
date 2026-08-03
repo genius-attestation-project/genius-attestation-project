@@ -102,6 +102,23 @@ export async function listProcessAssignments(
     orderBy: { updatedAt: "desc" },
   });
 
+  // Older records may predate the receivedAt field being set by the Process
+  // receive action. Their latest Process receive history is the authoritative
+  // stage-entry time and avoids falling back to the registration date.
+  const trackingNumbers = movements.map((movement: any) => movement.trackingNumber);
+  const receiveHistory = trackingNumbers.length
+    ? await prisma.movementHistory.findMany({
+        where: { trackingNumber: { in: trackingNumbers }, action: "Received Document" },
+        orderBy: { performedAt: "desc" },
+      })
+    : [];
+  const latestReceivedAt = new Map<string, Date>();
+  for (const entry of receiveHistory) {
+    if (!latestReceivedAt.has(entry.trackingNumber)) {
+      latestReceivedAt.set(entry.trackingNumber, entry.performedAt);
+    }
+  }
+
   return (movements as any[]).map((mov: any) => ({
     id: mov.registrationId,
     registrationId: mov.registrationId,
@@ -123,6 +140,11 @@ export async function listProcessAssignments(
     currentLocation: (mov.status === "HOME" ? "IN_HAND" : mov.status) as ProcessLocation,
     status: mov.status as any,
     receivedDate: formatDate(new Date(mov.createdAt)),
+    currentStageEnteredAt: (
+      mov.status === "INBOUND"
+        ? mov.sentAt || mov.updatedAt
+        : mov.receivedAt || latestReceivedAt.get(mov.trackingNumber) || mov.updatedAt
+    ).toISOString(),
     daysHeld: Math.floor((new Date().getTime() - new Date(mov.updatedAt).getTime()) / (1000 * 3600 * 24)),
     assignedUserId: mov.acceptedBy,
     assignedToName: mov.acceptedBy,
@@ -432,6 +454,9 @@ export async function processBulkMove(params: {
           currentModule: "PROCESS_MODULE",
           remarks: params.remarks,
           updatedAt: new Date(),
+          ...(params.action === "RECEIVE"
+            ? { receivedAt: new Date(), receivedBy: params.userId }
+            : {}),
         },
       });
 
