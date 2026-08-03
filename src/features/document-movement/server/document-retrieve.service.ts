@@ -48,16 +48,31 @@ export async function retrieveOutboundDocuments(
         throw new Error("Bundle not found.");
       }
 
-      // Ensure retrieval is initiated by the sending office
-      if (bundle.fromOfficeId !== userOfficeId) {
+      // Ensure retrieval is initiated by the sending office OR the same organisation.
+      // The Process Office ID stored in bundle.fromOfficeId may differ from userOfficeId
+      // when the user logs in via officeLocationName matching instead of ID matching.
+      // We accept either: exact office ID match OR same ownerAdminId (org-level ownership).
+      const isOrgOwner = bundle.ownerAdminId === ownerAdminId;
+      const isOfficeOwner = bundle.fromOfficeId === userOfficeId;
+      if (!isOrgOwner && !isOfficeOwner) {
         throw new Error("Only the transferring office can retrieve this bundle.");
       }
 
       // Filter unreceived items in the bundle
-      const unreceivedItems = bundle.items.filter((item: any) => item.status !== "Received");
+      let unreceivedItems = bundle.items.filter((item: any) => item.status !== "Received");
 
       if (unreceivedItems.length === 0) {
         throw new Error("Cannot retrieve bundle. All documents have already been received by the destination office.");
+      }
+
+      // If specific tracking numbers are provided alongside bundleId, restrict
+      // retrieval to the requested subset (partial bundle retrieve).
+      if (params.trackingNumbers && params.trackingNumbers.length > 0) {
+        const requestedSet = new Set(params.trackingNumbers);
+        unreceivedItems = unreceivedItems.filter((item: any) => requestedSet.has(item.trackingNumber));
+        if (unreceivedItems.length === 0) {
+          throw new Error("None of the selected documents are eligible for retrieval.");
+        }
       }
 
       targetTrackingNumbers = unreceivedItems.map((item: any) => item.trackingNumber);
@@ -171,14 +186,18 @@ export async function retrieveOutboundDocuments(
         currentStatus: movement.currentStatus,
       });
 
-      // 3. Return DocumentMovement back to origin office (userOfficeId), REGISTRATION module & Document In Hand
+      // 3. Restore the document to the module and office it was transferred from.
+      // This is essential for Process outbound retrievals, and retains bundleId
+      // so a partially retrieved bundle is never split into new records.
+      const previousModule = movement.fromModule || "REGISTRATION";
+      const previousOfficeId = movement.fromOfficeId || userOfficeId;
       const updatedMovement = await tx.documentMovement.update({
         where: { trackingNumber },
         data: {
-          currentModule: "REGISTRATION",
-          currentOfficeId: userOfficeId,
-          toOfficeId: userOfficeId,
-          status: "HOME",
+          currentModule: previousModule,
+          currentOfficeId: previousOfficeId,
+          toOfficeId: previousOfficeId,
+          status: previousModule === "PROCESS_MODULE" ? "IN_HAND" : "HOME",
           currentStatus: "Document In Hand",
           remarks: reason || `Retrieved by ${userOfficeName}`,
         },
@@ -259,8 +278,8 @@ export async function retrieveOutboundDocuments(
       });
 
       const totalCount = allItems.length;
-      const receivedCount = allItems.filter((i) => i.status === "Received").length;
-      const retrievedItemsCount = allItems.filter((i) => i.status === "Retrieved").length;
+      const receivedCount = allItems.filter((i: any) => i.status === "Received").length;
+      const retrievedItemsCount = allItems.filter((i: any) => i.status === "Retrieved").length;
 
       if (retrievedItemsCount + receivedCount === totalCount) {
         if (receivedCount > 0) {

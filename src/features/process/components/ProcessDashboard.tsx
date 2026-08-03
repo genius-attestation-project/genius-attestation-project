@@ -769,7 +769,10 @@ export function ProcessDashboard() {
 
                       {(activeTab === "outbound" || activeTab === "bundle") && (
                         <>
-                          <td className="px-5 py-4 font-mono font-bold text-blue-600">
+                          <td
+                            onClick={() => setPreviewItem(item)}
+                            className="px-5 py-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                          >
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
@@ -861,27 +864,31 @@ export function ProcessDashboard() {
           trackingNumber={timelineTracking}
         />
       )}
+
       {/* RETRIEVE CONFIRMATION MODAL */}
       <RetrieveConfirmationModal
         open={Boolean(retrieveItem)}
         onClose={() => setRetrieveItem(null)}
-        itemTitle={retrieveItem?.trackingNumber}
-        onConfirm={async (reason) => {
+        itemTitle={retrieveItem?.bundleNumber || retrieveItem?.trackingNumber}
+        documentCount={retrieveItem?.items?.length || 1}
+        documentDetails={retrieveItem?.items || (retrieveItem ? [retrieveItem] : [])}
+        onConfirmSelection={async (trackingNumbers) => {
           if (!retrieveItem) return;
+          // Send only trackingNumbers (not bundleId) so the retrieve service uses the
+          // trackingNumbers-only path that respects the exact document selection.
+          // If bundleId were also sent, the service would ignore trackingNumbers and
+          // retrieve all unreceived bundle items regardless of what was selected.
           const res = await fetch("/api/document-movement/retrieve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              trackingNumbers: [retrieveItem.trackingNumber],
-              reason,
+              trackingNumbers,
             }),
           });
           const json = await res.json();
           if (!res.ok) {
-            alert(json.error || "Failed to retrieve document.");
-            return;
+            throw new Error(json.message || json.error || "Failed to retrieve document.");
           }
-          alert(json.message || "Document retrieved successfully.");
           setRetrieveItem(null);
           await loadData();
         }}

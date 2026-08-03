@@ -65,7 +65,8 @@ export async function listProcessAssignments(
   ownerAdminId: string,
   officeLocationName: string,
   processType?: string,
-  tab?: string
+  tab?: string,
+  currentOfficeName?: string
 ) {
   const whereClause: any = {
     registration: { ownerAdminId },
@@ -79,9 +80,34 @@ export async function listProcessAssignments(
     whereClause.currentModule = "PROCESS_MODULE";
     whereClause.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
   } else if (tab === "outbound") {
-    whereClause.OR = [
-      { currentModule: { not: "PROCESS_MODULE" } },
-      { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED"] } },
+    // Scope to documents that were transferred FROM the current process office.
+    // The document movement's fromOffice should match the user's office so that
+    // only this office's outbound records appear — not records from other offices.
+    whereClause.AND = [
+      {
+        OR: [
+          { currentModule: { not: "PROCESS_MODULE" } },
+          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED", "Pending Receive", "INBOUND"] } },
+        ],
+      },
+      {
+        // Only show movements whose sending office belongs to this ownerAdminId.
+        // The fromOffice relation ensures we only see records originating here.
+        OR: [
+          {
+            fromOffice: {
+              ownerAdminId,
+              ...(currentOfficeName ? { officeName: currentOfficeName } : {}),
+            },
+          },
+          // Fallback: include bundled documents where bundle was created by this org
+          {
+            bundle: {
+              ownerAdminId,
+            },
+          },
+        ],
+      },
     ];
   } else if (tab === "bundle") {
     whereClause.bundleId = { not: null };
@@ -97,7 +123,7 @@ export async function listProcessAssignments(
       registration: true,
       fromOffice: true,
       toOffice: true,
-      bundle: true,
+      bundle: { include: { items: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -119,7 +145,7 @@ export async function listProcessAssignments(
     }
   }
 
-  return (movements as any[]).map((mov: any) => ({
+  const mappedMovements = (movements as any[]).map((mov: any) => ({
     id: mov.registrationId,
     registrationId: mov.registrationId,
     trackingNumber: mov.trackingNumber,
@@ -150,11 +176,54 @@ export async function listProcessAssignments(
     assignedToName: mov.acceptedBy,
     remarks: mov.remarks,
     bundleId: mov.bundleId,
+    bundleNumber: mov.bundle?.bundleNumber,
     bundleCode: mov.bundle?.bundleNumber,
     fromOfficeName: mov.fromOffice?.officeName || null,
     toOfficeName: mov.toOffice?.officeName || null,
     priority: mov.registration?.priority || "Normal",
   }));
+
+  // Outbound is bundle-oriented: a transferred bundle must be represented by a
+  // single row, with its documents retained as child data for view/retrieve.
+  if (tab !== "outbound" && tab !== "bundle") return mappedMovements;
+
+  // Gather all tracking numbers — both from bundle items and direct movements.
+  // Select the full registration record so all popup fields (mobile, collectedPerson,
+  // advancePaid, balanceAmount, deliveryLocation, etc.) are available.
+  const allTrackingNumbers: string[] = Array.from(new Set<string>(
+    movements.flatMap((movement: any) =>
+      movement.bundle?.items?.map((item: any) => item.trackingNumber as string) || [movement.trackingNumber as string]
+    )
+  ));
+
+  const registrations = await prisma.registration.findMany({
+    where: { trackingNumber: { in: allTrackingNumbers } },
+  });
+  const registrationByTrackingNumber = new Map(registrations.map((registration) => [registration.trackingNumber, registration]));
+  const movementByTrackingNumber = new Map(mappedMovements.map((movement: any) => [movement.trackingNumber, movement]));
+  const seenBundles = new Set<string>();
+
+  return mappedMovements.flatMap((movement: any) => {
+    if (!movement.bundleId) return [movement];
+    if (seenBundles.has(movement.bundleId)) return [];
+    seenBundles.add(movement.bundleId);
+
+    const sourceMovement = movements.find((candidate: any) => candidate.bundleId === movement.bundleId);
+    const documents = (sourceMovement?.bundle?.items || []).map((item: any) => {
+      const documentMovement = movementByTrackingNumber.get(item.trackingNumber);
+      return {
+        ...(documentMovement || { trackingNumber: item.trackingNumber }),
+        registration: registrationByTrackingNumber.get(item.trackingNumber) || null,
+      };
+    });
+
+    return [{
+      ...movement,
+      id: `bundle-${movement.bundleId}`,
+      items: documents,
+      documentCount: documents.length,
+    }];
+  });
 }
 
 export async function transferProcessDocumentsToHome(params: {
