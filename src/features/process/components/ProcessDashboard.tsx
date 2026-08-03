@@ -874,15 +874,14 @@ export function ProcessDashboard() {
         documentDetails={retrieveItem?.items || (retrieveItem ? [retrieveItem] : [])}
         onConfirmSelection={async (trackingNumbers) => {
           if (!retrieveItem) return;
-          // Send only trackingNumbers (not bundleId) so the retrieve service uses the
-          // trackingNumbers-only path that respects the exact document selection.
-          // If bundleId were also sent, the service would ignore trackingNumbers and
-          // retrieve all unreceived bundle items regardless of what was selected.
+          const bundleId = retrieveItem.bundleId || (retrieveItem.bundleNumber ? retrieveItem.id : undefined);
           const res = await fetch("/api/document-movement/retrieve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              bundleId,
               trackingNumbers,
+              action: "RETRIEVE",
             }),
           });
           const json = await res.json();

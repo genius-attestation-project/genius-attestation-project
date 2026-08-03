@@ -12,8 +12,9 @@ export async function POST(request: NextRequest) {
     const ownerAdminId = session?.user?.ownerAdminId;
     const userName = session?.user?.name || session?.user?.email || "System User";
     const officeLocationName = session?.user?.officeLocationName;
+    const officeLocationId = session?.user?.officeLocationId || (session?.user as any)?.officeId;
 
-    if (!userId || !ownerAdminId || !officeLocationName) {
+    if (!userId || !ownerAdminId) {
       return jsonError("Unauthorized access.", 401);
     }
 
@@ -22,7 +23,12 @@ export async function POST(request: NextRequest) {
       return jsonError("You do not have permission to retrieve outbound documents.", 403);
     }
 
-    const userOfficeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+    const userOfficeId = await resolveOfficeLocationId({
+      ownerAdminId,
+      officeLocationId,
+      officeLocationName,
+      userId,
+    });
     if (!userOfficeId) {
       return jsonError("Current user office location not found.", 404);
     }
@@ -32,11 +38,15 @@ export async function POST(request: NextRequest) {
       ownerAdminId,
       userName,
       officeLocationName,
+      officeLocationId,
       userOfficeId,
     });
 
     const body = await request.json().catch(() => ({}));
-    const { bundleId, trackingNumbers, reason } = body;
+    const { bundleId, trackingNumbers: rawTrackingNumbers, documentIds, reason } = body;
+    const trackingNumbers = Array.isArray(rawTrackingNumbers) && rawTrackingNumbers.length > 0
+      ? rawTrackingNumbers
+      : (Array.isArray(documentIds) ? documentIds : undefined);
 
     console.log("[DEBUG Retrieve Route] Request body:", {
       bundleId,
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
       userId,
       userName,
       userOfficeId,
-      userOfficeName: officeLocationName,
+      userOfficeName: officeLocationName || "Office",
       bundleId,
       trackingNumbers,
       reason,
