@@ -158,7 +158,29 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           { label: "Current Package", value: proc.currentPackage }, { label: "Current Sub Package", value: proc.currentSubPackage },
           { label: "Current Assigned User", value: proc.currentHandler }, { label: "Current Status", value: currentStatus },
           { label: "Current Stage", value: proc.currentStage }, { label: "Number of Days", value: `${proc.daysCount} Days` },
-        ]} /></Section>
+        ]} />
+          <div className="mt-6">
+            <h3 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-slate-700">Activity Status</h3>
+            <div className="overflow-x-auto border border-slate-200">
+              <table className="w-full min-w-125 text-left text-sm">
+                <thead className="bg-slate-100 text-xs uppercase text-slate-600">
+                  <tr><th className="p-3">Activity</th><th className="p-3">Status</th><th className="p-3">Date</th></tr>
+                </thead>
+                <tbody>
+                  {(proc.activities || []).length ? proc.activities.map((activity: any) => (
+                    <tr key={activity.id} className="border-t border-slate-200">
+                      <td className="p-3 font-semibold text-slate-800">{activity.name}</td>
+                      <td className={`p-3 font-bold ${statusClass(activity.status)}`}>{activity.status}</td>
+                      <td className="p-3 text-slate-600">{activity.date ? formatDate(activity.date) : "-"}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={3} className="p-3 text-slate-500">No activities are configured for this process type.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Section>
 
         <Section title="Advance Payment History & Approvals"><AdvanceHistoryTable history={advancePaymentApprovals} onRefresh={fetchDetails} /></Section>
 

@@ -43,6 +43,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
     action: "return" | "reject" | null;
   }>({ open: false, action: null });
   const [remarks, setRemarks] = useState("");
+  const [remarksError, setRemarksError] = useState("");
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
 
@@ -126,6 +127,11 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
   // Execute subpackage action (Complete, Return, Reject)
   const handleAction = async (actionType: "complete" | "return" | "reject", actionRemarks?: string) => {
     if (selectedMovementIds.length === 0) return;
+    const submittedRemarks = actionRemarks ?? remarks;
+    if (actionType === "reject" && !submittedRemarks.trim()) {
+      setRemarksError("Rejection reason is required.");
+      return;
+    }
 
     setProcessing(true);
     try {
@@ -137,14 +143,18 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
           officeId,
           movementIds: selectedMovementIds,
           subPackageAction: actionType,
-          remarks: actionRemarks || remarks,
+          remarks: submittedRemarks,
         }),
       });
 
       if (res.ok) {
         setRemarksModal({ open: false, action: null });
         setRemarks("");
+        setRemarksError("");
         fetchData();
+      } else {
+        const data = await res.json().catch(() => null);
+        setRemarksError(data?.message || "Unable to complete this action.");
       }
     } catch (err) {
       console.error("Action failed", err);
@@ -353,7 +363,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
           {/* Return Button */}
           <Button
             disabled={selectedMovementIds.length === 0 || processing}
-            onClick={() => setRemarksModal({ open: true, action: "return" })}
+            onClick={() => { setRemarksError(""); setRemarksModal({ open: true, action: "return" }); }}
             className="gap-2 rounded-xl bg-[#FF9900] text-white hover:bg-amber-600 shadow-md font-bold px-4"
           >
             <RotateCcw size={16} />
@@ -363,7 +373,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
           {/* Reject Button */}
           <Button
             disabled={selectedMovementIds.length === 0 || processing}
-            onClick={() => setRemarksModal({ open: true, action: "reject" })}
+            onClick={() => { setRemarksError(""); setRemarksModal({ open: true, action: "reject" }); }}
             className="gap-2 rounded-xl bg-[#FF3333] text-white hover:bg-rose-700 shadow-md font-bold px-4"
           >
             <XCircle size={16} />
@@ -492,27 +502,30 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
         </div>
       </div>
 
-      {/* Action Remarks Modal for Return / Reject */}
+      {/* Action remarks modal */}
       {remarksModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 space-y-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">
-              {remarksModal.action} Sub Package Document(s)
+              {remarksModal.action === "reject" ? "Reject Activity" : "Return Activity"}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Provide remarks for this action ({selectedMovementIds.length} item(s) selected).
+              {remarksModal.action === "reject"
+                ? "Provide a reason for rejecting the selected activity."
+                : `Provide remarks for this action (${selectedMovementIds.length} item(s) selected).`}
             </p>
             <textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter remarks/reason..."
+              placeholder={remarksModal.action === "reject" ? "Enter rejection reason..." : "Enter remarks..."}
               rows={3}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
+            {remarksError && <p className="text-xs font-semibold text-rose-600">{remarksError}</p>}
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button
                 variant="secondary"
-                onClick={() => setRemarksModal({ open: false, action: null })}
+                onClick={() => { setRemarksModal({ open: false, action: null }); setRemarks(""); setRemarksError(""); }}
                 className="rounded-xl"
               >
                 Cancel
@@ -525,7 +538,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                   remarksModal.action === "return" ? "bg-amber-600 hover:bg-amber-700" : "bg-rose-600 hover:bg-rose-700"
                 )}
               >
-                Confirm {remarksModal.action}
+                {remarksModal.action === "reject" ? "Confirm Reject" : "Confirm Return"}
               </Button>
             </div>
           </div>

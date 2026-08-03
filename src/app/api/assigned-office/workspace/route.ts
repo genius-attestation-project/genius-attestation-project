@@ -114,6 +114,9 @@ export async function POST(req: NextRequest) {
 
     if (action === "subpackage_action") {
       const { movementIds, subPackageAction, remarks } = body; // subPackageAction: 'complete' | 'return' | 'reject'
+      if (subPackageAction === "reject" && !String(remarks || "").trim()) {
+        return NextResponse.json({ message: "Rejection reason is required." }, { status: 400 });
+      }
       const result = await processSubPackageDocumentAction({
         movementIds,
         action: subPackageAction,

@@ -1216,6 +1216,11 @@ export async function processSubPackageDocumentAction(params: {
   officeId?: string;
   remarks?: string;
 }) {
+  const rejectionReason = params.remarks?.trim();
+  if (params.action === "reject" && !rejectionReason) {
+    throw new Error("Rejection reason is required.");
+  }
+
   return prisma.$transaction(async (tx: any) => {
     for (const movementId of params.movementIds) {
       const subMov = await tx.subPackageMovement.findUnique({
@@ -1311,6 +1316,8 @@ export async function processSubPackageDocumentAction(params: {
           data: {
             status: "Rejected",
             rejectedAt: new Date(),
+            rejectedBy: params.userName || params.userId,
+            rejectionReason,
           },
         });
 
@@ -1326,10 +1333,10 @@ export async function processSubPackageDocumentAction(params: {
           data: {
             documentId: reg.id,
             trackingNumber: subMov.trackingNumber,
-            workflowStep: "Sub Package Rejected",
+            workflowStep: "Activity Rejected",
             status: "Rejected",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || "Rejected back to Process Module",
+            remarks: rejectionReason,
             ownerAdminId: params.ownerAdminId,
           },
         });
@@ -1339,7 +1346,7 @@ export async function processSubPackageDocumentAction(params: {
             registrationId: reg.id,
             action: "SUB_PACKAGE_REJECTED",
             performedBy: params.userName || params.userId,
-            description: `Subpackage rejected for tracking #${subMov.trackingNumber}`,
+            description: `Activity rejected for tracking #${subMov.trackingNumber}. Reason: ${rejectionReason}`,
           },
         });
       }

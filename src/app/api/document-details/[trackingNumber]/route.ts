@@ -56,8 +56,10 @@ export async function GET(
       );
     }
 
-    // Fetch related timeline, subpackage movements, advance payment approvals, and audit history
-    const [subPackageMovements, movementHistory, workflowHistory, advancePaymentApprovals] = await Promise.all([
+    // Fetch related timeline, activity movements, advance payment approvals, and audit history.
+    // The process-type mapping is the source of truth for the full activity list, including
+    // activities that have not yet been started for this tracking number.
+    const [subPackageMovements, movementHistory, workflowHistory, advancePaymentApprovals, processType] = await Promise.all([
       (prisma as any).subPackageMovement.findMany({
         where: { trackingNumber: trackingNumber.trim() },
         orderBy: { createdAt: "desc" },
@@ -75,7 +77,48 @@ export async function GET(
         orderBy: { requestedAt: "desc" },
         include: { auditLogs: { orderBy: { createdAt: "desc" } } },
       }),
+      registration.processType
+        ? prisma.masterData.findFirst({
+            where: {
+              type: "PROCESS_TYPES",
+              name: registration.processType,
+              ownerAdminId,
+            },
+            include: { subPackages: { orderBy: { name: "asc" } } },
+          })
+        : null,
     ]);
+
+    const movementsByActivity = new Map<string, any>();
+    for (const movement of subPackageMovements) {
+      if (!movementsByActivity.has(movement.subPackageId)) {
+        movementsByActivity.set(movement.subPackageId, movement);
+      }
+    }
+    const configuredActivities = processType?.subPackages || [];
+    const activityStatuses = configuredActivities.map((activity) => {
+      const movement = movementsByActivity.get(activity.id);
+      const status = movement?.status === "Completed"
+        ? "Completed"
+        : movement?.status === "Rejected"
+          ? "Rejected"
+          : movement?.status === "In Progress"
+            ? "In Progress"
+            : "Pending";
+      const date = status === "Completed"
+        ? movement.completedAt
+        : status === "Rejected"
+          ? movement.rejectedAt
+          : null;
+
+      return {
+        id: activity.id,
+        name: activity.name,
+        status,
+        date: date?.toISOString() || null,
+        rejectionReason: status === "Rejected" ? movement.rejectionReason || null : null,
+      };
+    });
 
     const latestMovement = registration.documentMovements[0] || null;
     const latestSubPackage = subPackageMovements[0] || null;
@@ -123,6 +166,7 @@ export async function GET(
         currentStatus,
         currentStage,
         daysCount,
+        activities: activityStatuses,
       },
       subPackageMovements,
       movementHistory,

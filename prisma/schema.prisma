@@ -1090,6 +1090,8 @@ model SubPackageMovement {
   completedAt      DateTime?       @map("completed_at")
   returnedAt       DateTime?       @map("returned_at")
   rejectedAt       DateTime?       @map("rejected_at")
+  rejectedBy       String?         @map("rejected_by")
+  rejectionReason String?         @db.Text @map("rejection_reason")
   createdBy        String?         @map("created_by")
   ownerAdminId     String?         @map("owner_admin_id")
   createdAt        DateTime        @default(now()) @map("created_at")
