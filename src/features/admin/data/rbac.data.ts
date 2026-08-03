@@ -62,6 +62,13 @@ export type PermissionModuleDefinition = {
 
 export const sidebarNavigation: NavigationItemDefinition[] = [
   {
+    label: "Home",
+    href: "/dashboard/home",
+    icon: Home,
+    menuPermission: "menu.home",
+    pagePermission: "home.view",
+  },
+  {
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
@@ -257,13 +264,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     icon: BarChart3,
     menuPermission: "menu.reports",
     pagePermission: "reports.view",
-  },
-  {
-    label: "Home",
-    href: "/dashboard/home",
-    icon: Home,
-    menuPermission: "menu.home",
-    pagePermission: "home.view",
   },
   {
     label: "BM Report",
