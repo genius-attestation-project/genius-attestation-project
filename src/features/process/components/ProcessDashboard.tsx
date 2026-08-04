@@ -142,11 +142,7 @@ export function ProcessDashboard() {
         const res = await fetch("/api/offices/all");
         if (!res.ok) return;
         const payload = await res.json();
-        // The shared endpoint also returns Assigned Office accounts. The Process
-        // toolbar intentionally exposes only persisted Office Location records.
-        setDestinationOffices(
-          (payload.offices || payload.data || []).filter((office: any) => office.type === "Office Location")
-        );
+        setDestinationOffices(payload.offices || payload.data || []);
       } catch (err) {
         console.error("Failed to load destination offices", err);
       }
