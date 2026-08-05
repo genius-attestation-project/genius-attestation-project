@@ -1,25 +1,19 @@
 "use client";
 
 import React from "react";
-import { X, Package, CheckCircle2, ArrowRight } from "lucide-react";
+import { X, Package } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { PriorityBadge } from "@/components/ui/PriorityBadge";
-import { formatBundleNumber } from "@/utils/format";
+import { formatDate, formatBundleNumber } from "@/utils/format";
+import { calculateNumberOfDays } from "@/utils/days-calculator";
 
 export type BundlePreviewItemData = {
-  slNo?: number;
+  slNo: number;
   trackingNumber: string;
-  registrationOffice?: string;
-  deliveryAt?: string;
-  collectedPerson?: string;
-  documentName?: string;
-  documentType?: string;
-  processType?: string;
-  mobileNumber?: string;
-  expressPriority?: string;
-  totalAmount?: number | string;
-  advanceAmount?: number | string;
-  balanceAmount?: number | string;
+  registrationDate: string;
+  documentName: string;
+  documentType: string;
+  processType: string;
+  numberOfDays: string;
 };
 
 export type BundlePreviewModalProps = {
@@ -32,7 +26,6 @@ export type BundlePreviewModalProps = {
 export function BundlePreviewModal({
   open,
   onClose,
-  onContinueReceive,
   bundleData,
 }: BundlePreviewModalProps) {
   if (!open || !bundleData) return null;
@@ -40,41 +33,50 @@ export function BundlePreviewModal({
   // Extract bundle identifier / from office name
   const rawBundleNo = bundleData.bundleNumber || bundleData.trackingNumber || "-";
   const displayBundleNo = formatBundleNumber(rawBundleNo);
-  const fromOfficeName = bundleData.fromOffice?.officeName || bundleData.fromOfficeName || bundleData.registeredOffice || "Origin Office";
+  const fromOfficeName =
+    bundleData.fromOffice?.officeName ||
+    bundleData.fromOfficeName ||
+    bundleData.registeredOffice ||
+    "Origin Office";
 
-  // Parse items into strict 13 fields list
-  const rawItems: any[] = Array.isArray(bundleData.items) && bundleData.items.length > 0
-    ? bundleData.items
-    : [bundleData];
+  // Parse items into strict 7 fields list
+  const rawItems: any[] =
+    Array.isArray(bundleData.items) && bundleData.items.length > 0
+      ? bundleData.items
+      : [bundleData];
 
-  const items = rawItems.map((item: any, idx: number) => {
+  const items: BundlePreviewItemData[] = rawItems.map((item: any, idx: number) => {
     const reg = item.registration || item;
-    const tot = Number(reg.totalCharges ?? reg.totalAmount ?? item.totalCharges ?? item.totalAmount ?? 0);
-    const adv = Number(reg.advancePaid ?? item.advancePaid ?? 0);
-    const bal = reg.balanceAmount !== undefined && reg.balanceAmount !== null
-      ? Number(reg.balanceAmount)
-      : Math.max(0, tot - adv);
-
     return {
       slNo: idx + 1,
-      trackingNumber: item.trackingNumber || reg.trackingNumber || "-",
-      registrationOffice: reg.regionOfRegistration || reg.registeredOffice || item.registeredOffice || item.fromOfficeName || "-",
-      deliveryAt: reg.deliveryLocation || item.deliveryLocation || "-",
-      collectedPerson: reg.collectedPerson || item.collectedPerson || "-",
-      documentName: reg.documentName || reg.customerName || item.customerName || item.clientName || "-",
-      documentType: reg.documentType || item.documentType || "-",
-      processType: reg.processType || reg.mainProcess || reg.externalProcess || item.processType || item.mainProcess || "-",
-      mobileNumber: reg.mobile || reg.mobileNumber || item.mobile || "-",
-      expressPriority: reg.priority || item.priority || "Normal",
-      totalAmount: tot,
-      advanceAmount: adv,
-      balanceAmount: bal,
+      trackingNumber: item.trackingNumber || reg?.trackingNumber || "-",
+      registrationDate: formatDate(
+        reg?.createdDate || reg?.createdAt || item.registrationDate || item.createdAt
+      ),
+      documentName:
+        reg?.documentName ||
+        reg?.customerName ||
+        item.documentName ||
+        item.customerName ||
+        item.clientName ||
+        "-",
+      documentType: reg?.documentType || item.documentType || "-",
+      processType:
+        reg?.processType ||
+        reg?.mainProcess ||
+        reg?.externalProcess ||
+        item.processType ||
+        item.mainProcess ||
+        "-",
+      numberOfDays: calculateNumberOfDays(
+        item.receivedAt || item.updatedAt || item.createdAt || reg?.createdAt
+      ),
     };
   });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] rounded-3xl bg-white shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden">
+      <div className="flex flex-col w-full max-w-5xl max-h-[90vh] rounded-3xl bg-white shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden">
         
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-white/10 dark:bg-white/5">
@@ -107,120 +109,98 @@ export function BundlePreviewModal({
 
         {/* Scrollable Content Body */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {items.map((doc) => (
-            <div
-              key={doc.slNo}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#12151c] space-y-5"
-            >
-              {/* 1. Bundle / Movement Overview Section */}
-              <div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-white/10">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-400">
-                    Bundle Information Overview
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                      SL No: <span className="font-mono text-slate-900 dark:text-white font-bold">{doc.slNo}</span>
-                    </span>
-                    <PriorityBadge priority={doc.expressPriority} />
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-medium block">Tracking Number</span>
-                    <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs">
+            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead className="border-b border-slate-200 bg-slate-100/80 uppercase font-extrabold tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                <tr>
+                  <th className="px-4 py-3.5 w-16">SL No</th>
+                  <th className="px-4 py-3.5">Tracking Number</th>
+                  <th className="px-4 py-3.5">Registration Date</th>
+                  <th className="px-4 py-3.5">Document Name</th>
+                  <th className="px-4 py-3.5">Document Type</th>
+                  <th className="px-4 py-3.5">Process Type</th>
+                  <th className="px-4 py-3.5">Number Of Days</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-white/10 bg-white dark:bg-[#12151c]">
+                {items.map((doc) => (
+                  <tr key={doc.slNo} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3.5 font-bold text-slate-600 dark:text-slate-400">{doc.slNo}</td>
+                    <td className="px-4 py-3.5 font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
                       {doc.trackingNumber}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Registration Office</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {doc.registrationOffice}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Delivery At</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {doc.deliveryAt}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Collection Of</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {doc.collectedPerson}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Mobile Number</span>
-                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                      {doc.mobileNumber}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Express Priority</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {doc.expressPriority}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Document Information Section */}
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2 dark:border-white/10 dark:text-slate-300">
-                  Document Information
-                </h3>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-medium block">Document Name</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-200">
+                      {doc.registrationDate}
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
                       {doc.documentName}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Document Type</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
                       {doc.documentType}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Process Type</span>
-                    <span className="font-bold text-blue-800 dark:text-blue-300">
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-blue-800 dark:text-blue-300">
                       {doc.processType}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-amber-700 dark:text-amber-400">
+                      {doc.numberOfDays}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              {/* 3. Payment Information Section */}
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 dark:border-white/10 dark:bg-white/5 space-y-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200 border-b border-slate-200/60 pb-1.5 dark:border-white/10">
-                  Payment Information
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-medium block">Total Amount</span>
-                    <span className="font-bold text-blue-700 dark:text-blue-400 text-sm">
-                      ₹{doc.totalAmount.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Advance Amount</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      ₹{doc.advanceAmount.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium block">Balance Amount</span>
-                    <span className={`font-bold text-sm ${doc.balanceAmount > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300"}`}>
-                      ₹{doc.balanceAmount.toLocaleString("en-IN")}
-                    </span>
-                  </div>
+          {/* Mobile Card Grid View */}
+          <div className="md:hidden space-y-4">
+            {items.map((doc) => (
+              <div
+                key={doc.slNo}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#12151c] space-y-3 text-xs"
+              >
+                <div>
+                  <span className="text-slate-400 font-medium block">SL No:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{doc.slNo}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Tracking Number:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+                    {doc.trackingNumber}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Registration Date:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {doc.registrationDate}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Document Name:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {doc.documentName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Document Type:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {doc.documentType}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Process Type:</span>
+                  <span className="font-bold text-blue-800 dark:text-blue-300">
+                    {doc.processType}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium block">Number Of Days:</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400">
+                    {doc.numberOfDays}
+                  </span>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Footer Actions */}
@@ -238,3 +218,4 @@ export function BundlePreviewModal({
     </div>
   );
 }
+
