@@ -102,7 +102,7 @@ export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameP
     if (userOfficeName?.trim()) {
       const office = await prisma.officeLocation.findFirst({
         where: {
-          officeName: { equals: userOfficeName.trim(), mode: "insensitive" },
+          officeName: userOfficeName.trim(),
           ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
         },
         select: { id: true },
@@ -128,7 +128,7 @@ export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameP
     const officeNameTrimmed = params.officeLocationName.trim();
     const office = await prisma.officeLocation.findFirst({
       where: {
-        officeName: { equals: officeNameTrimmed, mode: "insensitive" },
+        officeName: officeNameTrimmed,
         ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
       },
       select: { id: true },
