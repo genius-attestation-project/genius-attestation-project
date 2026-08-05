@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,
+      userId: session.user?.id,
     });
 
     if (!officeLocationName && !isSuperAdmin) {

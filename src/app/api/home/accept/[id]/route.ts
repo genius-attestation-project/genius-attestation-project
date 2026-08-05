@@ -17,6 +17,7 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
           ownerAdminId,
           officeLocationId: session.user?.officeLocationId,
           officeLocationName: session.user?.officeLocationName,
+          userId: session.user?.id,
         })
       : null;
     const acceptedByUserId = session?.user?.id;

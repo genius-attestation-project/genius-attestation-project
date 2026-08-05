@@ -217,10 +217,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const isUpdate = trigger === "update";
       const needsRefresh = !token.id || token.isAssignedOffice === undefined;
 
-      if (!isInitialSignIn && !isUpdate && !needsRefresh) {
-        return token;
-      }
-
       try {
         if (user && (user as any).accountType === "ASSIGNED_OFFICE") {
           token.id = user.id;

@@ -10,12 +10,18 @@ export async function POST(request: NextRequest) {
     const ownerAdminId = session?.user?.ownerAdminId;
     const performedBy = session?.user?.name || session?.user?.email || "System";
     const officeLocationName = session?.user?.officeLocationName;
+    const userId = session?.user?.id;
 
-    if (!ownerAdminId || !officeLocationName) {
+    if (!ownerAdminId) {
       return jsonError("Unauthorized", 401);
     }
 
-    const fromOfficeId = await resolveOfficeLocationId({ ownerAdminId, officeLocationName });
+    const fromOfficeId = await resolveOfficeLocationId({
+      ownerAdminId,
+      officeLocationId: session?.user?.officeLocationId,
+      officeLocationName,
+      userId,
+    });
     if (!fromOfficeId) return jsonError("Office not found", 404);
 
     const body = await request.json();

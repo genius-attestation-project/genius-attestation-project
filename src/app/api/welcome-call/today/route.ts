@@ -17,6 +17,7 @@ export async function GET() {
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,
+      userId: session.user?.id,
     });
 
     if (!officeLocationName) {

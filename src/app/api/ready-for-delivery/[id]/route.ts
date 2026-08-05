@@ -5,10 +5,6 @@ import { getReadyForDeliveryById } from "@/features/ready-for-delivery/server/re
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const denied = await requireApiPermission("ready_for_delivery.view");
   if (denied) return denied;
@@ -24,6 +20,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,
+      userId: session.user?.id,
     });
 
     if (!officeLocationName && !isSuperAdmin) {

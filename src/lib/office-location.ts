@@ -8,27 +8,7 @@ type ResolveOfficeLocationNameParams = {
 };
 
 export async function resolveOfficeLocationName(params: ResolveOfficeLocationNameParams): Promise<string | null> {
-  // 1. By officeLocationId
-  if (params.officeLocationId) {
-    const office = await prisma.officeLocation.findFirst({
-      where: {
-        id: params.officeLocationId,
-        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
-      },
-      select: { officeName: true },
-    });
-
-    if (office?.officeName?.trim()) {
-      return office.officeName.trim();
-    }
-  }
-
-  // 2. By officeLocationName
-  if (params.officeLocationName?.trim()) {
-    return params.officeLocationName.trim();
-  }
-
-  // 3. By userId DB lookup
+  // 1. Prioritize userId DB lookup if userId is provided (ensures real-time DB assignment over stale session values)
   if (params.userId) {
     const user = await prisma.user.findUnique({
       where: { id: params.userId },
@@ -58,7 +38,27 @@ export async function resolveOfficeLocationName(params: ResolveOfficeLocationNam
     }
   }
 
-  // 4. Fallback: Default to primary process office or first office for this ownerAdmin
+  // 2. Fallback to officeLocationId from params if userId lookup did not yield a result
+  if (params.officeLocationId) {
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        id: params.officeLocationId,
+        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
+      },
+      select: { officeName: true },
+    });
+
+    if (office?.officeName?.trim()) {
+      return office.officeName.trim();
+    }
+  }
+
+  // 3. Fallback to officeLocationName from params
+  if (params.officeLocationName?.trim()) {
+    return params.officeLocationName.trim();
+  }
+
+  // 4. Default to primary process office or first office for this ownerAdmin
   if (params.ownerAdminId) {
     const defaultOffice = await prisma.officeLocation.findFirst({
       where: { ownerAdminId: params.ownerAdminId },
@@ -75,32 +75,7 @@ export async function resolveOfficeLocationName(params: ResolveOfficeLocationNam
 }
 
 export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameParams): Promise<string | null> {
-  // 1. By officeLocationId
-  if (params.officeLocationId) {
-    const office = await prisma.officeLocation.findFirst({
-      where: {
-        id: params.officeLocationId,
-        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
-      },
-      select: { id: true },
-    });
-    if (office) return office.id;
-  }
-
-  // 2. By officeLocationName
-  if (params.officeLocationName?.trim()) {
-    const officeNameTrimmed = params.officeLocationName.trim();
-    const office = await prisma.officeLocation.findFirst({
-      where: {
-        officeName: { equals: officeNameTrimmed, mode: "insensitive" },
-        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
-      },
-      select: { id: true },
-    });
-    if (office) return office.id;
-  }
-
-  // 3. By userId DB lookup
+  // 1. Prioritize userId DB lookup if userId is provided (ensures real-time DB assignment over stale session values)
   if (params.userId) {
     const user = await prisma.user.findUnique({
       where: { id: params.userId },
@@ -136,7 +111,32 @@ export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameP
     }
   }
 
-  // 4. Fallback: Default to primary process office or first office for this ownerAdmin
+  // 2. Fallback to officeLocationId from params if userId lookup did not yield a result
+  if (params.officeLocationId) {
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        id: params.officeLocationId,
+        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
+      },
+      select: { id: true },
+    });
+    if (office) return office.id;
+  }
+
+  // 3. Fallback to officeLocationName from params
+  if (params.officeLocationName?.trim()) {
+    const officeNameTrimmed = params.officeLocationName.trim();
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        officeName: { equals: officeNameTrimmed, mode: "insensitive" },
+        ...(params.ownerAdminId ? { ownerAdminId: params.ownerAdminId } : {}),
+      },
+      select: { id: true },
+    });
+    if (office) return office.id;
+  }
+
+  // 4. Default to primary process office or first office for this ownerAdmin
   if (params.ownerAdminId) {
     const defaultOffice = await prisma.officeLocation.findFirst({
       where: { ownerAdminId: params.ownerAdminId },
@@ -149,5 +149,3 @@ export async function resolveOfficeLocationId(params: ResolveOfficeLocationNameP
 
   return null;
 }
-
-
