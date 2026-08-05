@@ -27,6 +27,8 @@ import { prisma } from "@/lib/prisma";
 
 const permissionCatalog = buildPermissionCatalog();
 let bootstrapPromise: Promise<void> | null = null;
+let rbacBootstrapped = false;
+const ensuredAdminRolesSet = new Set<string>();
 const safeDashboardNavigation = [sidebarNavigation[0]].filter(Boolean);
 
 type RoleRecord = Awaited<ReturnType<typeof fetchRolesFromDb>>[number];
@@ -153,6 +155,7 @@ async function assertUniqueOfficeName(
 }
 
 export async function ensureRbacBootstrap() {
+  if (rbacBootstrapped) return;
   if (!bootstrapPromise) {
     bootstrapPromise = (async () => {
       try {
@@ -167,6 +170,7 @@ export async function ensureRbacBootstrap() {
             create: permission,
           });
         }
+        rbacBootstrapped = true;
       } catch (error) {
         console.error("[rbac] Failed to bootstrap RBAC data.", error);
         throw error;
@@ -180,6 +184,7 @@ export async function ensureRbacBootstrap() {
 
 // Ensure default roles exist for a specific admin workspace
 export async function ensureAdminRoles(ownerAdminId: string) {
+  if (ensuredAdminRolesSet.has(ownerAdminId)) return;
   await ensureRbacBootstrap();
 
   for (const definition of defaultRoleDefinitions) {
@@ -233,6 +238,7 @@ export async function ensureAdminRoles(ownerAdminId: string) {
       }
     }
   }
+  ensuredAdminRolesSet.add(ownerAdminId);
 }
 
 async function fetchRolesFromDb(ownerAdminId: string) {
@@ -877,28 +883,6 @@ export async function deleteOfficeLocation(ownerAdminId: string, officeLocationI
 }
 
 export async function getSessionAccess(userId: string): Promise<SessionAccess | null> {
-  try {
-    await ensureRbacBootstrap();
-  } catch (error) {
-    console.error("[rbac] Bootstrap failed before session access lookup.", { userId, error });
-  }
-
-  const baseUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      ownerAdminId: true,
-    },
-  });
-
-  if (!baseUser) return null;
-
-  try {
-    await ensureAdminRoles(baseUser.ownerAdminId ?? baseUser.id);
-  } catch (error) {
-    console.error("[rbac] Role sync failed before session access lookup.", { userId, error });
-  }
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -913,6 +897,16 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   });
 
   if (!user) return null;
+
+  const ownerAdminId = user.ownerAdminId ?? user.id;
+
+  if (!rbacBootstrapped || !ensuredAdminRolesSet.has(ownerAdminId)) {
+    try {
+      await ensureAdminRoles(ownerAdminId);
+    } catch (error) {
+      console.error("[rbac] Role sync failed before session access lookup.", { userId, error });
+    }
+  }
 
   const isOwner = user.ownerAdminId === user.id;
 

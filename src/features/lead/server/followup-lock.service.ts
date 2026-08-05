@@ -5,12 +5,34 @@ import { prisma } from "@/lib/prisma";
 export const FOLLOWUP_LOCK_MESSAGE =
   "Your account has been locked because a scheduled followup was missed. Please contact your supervisor.";
 
+const lastLockCheckTime = new Map<string, number>();
+const LOCK_CHECK_INTERVAL_MS = 60_000; // 1 minute throttle per organization
+
+const userLockStateCache = new Map<string, { data: any; expiresAt: number }>();
+const USER_LOCK_STATE_TTL_MS = 30_000; // 30 seconds TTL per user
+
+export function clearLockCacheForUser(userId: string, ownerAdminId?: string) {
+  userLockStateCache.delete(userId);
+  if (ownerAdminId) {
+    lastLockCheckTime.delete(ownerAdminId);
+  }
+}
+
 function startOfToday() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
+  const cacheKey = ownerAdminId ?? "global";
+  const now = Date.now();
+  const lastCheck = lastLockCheckTime.get(cacheKey);
+
+  if (lastCheck && now - lastCheck < LOCK_CHECK_INTERVAL_MS) {
+    return 0;
+  }
+
+  lastLockCheckTime.set(cacheKey, now);
   const todayStart = startOfToday();
 
   const missedLeads = await prisma.lead.findMany({
@@ -78,6 +100,7 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
       },
     });
 
+    userLockStateCache.delete(userId);
     lockedUserIds.add(userId);
   }
 
@@ -85,7 +108,12 @@ export async function lockUsersWithMissedFollowups(ownerAdminId?: string) {
 }
 
 export async function getUserLockState(userId: string) {
-  return prisma.user.findUnique({
+  const cached = userLockStateCache.get(userId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
+  const data = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       isLocked: true,
@@ -99,6 +127,9 @@ export async function getUserLockState(userId: string) {
       },
     },
   });
+
+  userLockStateCache.set(userId, { data, expiresAt: Date.now() + USER_LOCK_STATE_TTL_MS });
+  return data;
 }
 
 export async function listMissedFollowupLocks(args: {
@@ -205,7 +236,7 @@ export async function unlockMissedFollowupUser(args: {
     return null;
   }
 
-  return prisma.user.update({
+  const result = await prisma.user.update({
     where: { id: lockedUser.id },
     data: {
       isLocked: false,
@@ -219,4 +250,7 @@ export async function unlockMissedFollowupUser(args: {
     },
     select: { id: true },
   });
+
+  clearLockCacheForUser(args.userId, args.ownerAdminId);
+  return result;
 }
