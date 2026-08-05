@@ -6,6 +6,7 @@ import {
   PackageCheck,
   Search,
   Truck,
+  Undo2,
   UserRoundSearch,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +26,8 @@ import type {
   ReadyForDeliveryStats,
 } from "@/features/ready-for-delivery/types/ready-for-delivery.types";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { DeliverModal } from "@/features/ready-for-delivery/components/DeliverModal";
+import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 
 type ReadyForDeliveryDashboardProps = {
   currentOfficeLocationName: string;
@@ -162,6 +165,28 @@ export function ReadyForDeliveryDashboard({
   const [country, setCountry] = useState("");
   const [officeLocation, setOfficeLocation] = useState("");
   const [date, setDate] = useState("");
+
+  const [deliverItem, setDeliverItem] = useState<ReadyForDeliveryItem | null>(null);
+  const [deliverModalOpen, setDeliverModalOpen] = useState(false);
+
+  const [advanceItem, setAdvanceItem] = useState<ReadyForDeliveryItem | null>(null);
+  const [advanceModalOpen, setAdvanceModalOpen] = useState(false);
+  const [undoLoadingId, setUndoLoadingId] = useState<string | null>(null);
+
+  async function handleUndoDelivery(id: string) {
+    if (!confirm("Are you sure you want to undo delivery details for this document?")) return;
+    setUndoLoadingId(id);
+    try {
+      const res = await fetch(`/api/ready-for-delivery/${id}/undo`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to undo delivery.");
+      await loadReadyForDelivery();
+    } catch (err: any) {
+      alert(err.message || "Failed to undo delivery.");
+    } finally {
+      setUndoLoadingId(null);
+    }
+  }
 
   async function loadReadyForDelivery(overrides?: Partial<{
     search: string;
@@ -472,9 +497,33 @@ export function ReadyForDeliveryDashboard({
                       <td className="px-5 py-4">{item.acceptedDate ?? "-"}</td>
                       <td className="px-5 py-4">{item.createdDate}</td>
                       <td className="px-5 py-4">
-                        <Button variant="secondary" size="sm" onClick={() => void handleOpenDetails(item.id)}>
-                          <UserRoundSearch size={16} /> View Details
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {item.trackingStatus !== "Delivered" && item.trackingStatus !== "Pending Approval" && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => {
+                                setDeliverItem(item);
+                                setDeliverModalOpen(true);
+                              }}
+                            >
+                              <Truck size={14} /> Deliver
+                            </Button>
+                          )}
+                          {item.trackingStatus !== "Delivered" && Boolean((item as any).deliveryType || (item as any).deliveryStatus || item.trackingStatus === "Pending Approval") && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              disabled={undoLoadingId === item.id}
+                              onClick={() => void handleUndoDelivery(item.id)}
+                            >
+                              <Undo2 size={14} /> {undoLoadingId === item.id ? "Undoing..." : "Undo Delivery"}
+                            </Button>
+                          )}
+                          <Button variant="secondary" size="sm" onClick={() => void handleOpenDetails(item.id)}>
+                            <UserRoundSearch size={16} /> View Details
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -511,6 +560,49 @@ export function ReadyForDeliveryDashboard({
           />
         )}
       </FormDrawer>
+
+      {deliverItem && (
+        <DeliverModal
+          isOpen={deliverModalOpen}
+          onClose={() => {
+            setDeliverModalOpen(false);
+            setDeliverItem(null);
+          }}
+          registrationId={deliverItem.id}
+          trackingNumber={deliverItem.registrationNumber}
+          customerName={deliverItem.clientName}
+          onSuccess={(result) => {
+            if (result.isDelivered || result.isPendingApproval) {
+              void loadReadyForDelivery();
+            } else if (result.requiresAdvancePayment && deliverItem) {
+              setAdvanceItem(deliverItem);
+              setAdvanceModalOpen(true);
+            }
+          }}
+        />
+      )}
+
+      {advanceItem && (
+        <AddAdvanceModal
+          isOpen={advanceModalOpen}
+          onClose={() => {
+            setAdvanceModalOpen(false);
+            setAdvanceItem(null);
+            void loadReadyForDelivery();
+          }}
+          registrationId={advanceItem.id}
+          trackingNumber={advanceItem.registrationNumber}
+          customerName={advanceItem.clientName}
+          totalCharges={advanceItem.amount}
+          currentApprovedAdvance={0}
+          currentBalance={advanceItem.amount}
+          onSuccess={() => {
+            setAdvanceModalOpen(false);
+            setAdvanceItem(null);
+            void loadReadyForDelivery();
+          }}
+        />
+      )}
     </div>
   );
 }

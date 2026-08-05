@@ -32,6 +32,14 @@ type ReadyForDeliveryRow = {
   approvalStatus: string;
   bmStatus: string;
   trackingStatus: string;
+  deliveryType: string | null;
+  deliveryUserId: string | null;
+  deliveryUserName: string | null;
+  courierCompanyId: string | null;
+  courierCompanyName: string | null;
+  courierTrackingNumber: string | null;
+  deliveryProofFileUrl: string | null;
+  deliveryStatus: string | null;
 };
 
 type ReadyForDeliveryQueryParams = {
@@ -84,7 +92,15 @@ function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem
     approvalStatus: row.approvalStatus,
     bmStatus: row.bmStatus,
     trackingStatus: row.trackingStatus,
-  };
+    deliveryType: row.deliveryType,
+    deliveryUserId: row.deliveryUserId,
+    deliveryUserName: row.deliveryUserName,
+    courierCompanyId: row.courierCompanyId,
+    courierCompanyName: row.courierCompanyName,
+    courierTrackingNumber: row.courierTrackingNumber,
+    deliveryProofFileUrl: row.deliveryProofFileUrl,
+    deliveryStatus: row.deliveryStatus,
+  } as any;
 }
 
 function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQueryParams) {
@@ -165,7 +181,15 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
       r.created_at AS "createdAt",
       r.approval_status AS "approvalStatus",
       r.bm_status AS "bmStatus",
-      r.tracking_status AS "trackingStatus"
+      r.tracking_status AS "trackingStatus",
+      r.delivery_type AS "deliveryType",
+      r.delivery_user_id AS "deliveryUserId",
+      r.delivery_user_name AS "deliveryUserName",
+      r.courier_company_id AS "courierCompanyId",
+      r.courier_company_name AS "courierCompanyName",
+      r.courier_tracking_number AS "courierTrackingNumber",
+      r.delivery_proof_file_url AS "deliveryProofFileUrl",
+      r.delivery_status AS "deliveryStatus"
     FROM registrations r
     LEFT JOIN document_movements dm ON dm.registration_id = r.id
     LEFT JOIN office_locations ol ON ol.id = dm.current_office_id
@@ -179,6 +203,9 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
           AND (
             r.bm_status = 'Accepted'
             OR r.approval_status = 'Accepted'
+            OR r.tracking_status = 'Ready for Delivery'
+            OR r.tracking_status = 'Pending Approval'
+            OR r.tracking_status = 'Delivered'
           )
         )
         OR
@@ -187,6 +214,9 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
           AND (
             dm.status = 'HOME'
             OR dm.current_status = 'READY_FOR_DELIVERY'
+            OR r.tracking_status = 'Ready for Delivery'
+            OR r.tracking_status = 'Pending Approval'
+            OR r.tracking_status = 'Delivered'
           )
         )
       )

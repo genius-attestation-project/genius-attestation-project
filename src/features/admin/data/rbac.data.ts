@@ -39,7 +39,8 @@ export const permissionActions = [
   "import", "downloadTemplate", "viewImportHistory",
   "comment", "reply", "forward", "inbox",
   "activate", "deactivate", "reset_password",
-  "complete", "transfer", "move", "login", "receive", "view_receipt", "retrieve"
+  "complete", "transfer", "move", "login", "receive", "view_receipt", "retrieve",
+  "deliver", "undo", "view_details"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -166,6 +167,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         href: "/dashboard/master-configuration/payment-mode",
         icon: CreditCard,
         menuPermission: "menu.master-configuration.payment-mode",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Courier Companies",
+        href: "/dashboard/master-configuration/courier-companies",
+        icon: Truck,
+        menuPermission: "menu.master-configuration.courier-companies",
         pagePermission: "master_configuration.view",
       },
     ],
@@ -452,6 +460,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
   },
   {
+    key: "courier_companies",
+    label: "Courier Companies",
+    description: "Courier Companies master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
     key: "customer_type",
     label: "Customer Type",
     description: "Customer Type master data management.",
@@ -503,7 +517,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "account_update", label: "Account Update", description: "Account update access." },
   { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
   { key: "account_admin_approval", label: "Account Admin Approval", description: "Account admin approval access." },
-  { key: "ready_for_delivery", label: "Ready For Delivery", description: "Delivery queue access." },
+  {
+    key: "ready_for_delivery",
+    label: "Ready For Delivery",
+    description: "Delivery queue access.",
+    actions: ["view", "deliver", "undo", "view_details", "export"]
+  },
   { key: "welcome_call", label: "Welcome Call", description: "Welcome call access." },
   { key: "attendance", label: "Attendance", description: "View own attendance records." },
   { key: "attendance_approval", label: "Attendance Approval", description: "Approve or reject attendance records." },

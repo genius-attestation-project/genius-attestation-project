@@ -19,6 +19,7 @@ const pageTitles: Record<string, string> = {
   "sub-packages": "Sub Process",
   "customer-types": "Customer Types",
   "lead-sources": "Lead Sources",
+  "courier-companies": "Courier Companies",
 };
 
 export default function MasterConfigurationDynamicPage({

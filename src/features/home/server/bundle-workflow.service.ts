@@ -370,63 +370,137 @@ export async function receiveBundle(params: {
           },
         });
 
-        await tx.documentMovement.updateMany({
-          where: { trackingNumber: item.trackingNumber },
-          data: {
-            status: "Received",
-            currentOfficeId: bundle.toOfficeId,
-            currentModule: "DOCUMENT_IN_HAND",
-            receivedAt: new Date(),
-            receivedBy: params.userName || params.userId,
-          },
-        });
-
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
+          include: { documentMovements: true },
         });
 
-        if (reg) {
-          await tx.registration.update({
+        const subPackageMovement = await tx.subPackageMovement.findFirst({
+          where: { trackingNumber: item.trackingNumber, status: "Completed" },
+        });
+        const hasCompletedSubPackage = Boolean(subPackageMovement) || reg?.documentMovements?.some((dm: any) => dm.currentStatus === "Completed");
+
+        const receivingOfficeName = bundle.toOffice?.officeName || "";
+        const deliveryLocation = reg?.deliveryLocation || "";
+        const isDeliveryLocationMatch = Boolean(
+          receivingOfficeName &&
+          deliveryLocation &&
+          receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
+        );
+
+        const isReadyForDeliveryAutoRoute = hasCompletedSubPackage && isDeliveryLocationMatch;
+
+        if (isReadyForDeliveryAutoRoute) {
+          await tx.documentMovement.updateMany({
             where: { trackingNumber: item.trackingNumber },
             data: {
-              trackingStatus: "Document In Hand",
-              bmStatus: "Received",
+              status: "Ready for Delivery",
+              currentOfficeId: bundle.toOfficeId,
+              currentModule: "READY_FOR_DELIVERY",
+              currentStatus: "READY_FOR_DELIVERY",
+              receivedAt: new Date(),
+              receivedBy: params.userName || params.userId,
             },
           });
 
-          if (tx.documentWorkflowHistory) {
-            await tx.documentWorkflowHistory.create({
+          if (reg) {
+            await tx.registration.update({
+              where: { trackingNumber: item.trackingNumber },
               data: {
-                documentId: reg.id,
+                trackingStatus: "Ready for Delivery",
+                bmStatus: "Ready for Delivery",
+              },
+            });
+
+            if (tx.documentWorkflowHistory) {
+              await tx.documentWorkflowHistory.create({
+                data: {
+                  documentId: reg.id,
+                  trackingNumber: item.trackingNumber,
+                  workflowStep: "Automatic Ready For Delivery Routing",
+                  status: "Ready for Delivery",
+                  performedBy: params.userName || params.userId,
+                  remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Core Sub Process completed & Delivery Location matches receiving office)`,
+                  ownerAdminId: params.ownerAdminId,
+                },
+              });
+            }
+
+            await tx.movementHistory.create({
+              data: {
                 trackingNumber: item.trackingNumber,
-                workflowStep: "Receive Bundle Item",
-                status: "Received",
+                action: "Automatic Ready For Delivery Route",
+                oldStatus: "Pending Receive",
+                newStatus: "Ready for Delivery",
                 performedBy: params.userName || params.userId,
-                remarks: `Received at ${bundle.toOffice?.officeName || "Office"} from Bundle ${bundle.bundleNumber}`,
-                ownerAdminId: params.ownerAdminId,
+                remarks: `Routed directly to Ready For Delivery from Bundle ${bundle.bundleNumber}`,
+              },
+            });
+
+            await tx.auditTrail.create({
+              data: {
+                registrationId: reg.id,
+                action: "AUTO_ROUTED_TO_READY_FOR_DELIVERY",
+                performedBy: params.userName || params.userId,
+                description: `Core Sub Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
               },
             });
           }
-
-          await tx.movementHistory.create({
+        } else {
+          await tx.documentMovement.updateMany({
+            where: { trackingNumber: item.trackingNumber },
             data: {
-              trackingNumber: item.trackingNumber,
-              action: "Bundle Receive",
-              oldStatus: "Pending Receive",
-              newStatus: "Document In Hand",
-              performedBy: params.userName || params.userId,
-              remarks: `Received from Bundle ${bundle.bundleNumber}`,
+              status: "Received",
+              currentOfficeId: bundle.toOfficeId,
+              currentModule: "DOCUMENT_IN_HAND",
+              receivedAt: new Date(),
+              receivedBy: params.userName || params.userId,
             },
           });
 
-          await tx.auditTrail.create({
-            data: {
-              registrationId: reg.id,
-              action: "BUNDLE_ITEM_RECEIVED",
-              performedBy: params.userName || params.userId,
-              description: `Received in Bundle ${bundle.bundleNumber}`,
-            },
-          });
+          if (reg) {
+            await tx.registration.update({
+              where: { trackingNumber: item.trackingNumber },
+              data: {
+                trackingStatus: "Document In Hand",
+                bmStatus: "Received",
+              },
+            });
+
+            if (tx.documentWorkflowHistory) {
+              await tx.documentWorkflowHistory.create({
+                data: {
+                  documentId: reg.id,
+                  trackingNumber: item.trackingNumber,
+                  workflowStep: "Receive Bundle Item",
+                  status: "Received",
+                  performedBy: params.userName || params.userId,
+                  remarks: `Received at ${bundle.toOffice?.officeName || "Office"} from Bundle ${bundle.bundleNumber}`,
+                  ownerAdminId: params.ownerAdminId,
+                },
+              });
+            }
+
+            await tx.movementHistory.create({
+              data: {
+                trackingNumber: item.trackingNumber,
+                action: "Bundle Receive",
+                oldStatus: "Pending Receive",
+                newStatus: "Document In Hand",
+                performedBy: params.userName || params.userId,
+                remarks: `Received from Bundle ${bundle.bundleNumber}`,
+              },
+            });
+
+            await tx.auditTrail.create({
+              data: {
+                registrationId: reg.id,
+                action: "BUNDLE_ITEM_RECEIVED",
+                performedBy: params.userName || params.userId,
+                description: `Received in Bundle ${bundle.bundleNumber}`,
+              },
+            });
+          }
         }
       }
     }

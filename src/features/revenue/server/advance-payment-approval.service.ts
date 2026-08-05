@@ -413,7 +413,7 @@ export async function approveAdvancePayment(args: {
 
   const reg = await prisma.registration.findUnique({
     where: { id: approval.registrationId },
-    select: { totalCharges: true, approvalStatus: true },
+    select: { totalCharges: true, approvalStatus: true, deliveryType: true, deliveryStatus: true, trackingStatus: true },
   });
 
   const totalCharges = Number(reg?.totalCharges ?? approval.totalAmount);
@@ -435,6 +435,8 @@ export async function approveAdvancePayment(args: {
     },
   });
 
+  const shouldAutoDeliver = newBalanceAmount === 0 && Boolean(reg?.deliveryType || reg?.deliveryStatus);
+
   // 3. Update registration officially confirming advance & new balance
   await prisma.registration.update({
     where: { id: approval.registrationId },
@@ -446,12 +448,30 @@ export async function approveAdvancePayment(args: {
       advancePaymentApprovedBy: approvedByName,
       advancePaymentApprovedAt: now,
       advancePaymentRejectionReason: null,
+      ...(shouldAutoDeliver
+        ? {
+            trackingStatus: "Delivered",
+            deliveryStatus: "Delivered",
+            bmStatus: "Delivered",
+          }
+        : {}),
       auditTrail: {
-        create: {
-          action: "Advance Payment Approved",
-          description: `Advance payment request of ₹${Number(approval.advanceAmount).toLocaleString()} was approved by ${approvedByName}. Total Advance Paid is now ₹${newTotalApprovedAdvance.toLocaleString()}, Balance: ₹${newBalanceAmount.toLocaleString()}.`,
-          performedBy: approvedByName,
-        },
+        create: [
+          {
+            action: "Advance Payment Approved",
+            description: `Advance payment request of ₹${Number(approval.advanceAmount).toLocaleString()} was approved by ${approvedByName}. Total Advance Paid is now ₹${newTotalApprovedAdvance.toLocaleString()}, Balance: ₹${newBalanceAmount.toLocaleString()}.`,
+            performedBy: approvedByName,
+          },
+          ...(shouldAutoDeliver
+            ? [
+                {
+                  action: "DELIVERED",
+                  description: `Document status automatically updated to Delivered after advance payment approval (Balance = 0).`,
+                  performedBy: approvedByName,
+                },
+              ]
+            : []),
+        ],
       },
     },
   });
