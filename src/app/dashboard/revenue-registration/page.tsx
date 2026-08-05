@@ -18,6 +18,7 @@ export default async function RevenueRegistrationPage() {
     ownerAdminId: session.user.ownerAdminId ?? "",
     officeLocationId: session.user.officeLocationId,
     officeLocationName: session.user.officeLocationName,
+    userId: session.user.id,
   });
 
   const hasExportPermission = hasPermission(session.user, "revenue_registration.export");

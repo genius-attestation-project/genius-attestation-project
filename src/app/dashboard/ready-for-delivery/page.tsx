@@ -17,6 +17,7 @@ export default async function ReadyForDeliveryPage() {
     ownerAdminId: session.user.ownerAdminId ?? "",
     officeLocationId: session.user.officeLocationId,
     officeLocationName: session.user.officeLocationName,
+    userId: session.user.id,
   });
 
   return <ReadyForDeliveryDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;

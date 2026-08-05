@@ -14,6 +14,7 @@ export default async function HomePage() {
     ownerAdminId: session.user.ownerAdminId ?? "",
     officeLocationId: session.user.officeLocationId,
     officeLocationName: session.user.officeLocationName,
+    userId: session.user.id,
   });
 
   return <HomeDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
