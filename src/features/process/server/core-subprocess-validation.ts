@@ -101,7 +101,7 @@ export async function verifyCoreSubProcessCompleted(
         coreSubPackageId: coreSubPkgId,
         coreSubPackageName: coreSubPkgName,
         processType: processTypeName,
-        message: "Cannot move this document to Ready For Delivery because the Core SubProcess has not been completed.",
+        message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
       };
     }
   }
@@ -129,6 +129,6 @@ export async function verifyCoreSubProcessCompleted(
   return {
     isCompleted: false,
     processType: processTypeName || null,
-    message: "Cannot move this document to Ready For Delivery because the Core SubProcess has not been completed.",
+    message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
   };
 }

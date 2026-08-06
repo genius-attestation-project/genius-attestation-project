@@ -156,6 +156,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Unknown action" }, { status: 400 });
   } catch (error: any) {
     console.error("[WORKSPACE_POST]", error);
-    return NextResponse.json({ message: error.message || "Internal server error." }, { status: 500 });
+    const message = error.message || "Internal server error.";
+    const status = message.includes("Main Process") || message.includes("Ready For Delivery") ? 400 : 500;
+    return NextResponse.json({ message, error: message }, { status });
   }
 }

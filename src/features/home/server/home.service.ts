@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
 import { resolveOfficeLocationId } from "@/lib/office-location";
+import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 function logHomeWorkflow(message: string, payload: Record<string, unknown>) {
   console.info(`[home] ${message}`, payload);
@@ -257,6 +258,14 @@ export async function markReadyForDelivery(params: {
     });
 
     if (!movement) throw new Error("Document movement not found in HOME.");
+
+    const coreCheck = await verifyCoreSubProcessCompleted(movement.trackingNumber, params.ownerAdminId);
+    if (!coreCheck.isCompleted) {
+      throw new Error(
+        coreCheck.message ||
+          "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
+      );
+    }
 
     const updated = await tx.documentMovement.update({
       where: { trackingNumber: movement.trackingNumber },

@@ -111,9 +111,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: any) {
     console.error("Home API POST Error:", error);
+    const message = error.message || "Failed to process request";
+    const status = message.includes("Main Process") || message.includes("Ready For Delivery") ? 400 : 500;
     return NextResponse.json(
-      { error: error.message || "Failed to process request" },
-      { status: 500 }
+      { error: message, message },
+      { status }
     );
   }
 }

@@ -994,25 +994,15 @@ export async function receiveBundleDocuments(params: {
 
     const totalItems = bundle.items.length;
     const selectedSet = new Set(params.selectedTrackingNumbers);
+    const validationFailures: Array<{ trackingNumber: string; message: string }> = [];
+    const successfullyReceivedTrackings: string[] = [];
 
     for (const item of bundle.items) {
       if (selectedSet.has(item.trackingNumber)) {
-        await tx.bundleItem.update({
-          where: { id: item.id },
-          data: {
-            status: "Received",
-            receivedAt: new Date(),
-            receivedBy: params.userName || params.userId,
-          },
-        });
-
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
           include: { documentMovements: true },
         });
-
-        const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-        const hasCompletedSubPackage = coreSubProcessCheck.isCompleted;
 
         const targetOffice = await tx.officeLocation.findFirst({
           where: { OR: [{ id: params.officeId }, { officeName: params.officeId }] },
@@ -1026,9 +1016,30 @@ export async function receiveBundleDocuments(params: {
           receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
         );
 
-        const isReadyForDeliveryAutoRoute = hasCompletedSubPackage && isDeliveryLocationMatch;
+        if (isDeliveryLocationMatch) {
+          const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+          if (!coreSubProcessCheck.isCompleted) {
+            validationFailures.push({
+              trackingNumber: item.trackingNumber,
+              message:
+                coreSubProcessCheck.message ||
+                "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
+            });
+            continue;
+          }
+        }
 
-        if (isReadyForDeliveryAutoRoute) {
+        await tx.bundleItem.update({
+          where: { id: item.id },
+          data: {
+            status: "Received",
+            receivedAt: new Date(),
+            receivedBy: params.userName || params.userId,
+          },
+        });
+        successfullyReceivedTrackings.push(item.trackingNumber);
+
+        if (isDeliveryLocationMatch) {
           await tx.documentMovement.updateMany({
             where: { trackingNumber: item.trackingNumber },
             data: {
@@ -1100,7 +1111,14 @@ export async function receiveBundleDocuments(params: {
       }
     }
 
-    const receivedCount = selectedSet.size;
+    if (successfullyReceivedTrackings.length === 0 && validationFailures.length > 0) {
+      throw new Error(
+        validationFailures[0]?.message ||
+          "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
+      );
+    }
+
+    const receivedCount = successfullyReceivedTrackings.length;
     const isFullReceive = receivedCount >= totalItems;
 
     if (isFullReceive) {
@@ -1109,7 +1127,6 @@ export async function receiveBundleDocuments(params: {
         data: { status: "Received" },
       });
     } else {
-      // Partial receive: Remaining unreceived items stay in bundle or create a new bundle
       await tx.bundle.update({
         where: { id: params.bundleId },
         data: { status: "Partially Received" },
@@ -1120,6 +1137,7 @@ export async function receiveBundleDocuments(params: {
       success: true,
       receivedCount,
       isFullReceive,
+      failures: validationFailures,
     };
   });
 }

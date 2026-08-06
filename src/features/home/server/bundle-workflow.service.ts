@@ -357,27 +357,16 @@ export async function receiveBundle(params: {
   }
 
   const receivedSet = new Set(params.receivedTrackingNumbers);
-  const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
+  const validationFailures: Array<{ trackingNumber: string; message: string }> = [];
+  const successfullyReceivedTrackings: string[] = [];
 
   return prisma.$transaction(async (tx: any) => {
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
-        await tx.bundleItem.update({
-          where: { id: item.id },
-          data: {
-            status: "Received",
-            receivedAt: new Date(),
-            receivedBy: params.userName || params.userId,
-          },
-        });
-
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
           include: { documentMovements: true },
         });
-
-        const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-        const hasCompletedSubPackage = coreSubProcessCheck.isCompleted;
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";
@@ -387,9 +376,30 @@ export async function receiveBundle(params: {
           receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
         );
 
-        const isReadyForDeliveryAutoRoute = hasCompletedSubPackage && isDeliveryLocationMatch;
+        if (isDeliveryLocationMatch) {
+          const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+          if (!coreSubProcessCheck.isCompleted) {
+            validationFailures.push({
+              trackingNumber: item.trackingNumber,
+              message:
+                coreSubProcessCheck.message ||
+                "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
+            });
+            continue;
+          }
+        }
 
-        if (isReadyForDeliveryAutoRoute) {
+        await tx.bundleItem.update({
+          where: { id: item.id },
+          data: {
+            status: "Received",
+            receivedAt: new Date(),
+            receivedBy: params.userName || params.userId,
+          },
+        });
+        successfullyReceivedTrackings.push(item.trackingNumber);
+
+        if (isDeliveryLocationMatch) {
           await tx.documentMovement.updateMany({
             where: { trackingNumber: item.trackingNumber },
             data: {
@@ -504,17 +514,31 @@ export async function receiveBundle(params: {
       }
     }
 
-    if (isFullReceive) {
+    if (successfullyReceivedTrackings.length === 0 && validationFailures.length > 0) {
+      throw new Error(
+        validationFailures[0]?.message ||
+          "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
+      );
+    }
+
+    const successSet = new Set(successfullyReceivedTrackings);
+    const unreceivedItems = (bundle.items as any[]).filter(
+      (item: any) => !successSet.has(item.trackingNumber)
+    );
+
+    if (unreceivedItems.length === 0) {
       await tx.bundle.update({
         where: { id: bundle.id },
         data: { status: "Received" },
       });
-      return { success: true, isSplit: false, bundleNumber: bundle.bundleNumber };
+      return {
+        success: true,
+        isSplit: false,
+        bundleNumber: bundle.bundleNumber,
+        receivedCount: successfullyReceivedTrackings.length,
+        failures: validationFailures,
+      };
     } else {
-      const unreceivedItems = (bundle.items as any[]).filter(
-        (item: any) => !receivedSet.has(item.trackingNumber)
-      );
-
       const splitBundleNumber = `${bundle.bundleNumber}-S`;
 
       const splitBundle = await tx.bundle.create({
@@ -559,6 +583,8 @@ export async function receiveBundle(params: {
         originalBundleNumber: bundle.bundleNumber,
         splitBundleNumber,
         remainingCount: unreceivedItems.length,
+        receivedCount: successfullyReceivedTrackings.length,
+        failures: validationFailures,
       };
     }
   });
