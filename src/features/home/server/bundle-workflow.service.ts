@@ -358,7 +358,6 @@ export async function receiveBundle(params: {
 
   const receivedSet = new Set(params.receivedTrackingNumbers);
   const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
-  const blockedDocuments: { trackingNumber: string; message: string }[] = [];
 
   return prisma.$transaction(async (tx: any) => {
     for (const item of (bundle.items as any[])) {
@@ -379,13 +378,6 @@ export async function receiveBundle(params: {
 
         const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
         const hasCompletedMainProcess = mainProcessCheck.isCompleted;
-
-        if (!hasCompletedMainProcess) {
-          blockedDocuments.push({
-            trackingNumber: item.trackingNumber,
-            message: mainProcessCheck.message || "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
-          });
-        }
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";
@@ -512,10 +504,6 @@ export async function receiveBundle(params: {
       }
     }
 
-    const validationWarningMessage = blockedDocuments.length > 0
-      ? "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
-      : undefined;
-
     if (isFullReceive) {
       await tx.bundle.update({
         where: { id: bundle.id },
@@ -525,8 +513,6 @@ export async function receiveBundle(params: {
         success: true,
         isSplit: false,
         bundleNumber: bundle.bundleNumber,
-        blockedDocuments,
-        warning: validationWarningMessage,
       };
     } else {
       const unreceivedItems = (bundle.items as any[]).filter(
@@ -577,8 +563,6 @@ export async function receiveBundle(params: {
         originalBundleNumber: bundle.bundleNumber,
         splitBundleNumber,
         remainingCount: unreceivedItems.length,
-        blockedDocuments,
-        warning: validationWarningMessage,
       };
     }
   });

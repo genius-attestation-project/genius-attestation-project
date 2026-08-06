@@ -228,9 +228,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
         throw new Error(body.error || "Failed to receive bundle");
       }
 
-      if (body.warning) {
-        alert(body.warning);
-      } else if (body.isSplit) {
+      if (body.isSplit) {
         alert(
           `Received ${bundleReceivedSelections.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
         );
@@ -267,9 +265,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
         throw new Error(body.error || "Failed to receive bundle");
       }
 
-      if (body.warning) {
-        alert(body.warning);
-      } else if (body.isSplit) {
+      if (body.isSplit) {
         alert(
           `Received ${selectedTrackingNumbers.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
         );
