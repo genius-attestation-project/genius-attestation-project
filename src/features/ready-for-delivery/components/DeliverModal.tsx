@@ -116,20 +116,31 @@ export function DeliverModal({
     e.preventDefault();
     setError(null);
 
+    if (!deliveryType || !["User", "Courier"].includes(deliveryType)) {
+      setError("Please complete all mandatory delivery information before continuing.");
+      return;
+    }
+
     if (deliveryType === "User" && !selectedUserId) {
-      setError("Please select a user.");
+      setError("Please complete all mandatory delivery information before continuing.");
       return;
     }
 
     if (deliveryType === "Courier") {
-      if (!selectedCourierId) {
-        setError("Please select a courier company.");
+      if (!selectedCourierId || !courierTrackingNumber.trim()) {
+        setError("Please complete all mandatory delivery information before continuing.");
         return;
       }
-      if (!courierTrackingNumber.trim()) {
-        setError("Please enter the courier tracking number.");
-        return;
-      }
+    }
+
+    if (uploadingFile) {
+      setError("Delivery proof file upload is in progress. Please wait for upload to complete.");
+      return;
+    }
+
+    if (!proofFileId) {
+      setError("Please complete all mandatory delivery information before continuing.");
+      return;
     }
 
     setSubmitting(true);
@@ -261,7 +272,7 @@ export function DeliverModal({
           {/* Delivery Proof Upload */}
           <div className="space-y-2">
             <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Delivery Proof Upload (Auto-Compressed)
+              Delivery Proof Upload * (Auto-Compressed)
             </label>
             <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-4 text-center hover:bg-slate-100/50 transition cursor-pointer dark:border-white/10 dark:bg-white/5">
               <input
@@ -283,7 +294,7 @@ export function DeliverModal({
                 <div className="space-y-1 text-slate-500 dark:text-slate-400">
                   <Upload size={22} className="mx-auto text-slate-400" />
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Click or drag file to upload delivery proof
+                    Click or drag file to upload delivery proof *
                   </p>
                   <p className="text-[11px] text-slate-400">Images auto-compressed automatically before upload</p>
                 </div>
@@ -297,7 +308,7 @@ export function DeliverModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             Close
           </Button>
-          <Button type="submit" form="deliver-form" disabled={submitting || uploadingFile}>
+          <Button type="submit" form="deliver-form" disabled={submitting || uploadingFile || !proofFileId}>
             <Save size={16} />
             {submitting ? "Transferring..." : "Transfer to Ready For Delivery"}
           </Button>

@@ -397,7 +397,7 @@ export function ReadyForDeliveryDashboard({
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm font-bold">Office Location</span>
+            <span className="text-sm font-bold">Registration Office</span>
             <SearchableSelect
               value={officeLocation}
               options={officeOptions}
@@ -405,7 +405,7 @@ export function ReadyForDeliveryDashboard({
                 setOfficeLocation(nextValue);
                 void loadReadyForDelivery({ officeLocation: nextValue });
               }}
-              placeholder="All offices"
+              placeholder="All Registration Offices"
             />
           </label>
 

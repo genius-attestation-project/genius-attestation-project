@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
+import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 export async function POST(
   request: NextRequest,
@@ -28,21 +29,23 @@ export async function POST(
       proofFileId,
     } = body;
 
+    // Mandatory Field Validations
     if (!deliveryType || !["User", "Courier"].includes(deliveryType)) {
-      return jsonError("Delivery type must be 'User' or 'Courier'.", 400);
+      return jsonError("Please complete all mandatory delivery information before continuing.", 400);
     }
 
     if (deliveryType === "User" && !deliveryUserId) {
-      return jsonError("User is required for User delivery type.", 400);
+      return jsonError("Please complete all mandatory delivery information before continuing.", 400);
     }
 
     if (deliveryType === "Courier") {
-      if (!courierCompanyId) {
-        return jsonError("Courier company is required for Courier delivery type.", 400);
+      if (!courierCompanyId || !courierTrackingNumber || !courierTrackingNumber.trim()) {
+        return jsonError("Please complete all mandatory delivery information before continuing.", 400);
       }
-      if (!courierTrackingNumber || !courierTrackingNumber.trim()) {
-        return jsonError("Courier tracking number is required.", 400);
-      }
+    }
+
+    if (!proofFileId) {
+      return jsonError("Please complete all mandatory delivery information before continuing.", 400);
     }
 
     const reg = await prisma.registration.findFirst({
@@ -54,6 +57,15 @@ export async function POST(
 
     if (!reg) {
       return jsonError("Registration not found.", 404);
+    }
+
+    // 1. CORE SUBPROCESS VALIDATION BEFORE READY FOR DELIVERY / DELIVERY
+    const coreCheck = await verifyCoreSubProcessCompleted(reg.trackingNumber, ownerAdminId);
+    if (!coreCheck.isCompleted) {
+      return jsonError(
+        coreCheck.message || "Cannot move this document to Ready For Delivery because the Core SubProcess has not been completed.",
+        400
+      );
     }
 
     // Lookup user name if User type
@@ -77,20 +89,18 @@ export async function POST(
     }
 
     // Lookup proof file URL
-    let deliveryProofFileUrl: string | null = null;
-    let deliveryProofFileName: string | null = null;
-
-    if (proofFileId) {
-      const storage = await prisma.fileStorage.findUnique({
-        where: { id: proofFileId },
-      });
-      if (storage) {
-        deliveryProofFileUrl = `/api/files/${storage.id}/view`;
-        deliveryProofFileName = storage.originalName;
-      }
+    const storage = await prisma.fileStorage.findUnique({
+      where: { id: proofFileId },
+    });
+    if (!storage) {
+      return jsonError("Please complete all mandatory delivery information before continuing.", 400);
     }
+    const deliveryProofFileUrl = `/api/files/${storage.id}/view`;
+    const deliveryProofFileName = storage.originalName;
 
-    const balanceAmount = Number(reg.balanceAmount ?? 0);
+    const totalCharges = Number(reg.totalCharges ?? 0);
+    const advancePaid = Number(reg.advancePaid ?? 0);
+    const balanceAmount = Number(reg.balanceAmount ?? Math.max(0, totalCharges - advancePaid));
     const performedByName = session.user?.name || session.user?.email || "System";
 
     // CASE 1: Balance Amount == 0 -> Immediate Delivered
@@ -153,48 +163,7 @@ export async function POST(
       });
     }
 
-    // CASE 2: Balance Amount > 0
-    const hasAdvanceApproval = await prisma.advancePaymentApproval.findFirst({
-      where: { registrationId: reg.id, ownerAdminId },
-    });
-
-    const isAlreadySubmitted = reg.advancePaymentSubmitted || Boolean(hasAdvanceApproval);
-
-    if (isAlreadySubmitted) {
-      // User already completed Advance popup once -> Reuse payment info, no advance popup again
-      await prisma.registration.update({
-        where: { id: reg.id },
-        data: {
-          deliveryType,
-          deliveryUserId: deliveryType === "User" ? deliveryUserId : null,
-          deliveryUserName: deliveryType === "User" ? deliveryUserName : null,
-          courierCompanyId: deliveryType === "Courier" ? courierCompanyId : null,
-          courierCompanyName: deliveryType === "Courier" ? courierCompanyName : null,
-          courierTrackingNumber: deliveryType === "Courier" ? courierTrackingNumber?.trim() : null,
-          deliveryProofFileUrl,
-          deliveryProofFileName,
-          deliveryStatus: "Pending Approval",
-          trackingStatus: "Pending Approval",
-          auditTrail: {
-            create: {
-              action: "DELIVERY_DETAILS_ADDED",
-              performedBy: performedByName,
-              description: `Delivery details saved via ${deliveryType}. Pending payment approval.`,
-            },
-          },
-        },
-      });
-
-      return jsonOk({
-        success: true,
-        isDelivered: false,
-        isPendingApproval: true,
-        requiresAdvancePayment: false,
-        message: "Delivery details saved. Document remains Pending Approval.",
-      });
-    }
-
-    // Save delivery details on registration and signal frontend to open Advance popup
+    // CASE 2: Balance Amount > 0 -> Stop delivery process, require remaining payment
     await prisma.registration.update({
       where: { id: reg.id },
       data: {
@@ -211,7 +180,7 @@ export async function POST(
           create: {
             action: "DELIVERY_STARTED",
             performedBy: performedByName,
-            description: `Delivery initiated via ${deliveryType}. Advance payment required.`,
+            description: `Delivery initiated via ${deliveryType}. Remaining balance of ₹${balanceAmount.toLocaleString()} required before delivery.`,
           },
         },
       },
@@ -221,7 +190,10 @@ export async function POST(
       success: true,
       isDelivered: false,
       requiresAdvancePayment: true,
-      message: "Delivery details saved. Please submit advance payment.",
+      pendingBalance: balanceAmount,
+      totalCharges,
+      advancePaid,
+      message: `Delivery details saved. Remaining balance of ₹${balanceAmount.toLocaleString()} is required to complete delivery.`,
     });
   } catch (error: any) {
     console.error("[POST /api/ready-for-delivery/[id]/deliver] Error:", error);

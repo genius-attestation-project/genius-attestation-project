@@ -140,9 +140,8 @@ function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQue
   }
 
   if (officeLocation) {
-    const sourceMatches = normalizeText(row.regionOfRegistration) === officeLocation;
-    const deliveryMatches = normalizeText(row.deliveryLocation) === officeLocation;
-    if (!sourceMatches && !deliveryMatches) {
+    const regionMatches = normalizeText(row.regionOfRegistration) === officeLocation;
+    if (!regionMatches) {
       return false;
     }
   }
@@ -197,28 +196,15 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
     LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
     LEFT JOIN users creator_user ON creator_user.id = r.created_by
     WHERE r.owner_admin_id = ${ownerAdminId}
+      AND (${officeLocationName} IS NULL OR LOWER(COALESCE(r.region_of_registration, '')) = LOWER(${officeLocationName}))
       AND (
-        (
-          (${officeLocationName} IS NULL OR LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName}))
-          AND (
-            r.bm_status = 'Accepted'
-            OR r.approval_status = 'Accepted'
-            OR r.tracking_status = 'Ready for Delivery'
-            OR r.tracking_status = 'Pending Approval'
-            OR r.tracking_status = 'Delivered'
-          )
-        )
-        OR
-        (
-          (${officeLocationName} IS NULL OR LOWER(ol.office_name) = LOWER(${officeLocationName}))
-          AND (
-            dm.status = 'HOME'
-            OR dm.current_status = 'READY_FOR_DELIVERY'
-            OR r.tracking_status = 'Ready for Delivery'
-            OR r.tracking_status = 'Pending Approval'
-            OR r.tracking_status = 'Delivered'
-          )
-        )
+        r.bm_status = 'Accepted'
+        OR r.approval_status = 'Accepted'
+        OR r.tracking_status = 'Ready for Delivery'
+        OR r.tracking_status = 'Pending Approval'
+        OR r.tracking_status = 'Delivered'
+        OR dm.status = 'HOME'
+        OR dm.current_status = 'READY_FOR_DELIVERY'
       )
     ORDER BY COALESCE(dm.accepted_at, r.accepted_at, r.created_at) DESC, r.created_at DESC
   `);
@@ -259,7 +245,7 @@ function buildFilters(rows: ReadyForDeliveryRow[]): ReadyForDeliveryFilters {
     officeLocations: Array.from(
       new Set(
         rows
-          .flatMap((row) => [row.regionOfRegistration?.trim(), row.deliveryLocation?.trim()])
+          .map((row) => row.regionOfRegistration?.trim())
           .filter(isNonEmptyString),
       ),
     ).sort(),

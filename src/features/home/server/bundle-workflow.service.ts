@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 export function generateBundleNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -375,10 +376,8 @@ export async function receiveBundle(params: {
           include: { documentMovements: true },
         });
 
-        const subPackageMovement = await tx.subPackageMovement.findFirst({
-          where: { trackingNumber: item.trackingNumber, status: "Completed" },
-        });
-        const hasCompletedSubPackage = Boolean(subPackageMovement) || reg?.documentMovements?.some((dm: any) => dm.currentStatus === "Completed");
+        const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+        const hasCompletedSubPackage = coreSubProcessCheck.isCompleted;
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";

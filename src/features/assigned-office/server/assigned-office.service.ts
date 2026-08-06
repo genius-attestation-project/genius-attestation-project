@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 import type { CreateOfficeInput, UpdateOfficeInput } from "../validations/office.schema";
 
 /**
@@ -1010,10 +1011,8 @@ export async function receiveBundleDocuments(params: {
           include: { documentMovements: true },
         });
 
-        const subPackageMovement = await tx.subPackageMovement.findFirst({
-          where: { trackingNumber: item.trackingNumber, status: "Completed" },
-        });
-        const hasCompletedSubPackage = Boolean(subPackageMovement) || reg?.documentMovements?.some((dm: any) => dm.currentStatus === "Completed");
+        const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+        const hasCompletedSubPackage = coreSubProcessCheck.isCompleted;
 
         const targetOffice = await tx.officeLocation.findFirst({
           where: { OR: [{ id: params.officeId }, { officeName: params.officeId }] },
