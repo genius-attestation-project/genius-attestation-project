@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { listReadyForDelivery } from "@/features/ready-for-delivery/server/ready-for-delivery.service";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -14,25 +13,22 @@ export async function GET(request: NextRequest) {
     const ownerAdminId = session?.user?.ownerAdminId;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const isSuperAdmin = session.user?.isSuperAdmin === true;
-
-    const officeLocationName = await resolveOfficeLocationName({
-      ownerAdminId,
-      officeLocationId: session.user?.officeLocationId,
-      officeLocationName: session.user?.officeLocationName,
-      userId: session.user?.id,
-    });
-
-    if (!officeLocationName && !isSuperAdmin) {
-      return jsonError("Office location is required for ready for delivery access.", 400);
-    }
-
     const { searchParams } = new URL(request.url);
-    const data = await listReadyForDelivery(ownerAdminId, officeLocationName, {
+    const requestedOffice =
+      searchParams.get("officeLocation") ||
+      searchParams.get("registrationOffice") ||
+      undefined;
+
+    const officeFilter =
+      requestedOffice && requestedOffice !== "all" && requestedOffice.trim() !== ""
+        ? requestedOffice.trim()
+        : null;
+
+    const data = await listReadyForDelivery(ownerAdminId, officeFilter, {
       search: searchParams.get("search") ?? undefined,
       service: searchParams.get("service") ?? undefined,
       country: searchParams.get("country") ?? undefined,
-      officeLocation: searchParams.get("officeLocation") ?? undefined,
+      officeLocation: officeFilter ?? undefined,
       date: searchParams.get("date") ?? undefined,
     });
 

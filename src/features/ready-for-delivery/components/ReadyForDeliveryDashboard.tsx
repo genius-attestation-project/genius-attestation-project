@@ -201,14 +201,6 @@ export function ReadyForDeliveryDashboard({
     officeLocation: string;
     date: string;
   }>) {
-    if (!currentOfficeLocationName) {
-      setItems([]);
-      setSections([]);
-      setStats(emptyStats);
-      setFilters(emptyFilters);
-      setLoading(false);
-      return;
-    }
 
     const next = {
       search: overrides?.search ?? activeSearch,
@@ -273,7 +265,7 @@ export function ReadyForDeliveryDashboard({
 
   useEffect(() => {
     void loadReadyForDelivery();
-  }, [currentOfficeLocationName]);
+  }, []);
 
   const cards = [
     {

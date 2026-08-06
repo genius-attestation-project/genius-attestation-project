@@ -239,17 +239,40 @@ function buildStats(items: ReadyForDeliveryItem[]): ReadyForDeliveryStats {
   );
 }
 
-function buildFilters(rows: ReadyForDeliveryRow[]): ReadyForDeliveryFilters {
+async function buildFilters(ownerAdminId: string, rows: ReadyForDeliveryRow[]): Promise<ReadyForDeliveryFilters> {
+  const setOfOffices = new Set<string>();
+
+  rows.forEach((row) => {
+    if (row.regionOfRegistration && row.regionOfRegistration.trim()) {
+      setOfOffices.add(row.regionOfRegistration.trim());
+    }
+  });
+
+  const dbOffices = await prisma.officeLocation.findMany({
+    where: { ownerAdminId },
+    select: { officeName: true },
+  });
+  dbOffices.forEach((o) => {
+    if (o.officeName && o.officeName.trim()) {
+      setOfOffices.add(o.officeName.trim());
+    }
+  });
+
+  const dbRegs = await prisma.registration.findMany({
+    where: { ownerAdminId },
+    distinct: ["regionOfRegistration"],
+    select: { regionOfRegistration: true },
+  });
+  dbRegs.forEach((r) => {
+    if (r.regionOfRegistration && r.regionOfRegistration.trim()) {
+      setOfOffices.add(r.regionOfRegistration.trim());
+    }
+  });
+
   return {
     services: Array.from(new Set(rows.map((row) => row.service?.trim()).filter(isNonEmptyString))).sort(),
     countries: Array.from(new Set(rows.map((row) => row.country?.trim()).filter(isNonEmptyString))).sort(),
-    officeLocations: Array.from(
-      new Set(
-        rows
-          .map((row) => row.regionOfRegistration?.trim())
-          .filter(isNonEmptyString),
-      ),
-    ).sort(),
+    officeLocations: Array.from(setOfOffices).sort(),
   };
 }
 
@@ -284,12 +307,13 @@ export async function listReadyForDelivery(
   const filteredRows = rows.filter((row) => rowMatchesFilters(row, params));
   const items = filteredRows.map(mapReadyForDeliveryItem);
   const sections = buildSections(items);
+  const filters = await buildFilters(ownerAdminId, rows);
 
   return {
     items,
     sections,
     stats: buildStats(items),
-    filters: buildFilters(rows),
+    filters,
   };
 }
 
