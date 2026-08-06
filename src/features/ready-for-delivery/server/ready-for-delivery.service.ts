@@ -5,6 +5,7 @@ import type {
   ReadyForDeliveryDetail,
   ReadyForDeliveryFilters,
   ReadyForDeliveryItem,
+  ReadyForDeliverySection,
   ReadyForDeliveryStats,
 } from "@/features/ready-for-delivery/types/ready-for-delivery.types";
 import { getRegistrationById } from "@/features/registration/server/registration.service";
@@ -252,6 +253,28 @@ function buildFilters(rows: ReadyForDeliveryRow[]): ReadyForDeliveryFilters {
   };
 }
 
+function buildSections(items: ReadyForDeliveryItem[]): ReadyForDeliverySection[] {
+  const sectionsMap = new Map<string, ReadyForDeliveryItem[]>();
+
+  for (const item of items) {
+    const locName =
+      item.regionOfRegistration && item.regionOfRegistration !== "-"
+        ? item.regionOfRegistration.trim()
+        : "Unassigned";
+    if (!sectionsMap.has(locName)) {
+      sectionsMap.set(locName, []);
+    }
+    sectionsMap.get(locName)!.push(item);
+  }
+
+  return Array.from(sectionsMap.entries())
+    .map(([locationName, items]) => ({
+      locationName,
+      items,
+    }))
+    .sort((a, b) => a.locationName.localeCompare(b.locationName));
+}
+
 export async function listReadyForDelivery(
   ownerAdminId: string,
   officeLocationName: string | null,
@@ -260,9 +283,11 @@ export async function listReadyForDelivery(
   const rows = await listReadyRows(ownerAdminId, officeLocationName);
   const filteredRows = rows.filter((row) => rowMatchesFilters(row, params));
   const items = filteredRows.map(mapReadyForDeliveryItem);
+  const sections = buildSections(items);
 
   return {
     items,
+    sections,
     stats: buildStats(items),
     filters: buildFilters(rows),
   };

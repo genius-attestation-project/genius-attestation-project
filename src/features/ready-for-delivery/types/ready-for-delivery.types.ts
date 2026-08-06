@@ -25,6 +25,20 @@ export type ReadyForDeliveryItem = {
   approvalStatus: string;
   bmStatus: string;
   trackingStatus: string;
+  deliveryType?: string | null;
+  deliveryUserId?: string | null;
+  deliveryUserName?: string | null;
+  courierCompanyId?: string | null;
+  courierCompanyName?: string | null;
+  courierTrackingNumber?: string | null;
+  deliveryProofFileUrl?: string | null;
+  deliveryStatus?: string | null;
+  priority?: string | null;
+};
+
+export type ReadyForDeliverySection = {
+  locationName: string;
+  items: ReadyForDeliveryItem[];
 };
 
 export type ReadyForDeliveryFilters = {
@@ -42,6 +56,7 @@ export type ReadyForDeliveryStats = {
 
 export type ReadyForDeliveryResponse = {
   items: ReadyForDeliveryItem[];
+  sections: ReadyForDeliverySection[];
   stats: ReadyForDeliveryStats;
   filters: ReadyForDeliveryFilters;
 };
