@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export type CoreSubProcessCheckResult = {
+export type MainProcessCheckResult = {
   isCompleted: boolean;
   coreSubPackageId?: string | null;
   coreSubPackageName?: string | null;
@@ -8,19 +8,24 @@ export type CoreSubProcessCheckResult = {
   message?: string;
 };
 
+export type CoreSubProcessCheckResult = MainProcessCheckResult;
+
 /**
- * Verifies whether the Core SubProcess associated with a document's Process Type
- * has been completed in the Subpackage Workspace.
+ * Verifies whether the Main Process associated with a document's Process Type
+ * has been fully completed.
+ *
+ * Completion of Sub Processes alone is NOT sufficient. The document becomes eligible
+ * for Ready For Delivery ONLY when Main Process Status = Completed.
  */
-export async function verifyCoreSubProcessCompleted(
+export async function verifyMainProcessCompleted(
   targetId: string,
   ownerAdminId: string
-): Promise<CoreSubProcessCheckResult> {
+): Promise<MainProcessCheckResult> {
   const target = targetId.trim();
   if (!target) {
     return {
       isCompleted: false,
-      message: "Cannot move this document to Ready For Delivery because tracking number or registration ID is missing.",
+      message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
     };
   }
 
@@ -39,7 +44,6 @@ export async function verifyCoreSubProcessCompleted(
           status: true,
         },
         orderBy: { createdAt: "desc" },
-        take: 1,
       },
     },
   });
@@ -53,73 +57,24 @@ export async function verifyCoreSubProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // If there's a Process Type, look up its Core SubPackage in MasterData
-  if (processTypeName) {
-    const processTypeMaster = await prisma.masterData.findFirst({
-      where: {
-        ownerAdminId,
-        type: "PROCESS_TYPE",
-        name: { equals: processTypeName },
-      },
-      select: {
-        id: true,
-        name: true,
-        coreSubPackageId: true,
-        coreSubPackage: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+  // 1. Check if DocumentMovement status indicates Main Process is COMPLETED
+  const isDocMovCompleted = registration.documentMovements.some(
+    (mov) =>
+      mov.status === "COMPLETED" ||
+      mov.status === "Completed" ||
+      mov.currentStatus === "Completed" ||
+      mov.currentStatus === "COMPLETED"
+  );
 
-    const coreSubPkgId = processTypeMaster?.coreSubPackageId || null;
-    const coreSubPkgName = processTypeMaster?.coreSubPackage?.name || null;
-
-    if (coreSubPkgId) {
-      // Core SubPackage is explicitly designated for this Process Type
-      const completedCoreMovement = await (prisma as any).subPackageMovement.findFirst({
-        where: {
-          trackingNumber: registration.trackingNumber,
-          subPackageId: coreSubPkgId,
-          status: "Completed",
-        },
-      });
-
-      if (completedCoreMovement) {
-        return {
-          isCompleted: true,
-          coreSubPackageId: coreSubPkgId,
-          coreSubPackageName: coreSubPkgName,
-          processType: processTypeName,
-        };
-      }
-
-      return {
-        isCompleted: false,
-        coreSubPackageId: coreSubPkgId,
-        coreSubPackageName: coreSubPkgName,
-        processType: processTypeName,
-        message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
-      };
-    }
-  }
-
-  // Fallback: If no explicit coreSubPackageId is designated or processType is not set,
-  // check if ANY SubPackageMovement or DocumentMovement status for this document is Completed
-  const completedAnyMovement = await (prisma as any).subPackageMovement.findFirst({
+  // 2. Check if ProcessAssignment status indicates Main Process is COMPLETED
+  const completedAssignment = await prisma.processAssignment.findFirst({
     where: {
       trackingNumber: registration.trackingNumber,
-      status: "Completed",
+      status: { in: ["COMPLETED", "Completed"] },
     },
   });
 
-  const latestDocMov = registration.documentMovements[0];
-  const isDocMovCompleted =
-    latestDocMov?.currentStatus === "Completed" || latestDocMov?.status === "Completed";
-
-  if (completedAnyMovement || isDocMovCompleted) {
+  if (isDocMovCompleted || completedAssignment) {
     return {
       isCompleted: true,
       processType: processTypeName || null,
@@ -132,3 +87,14 @@ export async function verifyCoreSubProcessCompleted(
     message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
   };
 }
+
+/**
+ * Backward compatible alias for verifyMainProcessCompleted.
+ */
+export async function verifyCoreSubProcessCompleted(
+  targetId: string,
+  ownerAdminId: string
+): Promise<CoreSubProcessCheckResult> {
+  return verifyMainProcessCompleted(targetId, ownerAdminId);
+}
+

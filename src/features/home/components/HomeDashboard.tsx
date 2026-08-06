@@ -66,7 +66,6 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
   // Receive Selection state for Inbound Receive button
   const [receiveSelectionBundle, setReceiveSelectionBundle] = useState<any | null>(null);
-  const [receiveErrorMessage, setReceiveErrorMessage] = useState<string | null>(null);
 
   // Popup Modal state for Inbound Bundle Details
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -194,7 +193,6 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
   const handleOpenBundleModal = (bundle: any) => {
     setSelectedBundle(bundle);
     setBundleReceivedSelections([]);
-    setReceiveErrorMessage(null);
   };
 
   const handleToggleReceiveItem = (trackingNumber: string) => {
@@ -215,7 +213,6 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
     try {
       setIsReceiving(true);
-      setReceiveErrorMessage(null);
       const res = await fetch("/api/home", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,35 +225,23 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
       const body = await res.json();
       if (!res.ok) {
-        setReceiveErrorMessage(body.error || body.message || "Failed to receive bundle");
-        return;
+        throw new Error(body.error || "Failed to receive bundle");
       }
 
-      if (body.failures && body.failures.length > 0) {
-        const failureTexts = body.failures.map((f: any) => f.message).join(" ");
-        if (body.receivedCount > 0) {
-          alert(`Received ${body.receivedCount} document(s) successfully.\n\nValidation notice: ${failureTexts}`);
-          setSelectedBundle(null);
-          setReceiveErrorMessage(null);
-        } else {
-          setReceiveErrorMessage(failureTexts || body.error || "Validation failed.");
-          return;
-        }
+      if (body.warning) {
+        alert(body.warning);
+      } else if (body.isSplit) {
+        alert(
+          `Received ${bundleReceivedSelections.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
+        );
       } else {
-        if (body.isSplit) {
-          alert(
-            `Received ${bundleReceivedSelections.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
-          );
-        } else {
-          alert(`Bundle ${body.bundleNumber} fully received!`);
-        }
-        setSelectedBundle(null);
-        setReceiveErrorMessage(null);
+        alert(`Bundle ${body.bundleNumber} fully received!`);
       }
 
+      setSelectedBundle(null);
       fetchData();
     } catch (err: any) {
-      setReceiveErrorMessage(err.message || "Receive error");
+      alert(err.message || "Receive error");
     } finally {
       setIsReceiving(false);
     }
@@ -267,7 +252,6 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
     if (!receiveSelectionBundle) return;
     try {
       setIsReceiving(true);
-      setReceiveErrorMessage(null);
       const res = await fetch("/api/home", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -280,35 +264,23 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
       const body = await res.json();
       if (!res.ok) {
-        setReceiveErrorMessage(body.error || body.message || "Failed to receive bundle");
-        return;
+        throw new Error(body.error || "Failed to receive bundle");
       }
 
-      if (body.failures && body.failures.length > 0) {
-        const failureTexts = body.failures.map((f: any) => f.message).join(" ");
-        if (body.receivedCount > 0) {
-          alert(`Received ${body.receivedCount} document(s) successfully.\n\nValidation notice: ${failureTexts}`);
-          setReceiveSelectionBundle(null);
-          setReceiveErrorMessage(null);
-        } else {
-          setReceiveErrorMessage(failureTexts || body.error || "Validation failed.");
-          return;
-        }
+      if (body.warning) {
+        alert(body.warning);
+      } else if (body.isSplit) {
+        alert(
+          `Received ${selectedTrackingNumbers.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
+        );
       } else {
-        if (body.isSplit) {
-          alert(
-            `Received ${selectedTrackingNumbers.length} documents! Remaining ${body.remainingCount} documents split into new Bundle ${body.splitBundleNumber}.`
-          );
-        } else {
-          alert(`Bundle ${body.bundleNumber} fully received!`);
-        }
-        setReceiveSelectionBundle(null);
-        setReceiveErrorMessage(null);
+        alert(`Bundle ${body.bundleNumber} fully received!`);
       }
 
+      setReceiveSelectionBundle(null);
       fetchData();
     } catch (err: any) {
-      setReceiveErrorMessage(err.message || "Receive error");
+      alert(err.message || "Receive error");
     } finally {
       setIsReceiving(false);
     }
@@ -764,15 +736,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       {/* Receive Selection Modal */}
       <ReceiveSelectionModal
         open={Boolean(receiveSelectionBundle)}
-        onClose={() => {
-          setReceiveSelectionBundle(null);
-          setReceiveErrorMessage(null);
-        }}
+        onClose={() => setReceiveSelectionBundle(null)}
         onConfirmReceive={handleConfirmReceiveSelection}
         bundleData={receiveSelectionBundle}
         isReceiving={isReceiving}
-        errorMessage={receiveErrorMessage}
-        onClearError={() => setReceiveErrorMessage(null)}
       />
 
       {/* Bundle Receive Modal */}
@@ -789,21 +756,12 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setSelectedBundle(null);
-                  setReceiveErrorMessage(null);
-                }}
+                onClick={() => setSelectedBundle(null)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
                 <XCircle className="h-6 w-6" />
               </button>
             </div>
-
-            {receiveErrorMessage && (
-              <div className="flex items-start gap-3 rounded-xl bg-rose-50 border border-rose-200 p-4 text-rose-800 text-xs font-semibold">
-                <span>⚠️ {receiveErrorMessage}</span>
-              </div>
-            )}
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">

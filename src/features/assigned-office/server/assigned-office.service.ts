@@ -994,15 +994,25 @@ export async function receiveBundleDocuments(params: {
 
     const totalItems = bundle.items.length;
     const selectedSet = new Set(params.selectedTrackingNumbers);
-    const validationFailures: Array<{ trackingNumber: string; message: string }> = [];
-    const successfullyReceivedTrackings: string[] = [];
 
     for (const item of bundle.items) {
       if (selectedSet.has(item.trackingNumber)) {
+        await tx.bundleItem.update({
+          where: { id: item.id },
+          data: {
+            status: "Received",
+            receivedAt: new Date(),
+            receivedBy: params.userName || params.userId,
+          },
+        });
+
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
           include: { documentMovements: true },
         });
+
+        const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+        const hasCompletedMainProcess = mainProcessCheck.isCompleted;
 
         const targetOffice = await tx.officeLocation.findFirst({
           where: { OR: [{ id: params.officeId }, { officeName: params.officeId }] },
@@ -1016,30 +1026,9 @@ export async function receiveBundleDocuments(params: {
           receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
         );
 
-        if (isDeliveryLocationMatch) {
-          const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-          if (!coreSubProcessCheck.isCompleted) {
-            validationFailures.push({
-              trackingNumber: item.trackingNumber,
-              message:
-                coreSubProcessCheck.message ||
-                "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
-            });
-            continue;
-          }
-        }
+        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isDeliveryLocationMatch;
 
-        await tx.bundleItem.update({
-          where: { id: item.id },
-          data: {
-            status: "Received",
-            receivedAt: new Date(),
-            receivedBy: params.userName || params.userId,
-          },
-        });
-        successfullyReceivedTrackings.push(item.trackingNumber);
-
-        if (isDeliveryLocationMatch) {
+        if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
             where: { trackingNumber: item.trackingNumber },
             data: {
@@ -1068,7 +1057,7 @@ export async function receiveBundleDocuments(params: {
                 workflowStep: "Automatic Ready For Delivery Routing",
                 status: "Ready for Delivery",
                 performedBy: params.userName || params.userId,
-                remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Core Sub Process completed & Delivery Location matches receiving office)`,
+                remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Main Process completed & Delivery Location matches receiving office)`,
                 ownerAdminId: params.ownerAdminId,
               },
             });
@@ -1078,7 +1067,7 @@ export async function receiveBundleDocuments(params: {
                 registrationId: reg.id,
                 action: "AUTO_ROUTED_TO_READY_FOR_DELIVERY",
                 performedBy: params.userName || params.userId,
-                description: `Core Sub Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
+                description: `Main Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
               },
             });
           }
@@ -1111,14 +1100,7 @@ export async function receiveBundleDocuments(params: {
       }
     }
 
-    if (successfullyReceivedTrackings.length === 0 && validationFailures.length > 0) {
-      throw new Error(
-        validationFailures[0]?.message ||
-          "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
-      );
-    }
-
-    const receivedCount = successfullyReceivedTrackings.length;
+    const receivedCount = selectedSet.size;
     const isFullReceive = receivedCount >= totalItems;
 
     if (isFullReceive) {
@@ -1127,6 +1109,7 @@ export async function receiveBundleDocuments(params: {
         data: { status: "Received" },
       });
     } else {
+      // Partial receive: Remaining unreceived items stay in bundle or create a new bundle
       await tx.bundle.update({
         where: { id: params.bundleId },
         data: { status: "Partially Received" },
@@ -1137,7 +1120,6 @@ export async function receiveBundleDocuments(params: {
       success: true,
       receivedCount,
       isFullReceive,
-      failures: validationFailures,
     };
   });
 }

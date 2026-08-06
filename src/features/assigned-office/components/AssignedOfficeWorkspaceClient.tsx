@@ -70,7 +70,6 @@ export function AssignedOfficeWorkspaceClient({
 
   // Receive Selection state for Inbound Receive button
   const [receiveSelectionBundle, setReceiveSelectionBundle] = useState<any | null>(null);
-  const [receiveErrorMessage, setReceiveErrorMessage] = useState<string | null>(null);
 
   // Bundle Receive Modal
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
@@ -142,7 +141,6 @@ export function AssignedOfficeWorkspaceClient({
   const handleOpenBundleModal = (bundle: any) => {
     setSelectedBundle(bundle);
     setBundleSelectedTrackings([]);
-    setReceiveErrorMessage(null);
   };
 
   // Toggle item selection in bundle modal
@@ -158,7 +156,6 @@ export function AssignedOfficeWorkspaceClient({
   const handleReceiveBundle = async () => {
     if (!selectedBundle || bundleSelectedTrackings.length === 0) return;
     setReceiving(true);
-    setReceiveErrorMessage(null);
     try {
       const res = await fetch("/api/assigned-office/workspace", {
         method: "POST",
@@ -171,32 +168,13 @@ export function AssignedOfficeWorkspaceClient({
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok) {
-        setReceiveErrorMessage(body.message || body.error || "Failed to receive bundle.");
-        return;
-      }
-
-      if (body.failures && body.failures.length > 0) {
-        const failureTexts = body.failures.map((f: any) => f.message).join(" ");
-        if (body.receivedCount > 0) {
-          alert(`Received ${body.receivedCount} document(s) successfully.\n\nValidation notice: ${failureTexts}`);
-          setSelectedBundle(null);
-          setReceiveErrorMessage(null);
-        } else {
-          setReceiveErrorMessage(failureTexts || body.message || "Validation failed.");
-          return;
-        }
-      } else {
+      if (res.ok) {
         setSelectedBundle(null);
-        setReceiveErrorMessage(null);
+        fetchStats();
+        fetchTabData();
       }
-
-      fetchStats();
-      fetchTabData();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to receive bundle", err);
-      setReceiveErrorMessage(err.message || "Failed to receive bundle.");
     } finally {
       setReceiving(false);
     }
@@ -206,7 +184,6 @@ export function AssignedOfficeWorkspaceClient({
   const handleConfirmReceiveSelection = async (selectedTrackings: string[]) => {
     if (!receiveSelectionBundle || selectedTrackings.length === 0) return;
     setReceiving(true);
-    setReceiveErrorMessage(null);
     try {
       const res = await fetch("/api/assigned-office/workspace", {
         method: "POST",
@@ -219,32 +196,16 @@ export function AssignedOfficeWorkspaceClient({
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok) {
-        setReceiveErrorMessage(body.message || body.error || "Failed to receive bundle.");
-        return;
-      }
-
-      if (body.failures && body.failures.length > 0) {
-        const failureTexts = body.failures.map((f: any) => f.message).join(" ");
-        if (body.receivedCount > 0) {
-          alert(`Received ${body.receivedCount} document(s) successfully.\n\nValidation notice: ${failureTexts}`);
-          setReceiveSelectionBundle(null);
-          setReceiveErrorMessage(null);
-        } else {
-          setReceiveErrorMessage(failureTexts || body.message || "Validation failed.");
-          return;
-        }
-      } else {
+      if (res.ok) {
         setReceiveSelectionBundle(null);
-        setReceiveErrorMessage(null);
+        fetchStats();
+        fetchTabData();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to receive bundle.");
       }
-
-      fetchStats();
-      fetchTabData();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to receive bundle", err);
-      setReceiveErrorMessage(err.message || "Failed to receive bundle.");
     } finally {
       setReceiving(false);
     }
@@ -743,15 +704,10 @@ export function AssignedOfficeWorkspaceClient({
       {/* RECEIVE SELECTION MODAL */}
       <ReceiveSelectionModal
         open={Boolean(receiveSelectionBundle)}
-        onClose={() => {
-          setReceiveSelectionBundle(null);
-          setReceiveErrorMessage(null);
-        }}
+        onClose={() => setReceiveSelectionBundle(null)}
         onConfirmReceive={handleConfirmReceiveSelection}
         bundleData={receiveSelectionBundle}
         isReceiving={receiving}
-        errorMessage={receiveErrorMessage}
-        onClearError={() => setReceiveErrorMessage(null)}
       />
 
       {/* BUNDLE RECEIVE MODAL */}
@@ -768,21 +724,12 @@ export function AssignedOfficeWorkspaceClient({
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setSelectedBundle(null);
-                  setReceiveErrorMessage(null);
-                }}
+                onClick={() => setSelectedBundle(null)}
                 className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
               >
                 ✕
               </button>
             </div>
-
-            {receiveErrorMessage && (
-              <div className="flex items-start gap-3 rounded-xl bg-rose-50 border border-rose-200 p-4 text-rose-800 text-xs font-semibold dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-200">
-                <span>⚠️ {receiveErrorMessage}</span>
-              </div>
-            )}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">

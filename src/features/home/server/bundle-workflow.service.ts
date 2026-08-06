@@ -357,16 +357,35 @@ export async function receiveBundle(params: {
   }
 
   const receivedSet = new Set(params.receivedTrackingNumbers);
-  const validationFailures: Array<{ trackingNumber: string; message: string }> = [];
-  const successfullyReceivedTrackings: string[] = [];
+  const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
+  const blockedDocuments: { trackingNumber: string; message: string }[] = [];
 
   return prisma.$transaction(async (tx: any) => {
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
+        await tx.bundleItem.update({
+          where: { id: item.id },
+          data: {
+            status: "Received",
+            receivedAt: new Date(),
+            receivedBy: params.userName || params.userId,
+          },
+        });
+
         const reg = await tx.registration.findUnique({
           where: { trackingNumber: item.trackingNumber },
           include: { documentMovements: true },
         });
+
+        const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+        const hasCompletedMainProcess = mainProcessCheck.isCompleted;
+
+        if (!hasCompletedMainProcess) {
+          blockedDocuments.push({
+            trackingNumber: item.trackingNumber,
+            message: mainProcessCheck.message || "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
+          });
+        }
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";
@@ -376,30 +395,9 @@ export async function receiveBundle(params: {
           receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
         );
 
-        if (isDeliveryLocationMatch) {
-          const coreSubProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-          if (!coreSubProcessCheck.isCompleted) {
-            validationFailures.push({
-              trackingNumber: item.trackingNumber,
-              message:
-                coreSubProcessCheck.message ||
-                "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
-            });
-            continue;
-          }
-        }
+        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isDeliveryLocationMatch;
 
-        await tx.bundleItem.update({
-          where: { id: item.id },
-          data: {
-            status: "Received",
-            receivedAt: new Date(),
-            receivedBy: params.userName || params.userId,
-          },
-        });
-        successfullyReceivedTrackings.push(item.trackingNumber);
-
-        if (isDeliveryLocationMatch) {
+        if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
             where: { trackingNumber: item.trackingNumber },
             data: {
@@ -429,7 +427,7 @@ export async function receiveBundle(params: {
                   workflowStep: "Automatic Ready For Delivery Routing",
                   status: "Ready for Delivery",
                   performedBy: params.userName || params.userId,
-                  remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Core Sub Process completed & Delivery Location matches receiving office)`,
+                  remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Main Process completed & Delivery Location matches receiving office)`,
                   ownerAdminId: params.ownerAdminId,
                 },
               });
@@ -451,7 +449,7 @@ export async function receiveBundle(params: {
                 registrationId: reg.id,
                 action: "AUTO_ROUTED_TO_READY_FOR_DELIVERY",
                 performedBy: params.userName || params.userId,
-                description: `Core Sub Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
+                description: `Main Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
               },
             });
           }
@@ -514,19 +512,11 @@ export async function receiveBundle(params: {
       }
     }
 
-    if (successfullyReceivedTrackings.length === 0 && validationFailures.length > 0) {
-      throw new Error(
-        validationFailures[0]?.message ||
-          "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
-      );
-    }
+    const validationWarningMessage = blockedDocuments.length > 0
+      ? "This document cannot be moved to Ready For Delivery because the Main Process has not been completed."
+      : undefined;
 
-    const successSet = new Set(successfullyReceivedTrackings);
-    const unreceivedItems = (bundle.items as any[]).filter(
-      (item: any) => !successSet.has(item.trackingNumber)
-    );
-
-    if (unreceivedItems.length === 0) {
+    if (isFullReceive) {
       await tx.bundle.update({
         where: { id: bundle.id },
         data: { status: "Received" },
@@ -535,10 +525,14 @@ export async function receiveBundle(params: {
         success: true,
         isSplit: false,
         bundleNumber: bundle.bundleNumber,
-        receivedCount: successfullyReceivedTrackings.length,
-        failures: validationFailures,
+        blockedDocuments,
+        warning: validationWarningMessage,
       };
     } else {
+      const unreceivedItems = (bundle.items as any[]).filter(
+        (item: any) => !receivedSet.has(item.trackingNumber)
+      );
+
       const splitBundleNumber = `${bundle.bundleNumber}-S`;
 
       const splitBundle = await tx.bundle.create({
@@ -583,8 +577,8 @@ export async function receiveBundle(params: {
         originalBundleNumber: bundle.bundleNumber,
         splitBundleNumber,
         remainingCount: unreceivedItems.length,
-        receivedCount: successfullyReceivedTrackings.length,
-        failures: validationFailures,
+        blockedDocuments,
+        warning: validationWarningMessage,
       };
     }
   });

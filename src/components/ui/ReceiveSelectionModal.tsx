@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, CheckCircle2, CheckSquare, Square, Inbox, AlertTriangle } from "lucide-react";
+import { X, CheckCircle2, CheckSquare, Square, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 export type ReceiveSelectionModalProps = {
@@ -10,8 +10,6 @@ export type ReceiveSelectionModalProps = {
   onConfirmReceive: (selectedTrackingNumbers: string[]) => void | Promise<void>;
   bundleData: any;
   isReceiving?: boolean;
-  errorMessage?: string | null;
-  onClearError?: () => void;
 };
 
 export function ReceiveSelectionModal({
@@ -20,8 +18,6 @@ export function ReceiveSelectionModal({
   onConfirmReceive,
   bundleData,
   isReceiving = false,
-  errorMessage = null,
-  onClearError,
 }: ReceiveSelectionModalProps) {
   const [selectedTrackings, setSelectedTrackings] = useState<string[]>([]);
 
@@ -105,23 +101,6 @@ export function ReceiveSelectionModal({
 
         {/* Scrollable Table Content Body */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
-          {errorMessage && (
-            <div className="mb-4 flex items-start gap-3 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-800 dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-200 animate-in fade-in duration-200">
-              <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1 text-xs font-semibold leading-relaxed">
-                {errorMessage}
-              </div>
-              {onClearError && (
-                <button
-                  type="button"
-                  onClick={onClearError}
-                  className="text-rose-400 hover:text-rose-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          )}
           <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12151c]">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/90 dark:bg-white/5 font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">
