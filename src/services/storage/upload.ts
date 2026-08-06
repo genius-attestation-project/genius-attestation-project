@@ -10,7 +10,8 @@ export async function uploadFile(
   file: File,
   moduleName: string,
   recordId?: string,
-  uploadedBy?: string
+  uploadedBy?: string,
+  category?: string
 ) {
   validateFile(file);
 
@@ -18,7 +19,7 @@ export async function uploadFile(
   const storedName = `${randomUUID()}.${extension}`;
   const folder = getFolderForModule(moduleName);
   
-  // E.g., Genius App Data/revenue/uuid.jpg
+  // E.g., Genius App Data/ready-for-delivery/uuid.jpg
   const key = `${process.env.WASABI_ROOT_PREFIX}${folder}/${storedName}`;
 
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -42,7 +43,7 @@ export async function uploadFile(
       bucketKey: key,
       bucketName: process.env.WASABI_BUCKET || "genius-attestation",
       storageProvider: "WASABI",
-      url: "", // Internal view URL populated below with record ID
+      url: "", // Internal view URL populated below
       mimeType: file.type,
       extension,
       size: file.size,
@@ -55,6 +56,23 @@ export async function uploadFile(
     where: { id: fileStorage.id },
     data: { url: internalUrl },
   });
+
+  // Link file to registration_files if recordId corresponds to a registration
+  if (recordId) {
+    const reg = await prisma.registration.findFirst({
+      where: { OR: [{ id: recordId }, { trackingNumber: recordId }] },
+      select: { id: true },
+    });
+    if (reg) {
+      await (prisma as any).registrationFile.create({
+        data: {
+          registrationId: reg.id,
+          fileStorageId: updatedStorage.id,
+          fileCategory: category || "DELIVERY_PROOF",
+        },
+      }).catch(() => null);
+    }
+  }
 
   return updatedStorage;
 }

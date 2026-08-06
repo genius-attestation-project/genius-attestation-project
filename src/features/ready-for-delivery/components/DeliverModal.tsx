@@ -89,7 +89,11 @@ export function DeliverModal({
 
       const formData = new FormData();
       formData.append("file", compressed);
-      formData.append("moduleName", "Ready For Delivery");
+      formData.append("module", "READY_FOR_DELIVERY");
+      formData.append("category", "DELIVERY_PROOF");
+      if (registrationId) {
+        formData.append("referenceId", registrationId);
+      }
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -98,7 +102,7 @@ export function DeliverModal({
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.message || "Failed to upload delivery proof.");
+        throw new Error(json.message || json.error || "Failed to upload delivery proof.");
       }
 
       setProofFile(compressed);

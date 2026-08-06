@@ -16,6 +16,8 @@ export const FOLDER_MAP: Record<string, string> = {
   "Payment Approval": "revenue",
   "Payment Update": "revenue",
   "Account Update": "revenue",
+  "READY_FOR_DELIVERY": "ready-for-delivery",
+  "Ready For Delivery": "ready-for-delivery",
 };
 
 export function getFolderForModule(moduleName: string): string {

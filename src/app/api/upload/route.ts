@@ -10,25 +10,37 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const module = formData.get("module") as string;
-    const recordId = formData.get("recordId") as string | undefined;
+    const rawModule = (formData.get("module") || formData.get("moduleName")) as string | null;
+    const category = formData.get("category") as string | null;
+    const referenceId = (formData.get("referenceId") || formData.get("recordId")) as string | null;
 
     if (!file) {
-      return jsonError("File is required.", 400);
+      return jsonError("File is required for upload.", 400);
     }
     
-    if (!module) {
+    if (!rawModule || !rawModule.trim()) {
       return jsonError("Module is required.", 400);
     }
 
-    const uploaded = await uploadFile(file, module, recordId, performedBy || "System");
+    const moduleName = rawModule.trim();
+    const recordId = referenceId?.trim() || undefined;
+    const cat = category?.trim() || undefined;
 
-    return jsonOk(uploaded);
+    const uploaded = await uploadFile(file, moduleName, recordId, performedBy || "System", cat);
+
+    return jsonOk({
+      success: true,
+      file: uploaded,
+      id: uploaded.id,
+      url: uploaded.url,
+      fileStorageId: uploaded.id,
+      message: "File uploaded successfully.",
+    });
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("Upload API error:", error);
     if (error instanceof Error) {
       return jsonError(error.message, 400);
     }
-    return jsonError("Internal Server Error", 500);
+    return jsonError("Internal Server Error during file upload.", 500);
   }
 }
