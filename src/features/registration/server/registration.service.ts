@@ -219,6 +219,8 @@ export async function listRegistrations(
     paymentStatus?: string;
     paymentMode?: string;
     approvalStatus?: string;
+    status?: string;
+    trackingStatus?: string;
     hasBalance?: string;
     minTotalCharge?: string;
     maxTotalCharge?: string;
@@ -229,6 +231,8 @@ export async function listRegistrations(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 100));
   const query = params.query?.trim();
+
+  const statusFilter = params.status || params.trackingStatus;
 
   const where: Prisma.RegistrationWhereInput = {
     ownerAdminId,
@@ -251,6 +255,7 @@ export async function listRegistrations(
     ...(params.paymentStatus ? { paymentStatus: params.paymentStatus } : {}),
     ...(params.paymentMode ? { paymentMode: params.paymentMode } : {}),
     ...(params.approvalStatus ? { approvalStatus: params.approvalStatus } : {}),
+    ...(statusFilter ? { trackingStatus: { contains: statusFilter } } : {}),
   };
 
   if (params.fromDate || params.toDate) {

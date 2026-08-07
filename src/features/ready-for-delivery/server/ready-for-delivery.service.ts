@@ -201,12 +201,14 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
     LEFT JOIN users creator_user ON creator_user.id = r.created_by
     WHERE r.owner_admin_id = ${ownerAdminId}
       AND (${officeLocationName} IS NULL OR LOWER(COALESCE(r.region_of_registration, '')) = LOWER(${officeLocationName}))
+      AND COALESCE(r.delivery_status, '') != 'Delivered'
+      AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
+      AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
       AND (
         r.bm_status = 'Accepted'
         OR r.approval_status = 'Accepted'
         OR r.tracking_status = 'Ready for Delivery'
         OR r.tracking_status = 'Pending Approval'
-        OR r.tracking_status = 'Delivered'
         OR dm.status = 'HOME'
         OR dm.current_status = 'READY_FOR_DELIVERY'
       )
@@ -214,7 +216,7 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
   `);
 }
 
-function buildStats(items: ReadyForDeliveryItem[]): ReadyForDeliveryStats {
+function buildStats(items: ReadyForDeliveryItem[], deliveredCount: number): ReadyForDeliveryStats {
   const today = new Date().toISOString().slice(0, 10);
 
   return items.reduce<ReadyForDeliveryStats>(
@@ -225,11 +227,7 @@ function buildStats(items: ReadyForDeliveryItem[]): ReadyForDeliveryStats {
         stats.acceptedToday += 1;
       }
 
-      if (item.trackingStatus.toLowerCase() === "delivered") {
-        stats.delivered += 1;
-      } else {
-        stats.pendingDelivery += 1;
-      }
+      stats.pendingDelivery += 1;
 
       return stats;
     },
@@ -237,7 +235,7 @@ function buildStats(items: ReadyForDeliveryItem[]): ReadyForDeliveryStats {
       totalReadyForDelivery: 0,
       acceptedToday: 0,
       pendingDelivery: 0,
-      delivered: 0,
+      delivered: deliveredCount,
     },
   );
 }
@@ -312,10 +310,18 @@ export async function listReadyForDelivery(
   const sections = buildSections(items);
   const filters = await buildFilters(ownerAdminId, rows);
 
+  const deliveredCount = await prisma.registration.count({
+    where: {
+      ownerAdminId,
+      trackingStatus: "Delivered",
+      ...(officeLocationName ? { regionOfRegistration: officeLocationName } : {}),
+    },
+  });
+
   return {
     items,
     sections,
-    stats: buildStats(items),
+    stats: buildStats(items, deliveredCount),
     filters,
   };
 }

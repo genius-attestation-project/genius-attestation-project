@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
       paymentStatus: searchParams.get("paymentStatus") ?? undefined,
       paymentMode: searchParams.get("paymentMode") ?? undefined,
       approvalStatus: searchParams.get("approvalStatus") ?? undefined,
+      status: searchParams.get("status") ?? searchParams.get("trackingStatus") ?? undefined,
+      trackingStatus: searchParams.get("trackingStatus") ?? searchParams.get("status") ?? undefined,
       hasBalance: searchParams.get("hasBalance") ?? undefined,
       minTotalCharge: searchParams.get("minTotalCharge") ?? undefined,
       maxTotalCharge: searchParams.get("maxTotalCharge") ?? undefined,

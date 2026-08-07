@@ -475,6 +475,7 @@ export function RegistrationManager({
     paymentStatus: "",
     paymentMode: "",
     approvalStatus: "",
+    status: "",
     hasBalance: "",
     minTotalCharge: "",
     maxTotalCharge: "",
@@ -1243,6 +1244,15 @@ export function RegistrationManager({
               />
             </label>
             <label className="grid gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Workflow Status</span>
+              <SearchableSelect
+                value={filters.status}
+                onChange={(val) => setFilters(f => ({ ...f, status: val }))}
+                options={toSelectOptions(["Registered", "In Transfer", "Document In Hand", "Ready for Delivery", "Delivered"])}
+                placeholder="Select workflow status"
+              />
+            </label>
+            <label className="grid gap-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Balance Amount</span>
               <SearchableSelect
                 value={filters.hasBalance}
@@ -1261,7 +1271,7 @@ export function RegistrationManager({
                     createdBy: "", collectedPerson: "", registeredPerson: "", officeLocation: "", processOffice: "",
                     service: "", documentType: "", documentIssuedCountry: "", customerType: "", processType: "",
                     subPackage: "",
-                    priority: "", deliveryLocation: "", paymentStatus: "", paymentMode: "", approvalStatus: "",
+                    priority: "", deliveryLocation: "", paymentStatus: "", paymentMode: "", approvalStatus: "", status: "",
                     hasBalance: "", minTotalCharge: "", maxTotalCharge: "", minAdvancePaid: "", maxAdvancePaid: ""
                   };
                   setFilters(blankFilters);
@@ -1305,6 +1315,7 @@ export function RegistrationManager({
                     <th className="px-5 py-4">Registered By</th>
                     <th className="px-5 py-4">Process Type</th>
                     <th className="px-5 py-4">Document Type</th>
+                    <th className="px-5 py-4">Status</th>
                     <th className="px-5 py-4">Payment Status</th>
                     <th className="px-5 py-4">Approval Status</th>
                     <th className="px-5 py-4">Created Date</th>
@@ -1335,6 +1346,21 @@ export function RegistrationManager({
                       </td>
                       <td className="px-5 py-4">{registration.processType || "-"}</td>
                       <td className="px-5 py-4">{registration.documentType || "-"}</td>
+                      <td className="px-5 py-4 font-semibold">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          registration.trackingStatus === "Delivered"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
+                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300"
+                            : registration.trackingStatus === "Document In Hand"
+                            ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
+                            : registration.trackingStatus === "In Transfer"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                            : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                        }`}>
+                          {registration.trackingStatus || "Registered"}
+                        </span>
+                      </td>
                       <td className="px-5 py-4">{registration.paymentStatus}</td>
                       <td className="px-5 py-4">{registration.approvalStatus}</td>
                       <td className="px-5 py-4">{registration.createdDate}</td>
