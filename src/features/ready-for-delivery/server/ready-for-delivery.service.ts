@@ -41,6 +41,7 @@ type ReadyForDeliveryRow = {
   courierTrackingNumber: string | null;
   deliveryProofFileUrl: string | null;
   deliveryStatus: string | null;
+  priority: string | null;
 };
 
 type ReadyForDeliveryQueryParams = {
@@ -101,6 +102,7 @@ function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem
     courierTrackingNumber: row.courierTrackingNumber,
     deliveryProofFileUrl: row.deliveryProofFileUrl,
     deliveryStatus: row.deliveryStatus,
+    priority: row.priority ?? "Normal",
   } as any;
 }
 
@@ -189,7 +191,8 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
       r.courier_company_name AS "courierCompanyName",
       r.courier_tracking_number AS "courierTrackingNumber",
       r.delivery_proof_file_url AS "deliveryProofFileUrl",
-      r.delivery_status AS "deliveryStatus"
+      r.delivery_status AS "deliveryStatus",
+      r.priority AS "priority"
     FROM registrations r
     LEFT JOIN document_movements dm ON dm.registration_id = r.id
     LEFT JOIN office_locations ol ON ol.id = dm.current_office_id
