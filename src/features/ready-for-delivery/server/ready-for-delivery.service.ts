@@ -205,12 +205,10 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
       AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
       AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
       AND (
-        r.bm_status = 'Accepted'
-        OR r.approval_status = 'Accepted'
-        OR r.tracking_status = 'Ready for Delivery'
-        OR r.tracking_status = 'Pending Approval'
-        OR dm.status = 'HOME'
+        r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery', 'Pending Approval')
+        OR r.bm_status IN ('Ready for Delivery', 'Ready For Delivery')
         OR dm.current_status = 'READY_FOR_DELIVERY'
+        OR dm.current_module = 'READY_FOR_DELIVERY'
       )
     ORDER BY COALESCE(dm.accepted_at, r.accepted_at, r.created_at) DESC, r.created_at DESC
   `);
