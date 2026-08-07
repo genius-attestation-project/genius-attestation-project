@@ -1020,13 +1020,9 @@ export async function receiveBundleDocuments(params: {
         });
         const receivingOfficeName = targetOffice?.officeName || params.officeId;
         const deliveryLocation = reg?.deliveryLocation || "";
-        const isDeliveryLocationMatch = Boolean(
-          receivingOfficeName &&
-          deliveryLocation &&
-          receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()
-        );
 
-        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isDeliveryLocationMatch;
+        // Main Process Activity Status is the deciding factor for moving to Ready For Delivery vs Document In Hand
+        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess;
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
@@ -1057,7 +1053,7 @@ export async function receiveBundleDocuments(params: {
                 workflowStep: "Automatic Ready For Delivery Routing",
                 status: "Ready for Delivery",
                 performedBy: params.userName || params.userId,
-                remarks: `Routed to Ready For Delivery at ${receivingOfficeName} (Main Process completed & Delivery Location matches receiving office)`,
+                remarks: `Routed to Ready For Delivery (Process Type Main Process activity status is Completed)`,
                 ownerAdminId: params.ownerAdminId,
               },
             });
@@ -1067,7 +1063,7 @@ export async function receiveBundleDocuments(params: {
                 registrationId: reg.id,
                 action: "AUTO_ROUTED_TO_READY_FOR_DELIVERY",
                 performedBy: params.userName || params.userId,
-                description: `Main Process completed and delivery location (${deliveryLocation}) matches current office. Routed to Ready For Delivery.`,
+                description: `Process Type Main Process activity status is Completed. Routed to Ready For Delivery.`,
               },
             });
           }

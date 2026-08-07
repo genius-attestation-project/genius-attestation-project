@@ -57,16 +57,18 @@ export async function verifyMainProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // 1. Check if DocumentMovement status indicates Main Process is COMPLETED
+  // 1. First, check overall document movement / assignment status if marked COMPLETED / Ready for Delivery
   const isDocMovCompleted = registration.documentMovements.some(
     (mov) =>
       mov.status === "COMPLETED" ||
       mov.status === "Completed" ||
+      mov.status === "Ready for Delivery" ||
       mov.currentStatus === "Completed" ||
-      mov.currentStatus === "COMPLETED"
+      mov.currentStatus === "COMPLETED" ||
+      mov.currentStatus === "READY_FOR_DELIVERY" ||
+      mov.currentStatus === "Ready for Delivery"
   );
 
-  // 2. Check if ProcessAssignment status indicates Main Process is COMPLETED
   const completedAssignment = await prisma.processAssignment.findFirst({
     where: {
       trackingNumber: registration.trackingNumber,
@@ -79,6 +81,84 @@ export async function verifyMainProcessCompleted(
       isCompleted: true,
       processType: processTypeName || null,
     };
+  }
+
+  // 2. Query Master Configuration for the configured Main Process (coreSubPackageId) of this Process Type
+  if (processTypeName) {
+    const masterProcessType = await prisma.masterData.findFirst({
+      where: {
+        type: "PROCESS_TYPES",
+        name: processTypeName,
+        ownerAdminId,
+      },
+      select: {
+        id: true,
+        coreSubPackageId: true,
+        coreSubPackage: { select: { id: true, name: true } },
+      },
+    });
+
+    if (masterProcessType?.coreSubPackageId) {
+      // Check the SubPackageMovement for this specific Main Process (coreSubPackageId)
+      const coreSubMovement = await (prisma as any).subPackageMovement.findFirst({
+        where: {
+          trackingNumber: registration.trackingNumber,
+          subPackageId: masterProcessType.coreSubPackageId,
+          ownerAdminId,
+        },
+        select: {
+          status: true,
+        },
+      });
+
+      if (coreSubMovement && (coreSubMovement.status === "Completed" || coreSubMovement.status === "COMPLETED")) {
+        return {
+          isCompleted: true,
+          coreSubPackageId: masterProcessType.coreSubPackageId,
+          coreSubPackageName: masterProcessType.coreSubPackage?.name || null,
+          processType: processTypeName,
+        };
+      }
+
+      // If coreSubPackageId exists and its status is NOT Completed, return false.
+      // (Even if other sub-processes like MEA or UAE Embassy are completed!)
+      return {
+        isCompleted: false,
+        coreSubPackageId: masterProcessType.coreSubPackageId,
+        coreSubPackageName: masterProcessType.coreSubPackage?.name || null,
+        processType: processTypeName,
+        message: `Main Process "${masterProcessType.coreSubPackage?.name || "Main Process"}" status is not Completed.`,
+      };
+    }
+  }
+
+  // 3. Fallback: check if any assigned office core package movement for this document is completed
+  const coreAssignedSubMovement = await (prisma as any).subPackageMovement.findFirst({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      ownerAdminId,
+      status: { in: ["Completed", "COMPLETED"] },
+    },
+    select: {
+      subPackageId: true,
+    },
+  });
+
+  if (coreAssignedSubMovement) {
+    // Check if this subPackageId is marked as isCorePackage in assignedOfficeSubPackage
+    const isCorePackage = await (prisma as any).assignedOfficeSubPackage.findFirst({
+      where: {
+        subPackageId: coreAssignedSubMovement.subPackageId,
+        isCorePackage: true,
+      },
+    });
+
+    if (isCorePackage) {
+      return {
+        isCompleted: true,
+        processType: processTypeName || null,
+      };
+    }
   }
 
   return {
