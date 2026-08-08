@@ -419,7 +419,16 @@ export function LeadForm({
             placeholder="Enter document count"
           />
         </FieldWrapper>
-        <FieldWrapper className="md:col-span-2">
+        <FieldWrapper>
+          <Input
+            label="Document Name"
+            name="documentName"
+            value={values.documentName}
+            onChange={(event) => updateField("documentName", event.target.value)}
+            placeholder="Enter document name"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Document Issued Country
           </label>

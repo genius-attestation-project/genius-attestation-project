@@ -76,6 +76,7 @@ const leadSelect = {
   completedAt: true,
   completedBy: true,
   docType: true,
+  documentName: true,
   noOfDocuments: true,
   state: true,
   documentIssuedCountry: true,
@@ -121,6 +122,7 @@ const legacyLeadSelect = {
   remark: true,
   nextFollowupAt: true,
   docType: true,
+  documentName: true,
   noOfDocuments: true,
   state: true,
   documentIssuedCountry: true,
@@ -236,6 +238,7 @@ function mapLeadRow(lead: LeadRecord): LeadRow {
     mobile: `${lead.countryCode} ${lead.mobileNumber}`.trim(),
     email: lead.email,
     docType: lead.docType ?? "",
+    documentName: lead.documentName ?? "",
     noOfDocuments: lead.noOfDocuments ? String(lead.noOfDocuments) : "",
     service: lead.service,
     status: formatLeadStatus(lead.leadStatus),
@@ -277,6 +280,7 @@ function mapLegacyLeadRow(lead: LegacyLeadRecord): LeadRow {
     mobile: `${lead.countryCode} ${lead.mobileNumber}`.trim(),
     email: lead.email,
     docType: lead.docType ?? "",
+    documentName: lead.documentName ?? "",
     noOfDocuments: lead.noOfDocuments ? String(lead.noOfDocuments) : "",
     service: lead.service,
     status: formatLeadStatus(lead.leadStatus),
@@ -642,6 +646,7 @@ function buildLeadData(
     mobileNumber: input.mobileNumber,
     email: input.email,
     docType: input.docType || null,
+    documentName: input.documentName || null,
     noOfDocuments:
       typeof input.noOfDocuments === "number" && input.noOfDocuments > 0
         ? input.noOfDocuments

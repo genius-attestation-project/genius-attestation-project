@@ -77,6 +77,7 @@ export const leadInputSchema = z.object({
   mobileNumber: z.string().trim().min(1, "Mobile number is required."),
   email: z.string().trim().email("Email is required."),
   docType: z.string().trim().optional().default(""),
+  documentName: z.string().trim().optional().default(""),
   noOfDocuments: integerString,
   country: z.string().trim().min(1, "Country is required."),
   state: z.string().trim().optional().default(""),

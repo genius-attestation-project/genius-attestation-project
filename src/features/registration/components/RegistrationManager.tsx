@@ -621,6 +621,7 @@ export function RegistrationManager({
               country: lead.country || "",
               state: lead.state || "",
               documentType: lead.docType || "",
+              documentName: lead.documentName || "",
               documentIssuedCountry: lead.documentIssuedCountry || "",
               processType: lead.service || "",
               customerType: lead.clientType || "",

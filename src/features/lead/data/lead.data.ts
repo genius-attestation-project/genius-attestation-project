@@ -7,6 +7,7 @@ export type LeadFormValues = {
   mobileNumber: string;
   email: string;
   docType: string;
+  documentName: string;
   noOfDocuments: string;
   country: string;
   state: string;
@@ -52,6 +53,7 @@ export const defaultLeadValues: LeadFormValues = {
   mobileNumber: "",
   email: "",
   docType: "",
+  documentName: "",
   noOfDocuments: "",
   country: "",
   state: "",

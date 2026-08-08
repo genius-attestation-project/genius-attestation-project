@@ -273,6 +273,7 @@ export function FollowupsCalendarManagement() {
       mobileNumber: lead.mobileNumber,
       email: lead.email,
       docType: lead.docType,
+      documentName: lead.documentName,
       noOfDocuments: lead.noOfDocuments,
       country: lead.country,
       state: lead.state,

@@ -221,6 +221,7 @@ model Lead {
   mobileNumber           String
   email                  String
   docType                String?
+  documentName           String?        @map("document_name")
   noOfDocuments          Int?
   country                String
   state                  String?

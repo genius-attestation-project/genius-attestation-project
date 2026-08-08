@@ -13,6 +13,7 @@ export type LeadRow = {
   mobile: string;
   email: string;
   docType: string;
+  documentName: string;
   noOfDocuments: string;
   service: string;
   status: LeadFormValues["leadStatus"];
