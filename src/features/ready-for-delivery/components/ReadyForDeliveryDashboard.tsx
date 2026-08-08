@@ -54,6 +54,15 @@ function toSelectOptions(options: string[]): SelectOption[] {
   return options.map((option) => ({ label: option, value: option }));
 }
 
+function toTitleCase(str: string | null | undefined): string {
+  if (!str || str === "-") return "-";
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+    .join(" ");
+}
+
 function DaysBadge({ days }: { days: string | number | null | undefined }) {
   if (!days || days === "-") {
     return <span className="text-slate-500 font-medium">-</span>;
@@ -672,8 +681,8 @@ export function ReadyForDeliveryDashboard({
                           <td className="border-r border-slate-200 bg-slate-50/30 dark:bg-slate-900/30 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.registeredDate || "-"}
                           </td>
-                          <td className="border-r border-slate-200 bg-white dark:bg-slate-900 px-3 py-2.5 font-extrabold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
-                            {item.clientName}
+                          <td className="border-r border-slate-200 bg-white dark:bg-slate-900 px-3 py-2.5 font-bold text-slate-900 dark:border-slate-800 dark:text-white capitalize">
+                            {toTitleCase(item.clientName)}
                           </td>
                           <td className="border-r border-slate-200 bg-slate-50/30 dark:bg-slate-900/30 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.regionOfRegistration}
