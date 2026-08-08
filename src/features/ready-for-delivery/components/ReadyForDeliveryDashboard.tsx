@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  Building2,
   CheckCheck,
   Clock3,
-  FileSearch,
+  Download,
   MapPin,
   PackageCheck,
+  Printer,
   RefreshCw,
   Search,
   Truck,
@@ -19,7 +19,6 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
-import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { StatsCard } from "@/components/ui/StatsCard";
 import type {
@@ -30,7 +29,7 @@ import type {
   ReadyForDeliverySection,
   ReadyForDeliveryStats,
 } from "@/features/ready-for-delivery/types/ready-for-delivery.types";
-import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { PriorityIndicator } from "@/components/ui/PriorityIndicator";
 import { DeliverModal } from "@/features/ready-for-delivery/components/DeliverModal";
 import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 
@@ -67,8 +66,8 @@ async function parseResponse<T>(response: Response) {
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
   return (
-    <div className="grid gap-1 rounded-2xl border border-(--border) bg-white/70 p-4 dark:bg-white/5">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-soft">{label}</span>
+    <div className="grid gap-1 rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-800 dark:bg-white/5">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       <span className="wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{value || "-"}</span>
     </div>
   );
@@ -92,13 +91,13 @@ function DetailSection({
 function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDeliveryDetail }) {
   return (
     <div className="grid gap-5">
-      <section className="rounded-[28px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-5 shadow-(--shadow-card) dark:border-blue-900/40 dark:bg-slate-900">
+      <section className="rounded-[28px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-5 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Ready For Delivery</p>
             <div className="flex items-center gap-2 mt-2">
+              <PriorityIndicator priority={(registration as any).priority} />
               <h2 className="wrap-break-word text-2xl font-extrabold text-slate-900 dark:text-white">{registration.trackingNumber}</h2>
-              <PriorityBadge priority={(registration as any).priority} />
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{registration.customerName}</p>
           </div>
@@ -117,11 +116,11 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
         <Field label="Client Name" value={registration.customerName} />
         <Field label="Mobile" value={registration.mobile} />
         <Field label="Email" value={registration.email} />
+        <Field label="Collected Person" value={(registration as any).collectedPerson || (registration as any).collected_person} />
       </DetailSection>
 
       <DetailSection title="Document Information">
         <Field label="Doctype" value={registration.documentType} />
-        <Field label="Number Of Documents" value="-" />
         <Field label="Service" value={registration.serviceLabel} />
       </DetailSection>
 
@@ -129,25 +128,22 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
         <Field label="Country" value={registration.country} />
         <Field label="State" value={registration.state} />
         <Field label="Document Issued Country" value={registration.documentIssuedCountry} />
-        <Field label="Region Of Registration" value={registration.regionOfRegistration} />
+        <Field label="Registered Office" value={registration.regionOfRegistration} />
         <Field label="Delivery Location" value={registration.deliveryLocation} />
       </DetailSection>
 
-      <DetailSection title="Business Information">
-        <Field label="Amount" value={registration.amountLabel} />
+      <DetailSection title="Financial Information">
+        <Field label="Total Amount" value={`₹${registration.totalCharges ? Number(registration.totalCharges).toFixed(2) : "0.00"}`} />
+        <Field label="Advance Paid" value={`₹${registration.advancePaid ? Number(registration.advancePaid).toFixed(2) : "0.00"}`} />
+        <Field label="Balance Amount" value={`₹${registration.balanceAmount ? Number(registration.balanceAmount).toFixed(2) : "0.00"}`} />
         <Field label="Working Days" value={registration.workingDaysLabel} />
-        <Field label="Source" value={registration.sourceLabel} />
-        <Field label="Lead Status" value={registration.leadStatusLabel} />
-        <Field label="Client Type" value={registration.clientTypeLabel} />
       </DetailSection>
 
       <DetailSection title="Workflow Information">
         <Field label="Created By" value={registration.createdBy?.name || "Unknown"} />
-        <Field label="Office Location" value={registration.officeLocationLabel} />
+        <Field label="Registered Office" value={registration.officeLocationLabel} />
         <Field label="Accepted By" value={registration.acceptedByName} />
         <Field label="Accepted Date" value={registration.acceptedAt ? new Date(registration.acceptedAt).toLocaleString() : "-"} />
-        <Field label="Approval Status" value={registration.approvalStatus} />
-        <Field label="BM Status" value={registration.bmStatus} />
       </DetailSection>
     </div>
   );
@@ -201,7 +197,6 @@ export function ReadyForDeliveryDashboard({
     officeLocation: string;
     date: string;
   }>) {
-
     const next = {
       search: overrides?.search ?? activeSearch,
       service: overrides?.service ?? service,
@@ -231,10 +226,12 @@ export function ReadyForDeliveryDashboard({
       if (data.sections && Array.isArray(data.sections) && data.sections.length > 0) {
         setSections(data.sections);
       } else {
-        // Fallback grouping by Region of Registration
         const secMap = new Map<string, ReadyForDeliveryItem[]>();
         for (const item of fetchedItems) {
-          const loc = item.regionOfRegistration && item.regionOfRegistration !== "-" ? item.regionOfRegistration.trim() : "Unassigned";
+          const loc =
+            item.regionOfRegistration && item.regionOfRegistration !== "-"
+              ? item.regionOfRegistration.trim()
+              : "Unassigned";
           if (!secMap.has(loc)) secMap.set(loc, []);
           secMap.get(loc)!.push(item);
         }
@@ -242,7 +239,7 @@ export function ReadyForDeliveryDashboard({
           Array.from(secMap.entries()).map(([locationName, items]) => ({
             locationName,
             items,
-          }))
+          })),
         );
       }
 
@@ -272,7 +269,7 @@ export function ReadyForDeliveryDashboard({
       label: "Total Ready For Delivery",
       value: stats.totalReadyForDelivery.toLocaleString(),
       delta: "Live",
-      description: "Accepted documents waiting in this office queue",
+      description: "Accepted documents waiting in queue",
       icon: PackageCheck,
       tone: "blue" as const,
     },
@@ -350,26 +347,103 @@ export function ReadyForDeliveryDashboard({
     });
   }
 
+  function handlePrint() {
+    window.print();
+  }
+
+  function handleExportCSV() {
+    if (items.length === 0) return;
+    const headers = [
+      "SL No",
+      "Tracking Number",
+      "Registered Date",
+      "Customer Name",
+      "Registered Office",
+      "Collected Person",
+      "Created By",
+      "Amount",
+      "Advance",
+      "Balance",
+      "Working Days",
+      "Mobile",
+      "Priority",
+    ];
+
+    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+
+    let sl = 1;
+    sections.forEach((sec) => {
+      sec.items.forEach((item) => {
+        const row = [
+          sl++,
+          `"${item.compactTrackingNumber || item.registrationNumber}"`,
+          `"${item.registeredDate || "-"}"`,
+          `"${(item.clientName || "-").replace(/"/g, '""')}"`,
+          `"${(item.regionOfRegistration || "-").replace(/"/g, '""')}"`,
+          `"${(item.collectedPerson || "-").replace(/"/g, '""')}"`,
+          `"${(item.createdBy || "-").replace(/"/g, '""')}"`,
+          item.amount || 0,
+          item.advancePaid || 0,
+          item.balanceAmount || 0,
+          `"${item.workingDays || "-"}"`,
+          `"${item.mobile || "-"}"`,
+          `"${item.priority || "Normal"}"`,
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ready_for_delivery_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   const totalDocCount = sections.reduce((acc, sec) => acc + (sec.items?.length || 0), 0);
+
+  const displayCountryBanner = country ? country : "India";
 
   return (
     <div className="space-y-6">
-      {/* Header Banner - Matching BM Location Tracking Style */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      {/* Module Title Header Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-xs dark:border-emerald-900/40 dark:bg-slate-900">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
             <PackageCheck className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Ready For Delivery
+            <h1 className="text-xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white">
+              READY FOR DELIVERY LIST!!
             </h1>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Accepted delivery queue grouped by registration office location
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+              Office-wise Grouped Document Delivery Queue
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handlePrint}
+            title="Print Report"
+            className="rounded-xl border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <Printer className="h-4 w-4 mr-1.5 text-slate-600 dark:text-slate-300" />
+            Print
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCSV}
+            title="Export CSV"
+            className="rounded-xl border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <Download className="h-4 w-4 mr-1.5 text-slate-600 dark:text-slate-300" />
+            Export
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -391,7 +465,7 @@ export function ReadyForDeliveryDashboard({
       </section>
 
       {/* Filter Controls Bar */}
-      <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-12 dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs md:grid-cols-12 dark:border-slate-800 dark:bg-slate-900">
         <div className="md:col-span-3">
           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Registration Office
@@ -421,7 +495,7 @@ export function ReadyForDeliveryDashboard({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void handleSearch();
                 }}
-                placeholder="Search tracking #, client, mobile..."
+                placeholder="Type to search (tracking #, client, mobile...)"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-4 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400"
               />
             </div>
@@ -479,11 +553,20 @@ export function ReadyForDeliveryDashboard({
         </p>
       ) : null}
 
-      {/* Grouped Location Sections */}
+      {/* Main Region/Country Header Banner */}
+      {!loading && sections.length > 0 && totalDocCount > 0 && (
+        <div className="rounded-xl border border-emerald-300 bg-emerald-300/80 px-4 py-2.5 shadow-2xs dark:border-emerald-800 dark:bg-emerald-950/60">
+          <h2 className="text-base font-extrabold tracking-wide text-slate-900 dark:text-emerald-100">
+            {displayCountryBanner}
+          </h2>
+        </div>
+      )}
+
+      {/* Grouped Office Sections */}
       {loading ? (
         <div className="flex h-64 items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col items-center gap-3">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+            <RefreshCw className="h-8 w-8 animate-spin text-emerald-600" />
             <p className="text-sm font-medium text-slate-500">Loading ready for delivery queue...</p>
           </div>
         </div>
@@ -491,102 +574,108 @@ export function ReadyForDeliveryDashboard({
         <EmptyState
           icon={Truck}
           title="No ready for delivery documents"
-          description="Accepted BM documents matching your selected filters will appear here."
+          description="Accepted documents matching your selected filters will appear here."
         />
       ) : (
         <div className="space-y-6">
           {sections.map((sec) => {
             if (!sec.items || sec.items.length === 0) return null;
+
+            // Office-wise Financial Totals Calculation
+            const officeTotalAmount = sec.items.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+            const officeTotalAdvance = sec.items.reduce((acc, item) => acc + (Number(item.advancePaid) || 0), 0);
+            const officeTotalBalance = sec.items.reduce((acc, item) => acc + (Number(item.balanceAmount) || 0), 0);
+
             return (
               <div
                 key={sec.locationName}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xs dark:border-slate-700 dark:bg-slate-900"
               >
-                {/* Section Header Bar - Matching BM Report Section Styling */}
-                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-5 py-3.5 dark:border-slate-800 dark:bg-slate-950/60">
-                  <div className="flex items-center gap-2.5">
-                    <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {/* Office Section Header */}
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/90 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
                       {sec.locationName}
-                    </h2>
+                    </h3>
                   </div>
-                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
-                    {sec.items.length} {sec.items.length === 1 ? "Document" : "Documents"}
+                  <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    {sec.items.length} {sec.items.length === 1 ? "Record" : "Records"}
                   </span>
                 </div>
 
-                {/* Structured Document Table */}
+                {/* Report Style Office Table */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-100/60 text-xs font-bold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-400">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="border-b border-slate-200 bg-emerald-50/70 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
                       <tr>
-                        <th className="px-4 py-3 text-center">SL No</th>
-                        <th className="px-4 py-3">Tracking Number</th>
-                        <th className="px-4 py-3">Client Name</th>
-                        <th className="px-4 py-3">Mobile</th>
-                        <th className="px-4 py-3">Service</th>
-                        <th className="px-4 py-3">Country</th>
-                        <th className="px-4 py-3">Delivery Location</th>
-                        <th className="px-4 py-3">Region Of Registration</th>
-                        <th className="px-4 py-3 text-right">Amount</th>
-                        <th className="px-4 py-3 text-center">Working Days</th>
-                        <th className="px-4 py-3">Created By</th>
-                        <th className="px-4 py-3">Accepted By</th>
-                        <th className="px-4 py-3">Accepted Date</th>
-                        <th className="px-4 py-3 text-center">Actions</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Sl No</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Track Number</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Registered Date</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Name</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Registered Office</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Colln.Of</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Submitted by</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Amount</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Advance</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Balance</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Days</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Contact No</th>
+                        <th className="px-3 py-2.5 text-center font-bold">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-800 dark:divide-slate-800 dark:text-slate-200">
+                    <tbody className="divide-y divide-slate-200 text-slate-800 dark:divide-slate-800 dark:text-slate-200 bg-rose-50/20 dark:bg-slate-900">
                       {sec.items.map((item, idx) => (
                         <tr
                           key={item.id}
-                          className="hover:bg-blue-50/40 transition-colors dark:hover:bg-blue-950/20"
+                          className="hover:bg-amber-50/50 transition-colors dark:hover:bg-slate-800/60"
                         >
-                          <td className="px-4 py-3.5 text-center font-semibold text-slate-500">
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-center font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {idx + 1}
                           </td>
-                          <td className="px-4 py-3.5 font-bold">
-                            <div className="flex items-center gap-1.5 font-mono text-blue-600 dark:text-blue-400">
-                              <span>{item.registrationNumber}</span>
-                              <PriorityBadge priority={(item as any).priority} />
+                          <td className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                              <PriorityIndicator priority={item.priority} />
+                              <button
+                                type="button"
+                                onClick={() => void handleOpenDetails(item.id)}
+                                className="font-mono text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                              >
+                                {item.compactTrackingNumber || item.registrationNumber}
+                              </button>
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
+                          <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                            {item.registeredDate || "-"}
+                          </td>
+                          <td className="border-r border-slate-200 px-3 py-2.5 font-bold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
                             {item.clientName}
                           </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                            {item.mobile}
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                            {item.service}
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                            {item.country}
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                            {item.deliveryLocation}
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.regionOfRegistration}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-white">
-                            ₹{item.amount.toFixed(2)}
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                            {item.collectedPerson || "-"}
                           </td>
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                              {item.workingDays}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.createdBy}
                           </td>
-                          <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                            {item.acceptedBy}
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-bold text-slate-900 dark:border-slate-800 dark:text-white">
+                            {item.amount || 0}
                           </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
-                            {item.acceptedDate ?? "-"}
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-semibold text-emerald-700 dark:border-slate-800 dark:text-emerald-400">
+                            {item.advancePaid || 0}
                           </td>
-                          <td className="px-4 py-3.5 text-center">
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-extrabold text-slate-900 dark:border-slate-800 dark:text-white">
+                            {item.balanceAmount || 0}
+                          </td>
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-center font-medium text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                            {item.workingDays}
+                          </td>
+                          <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                            {item.mobile}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               {item.trackingStatus !== "Delivered" && item.trackingStatus !== "Pending Approval" && (
                                 <Button
@@ -596,9 +685,9 @@ export function ReadyForDeliveryDashboard({
                                     setDeliverItem(item);
                                     setDeliverModalOpen(true);
                                   }}
-                                  className="rounded-xl px-2.5 py-1 text-xs"
+                                  className="rounded-lg px-2 py-0.5 text-[11px] font-bold"
                                 >
-                                  <Truck size={13} className="mr-1" /> Deliver
+                                  <Truck size={12} className="mr-1" /> Deliver
                                 </Button>
                               )}
                               {item.trackingStatus !== "Delivered" && Boolean((item as any).deliveryType || (item as any).deliveryStatus || item.trackingStatus === "Pending Approval") && (
@@ -607,18 +696,18 @@ export function ReadyForDeliveryDashboard({
                                   size="sm"
                                   disabled={undoLoadingId === item.id}
                                   onClick={() => void handleUndoDelivery(item.id)}
-                                  className="rounded-xl px-2.5 py-1 text-xs"
+                                  className="rounded-lg px-2 py-0.5 text-[11px] font-bold"
                                 >
-                                  <Undo2 size={13} className="mr-1" /> {undoLoadingId === item.id ? "Undoing..." : "Undo"}
+                                  <Undo2 size={12} className="mr-1" /> {undoLoadingId === item.id ? "..." : "Undo"}
                                 </Button>
                               )}
                               <Button
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => void handleOpenDetails(item.id)}
-                                className="rounded-xl px-2.5 py-1 text-xs"
+                                className="rounded-lg px-2 py-0.5 text-[11px] font-bold border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800"
                               >
-                                <UserRoundSearch size={14} className="mr-1" /> Details
+                                <UserRoundSearch size={12} className="mr-1" /> Details
                               </Button>
                             </div>
                           </td>
@@ -626,6 +715,28 @@ export function ReadyForDeliveryDashboard({
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Office Financial Totals Summary Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-300 bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <div className="flex items-center gap-1.5">
+                    <span className="uppercase tracking-wider font-extrabold text-slate-800 dark:text-slate-200">{sec.locationName} Total</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">({sec.items.length} records)</span>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div>
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Amount:</span>
+                      <span className="font-extrabold text-slate-900 dark:text-white">₹{officeTotalAmount.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Advance:</span>
+                      <span className="font-extrabold text-emerald-700 dark:text-emerald-400">₹{officeTotalAdvance.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Balance:</span>
+                      <span className="font-extrabold text-amber-700 dark:text-amber-400">₹{officeTotalBalance.toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -690,8 +801,8 @@ export function ReadyForDeliveryDashboard({
           trackingNumber={advanceItem.registrationNumber}
           customerName={advanceItem.clientName}
           totalCharges={advanceItem.amount}
-          currentApprovedAdvance={0}
-          currentBalance={advanceItem.amount}
+          currentApprovedAdvance={advanceItem.advancePaid || 0}
+          currentBalance={advanceItem.balanceAmount || advanceItem.amount}
           onSuccess={() => {
             setAdvanceModalOpen(false);
             setAdvanceItem(null);

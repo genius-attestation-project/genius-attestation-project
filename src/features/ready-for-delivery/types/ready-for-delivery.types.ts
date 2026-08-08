@@ -3,6 +3,7 @@ import type { Registration } from "@/features/registration/types/registration.ty
 export type ReadyForDeliveryItem = {
   id: string;
   registrationNumber: string;
+  compactTrackingNumber: string;
   clientName: string;
   mobile: string;
   email: string;
@@ -12,6 +13,9 @@ export type ReadyForDeliveryItem = {
   deliveryLocation: string;
   regionOfRegistration: string;
   amount: number;
+  advancePaid: number;
+  balanceAmount: number;
+  collectedPerson: string;
   workingDays: string;
   source: string;
   leadStatus: string;
@@ -22,6 +26,7 @@ export type ReadyForDeliveryItem = {
   acceptedDate: string | null;
   createdAt: string;
   createdDate: string;
+  registeredDate: string;
   approvalStatus: string;
   bmStatus: string;
   trackingStatus: string;

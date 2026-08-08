@@ -22,6 +22,9 @@ type ReadyForDeliveryRow = {
   deliveryLocation: string | null;
   regionOfRegistration: string | null;
   amount: Prisma.Decimal | number | null;
+  advancePaid: Prisma.Decimal | number | null;
+  balanceAmount: Prisma.Decimal | number | null;
+  collectedPerson: string | null;
   workingDays: string | null;
   source: string | null;
   leadStatus: string | null;
@@ -60,6 +63,13 @@ function formatDate(date: Date) {
   }).format(date);
 }
 
+function formatDateDDMMYYYY(date: Date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 function normalizeText(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
 }
@@ -69,9 +79,16 @@ function isNonEmptyString(value: string | undefined | null): value is string {
 }
 
 function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem {
+  const regNum = row.registrationNumber ?? "";
+  const compactTracking = regNum.replace(/^0+/, "") || regNum;
+  const amt = Number(row.amount ?? 0);
+  const adv = Number(row.advancePaid ?? 0);
+  const bal = Number(row.balanceAmount ?? amt - adv);
+
   return {
     id: row.id,
-    registrationNumber: row.registrationNumber,
+    registrationNumber: regNum,
+    compactTrackingNumber: compactTracking,
     clientName: row.clientName ?? "-",
     mobile: row.mobile ?? "-",
     email: row.email ?? "-",
@@ -80,7 +97,10 @@ function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem
     state: row.state ?? "-",
     deliveryLocation: row.deliveryLocation ?? "-",
     regionOfRegistration: row.regionOfRegistration ?? "-",
-    amount: Number(row.amount ?? 0),
+    amount: amt,
+    advancePaid: adv,
+    balanceAmount: bal,
+    collectedPerson: row.collectedPerson ?? "-",
     workingDays: row.workingDays ?? "-",
     source: row.source ?? "-",
     leadStatus: row.leadStatus ?? "-",
@@ -91,6 +111,7 @@ function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem
     acceptedDate: row.acceptedAt ? formatDate(row.acceptedAt) : null,
     createdAt: row.createdAt.toISOString(),
     createdDate: formatDate(row.createdAt),
+    registeredDate: formatDateDDMMYYYY(row.createdAt),
     approvalStatus: row.approvalStatus,
     bmStatus: row.bmStatus,
     trackingStatus: row.trackingStatus,
@@ -103,7 +124,7 @@ function mapReadyForDeliveryItem(row: ReadyForDeliveryRow): ReadyForDeliveryItem
     deliveryProofFileUrl: row.deliveryProofFileUrl,
     deliveryStatus: row.deliveryStatus,
     priority: row.priority ?? "Normal",
-  } as any;
+  };
 }
 
 function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQueryParams) {
@@ -126,6 +147,7 @@ function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQue
       row.regionOfRegistration,
       row.createdBy,
       row.acceptedBy,
+      row.collectedPerson,
     ];
 
     const matchesSearch = haystacks.some((value) => value?.toLowerCase().includes(search));
@@ -173,6 +195,9 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
       r.delivery_location AS "deliveryLocation",
       r.region_of_registration AS "regionOfRegistration",
       r.total_charges AS "amount",
+      r.advance_paid AS "advancePaid",
+      r.balance_amount AS "balanceAmount",
+      r.collected_person AS "collectedPerson",
       r.committed_duration AS "workingDays",
       CAST(NULL AS CHAR) AS "source",
       CAST(NULL AS CHAR) AS "leadStatus",
