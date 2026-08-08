@@ -54,6 +54,30 @@ function toSelectOptions(options: string[]): SelectOption[] {
   return options.map((option) => ({ label: option, value: option }));
 }
 
+function DaysBadge({ days }: { days: string | number | null | undefined }) {
+  if (!days || days === "-") {
+    return <span className="text-slate-500 font-medium">-</span>;
+  }
+
+  const num = parseInt(String(days), 10);
+  if (isNaN(num)) {
+    return <span className="text-slate-700 font-medium">{days}</span>;
+  }
+
+  let badgeStyle = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
+  if (num > 15) {
+    badgeStyle = "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800";
+  } else if (num > 7) {
+    badgeStyle = "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800";
+  }
+
+  return (
+    <span className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[11px] font-bold ${badgeStyle}`}>
+      {days}
+    </span>
+  );
+}
+
 async function parseResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as T & { message?: string };
 
@@ -555,7 +579,7 @@ export function ReadyForDeliveryDashboard({
 
       {/* Main Region/Country Header Banner */}
       {!loading && sections.length > 0 && totalDocCount > 0 && (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-300/80 px-4 py-2.5 shadow-2xs dark:border-emerald-800 dark:bg-emerald-950/60">
+        <div className="rounded-xl border border-emerald-300 bg-[#6ee7b7] px-4 py-2.5 shadow-2xs dark:border-emerald-800 dark:bg-emerald-950/80">
           <h2 className="text-base font-extrabold tracking-wide text-slate-900 dark:text-emerald-100">
             {displayCountryBanner}
           </h2>
@@ -607,7 +631,7 @@ export function ReadyForDeliveryDashboard({
                 {/* Report Style Office Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="border-b border-slate-200 bg-emerald-50/70 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
+                    <thead className="border-b border-slate-200 bg-emerald-50/50 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
                       <tr>
                         <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Sl No</th>
                         <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Track Number</th>
@@ -616,19 +640,19 @@ export function ReadyForDeliveryDashboard({
                         <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Registered Office</th>
                         <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Colln.Of</th>
                         <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Submitted by</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Amount</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Advance</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 text-right font-bold dark:border-slate-700">Balance</th>
+                        <th className="border-r border-blue-100 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2.5 text-right font-extrabold text-blue-900 dark:text-blue-200 dark:border-slate-700">Amount</th>
+                        <th className="border-r border-emerald-100 bg-emerald-50/80 dark:bg-emerald-950/40 px-3 py-2.5 text-right font-extrabold text-emerald-900 dark:text-emerald-200 dark:border-slate-700">Advance</th>
+                        <th className="border-r border-amber-100 bg-amber-50/80 dark:bg-amber-950/40 px-3 py-2.5 text-right font-extrabold text-amber-900 dark:text-amber-200 dark:border-slate-700">Balance</th>
                         <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Days</th>
                         <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Contact No</th>
                         <th className="px-3 py-2.5 text-center font-bold">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 text-slate-800 dark:divide-slate-800 dark:text-slate-200 bg-rose-50/20 dark:bg-slate-900">
+                    <tbody className="divide-y divide-slate-200 text-slate-800 dark:divide-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900">
                       {sec.items.map((item, idx) => (
                         <tr
                           key={item.id}
-                          className="hover:bg-amber-50/50 transition-colors dark:hover:bg-slate-800/60"
+                          className="hover:bg-slate-50/80 transition-colors dark:hover:bg-slate-800/60"
                         >
                           <td className="border-r border-slate-200 px-3 py-2.5 text-center font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {idx + 1}
@@ -648,7 +672,7 @@ export function ReadyForDeliveryDashboard({
                           <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.registeredDate || "-"}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 font-bold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
+                          <td className="border-r border-slate-200 px-3 py-2.5 font-extrabold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
                             {item.clientName}
                           </td>
                           <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
@@ -660,17 +684,17 @@ export function ReadyForDeliveryDashboard({
                           <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.createdBy}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-bold text-slate-900 dark:border-slate-800 dark:text-white">
+                          <td className="border-r border-blue-100 bg-blue-50/30 dark:bg-blue-950/10 px-3 py-2.5 text-right font-extrabold text-blue-950 dark:border-slate-800 dark:text-blue-100">
                             {item.amount || 0}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-semibold text-emerald-700 dark:border-slate-800 dark:text-emerald-400">
+                          <td className="border-r border-emerald-100 bg-emerald-50/30 dark:bg-emerald-950/10 px-3 py-2.5 text-right font-bold text-emerald-600 dark:border-slate-800 dark:text-emerald-400">
                             {item.advancePaid || 0}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-right font-extrabold text-slate-900 dark:border-slate-800 dark:text-white">
+                          <td className="border-r border-amber-100 bg-amber-50/30 dark:bg-amber-950/10 px-3 py-2.5 text-right font-extrabold text-amber-700 dark:border-slate-800 dark:text-amber-400">
                             {item.balanceAmount || 0}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-center font-medium text-slate-700 dark:border-slate-800 dark:text-slate-300">
-                            {item.workingDays}
+                          <td className="border-r border-slate-200 px-3 py-2.5 text-center dark:border-slate-800">
+                            <DaysBadge days={item.workingDays} />
                           </td>
                           <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.mobile}
@@ -718,19 +742,19 @@ export function ReadyForDeliveryDashboard({
                 </div>
 
                 {/* Office Financial Totals Summary Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-300 bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-300 bg-slate-100/90 px-4 py-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                   <div className="flex items-center gap-1.5">
-                    <span className="uppercase tracking-wider font-extrabold text-slate-800 dark:text-slate-200">{sec.locationName} Total</span>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">({sec.items.length} records)</span>
+                    <span className="uppercase tracking-wider font-extrabold text-slate-800 dark:text-slate-200">{sec.locationName} TOTAL</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold">({sec.items.length} {sec.items.length === 1 ? "record" : "records"})</span>
                   </div>
                   <div className="flex items-center gap-6">
                     <div>
                       <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Amount:</span>
-                      <span className="font-extrabold text-slate-900 dark:text-white">₹{officeTotalAmount.toLocaleString("en-IN")}</span>
+                      <span className="font-extrabold text-blue-900 dark:text-blue-300">₹{officeTotalAmount.toLocaleString("en-IN")}</span>
                     </div>
                     <div>
                       <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Advance:</span>
-                      <span className="font-extrabold text-emerald-700 dark:text-emerald-400">₹{officeTotalAdvance.toLocaleString("en-IN")}</span>
+                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400">₹{officeTotalAdvance.toLocaleString("en-IN")}</span>
                     </div>
                     <div>
                       <span className="text-slate-600 dark:text-slate-400 font-semibold mr-1.5">Total Balance:</span>
