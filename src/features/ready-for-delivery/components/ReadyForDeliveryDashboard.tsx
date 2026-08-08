@@ -631,33 +631,33 @@ export function ReadyForDeliveryDashboard({
                 {/* Report Style Office Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="border-b border-slate-200 bg-emerald-50/50 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
+                    <thead className="border-b border-slate-200 bg-slate-100/80 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-300">
                       <tr>
-                        <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Sl No</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Track Number</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Registered Date</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Name</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Registered Office</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Colln.Of</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Submitted by</th>
-                        <th className="border-r border-blue-100 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2.5 text-right font-extrabold text-blue-900 dark:text-blue-200 dark:border-slate-700">Amount</th>
-                        <th className="border-r border-emerald-100 bg-emerald-50/80 dark:bg-emerald-950/40 px-3 py-2.5 text-right font-extrabold text-emerald-900 dark:text-emerald-200 dark:border-slate-700">Advance</th>
-                        <th className="border-r border-amber-100 bg-amber-50/80 dark:bg-amber-950/40 px-3 py-2.5 text-right font-extrabold text-amber-900 dark:text-amber-200 dark:border-slate-700">Balance</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700">Days</th>
-                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700">Contact No</th>
-                        <th className="px-3 py-2.5 text-center font-bold">Action</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 text-center font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Sl No</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Track Number</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Registered Date</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Name</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Registered Office</th>
+                        <th className="border-r border-indigo-100 bg-indigo-50/80 dark:bg-indigo-950/40 px-3 py-2.5 font-bold text-indigo-950 dark:text-indigo-200 dark:border-slate-700">Colln.Of</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Submitted by</th>
+                        <th className="border-r border-blue-100 bg-blue-100/70 dark:bg-blue-950/50 px-3 py-2.5 text-right font-extrabold text-blue-950 dark:text-blue-200 dark:border-slate-700">Amount</th>
+                        <th className="border-r border-emerald-100 bg-emerald-100/70 dark:bg-emerald-950/50 px-3 py-2.5 text-right font-extrabold text-emerald-950 dark:text-emerald-200 dark:border-slate-700">Advance</th>
+                        <th className="border-r border-amber-100 bg-amber-100/70 dark:bg-amber-950/50 px-3 py-2.5 text-right font-extrabold text-amber-950 dark:text-amber-200 dark:border-slate-700">Balance</th>
+                        <th className="border-r border-sky-100 bg-sky-50/70 dark:bg-sky-950/40 px-3 py-2.5 text-center font-bold text-sky-950 dark:text-sky-200 dark:border-slate-700">Days</th>
+                        <th className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60">Contact No</th>
+                        <th className="px-3 py-2.5 text-center font-bold bg-slate-100/70 dark:bg-slate-800/60">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 text-slate-800 dark:divide-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900">
                       {sec.items.map((item, idx) => (
                         <tr
                           key={item.id}
-                          className="hover:bg-slate-50/80 transition-colors dark:hover:bg-slate-800/60"
+                          className="hover:bg-slate-50/90 transition-colors dark:hover:bg-slate-800/60"
                         >
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-center font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-slate-200 bg-slate-50/50 dark:bg-slate-900/40 px-3 py-2.5 text-center font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {idx + 1}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 font-bold dark:border-slate-800">
+                          <td className="border-r border-slate-200 bg-white dark:bg-slate-900 px-3 py-2.5 font-bold dark:border-slate-800">
                             <div className="flex items-center gap-2">
                               <PriorityIndicator priority={item.priority} />
                               <button
@@ -669,37 +669,37 @@ export function ReadyForDeliveryDashboard({
                               </button>
                             </div>
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-slate-200 bg-slate-50/30 dark:bg-slate-900/30 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.registeredDate || "-"}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 font-extrabold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
+                          <td className="border-r border-slate-200 bg-white dark:bg-slate-900 px-3 py-2.5 font-extrabold text-slate-900 dark:border-slate-800 dark:text-white uppercase">
                             {item.clientName}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-slate-200 bg-slate-50/30 dark:bg-slate-900/30 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.regionOfRegistration}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-indigo-100 bg-indigo-50/20 dark:bg-indigo-950/10 px-3 py-2.5 font-semibold text-indigo-950 dark:border-slate-800 dark:text-indigo-300">
                             {item.collectedPerson || "-"}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-slate-200 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.createdBy}
                           </td>
-                          <td className="border-r border-blue-100 bg-blue-50/30 dark:bg-blue-950/10 px-3 py-2.5 text-right font-extrabold text-blue-950 dark:border-slate-800 dark:text-blue-100">
+                          <td className="border-r border-blue-100 bg-blue-50/40 dark:bg-blue-950/20 px-3 py-2.5 text-right font-extrabold text-blue-950 dark:border-slate-800 dark:text-blue-100">
                             {item.amount || 0}
                           </td>
-                          <td className="border-r border-emerald-100 bg-emerald-50/30 dark:bg-emerald-950/10 px-3 py-2.5 text-right font-bold text-emerald-600 dark:border-slate-800 dark:text-emerald-400">
+                          <td className="border-r border-emerald-100 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-2.5 text-right font-bold text-emerald-600 dark:border-slate-800 dark:text-emerald-400">
                             {item.advancePaid || 0}
                           </td>
-                          <td className="border-r border-amber-100 bg-amber-50/30 dark:bg-amber-950/10 px-3 py-2.5 text-right font-extrabold text-amber-700 dark:border-slate-800 dark:text-amber-400">
+                          <td className="border-r border-amber-100 bg-amber-50/40 dark:bg-amber-950/20 px-3 py-2.5 text-right font-extrabold text-amber-800 dark:border-slate-800 dark:text-amber-400">
                             {item.balanceAmount || 0}
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 text-center dark:border-slate-800">
+                          <td className="border-r border-sky-100 bg-sky-50/20 dark:bg-sky-950/10 px-3 py-2.5 text-center dark:border-slate-800">
                             <DaysBadge days={item.workingDays} />
                           </td>
-                          <td className="border-r border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                          <td className="border-r border-slate-200 bg-slate-50/30 dark:bg-slate-900/30 px-3 py-2.5 whitespace-nowrap text-slate-700 dark:border-slate-800 dark:text-slate-300">
                             {item.mobile}
                           </td>
-                          <td className="px-3 py-2.5 text-center">
+                          <td className="px-3 py-2.5 text-center bg-white dark:bg-slate-900">
                             <div className="flex items-center justify-center gap-1.5">
                               {item.trackingStatus !== "Delivered" && item.trackingStatus !== "Pending Approval" && (
                                 <Button
