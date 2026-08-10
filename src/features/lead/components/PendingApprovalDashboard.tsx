@@ -1,20 +1,40 @@
 "use client";
 
-import { BadgeCheck, Download, Eye, FileText, IndianRupee, ShieldCheck, Building2, CheckCircle2, Pencil, Trash2, XCircle, Search, RefreshCw, AlertCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  BadgeCheck,
+  Building2,
+  CheckCircle2,
+  Download,
+  Eye,
+  FileText,
+  IndianRupee,
+  Pencil,
+  ShieldCheck,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDate, formatDateTime } from "@/utils/format";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
+import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { AgreementCell } from "@/components/common/AgreementCell";
-import { FileUpload } from "@/components/common/FileUpload";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { AdvanceApprovalModal } from "@/features/revenue/components/AdvanceApprovalModal";
+import { EditAdvanceModal } from "@/features/revenue/components/EditAdvanceModal";
 
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
-type MainTabKey = "advance_payment" | "advance_details" | "corporate_approval" | "lob" | "inactive" | "overdue";
+type MainTabKey =
+  | "advance_payment"
+  | "advance_details"
+  | "corporate_approval"
+  | "lob"
+  | "inactive"
+  | "overdue";
 
 type Lead = any;
 type LeadWorkflowApproval = any;
@@ -35,14 +55,17 @@ type AdvancePaymentApprovalItem = {
   remainingBalance: number;
   currentAdvancePaid?: number;
   currentBalance?: number;
-  paymentDate?: string | null;
   paymentMode?: string;
   referenceNumber?: string;
   collectedBy?: string;
   remarks?: string;
+  approvalRemarks?: string;
   receiptFileId: string | null;
   receiptFileUrl: string | null;
   receiptFileName: string | null;
+  bankProofFileId?: string | null;
+  bankProofFileUrl?: string | null;
+  bankProofFileName?: string | null;
   status: string;
   approvalStatus: string;
   requestedBy: string;
@@ -87,48 +110,31 @@ export function PendingApprovalDashboard() {
     currentUser?.permissions?.includes("*");
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
+  const [allAdvanceRecords, setAllAdvanceRecords] = useState<AdvancePaymentApprovalItem[]>([]);
   const [corporateApprovals, setCorporateApprovals] = useState<any[]>([]);
   const [inactiveLeads, setInactiveLeads] = useState<Lead[]>([]);
   const [lobRequests, setLobRequests] = useState<LeadWorkflowApproval[]>([]);
   const [overdueFollowups, setOverdueFollowups] = useState<Lead[]>([]);
+  const [officesList, setOfficesList] = useState<{ id: string; officeName: string }[]>([]);
+
+  // Advance Details filters
+  const [filterOffice, setFilterOffice] = useState("");
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
+  const [filterStatus, setFilterStatus] = useState("pending");
 
   const [editingCorporate, setEditingCorporate] = useState<any>(null);
+  const [approvingAdvance, setApprovingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
+  const [editingAdvance, setEditingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
+  const [deletingAdvance, setDeletingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [advanceDetailsLoading, setAdvanceDetailsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [activeTab, setActiveTab] = useState<MainTabKey>("advance_payment");
 
-  // Advance Details states
-  const [advanceDetailsRecords, setAdvanceDetailsRecords] = useState<AdvancePaymentApprovalItem[]>([]);
-  const [hasSearchedAdvanceDetails, setHasSearchedAdvanceDetails] = useState(false);
-  const [loadingAdvanceDetails, setLoadingAdvanceDetails] = useState(false);
-  const [officeLocations, setOfficeLocations] = useState<{ id: string; officeName: string }[]>([]);
-
-  // Advance Details filters
-  const [filterOffice, setFilterOffice] = useState("Select Office");
-  const [filterFromDate, setFilterFromDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [filterToDate, setFilterToDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [filterStatus, setFilterStatus] = useState("Pending");
-
-  // Advance Details Edit & Delete states
-  const [editingDetailItem, setEditingDetailItem] = useState<AdvancePaymentApprovalItem | null>(null);
-  const [editAmount, setEditAmount] = useState<number | string>("");
-  const [editDate, setEditDate] = useState("");
-  const [editMode, setEditMode] = useState("");
-  const [editRemarks, setEditRemarks] = useState("");
-  const [editStatus, setEditStatus] = useState("");
-  const [deletingDetailItem, setDeletingDetailItem] = useState<AdvancePaymentApprovalItem | null>(null);
-
-  // Dedicated Approve Modal state for Advance Payment Approval
-  const [approveModalItem, setApproveModalItem] = useState<AdvancePaymentApprovalItem | null>(null);
-  const [approveDate, setApproveDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [approveRemarks, setApproveRemarks] = useState("");
-  const [approveProofFileId, setApproveProofFileId] = useState<string | null>(null);
-  const [approveProofValidationError, setApproveProofValidationError] = useState("");
-
-  // Generic action modal for Rejection / LOB / Inactive / Overdue
   const [actionModal, setActionModal] = useState<{
     type: ApprovalAction;
     requestType: string;
@@ -142,18 +148,23 @@ export function PendingApprovalDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [advanceRes, corporateRes, inactiveRes, lobRes, overdueRes] = await Promise.all([
+      const [advanceRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
         parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval")),
         parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details")),
         parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive")),
         parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob")),
         parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue")),
+        fetch("/api/offices/all").then((r) => r.json()).catch(() => ({ offices: [] })),
       ]);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setCorporateApprovals(corporateRes.items ?? []);
       setInactiveLeads(inactiveRes.items ?? []);
       setLobRequests(lobRes.items ?? []);
       setOverdueFollowups(overdueRes.items ?? []);
+      setOfficesList(officesRes.offices ?? officesRes.data ?? []);
+
+      // Also initial search for advance details
+      void loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
     } catch (err: any) {
       setError(err.message || "Failed to load approval queues.");
     } finally {
@@ -161,24 +172,48 @@ export function PendingApprovalDashboard() {
     }
   }
 
+  async function loadAdvanceDetails(office: string, fromDate: string, toDate: string, status: string) {
+    setAdvanceDetailsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (office && office !== "Select Office") params.set("office", office);
+      if (fromDate) params.set("fromDate", fromDate);
+      if (toDate) params.set("toDate", toDate);
+      if (status && status !== "All") {
+        if (status === "pending" || status === "Pending") {
+          params.set("status", "Pending Approval");
+        } else {
+          params.set("status", status);
+        }
+      }
+
+      const res = await parseResponse<{ items: AdvancePaymentApprovalItem[] }>(
+        await fetch(`/api/advance-payment-approvals?${params.toString()}`),
+      );
+      setAllAdvanceRecords(res.items ?? []);
+    } catch (err: any) {
+      console.error("Failed to load advance details:", err);
+    } finally {
+      setAdvanceDetailsLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadData();
-
-    async function fetchOffices() {
-      try {
-        const res = await fetch("/api/office-locations", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          setOfficeLocations(data.officeLocations || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch office locations:", err);
-      }
-    }
-    void fetchOffices();
   }, []);
 
-  // Handler to submit generic action (Rejection / LOB / Corporate etc.)
+  const handleSearchAdvanceDetails = async () => {
+    await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
+  };
+
+  const handleResetAdvanceDetailsFilters = async () => {
+    setFilterOffice("");
+    setFilterFromDate("");
+    setFilterToDate("");
+    setFilterStatus("pending");
+    await loadAdvanceDetails("", "", "", "pending");
+  };
+
   async function submitAction() {
     if (!actionModal) return;
     setSubmitting(true);
@@ -199,17 +234,26 @@ export function PendingApprovalDashboard() {
           })
         );
       } else if (actionModal.requestType === "ADVANCE_PAYMENT") {
-        const endpoint = `/api/advance-payment-approvals/${actionModal.id}/reject`;
+        const endpoint =
+          actionModal.type === "Approved"
+            ? `/api/advance-payment-approvals/${actionModal.id}/approve`
+            : `/api/advance-payment-approvals/${actionModal.id}/reject`;
 
-        if (!reason.trim()) {
-          throw new Error("Rejection reason is required for rejecting an advance payment request.");
+        const body: Record<string, string> = {};
+        if (actionModal.type === "Rejected") {
+          if (!reason.trim()) {
+            throw new Error("Rejection reason is required for rejecting an advance payment request.");
+          }
+          body.rejectionReason = reason.trim();
+        } else if (reason.trim()) {
+          body.remarks = reason.trim();
         }
 
         await parseResponse<{ success: boolean }>(
           await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rejectionReason: reason.trim() }),
+            body: JSON.stringify(body),
           }),
         );
       } else {
@@ -231,9 +275,6 @@ export function PendingApprovalDashboard() {
       setActionModal(null);
       setReason("");
       await loadData();
-      if (hasSearchedAdvanceDetails) {
-        await fetchAdvanceDetails();
-      }
     } catch (err: any) {
       setError(err.message || "Failed to process action.");
     } finally {
@@ -241,145 +282,22 @@ export function PendingApprovalDashboard() {
     }
   }
 
-  // Dedicated Approve Submission Handler
-  async function handleApproveSubmit() {
-    if (!approveModalItem) return;
-
-    const effectiveProofId = approveProofFileId || approveModalItem.receiptFileId;
-    if (!effectiveProofId) {
-      setApproveProofValidationError("Bank Proof is required before approving the advance payment.");
-      return;
-    }
-
+  async function handleDeleteAdvance() {
+    if (!deletingAdvance) return;
     setSubmitting(true);
     setError("");
     setSuccess("");
-    setApproveProofValidationError("");
-
-    try {
-      await parseResponse<{ success: boolean }>(
-        await fetch(`/api/advance-payment-approvals/${approveModalItem.id}/approve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            receiptFileId: effectiveProofId,
-            approvalDate: approveDate,
-            remarks: approveRemarks.trim(),
-          }),
-        })
-      );
-
-      setSuccess(`Advance payment for ${approveModalItem.trackingNumber} approved successfully.`);
-      setApproveModalItem(null);
-      setApproveProofFileId(null);
-      setApproveRemarks("");
-      await loadData();
-      if (hasSearchedAdvanceDetails) {
-        await fetchAdvanceDetails();
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to approve advance payment.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // Advance Details Filter Search Handler
-  async function fetchAdvanceDetails() {
-    setLoadingAdvanceDetails(true);
-    setError("");
-    try {
-      const queryParams = new URLSearchParams();
-      if (filterOffice && filterOffice !== "Select Office" && filterOffice !== "All") {
-        queryParams.set("office", filterOffice);
-      }
-      if (filterFromDate) {
-        queryParams.set("fromDate", filterFromDate);
-      }
-      if (filterToDate) {
-        queryParams.set("toDate", filterToDate);
-      }
-      if (filterStatus && filterStatus !== "All") {
-        queryParams.set("status", filterStatus === "Pending" ? "Pending Approval" : filterStatus);
-      }
-
-      const res = await parseResponse<{ items: AdvancePaymentApprovalItem[] }>(
-        await fetch(`/api/advance-payment-approvals?${queryParams.toString()}`)
-      );
-      setAdvanceDetailsRecords(res.items || []);
-      setHasSearchedAdvanceDetails(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch advance details.");
-    } finally {
-      setLoadingAdvanceDetails(false);
-    }
-  }
-
-  function handleResetAdvanceDetails() {
-    setFilterOffice("Select Office");
-    setFilterFromDate(new Date().toISOString().split("T")[0]);
-    setFilterToDate(new Date().toISOString().split("T")[0]);
-    setFilterStatus("Pending");
-    setAdvanceDetailsRecords([]);
-    setHasSearchedAdvanceDetails(false);
-  }
-
-  // Detail Record Edit Handler
-  function startEditingDetail(item: AdvancePaymentApprovalItem) {
-    setEditingDetailItem(item);
-    setEditAmount(item.advanceAmount);
-    setEditDate(item.paymentDate ? item.paymentDate.split("T")[0] : new Date().toISOString().split("T")[0]);
-    setEditMode(item.paymentMode || "Cash");
-    setEditRemarks(item.remarks || "");
-    setEditStatus(item.status || "Pending Approval");
-  }
-
-  async function handleUpdateDetail() {
-    if (!editingDetailItem) return;
-    setSubmitting(true);
-    setError("");
     try {
       await parseResponse(
-        await fetch(`/api/advance-payment-approvals/${editingDetailItem.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            advanceAmount: Number(editAmount),
-            paymentDate: editDate,
-            paymentMode: editMode,
-            remarks: editRemarks,
-            status: editStatus,
-          }),
-        })
-      );
-      setSuccess(`Record for ${editingDetailItem.trackingNumber} updated successfully.`);
-      setEditingDetailItem(null);
-      await fetchAdvanceDetails();
-      await loadData();
-    } catch (err: any) {
-      setError(err.message || "Failed to update record.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // Detail Record Delete Handler
-  async function handleDeleteDetail() {
-    if (!deletingDetailItem) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      await parseResponse(
-        await fetch(`/api/advance-payment-approvals/${deletingDetailItem.id}`, {
+        await fetch(`/api/advance-payment-approvals/${deletingAdvance.id}`, {
           method: "DELETE",
-        })
+        }),
       );
-      setSuccess(`Record for ${deletingDetailItem.trackingNumber} deleted successfully.`);
-      setDeletingDetailItem(null);
-      await fetchAdvanceDetails();
+      setSuccess(`Advance payment record #${deletingAdvance.trackingNumber} deleted successfully.`);
+      setDeletingAdvance(null);
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Failed to delete record.");
+      setError(err.message || "Failed to delete advance payment.");
     } finally {
       setSubmitting(false);
     }
@@ -395,12 +313,14 @@ export function PendingApprovalDashboard() {
     }
   };
 
-  const openApproveModal = (item: AdvancePaymentApprovalItem) => {
-    setApproveModalItem(item);
-    setApproveDate(new Date().toISOString().split("T")[0]);
-    setApproveRemarks(item.remarks || "");
-    setApproveProofFileId(item.receiptFileId || null);
-    setApproveProofValidationError("");
+  const viewBankProof = (item: AdvancePaymentApprovalItem) => {
+    if (item.bankProofFileUrl) {
+      window.open(item.bankProofFileUrl, "_blank");
+    } else if (item.bankProofFileId) {
+      window.open(`/api/files/${item.bankProofFileId}/view`, "_blank");
+    } else {
+      setError("No bank proof uploaded for this advance payment.");
+    }
   };
 
   return (
@@ -409,7 +329,7 @@ export function PendingApprovalDashboard() {
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Lead & Financial Approvals</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pending Approval</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Review enterprise approval requests for advance payment approvals, corporate details, restricted lead status changes, and follow-ups.
+          Review enterprise approval requests for advance payment approvals, advance details management, corporate details, restricted lead status changes, and follow-ups.
         </p>
       </section>
 
@@ -417,7 +337,7 @@ export function PendingApprovalDashboard() {
         <div className="flex flex-wrap gap-3">
           {[
             { key: "advance_payment" as const, label: "Advance Payment Approvals", count: advancePaymentRequests.length },
-            { key: "advance_details" as const, label: "Advance Details", count: hasSearchedAdvanceDetails ? advanceDetailsRecords.length : 0 },
+            { key: "advance_details" as const, label: "Advance Details", count: allAdvanceRecords.length },
             { key: "corporate_approval" as const, label: "Corporate Details Approval", count: corporateApprovals.length },
             { key: "lob" as const, label: "LOB Requests", count: lobRequests.length },
             { key: "inactive" as const, label: "Inactive Leads", count: inactiveLeads.length },
@@ -437,9 +357,7 @@ export function PendingApprovalDashboard() {
                 ].join(" ")}
               >
                 <span className="block text-sm font-bold">{tab.label}</span>
-                <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>
-                  {tab.key === "advance_details" && !hasSearchedAdvanceDetails ? "Filter to view" : `${tab.count} items`}
-                </span>
+                <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>{tab.count} items</span>
               </button>
             );
           })}
@@ -463,9 +381,8 @@ export function PendingApprovalDashboard() {
         </div>
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:bg-white/5">
-          {/* TAB 1: Advance Payment Approvals */}
-          {activeTab === "advance_payment" && (
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
+            {activeTab === "advance_payment" && (
               <table className="min-w-345 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
@@ -547,7 +464,7 @@ export function PendingApprovalDashboard() {
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
-                                onClick={() => openApproveModal(item)}
+                                onClick={() => setApprovingAdvance(item)}
                               >
                                 Approve
                               </Button>
@@ -577,281 +494,209 @@ export function PendingApprovalDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
 
-          {/* TAB 2: Advance Details */}
-          {activeTab === "advance_details" && (
-            <div className="p-4 sm:p-6 grid gap-6">
-              {/* Filter Section */}
-              <div className="rounded-2xl border border-blue-200/60 bg-blue-50/40 p-4 sm:p-5 dark:border-blue-900/40 dark:bg-white/5">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Advance Details</h2>
-                <div className="flex flex-wrap items-end gap-4">
-                  {/* Office Filter */}
-                  <div className="flex-1 min-w-[180px]">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                      Office
-                    </label>
-                    <select
-                      value={filterOffice}
-                      onChange={(e) => setFilterOffice(e.target.value)}
-                      className="w-full rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    >
-                      <option value="Select Office">Select Office</option>
-                      <option value="All">All Offices</option>
-                      {officeLocations.map((loc) => (
-                        <option key={loc.id} value={loc.officeName}>
-                          {loc.officeName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            {/* Advance Details View */}
+            {activeTab === "advance_details" && (
+              <div className="p-5 space-y-4">
+                {/* Filter Controls Bar */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+                  <h2 className="text-base font-bold text-slate-800 dark:text-white mb-4">Advance Details</h2>
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    {/* Office */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">Office</span>
+                      <select
+                        className="h-9 min-w-44 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+                        value={filterOffice}
+                        onChange={(e) => setFilterOffice(e.target.value)}
+                      >
+                        <option value="">Select Office</option>
+                        {officesList.map((off) => (
+                          <option key={off.id} value={off.officeName}>
+                            {off.officeName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  {/* From Date Filter */}
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                      From
-                    </label>
-                    <input
-                      type="date"
-                      value={filterFromDate}
-                      onChange={(e) => setFilterFromDate(e.target.value)}
-                      className="w-full rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </div>
+                    {/* From Date */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">From</span>
+                      <Input
+                        label=""
+                        type="date"
+                        className="h-9 text-xs"
+                        value={filterFromDate}
+                        onChange={(e) => setFilterFromDate(e.target.value)}
+                      />
+                    </div>
 
-                  {/* To Date Filter */}
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                      To
-                    </label>
-                    <input
-                      type="date"
-                      value={filterToDate}
-                      onChange={(e) => setFilterToDate(e.target.value)}
-                      className="w-full rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </div>
+                    {/* To Date */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">To</span>
+                      <Input
+                        label=""
+                        type="date"
+                        className="h-9 text-xs"
+                        value={filterToDate}
+                        onChange={(e) => setFilterToDate(e.target.value)}
+                      />
+                    </div>
 
-                  {/* Status Filter */}
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                      Status
-                    </label>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                      <option value="All">All</option>
-                    </select>
-                  </div>
+                    {/* Status */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="h-9 min-w-32 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-blue-500 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="pending">pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                    </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 min-w-[200px]">
-                    <Button
-                      onClick={() => void fetchAdvanceDetails()}
-                      disabled={loadingAdvanceDetails}
-                      className="flex-1 font-bold gap-1.5 uppercase text-xs tracking-wider"
-                    >
-                      <Search size={14} /> SEARCH
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={handleResetAdvanceDetails}
-                      disabled={loadingAdvanceDetails}
-                      className="flex-1 font-bold gap-1.5 uppercase text-xs tracking-wider border-blue-300 text-blue-700 dark:text-blue-300"
-                    >
-                      <RefreshCw size={14} /> RESET
-                    </Button>
+                    {/* Buttons */}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSearchAdvanceDetails()}
+                        className="h-9 px-5 font-bold uppercase text-[11px] tracking-wider bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        SEARCH
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void handleResetAdvanceDetailsFilters()}
+                        className="h-9 px-5 font-bold uppercase text-[11px] tracking-wider bg-sky-500 hover:bg-sky-600 text-white border-none"
+                      >
+                        RESET
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Advance Details Content */}
-              {!hasSearchedAdvanceDetails ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">
-                  <p className="text-sm font-semibold">No advance details found. Apply filters to view records.</p>
-                </div>
-              ) : loadingAdvanceDetails ? (
-                <div className="rounded-2xl border border-(--border) bg-white p-8 text-center text-sm text-soft dark:bg-white/5">
-                  Searching advance payment details...
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border border-(--border)">
-                  <table className="min-w-full text-left text-sm">
+                {/* Advance Details Data Table */}
+                <div className="overflow-x-auto rounded-2xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
+                  <table className="min-w-345 text-left text-sm">
                     <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                       <tr>
-                        <th className="px-4 py-3.5">SL No</th>
-                        <th className="px-4 py-3.5">Tracking Number</th>
-                        <th className="px-4 py-3.5">Customer Name</th>
-                        <th className="px-4 py-3.5">Office</th>
-                        <th className="px-4 py-3.5">Advance Amount</th>
-                        <th className="px-4 py-3.5">Payment Date</th>
-                        <th className="px-4 py-3.5">Payment Mode</th>
-                        <th className="px-4 py-3.5">Status</th>
-                        <th className="px-4 py-3.5">Created By</th>
-                        <th className="px-4 py-3.5">Remarks</th>
-                        <th className="px-4 py-3.5 text-right">Actions</th>
+                        <th className="px-5 py-4">Tracking Number</th>
+                        <th className="px-5 py-4">Customer Name</th>
+                        <th className="px-5 py-4">Office</th>
+                        <th className="px-5 py-4">Advance Amount</th>
+                        <th className="px-5 py-4">Payment Mode</th>
+                        <th className="px-5 py-4">Status</th>
+                        <th className="px-5 py-4">Created Date</th>
+                        <th className="px-5 py-4">Approved Date</th>
+                        <th className="px-5 py-4">Approved By</th>
+                        <th className="px-5 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                      {advanceDetailsRecords.length === 0 ? (
+                      {advanceDetailsLoading ? (
                         <tr>
-                          <td colSpan={11} className="p-8 text-center text-soft font-medium">
+                          <td colSpan={10} className="p-8 text-center text-soft">
+                            Loading advance details...
+                          </td>
+                        </tr>
+                      ) : allAdvanceRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="p-8 text-center text-soft">
                             No advance payment records match the selected filters.
                           </td>
                         </tr>
                       ) : (
-                        advanceDetailsRecords.map((item, index) => {
-                          const isEditing = editingDetailItem?.id === item.id;
-                          return (
-                            <tr key={item.id} className="transition hover:bg-blue-50/50 dark:hover:bg-white/5">
-                              <td className="px-4 py-3 font-semibold text-slate-500">{index + 1}</td>
-                              <td className="px-4 py-3 font-extrabold font-mono text-blue-700 dark:text-blue-400">
-                                {item.trackingNumber}
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
-                                <p className="text-xs text-soft">{item.mobile}</p>
-                              </td>
-                              <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">
-                                {item.office || "-"}
-                              </td>
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <input
-                                    type="number"
-                                    value={editAmount}
-                                    onChange={(e) => setEditAmount(e.target.value)}
-                                    className="w-24 rounded-lg border border-blue-300 p-1.5 text-xs font-bold focus:outline-none"
-                                  />
-                                ) : (
-                                  <p className="font-extrabold text-blue-700 dark:text-blue-300">
-                                    {formatCurrency(item.advanceAmount)}
-                                  </p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-xs">
-                                {isEditing ? (
-                                  <input
-                                    type="date"
-                                    value={editDate}
-                                    onChange={(e) => setEditDate(e.target.value)}
-                                    className="w-32 rounded-lg border border-blue-300 p-1.5 text-xs font-medium focus:outline-none"
-                                  />
-                                ) : (
-                                  formatDate(item.paymentDate)
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <select
-                                    value={editMode}
-                                    onChange={(e) => setEditMode(e.target.value)}
-                                    className="rounded-lg border border-blue-300 p-1.5 text-xs font-semibold focus:outline-none"
+                        allAdvanceRecords.map((item) => (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
+                              {item.trackingNumber}
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
+                              <p className="text-xs text-soft">{item.mobile}</p>
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                              {item.office || "-"}
+                            </td>
+                            <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
+                              {formatCurrency(item.advanceAmount)}
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
+                              {item.referenceNumber && item.referenceNumber !== "-" && (
+                                <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              <StatusBadge status={item.status} />
+                            </td>
+                            <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                              {formatDate(item.requestedDate)}
+                            </td>
+                            <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                              {item.approvedDate ? formatDate(item.approvedDate) : "-"}
+                            </td>
+                            <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {item.approvedBy || "-"}
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {item.receiptFileUrl || item.receiptFileId ? (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => viewReceipt(item)}
+                                    title="View Client Uploaded Proof"
+                                    className="p-1.5 text-xs"
                                   >
-                                    <option value="Cash">Cash</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="Bank Transfer">Bank Transfer</option>
-                                    <option value="Cheque">Cheque</option>
-                                    <option value="Card">Card</option>
-                                  </select>
-                                ) : (
-                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                    {item.paymentMode || "Cash"}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <select
-                                    value={editStatus}
-                                    onChange={(e) => setEditStatus(e.target.value)}
-                                    className="rounded-lg border border-blue-300 p-1.5 text-xs font-semibold focus:outline-none"
+                                    <Eye size={14} />
+                                  </Button>
+                                ) : null}
+                                {item.bankProofFileUrl || item.bankProofFileId ? (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => viewBankProof(item)}
+                                    title="View Company Bank Proof"
+                                    className="p-1.5 text-xs text-blue-600 border-blue-200"
                                   >
-                                    <option value="Pending Approval">Pending Approval</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                  </select>
-                                ) : (
-                                  <StatusBadge status={item.status} />
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                {item.requestedBy}
-                              </td>
-                              <td className="px-4 py-3 text-xs max-w-xs truncate">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editRemarks}
-                                    onChange={(e) => setEditRemarks(e.target.value)}
-                                    className="w-full rounded-lg border border-blue-300 p-1.5 text-xs focus:outline-none"
-                                  />
-                                ) : (
-                                  item.remarks || "-"
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => void handleUpdateDetail()}
-                                      disabled={submitting}
-                                      className="text-xs py-1 px-2.5"
-                                    >
-                                      Update
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setEditingDetailItem(null)}
-                                      disabled={submitting}
-                                      className="text-xs py-1 px-2.5"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      onClick={() => startEditingDetail(item)}
-                                      className="text-xs py-1 px-2.5"
-                                    >
-                                      <Pencil size={13} className="mr-1" /> Edit
-                                    </Button>
-                                    <Button
-                                      variant="danger"
-                                      size="sm"
-                                      onClick={() => setDeletingDetailItem(item)}
-                                      className="text-xs py-1 px-2.5"
-                                    >
-                                      <Trash2 size={13} className="mr-1" /> Delete
-                                    </Button>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
+                                    <ShieldCheck size={14} />
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setEditingAdvance(item)}
+                                  title="Edit Advance Payment"
+                                  className="p-1.5 text-xs"
+                                >
+                                  <Pencil size={14} />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => setDeletingAdvance(item)}
+                                  title="Delete Advance Payment"
+                                  className="p-1.5 text-xs"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* TAB 3: Corporate Details Approval */}
-          {activeTab === "corporate_approval" && (
-            <div className="overflow-x-auto">
+            {activeTab === "corporate_approval" && (
               <table className="min-w-7xl text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
@@ -943,12 +788,9 @@ export function PendingApprovalDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
 
-          {/* TAB 4: LOB Requests */}
-          {activeTab === "lob" && (
-            <div className="overflow-x-auto">
+            {activeTab === "lob" && (
               <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
@@ -979,12 +821,9 @@ export function PendingApprovalDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
 
-          {/* TAB 5: Inactive Leads */}
-          {activeTab === "inactive" && (
-            <div className="overflow-x-auto">
+            {activeTab === "inactive" && (
               <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
@@ -1016,12 +855,9 @@ export function PendingApprovalDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
 
-          {/* TAB 6: Overdue Follow-ups */}
-          {activeTab === "overdue" && (
-            <div className="overflow-x-auto">
+            {activeTab === "overdue" && (
               <table className="min-w-270 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                   <tr>
@@ -1051,95 +887,57 @@ export function PendingApprovalDashboard() {
                   )}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
-      {/* DEDICATED ADVANCE PAYMENT APPROVAL POPUP */}
-      <FormDrawer
-        open={Boolean(approveModalItem)}
-        onClose={() => { if (!submitting) setApproveModalItem(null); }}
-        title={`Approve Advance Payment (${approveModalItem?.trackingNumber || ""})`}
-        description="Please review and upload bank/payment proof before approving."
-        placement="center"
-      >
-        {approveModalItem && (
-          <div className="grid gap-5">
-            {/* Field 1: Bank Proof (File Upload) */}
-            <div className="grid gap-1.5">
-              <FileUpload
-                label="Bank Proof"
-                moduleName="ADVANCE_PAYMENT"
-                fileCategory="ADVANCE_PAYMENT"
-                required
-                existingFile={
-                  approveModalItem.receiptFileId
-                    ? {
-                        id: approveModalItem.receiptFileId,
-                        fileName: approveModalItem.receiptFileName || "Bank Proof",
-                        url: approveModalItem.receiptFileUrl || undefined,
-                      }
-                    : undefined
-                }
-                onUploadComplete={(fileId) => {
-                  setApproveProofFileId(fileId);
-                  setApproveProofValidationError("");
-                }}
-                onRemove={() => {
-                  setApproveProofFileId(null);
-                }}
-              />
-              {approveProofValidationError && (
-                <p className="flex items-center gap-1 text-xs font-semibold text-rose-600 mt-1">
-                  <AlertCircle size={14} /> {approveProofValidationError}
-                </p>
-              )}
-            </div>
+      {/* Approve Advance Payment Modal */}
+      <AdvanceApprovalModal
+        open={Boolean(approvingAdvance)}
+        onClose={() => setApprovingAdvance(null)}
+        onSuccess={() => void loadData()}
+        item={approvingAdvance}
+      />
 
-            {/* Field 2: Date */}
-            <div>
-              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1.5">
-                Approval Date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={approveDate}
-                onChange={(e) => setApproveDate(e.target.value)}
-                className="w-full rounded-2xl border border-(--border) bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none dark:bg-white/5 dark:text-white"
-                required
-              />
-            </div>
+      {/* Edit Advance Payment Modal */}
+      <EditAdvanceModal
+        open={Boolean(editingAdvance)}
+        onClose={() => setEditingAdvance(null)}
+        onSuccess={() => void loadData()}
+        item={editingAdvance}
+      />
 
-            {/* Field 3: Remarks */}
-            <Textarea
-              label="Remarks"
-              value={approveRemarks}
-              onChange={(e) => setApproveRemarks(e.target.value)}
-              placeholder="Enter optional approval notes or comments..."
-            />
-
-            {/* Actions */}
+      {/* Delete Confirmation Modal */}
+      {deletingAdvance && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !submitting) setDeletingAdvance(null);
+          }}
+        >
+          <div className="relative flex flex-col w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 space-y-4">
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">Delete Advance Payment</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to delete the advance payment of{" "}
+              <span className="font-extrabold text-rose-600 dark:text-rose-400">
+                ₹{deletingAdvance.advanceAmount.toLocaleString()}
+              </span>{" "}
+              for tracking number <span className="font-mono font-bold">{deletingAdvance.trackingNumber}</span>?
+              This action will recalculate financial balances and remove ledger entries.
+            </p>
             <div className="flex justify-end gap-3 pt-2">
-              <Button
-                variant="ghost"
-                onClick={() => setApproveModalItem(null)}
-                disabled={submitting}
-              >
+              <Button variant="secondary" onClick={() => setDeletingAdvance(null)} disabled={submitting}>
                 Cancel
               </Button>
-              <Button
-                onClick={() => void handleApproveSubmit()}
-                disabled={submitting}
-              >
-                {submitting ? "Approving..." : "Approve"}
+              <Button variant="danger" onClick={() => void handleDeleteAdvance()} disabled={submitting}>
+                {submitting ? "Deleting..." : "Delete Record"}
               </Button>
             </div>
           </div>
-        )}
-      </FormDrawer>
+        </div>
+      )}
 
-      {/* GENERIC ACTION MODAL (For Rejections, LOB, Inactive, Overdue) */}
       <FormDrawer
         open={Boolean(actionModal)}
         onClose={() => { if (!submitting) setActionModal(null); }}
@@ -1153,7 +951,7 @@ export function PendingApprovalDashboard() {
               label={actionModal.type === "Rejected" ? "Rejection Reason *" : "Remarks"}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={actionModal.type === "Rejected" ? "Enter specific reason for rejection..." : "Optional remarks..."}
+              placeholder={actionModal.type === "Rejected" ? "Enter specific reason for rejecting advance payment..." : "Optional remarks..."}
               required={actionModal.type === "Rejected"}
             />
             <div className="flex justify-end gap-3">
@@ -1164,33 +962,6 @@ export function PendingApprovalDashboard() {
                 disabled={submitting || (actionModal.type === "Rejected" && !reason.trim())}
               >
                 {submitting ? "Processing..." : "Submit Action"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </FormDrawer>
-
-      {/* DELETE CONFIRMATION MODAL FOR ADVANCE DETAILS */}
-      <FormDrawer
-        open={Boolean(deletingDetailItem)}
-        onClose={() => { if (!submitting) setDeletingDetailItem(null); }}
-        title="Delete Advance Record"
-        description="Are you sure you want to delete this advance record?"
-        placement="center"
-      >
-        {deletingDetailItem && (
-          <div className="grid gap-4">
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
-              <p className="font-bold">Tracking Number: {deletingDetailItem.trackingNumber}</p>
-              <p className="mt-1">Customer: {deletingDetailItem.customerName}</p>
-              <p className="mt-1">Amount: {formatCurrency(deletingDetailItem.advanceAmount)}</p>
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setDeletingDetailItem(null)} disabled={submitting}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={() => void handleDeleteDetail()} disabled={submitting}>
-                {submitting ? "Deleting..." : "Delete Record"}
               </Button>
             </div>
           </div>

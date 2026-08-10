@@ -130,7 +130,7 @@ function pickInvoicePayment(group: PaymentWithRegistration[]) {
   return group.find((item) => toNumber(item.amountPaid) > 0) ?? group[0];
 }
 
-async function recalculateRunningBalances(ownerAdminId: string, tx: Prisma.TransactionClient = prisma) {
+export async function recalculateRunningBalances(ownerAdminId: string, tx: Prisma.TransactionClient = prisma) {
   const entries = await tx.accountStatementEntry.findMany({
     where: {
       ownerAdminId,

@@ -29,18 +29,26 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
+
+    const bankProofFileId = body.bankProofFileId || body.proofFileId || body.bankProofId || null;
+    const approvalDate = body.approvalDate || body.date || null;
     const remarks = body.remarks || body.reason || null;
-    const receiptFileId = body.receiptFileId || body.proofFileId || null;
-    const approvalDate = body.approvalDate || body.paymentDate || null;
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
+
+    if (!bankProofFileId || !remarks) {
+      return NextResponse.json(
+        { error: "Please provide Bank Proof, Date and Remarks before approving this advance payment." },
+        { status: 400 },
+      );
+    }
 
     const result = await approveAdvancePayment({
       ownerAdminId: session.user.ownerAdminId,
       approvalId: id,
       approvedByUserId: session.user.id,
-      remarks,
-      receiptFileId,
+      bankProofFileId,
       approvalDate,
+      remarks,
       ipAddress,
     });
 

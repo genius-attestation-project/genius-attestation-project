@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import {
-  deleteAdvancePaymentApproval,
   updateAdvancePaymentApproval,
+  deleteAdvancePaymentApproval,
 } from "@/features/revenue/server/advance-payment-approval.service";
 import { auth } from "@/lib/auth";
 
-export async function PUT(
+export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -19,13 +19,13 @@ export async function PUT(
 
     const isAuthorized =
       session.user.isSuperAdmin ||
-      hasPermission(session.user, "advance_payment_approval.approve") ||
+      hasPermission(session.user, "advance_payment_approval.edit") ||
       hasPermission(session.user, "pending_approval.edit") ||
       hasPermission(session.user, "pendingApproval.approve");
 
     if (!isAuthorized) {
       return NextResponse.json(
-        { error: "You do not have permission to edit advance payment records." },
+        { error: "You do not have permission to edit advance payments." },
         { status: 403 },
       );
     }
@@ -37,30 +37,23 @@ export async function PUT(
     const result = await updateAdvancePaymentApproval({
       ownerAdminId: session.user.ownerAdminId,
       approvalId: id,
-      updatedByUserId: session.user.id,
+      performedByUserId: session.user.id,
       advanceAmount: body.advanceAmount !== undefined ? Number(body.advanceAmount) : undefined,
       paymentDate: body.paymentDate,
       paymentMode: body.paymentMode,
+      referenceNumber: body.referenceNumber,
       remarks: body.remarks,
-      status: body.status,
       ipAddress,
     });
 
     return NextResponse.json({ success: true, item: result });
   } catch (error: any) {
-    console.error("[PUT /api/advance-payment-approvals/[id]] Error:", error);
+    console.error("[PATCH /api/advance-payment-approvals/[id]] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to update advance payment record." },
+      { error: error.message || "Failed to update advance payment." },
       { status: 400 },
     );
   }
-}
-
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  return PUT(request, { params });
 }
 
 export async function DELETE(
@@ -75,13 +68,13 @@ export async function DELETE(
 
     const isAuthorized =
       session.user.isSuperAdmin ||
-      hasPermission(session.user, "advance_payment_approval.approve") ||
+      hasPermission(session.user, "advance_payment_approval.delete") ||
       hasPermission(session.user, "pending_approval.edit") ||
       hasPermission(session.user, "pendingApproval.approve");
 
     if (!isAuthorized) {
       return NextResponse.json(
-        { error: "You do not have permission to delete advance payment records." },
+        { error: "You do not have permission to delete advance payments." },
         { status: 403 },
       );
     }
@@ -92,7 +85,7 @@ export async function DELETE(
     const result = await deleteAdvancePaymentApproval({
       ownerAdminId: session.user.ownerAdminId,
       approvalId: id,
-      deletedByUserId: session.user.id,
+      performedByUserId: session.user.id,
       ipAddress,
     });
 
@@ -100,7 +93,7 @@ export async function DELETE(
   } catch (error: any) {
     console.error("[DELETE /api/advance-payment-approvals/[id]] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to delete advance payment record." },
+      { error: error.message || "Failed to delete advance payment." },
       { status: 400 },
     );
   }
