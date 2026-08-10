@@ -42,7 +42,9 @@ export async function PATCH(
       paymentDate: body.paymentDate,
       paymentMode: body.paymentMode,
       referenceNumber: body.referenceNumber,
+      collectedBy: body.collectedBy,
       remarks: body.remarks,
+      bankProofFileId: body.bankProofFileId !== undefined ? body.bankProofFileId : undefined,
       ipAddress,
     });
 

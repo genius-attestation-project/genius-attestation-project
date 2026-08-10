@@ -709,7 +709,9 @@ export async function updateAdvancePaymentApproval(args: {
   paymentDate?: string | Date;
   paymentMode?: string;
   referenceNumber?: string | null;
+  collectedBy?: string | null;
   remarks?: string | null;
+  bankProofFileId?: string | null;
   ipAddress?: string | null;
 }) {
   const approval = await prisma.advancePaymentApproval.findFirst({
@@ -756,6 +758,28 @@ export async function updateAdvancePaymentApproval(args: {
 
   const updatedPaymentDate = args.paymentDate ? new Date(args.paymentDate) : approval.paymentDate;
 
+  // Process Bank Proof File if updated
+  let bankProofFileUrl = (approval as any).bankProofFileUrl;
+  let bankProofFileName = (approval as any).bankProofFileName;
+  let bankProofFileId = (approval as any).bankProofFileId;
+
+  if (args.bankProofFileId !== undefined) {
+    if (args.bankProofFileId) {
+      const fileStorage = await prisma.fileStorage.findUnique({
+        where: { id: args.bankProofFileId },
+      });
+      if (fileStorage) {
+        bankProofFileId = fileStorage.id;
+        bankProofFileUrl = (fileStorage as any).fileUrl || `/api/files/${fileStorage.id}/view`;
+        bankProofFileName = fileStorage.originalName || (fileStorage as any).fileName || "Company Bank Proof";
+      }
+    } else {
+      bankProofFileId = null;
+      bankProofFileUrl = null;
+      bankProofFileName = null;
+    }
+  }
+
   // Update approval record
   const updated = await prisma.advancePaymentApproval.update({
     where: { id: approval.id },
@@ -764,7 +788,11 @@ export async function updateAdvancePaymentApproval(args: {
       paymentDate: updatedPaymentDate,
       paymentMode: args.paymentMode !== undefined ? args.paymentMode.trim() : approval.paymentMode,
       referenceNumber: args.referenceNumber !== undefined ? (args.referenceNumber?.trim() || null) : approval.referenceNumber,
+      collectedBy: args.collectedBy !== undefined ? (args.collectedBy?.trim() || null) : approval.collectedBy,
       remarks: args.remarks !== undefined ? (args.remarks?.trim() || null) : approval.remarks,
+      bankProofFileId,
+      bankProofFileUrl,
+      bankProofFileName,
     },
   });
 
