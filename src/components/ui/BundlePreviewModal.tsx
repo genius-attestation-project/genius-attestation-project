@@ -112,9 +112,9 @@ export function BundlePreviewModal({
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs">
             <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="border-b border-slate-200 bg-slate-100/80 uppercase font-extrabold tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+              <thead className="border-b border-slate-200 bg-slate-100/80 font-extrabold tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
                 <tr>
-                  <th className="px-4 py-3.5 w-16">SL No</th>
+                  <th className="px-4 py-3.5 w-16 text-center">SL No.</th>
                   <th className="px-4 py-3.5">Tracking Number</th>
                   <th className="px-4 py-3.5">Registration Date</th>
                   <th className="px-4 py-3.5">Document Name</th>

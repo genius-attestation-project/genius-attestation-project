@@ -103,7 +103,7 @@ export function ReceiveSelectionModal({
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12151c]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/90 dark:bg-white/5 font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">
+              <thead className="bg-slate-50/90 dark:bg-white/5 font-extrabold tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">
                 <tr>
                   <th className="p-3.5 w-12 text-center">
                     <button
@@ -118,7 +118,7 @@ export function ReceiveSelectionModal({
                       )}
                     </button>
                   </th>
-                  <th className="p-3.5 w-16">SL No</th>
+                  <th className="p-3.5 w-16 text-center">SL No.</th>
                   <th className="p-3.5">Tracking Number</th>
                   <th className="p-3.5">Registration Office</th>
                   <th className="p-3.5">Document Name</th>

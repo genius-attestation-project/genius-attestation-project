@@ -393,7 +393,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-600 tracking-wider">
                   Select Destination Office:
                 </span>
                 <select
@@ -431,10 +431,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
               />
             ) : (
               <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                <table className="w-full min-w-300 text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50/90 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-4 w-10">
+                      <th className="p-3 w-10 text-center">
                         <button onClick={handleSelectAllInHand} className="text-slate-600">
                           {selectedTrackingNumbers.length === inHandDocs.length ? (
                             <CheckSquare className="h-5 w-5 text-blue-600" />
@@ -443,17 +443,17 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           )}
                         </button>
                       </th>
-                      <th className="p-4">SL No</th>
-                      <th className="p-4">Tracking Number</th>
-                      <th className="p-4">Registration Date</th>
-                      <th className="p-4">Registration Office</th>
-                      <th className="p-4">Document Name</th>
-                      <th className="p-4">Document Type</th>
-                      <th className="p-4">Delivery At</th>
-                      <th className="p-4">Process Type</th>
-                      <th className="p-4">Number of Days</th>
-                      <th className="p-4">Total Amount</th>
-                      <th className="p-4">Advance Amount</th>
+                      <th className="p-3 text-center w-12">SL No.</th>
+                      <th className="p-3 text-left">Tracking Number</th>
+                      <th className="p-3 text-center">Registration Date</th>
+                      <th className="p-3 text-left">Registration Office</th>
+                      <th className="p-3 text-left min-w-32.5">Document Name</th>
+                      <th className="p-3 text-left min-w-32.5">Document Type</th>
+                      <th className="p-3 text-left">Delivery At</th>
+                      <th className="p-3 text-left min-w-40">Process Type</th>
+                      <th className="p-3 text-center">Number Of Days</th>
+                      <th className="p-3 text-right">Total Amount</th>
+                      <th className="p-3 text-right">Advance Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -462,7 +462,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       const tNum = doc.trackingNumber || doc.registrationNumber;
                       return (
                         <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
-                          <td className="p-4">
+                          <td className="p-3 text-center">
                             <button
                               onClick={() => handleToggleSelectInHand(tNum)}
                               className="text-slate-600"
@@ -474,8 +474,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               )}
                             </button>
                           </td>
-                          <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
-                          <td className="p-4 font-mono font-bold text-blue-600">
+                          <td className="p-3 text-center font-semibold text-slate-500">{index + 1}</td>
+                          <td className="p-3 text-left font-mono font-bold text-blue-600 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <PriorityDot priority={doc.priority} size={10} />
                               <Link
@@ -486,31 +486,31 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               </Link>
                             </div>
                           </td>
-                          <td className="p-4 text-xs font-medium text-slate-700">
+                          <td className="p-3 text-center text-xs font-medium text-slate-700 whitespace-nowrap">
                             {formatDate(doc.createdDate || doc.createdAt)}
                           </td>
-                          <td className="p-4 text-xs font-semibold text-slate-800">
+                          <td className="p-3 text-left text-xs font-semibold text-slate-800">
                             {doc.regionOfRegistration || doc.sourceOffice || "Main"}
                           </td>
-                          <td className="p-4 font-semibold text-slate-900">
+                          <td className="p-3 text-left font-semibold text-slate-900 min-w-32.5">
                             {doc.customerName || doc.clientName || "-"}
                           </td>
-                          <td className="p-4 text-xs font-medium text-slate-800">
+                          <td className="p-3 text-left text-xs font-medium text-slate-800 leading-snug min-w-32.5">
                             {doc.documentType || "-"}
                           </td>
-                          <td className="p-4 text-xs text-slate-600">
+                          <td className="p-3 text-left text-xs text-slate-600">
                             {doc.deliveryLocation || "-"}
                           </td>
-                          <td className="p-4 text-xs font-bold text-blue-800">
+                          <td className="p-3 text-left text-xs font-bold text-blue-800 leading-snug min-w-40">
                             {doc.processType || doc.mainProcess || "-"}
                           </td>
-                          <td className="p-4 text-xs font-bold text-amber-700">
+                          <td className="p-3 text-center text-xs font-bold text-amber-700 whitespace-nowrap">
                             {calculateNumberOfDays(doc.receivedAt || doc.documentMovements?.[0]?.updatedAt || doc.createdAt)}
                           </td>
-                          <td className="p-4 text-xs font-bold text-slate-900">
+                          <td className="p-3 text-right text-xs font-bold text-slate-900 whitespace-nowrap">
                             ₹{Number(doc.totalCharges || 0).toFixed(2)}
                           </td>
-                          <td className="p-4 text-xs font-bold text-emerald-700">
+                          <td className="p-3 text-right text-xs font-bold text-emerald-700 whitespace-nowrap">
                             ₹{Number(doc.advancePaid || 0).toFixed(2)}
                           </td>
                         </tr>
@@ -535,20 +535,20 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             ) : (
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                  <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-4">SL No</th>
+                      <th className="p-4 text-center w-12">SL No.</th>
                       <th className="p-4">Bundle Number</th>
                       <th className="p-4">From</th>
-                      <th className="p-4">Date Received</th>
-                      <th className="p-4">Finished Days</th>
-                      <th className="p-4 text-right">Action</th>
+                      <th className="p-4 text-center">Date Received</th>
+                      <th className="p-4 text-center">Finished Days</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {inboundBundles.map((bundle: any, index: number) => (
                       <tr key={bundle.id} className="hover:bg-slate-50">
-                        <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
+                        <td className="p-4 text-center font-semibold text-slate-500">{index + 1}</td>
                         <td
                           onClick={() => setPreviewBundle(bundle)}
                           className="p-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
@@ -558,10 +558,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                         <td className="p-4 font-semibold text-slate-800">
                           {bundle.fromOffice?.officeName || "Origin Office"}
                         </td>
-                        <td className="p-4 text-xs text-slate-600">
+                        <td className="p-4 text-center text-xs text-slate-600">
                           {formatDate(bundle.createdAt)}
                         </td>
-                        <td className="p-4 text-xs font-bold text-amber-700">
+                        <td className="p-4 text-center text-xs font-bold text-amber-700">
                           {calculateFinishedDays(bundle.createdAt)}
                         </td>
                         <td className="p-4 text-right">
@@ -594,15 +594,15 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             ) : (
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                  <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-4">SL No</th>
+                      <th className="p-4 text-center w-12">SL No.</th>
                       <th className="p-4">Bundle Number</th>
                       <th className="p-4">From (Current Office)</th>
                       <th className="p-4">To (Destination Office)</th>
-                      <th className="p-4">Date Sent</th>
-                      <th className="p-4">Finished Days</th>
-                      <th className="p-4 text-right">Action</th>
+                      <th className="p-4 text-center">Date Sent</th>
+                      <th className="p-4 text-center">Finished Days</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -613,7 +613,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
                       return (
                         <tr key={bundle.id} className="hover:bg-slate-50">
-                          <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
+                          <td className="p-4 text-center font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-4 font-mono font-bold text-blue-600">
                             {formatBundleNumber(bundle.bundleNumber)}
                           </td>
@@ -623,10 +623,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                           <td className="p-4 font-semibold text-slate-800">
                             {bundle.toOffice?.officeName || "Destination"}
                           </td>
-                          <td className="p-4 text-xs text-slate-600">
+                          <td className="p-4 text-center text-xs text-slate-600">
                             {formatDate(bundle.createdAt)}
                           </td>
-                          <td className="p-4 text-xs font-bold text-amber-700">
+                          <td className="p-4 text-center text-xs font-bold text-amber-700">
                             {calculateFinishedDays(bundle.createdAt)}
                           </td>
                           <td className="p-4 text-right">
@@ -677,7 +677,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             ) : (
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                  <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
                     <tr>
                       <th className="p-4">Tracking Number</th>
                       <th className="p-4">Action</th>
@@ -771,10 +771,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
 
               <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                  <thead className="bg-slate-50 text-xs font-bold text-slate-700">
                     <tr>
-                      <th className="p-3 w-10">Receive</th>
-                      <th className="p-3">SL No</th>
+                      <th className="p-3 w-10 text-center">Receive</th>
+                      <th className="p-3 text-center w-12">SL No.</th>
                       <th className="p-3">Tracking Number</th>
                       <th className="p-3">Registration Office</th>
                       <th className="p-3">Delivery At</th>
@@ -783,10 +783,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                       <th className="p-3">Document Type</th>
                       <th className="p-3">Process Type</th>
                       <th className="p-3">Mobile Number</th>
-                      <th className="p-3">Express Priority</th>
-                      <th className="p-3">Total Amount</th>
-                      <th className="p-3">Advance Amount</th>
-                      <th className="p-3">Balance Amount</th>
+                      <th className="p-3 text-center">Express Priority</th>
+                      <th className="p-3 text-right">Total Amount</th>
+                      <th className="p-3 text-right">Advance Amount</th>
+                      <th className="p-3 text-right">Balance Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
