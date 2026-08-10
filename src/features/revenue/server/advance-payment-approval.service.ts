@@ -247,6 +247,9 @@ export async function listAdvancePaymentApprovals(
     status?: string;
     search?: string;
     registrationId?: string;
+    office?: string;
+    fromDate?: string | Date;
+    toDate?: string | Date;
     page?: number;
     pageSize?: number;
   },
@@ -256,6 +259,9 @@ export async function listAdvancePaymentApprovals(
   const statusFilter = params?.status?.trim();
   const search = params?.search?.trim();
   const registrationId = params?.registrationId?.trim();
+  const officeFilter = params?.office?.trim();
+  const fromDateParam = params?.fromDate;
+  const toDateParam = params?.toDate;
 
   const where: Prisma.AdvancePaymentApprovalWhereInput = {
     ownerAdminId,
@@ -263,8 +269,30 @@ export async function listAdvancePaymentApprovals(
     ...(statusFilter && statusFilter !== "All" ? { status: statusFilter } : {}),
   };
 
-  if (search) {
+  if (officeFilter && officeFilter !== "All") {
     where.OR = [
+      { office: { contains: officeFilter } },
+      { registration: { regionOfRegistration: { contains: officeFilter } } },
+    ];
+  }
+
+  if (fromDateParam || toDateParam) {
+    const dateFilter: Prisma.DateTimeFilter = {};
+    if (fromDateParam) {
+      const from = new Date(fromDateParam);
+      from.setHours(0, 0, 0, 0);
+      dateFilter.gte = from;
+    }
+    if (toDateParam) {
+      const to = new Date(toDateParam);
+      to.setHours(23, 59, 59, 999);
+      dateFilter.lte = to;
+    }
+    where.paymentDate = dateFilter;
+  }
+
+  if (search) {
+    const searchConditions: Prisma.AdvancePaymentApprovalWhereInput[] = [
       { trackingNumber: { contains: search } },
       { customerName: { contains: search } },
       { mobile: { contains: search } },
@@ -272,6 +300,16 @@ export async function listAdvancePaymentApprovals(
       { referenceNumber: { contains: search } },
       { paymentMode: { contains: search } },
     ];
+
+    if (where.OR) {
+      where.AND = [
+        { OR: where.OR },
+        { OR: searchConditions },
+      ];
+      delete where.OR;
+    } else {
+      where.OR = searchConditions;
+    }
   }
 
   const [items, totalItems] = await Promise.all([
@@ -375,6 +413,8 @@ export async function approveAdvancePayment(args: {
   approvalId: string;
   approvedByUserId: string;
   remarks?: string | null;
+  receiptFileId?: string | null;
+  approvalDate?: string | Date | null;
   ipAddress?: string | null;
 }) {
   const approval = await prisma.advancePaymentApproval.findFirst({
@@ -389,6 +429,38 @@ export async function approveAdvancePayment(args: {
     throw new Error("This advance payment request is already approved.");
   }
 
+  // Determine proof file details
+  let receiptFileId = args.receiptFileId || approval.receiptFileId || null;
+  let receiptFileUrl = approval.receiptFileUrl;
+  let receiptFileName = approval.receiptFileName;
+
+  if (args.receiptFileId) {
+    const storage = await prisma.fileStorage.findUnique({ where: { id: args.receiptFileId } });
+    if (storage) {
+      receiptFileId = storage.id;
+      receiptFileUrl = `/api/files/${storage.id}/view`;
+      receiptFileName = storage.originalName;
+
+      // Link storage to registration files
+      const existingRef = await prisma.registrationFile.findFirst({
+        where: { registrationId: approval.registrationId, fileStorageId: storage.id },
+      });
+      if (!existingRef) {
+        await prisma.registrationFile.create({
+          data: {
+            registrationId: approval.registrationId,
+            fileStorageId: storage.id,
+            fileCategory: "ADVANCE_PAYMENT",
+          },
+        }).catch(() => null);
+      }
+    }
+  }
+
+  if (!receiptFileId && !receiptFileUrl) {
+    throw new Error("Bank Proof is required before approving the advance payment.");
+  }
+
   const approver = await prisma.user.findUnique({
     where: { id: args.approvedByUserId },
     select: { name: true, email: true },
@@ -396,6 +468,8 @@ export async function approveAdvancePayment(args: {
   const approvedByName = approver?.name?.trim() || approver?.email || "Admin";
 
   const now = new Date();
+  const paymentDate = args.approvalDate ? new Date(args.approvalDate) : approval.paymentDate || now;
+  const remarks = args.remarks !== undefined ? (args.remarks?.trim() || null) : approval.remarks;
 
   // 1. Mark approval as Approved
   const updatedApproval = await prisma.advancePaymentApproval.update({
@@ -405,6 +479,11 @@ export async function approveAdvancePayment(args: {
       approvedById: args.approvedByUserId,
       approvedByName,
       approvedAt: now,
+      paymentDate,
+      remarks,
+      receiptFileId,
+      receiptFileUrl,
+      receiptFileName,
     },
   });
 
@@ -484,7 +563,7 @@ export async function approveAdvancePayment(args: {
       action: "Approved",
       performedBy: args.approvedByUserId,
       performedByName: approvedByName,
-      remarks: args.remarks || `Advance payment of ₹${Number(approval.advanceAmount).toLocaleString()} approved by ${approvedByName}.`,
+      remarks: remarks || `Advance payment of ₹${Number(approval.advanceAmount).toLocaleString()} approved by ${approvedByName}.`,
       ipAddress: args.ipAddress || null,
       ownerAdminId: args.ownerAdminId,
     },
@@ -689,3 +768,171 @@ export async function getAdvancePaymentStats(ownerAdminId: string) {
     approvedAdvanceAmount: Number(approvedAdvanceAggregate._sum.advanceAmount ?? 0),
   };
 }
+
+export async function updateAdvancePaymentApproval(args: {
+  ownerAdminId: string;
+  approvalId: string;
+  updatedByUserId: string;
+  advanceAmount?: number;
+  paymentDate?: string | Date;
+  paymentMode?: string;
+  remarks?: string | null;
+  status?: string;
+  ipAddress?: string | null;
+}) {
+  const approval = await prisma.advancePaymentApproval.findFirst({
+    where: { id: args.approvalId, ownerAdminId: args.ownerAdminId },
+  });
+
+  if (!approval) {
+    throw new Error("Advance payment approval record not found.");
+  }
+
+  const updater = await prisma.user.findUnique({
+    where: { id: args.updatedByUserId },
+    select: { name: true, email: true },
+  });
+  const updatedByName = updater?.name?.trim() || updater?.email || "Admin";
+
+  const updateData: Prisma.AdvancePaymentApprovalUpdateInput = {};
+  if (args.advanceAmount !== undefined && !isNaN(args.advanceAmount) && args.advanceAmount > 0) {
+    updateData.advanceAmount = new Prisma.Decimal(args.advanceAmount);
+  }
+  if (args.paymentDate) {
+    updateData.paymentDate = new Date(args.paymentDate);
+  }
+  if (args.paymentMode) {
+    updateData.paymentMode = args.paymentMode.trim();
+  }
+  if (args.remarks !== undefined) {
+    updateData.remarks = args.remarks ? args.remarks.trim() : null;
+  }
+  if (args.status && ["Pending Approval", "Approved", "Rejected"].includes(args.status)) {
+    updateData.status = args.status;
+  }
+
+  const updated = await prisma.advancePaymentApproval.update({
+    where: { id: approval.id },
+    data: updateData,
+  });
+
+  // Recalculate Registration totals
+  const newApprovedSum = await getApprovedAdvanceSum(approval.registrationId);
+  const reg = await prisma.registration.findUnique({
+    where: { id: approval.registrationId },
+    select: { totalCharges: true, approvalStatus: true },
+  });
+
+  const totalCharges = Number(reg?.totalCharges ?? 0);
+  const newBalanceAmount = Math.max(0, totalCharges - newApprovedSum);
+  const remainingPendingCount = await prisma.advancePaymentApproval.count({
+    where: { registrationId: approval.registrationId, status: "Pending Approval" },
+  });
+
+  const newPaymentStatus = calculatePaymentStatus({
+    approvalStatus: reg?.approvalStatus || "Pending",
+    advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : newApprovedSum > 0 ? "Approved" : "Pending",
+    totalCharges,
+    advancePaid: newApprovedSum,
+    balanceAmount: newBalanceAmount,
+  });
+
+  await prisma.registration.update({
+    where: { id: approval.registrationId },
+    data: {
+      advancePaid: new Prisma.Decimal(newApprovedSum),
+      balanceAmount: new Prisma.Decimal(newBalanceAmount),
+      paymentStatus: newPaymentStatus,
+      advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : newApprovedSum > 0 ? "Approved" : "None",
+      auditTrail: {
+        create: {
+          action: "Advance Payment Record Updated",
+          description: `Advance payment record (${approval.trackingNumber}) updated by ${updatedByName}. Total Advance Paid: ₹${newApprovedSum.toLocaleString()}, Balance: ₹${newBalanceAmount.toLocaleString()}.`,
+          performedBy: updatedByName,
+        },
+      },
+    },
+  });
+
+  await prisma.advancePaymentAuditLog.create({
+    data: {
+      approvalId: approval.id,
+      registrationId: approval.registrationId,
+      action: "Updated",
+      performedBy: args.updatedByUserId,
+      performedByName: updatedByName,
+      remarks: `Record updated by ${updatedByName}.`,
+      ipAddress: args.ipAddress || null,
+      ownerAdminId: args.ownerAdminId,
+    },
+  });
+
+  return updated;
+}
+
+export async function deleteAdvancePaymentApproval(args: {
+  ownerAdminId: string;
+  approvalId: string;
+  deletedByUserId: string;
+  ipAddress?: string | null;
+}) {
+  const approval = await prisma.advancePaymentApproval.findFirst({
+    where: { id: args.approvalId, ownerAdminId: args.ownerAdminId },
+  });
+
+  if (!approval) {
+    throw new Error("Advance payment approval record not found.");
+  }
+
+  const deleter = await prisma.user.findUnique({
+    where: { id: args.deletedByUserId },
+    select: { name: true, email: true },
+  });
+  const deletedByName = deleter?.name?.trim() || deleter?.email || "Admin";
+
+  // Delete record
+  await prisma.advancePaymentApproval.delete({
+    where: { id: approval.id },
+  });
+
+  // Recalculate Registration totals
+  const newApprovedSum = await getApprovedAdvanceSum(approval.registrationId);
+  const reg = await prisma.registration.findUnique({
+    where: { id: approval.registrationId },
+    select: { totalCharges: true, approvalStatus: true },
+  });
+
+  const totalCharges = Number(reg?.totalCharges ?? 0);
+  const newBalanceAmount = Math.max(0, totalCharges - newApprovedSum);
+  const remainingPendingCount = await prisma.advancePaymentApproval.count({
+    where: { registrationId: approval.registrationId, status: "Pending Approval" },
+  });
+
+  const newPaymentStatus = calculatePaymentStatus({
+    approvalStatus: reg?.approvalStatus || "Pending",
+    advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : newApprovedSum > 0 ? "Approved" : "None",
+    totalCharges,
+    advancePaid: newApprovedSum,
+    balanceAmount: newBalanceAmount,
+  });
+
+  await prisma.registration.update({
+    where: { id: approval.registrationId },
+    data: {
+      advancePaid: new Prisma.Decimal(newApprovedSum),
+      balanceAmount: new Prisma.Decimal(newBalanceAmount),
+      paymentStatus: newPaymentStatus,
+      advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : newApprovedSum > 0 ? "Approved" : "None",
+      auditTrail: {
+        create: {
+          action: "Advance Payment Record Deleted",
+          description: `Advance payment record (${approval.trackingNumber}) for ₹${Number(approval.advanceAmount).toLocaleString()} was deleted by ${deletedByName}. Updated Advance Paid: ₹${newApprovedSum.toLocaleString()}, Balance: ₹${newBalanceAmount.toLocaleString()}.`,
+          performedBy: deletedByName,
+        },
+      },
+    },
+  });
+
+  return { success: true };
+}
+

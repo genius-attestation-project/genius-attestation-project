@@ -30,6 +30,8 @@ export async function POST(
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const remarks = body.remarks || body.reason || null;
+    const receiptFileId = body.receiptFileId || body.proofFileId || null;
+    const approvalDate = body.approvalDate || body.paymentDate || null;
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
 
     const result = await approveAdvancePayment({
@@ -37,6 +39,8 @@ export async function POST(
       approvalId: id,
       approvedByUserId: session.user.id,
       remarks,
+      receiptFileId,
+      approvalDate,
       ipAddress,
     });
 

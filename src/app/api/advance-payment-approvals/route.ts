@@ -17,6 +17,9 @@ export async function GET(request: Request) {
     const status = searchParams.get("status") || undefined;
     const search = searchParams.get("search") || undefined;
     const registrationId = searchParams.get("registrationId") || undefined;
+    const office = searchParams.get("office") || undefined;
+    const fromDate = searchParams.get("fromDate") || searchParams.get("from") || undefined;
+    const toDate = searchParams.get("toDate") || searchParams.get("to") || undefined;
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
 
@@ -24,6 +27,9 @@ export async function GET(request: Request) {
       status,
       search,
       registrationId,
+      office,
+      fromDate,
+      toDate,
       page,
       pageSize,
     });
