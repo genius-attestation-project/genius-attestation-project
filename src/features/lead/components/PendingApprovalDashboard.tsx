@@ -151,12 +151,12 @@ export function PendingApprovalDashboard() {
     setError("");
     try {
       const [advanceRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
-        parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval")),
-        parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details")),
-        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive")),
-        parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob")),
-        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue")),
-        fetch("/api/offices/all").then((r) => r.json()).catch(() => ({ offices: [] })),
+        parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })),
+        parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })),
+        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive", { cache: "no-store" })),
+        parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob", { cache: "no-store" })),
+        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue", { cache: "no-store" })),
+        fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] })),
       ]);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setCorporateApprovals(corporateRes.items ?? []);
@@ -187,7 +187,7 @@ export function PendingApprovalDashboard() {
       }
 
       const res = await parseResponse<{ items: AdvancePaymentApprovalItem[] }>(
-        await fetch(`/api/advance-payment-approvals?${params.toString()}`),
+        await fetch(`/api/advance-payment-approvals?${params.toString()}`, { cache: "no-store" }),
       );
       setAllAdvanceRecords(res.items ?? []);
     } catch (err: any) {
@@ -901,7 +901,12 @@ export function PendingApprovalDashboard() {
       <AdvanceApprovalModal
         open={Boolean(approvingAdvance)}
         onClose={() => setApprovingAdvance(null)}
-        onSuccess={() => void loadData()}
+        onSuccess={async () => {
+          await loadData();
+          if (hasSearchedAdvanceDetails) {
+            await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
+          }
+        }}
         item={approvingAdvance}
       />
 
@@ -909,7 +914,12 @@ export function PendingApprovalDashboard() {
       <EditAdvanceModal
         open={Boolean(editingAdvance)}
         onClose={() => setEditingAdvance(null)}
-        onSuccess={() => void loadData()}
+        onSuccess={async () => {
+          await loadData();
+          if (hasSearchedAdvanceDetails) {
+            await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
+          }
+        }}
         item={editingAdvance}
       />
 

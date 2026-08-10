@@ -6,6 +6,9 @@ import {
 } from "@/features/revenue/server/advance-payment-approval.service";
 import { auth } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
