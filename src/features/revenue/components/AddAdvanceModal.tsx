@@ -56,7 +56,7 @@ function FieldSelect({
 }) {
   return (
     <select
-      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:ring-blue-900/30"
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:focus:ring-blue-900/30"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       required={required}
@@ -113,7 +113,7 @@ export function AddAdvanceModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Financial summary state (initialized from props, updated via live API call) ──
+  // ── Financial summary state ──
   const [financials, setFinancials] = useState({
     totalCharges: totalCharges || 0,
     currentApprovedAdvance: currentApprovedAdvance || 0,
@@ -386,14 +386,14 @@ export function AddAdvanceModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative flex flex-col w-full max-w-190 max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
-        {/* Header */}
-        <div className="shrink-0 flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900">
+      <div className="relative flex flex-col w-full max-w-[620px] max-h-[88vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+        {/* Compact Header */}
+        <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900">
           <div className="min-w-0">
             <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-0.5">
               Advance Payment Request · #{trackingNumber}
@@ -418,10 +418,10 @@ export function AddAdvanceModal({
           </button>
         </div>
 
-        {/* Scrollable Body */}
+        {/* Scrollable Form Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
           {/* Financial Summary Cards */}
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-blue-100 bg-linear-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
+          <div className="grid grid-cols-3 gap-2.5 rounded-2xl border border-blue-100 bg-linear-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
             {[
               {
                 label: "Total Charges",
@@ -455,16 +455,16 @@ export function AddAdvanceModal({
 
           {/* Error Banner */}
           {error && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Form Fields */}
-          <form id="advance-form" onSubmit={handleSubmit} className="space-y-3">
-            {/* Row 1: Amount + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* ── Balanced 2-Column Form Grid ── */}
+          <form id="advance-form" onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+              {/* Row 1: Advance Amount | Payment Date */}
               <div>
                 <FieldLabel required>Advance Amount</FieldLabel>
                 <Input
@@ -474,6 +474,7 @@ export function AddAdvanceModal({
                   max={effectiveBalance}
                   step="0.01"
                   placeholder="Enter amount (₹)"
+                  className="h-9 text-xs"
                   value={advanceAmount}
                   onChange={(e) => setAdvanceAmount(e.target.value)}
                   required
@@ -489,15 +490,14 @@ export function AddAdvanceModal({
                 <Input
                   label=""
                   type="date"
+                  className="h-9 text-xs"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
                   required
                 />
               </div>
-            </div>
 
-            {/* Row 2: Mode + Collected By */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Row 2: Payment Mode | Collected By */}
               <div>
                 <FieldLabel required>Payment Mode</FieldLabel>
                 <FieldSelect value={paymentMode} onChange={handlePaymentModeChange} required>
@@ -519,235 +519,252 @@ export function AddAdvanceModal({
                   <Input
                     label=""
                     placeholder="Enter name"
+                    className="h-9 text-xs"
                     value={collectedBy}
                     onChange={(e) => setCollectedBy(e.target.value)}
                   />
                 )}
               </div>
-            </div>
 
-            {/* ── Conditional Dynamic Payment Fields ── */}
-            {modeKey === "upi" && (
-              <div>
-                <FieldLabel required>UPI Transaction ID</FieldLabel>
-                <Input
-                  label=""
-                  placeholder="Enter UPI Transaction ID"
-                  value={upiTransactionId}
-                  onChange={(e) => setUpiTransactionId(e.target.value)}
-                  required
-                />
-              </div>
-            )}
+              {/* ── Dynamic Conditional Payment Mode Fields Integrated into Grid ── */}
+              {modeKey === "upi" && (
+                <div className="sm:col-span-2">
+                  <FieldLabel required>UPI Transaction ID</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter UPI Transaction ID"
+                    className="h-9 text-xs"
+                    value={upiTransactionId}
+                    onChange={(e) => setUpiTransactionId(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
 
-            {(modeKey.includes("bank") || modeKey === "bank transfer") && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <FieldLabel required>Bank Name</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Bank Name"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Reference Number</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Reference Number"
-                    value={transactionRefNo}
-                    onChange={(e) => setTransactionRefNo(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Transfer Date</FieldLabel>
-                  <Input
-                    label=""
-                    type="date"
-                    value={transferDate}
-                    onChange={(e) => setTransferDate(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {(modeKey.includes("bank") || modeKey === "bank transfer") && (
+                <>
+                  <div>
+                    <FieldLabel required>Bank Name</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Bank Name"
+                      className="h-9 text-xs"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Reference Number</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Reference Number"
+                      className="h-9 text-xs"
+                      value={transactionRefNo}
+                      onChange={(e) => setTransactionRefNo(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Transfer Date</FieldLabel>
+                    <Input
+                      label=""
+                      type="date"
+                      className="h-9 text-xs"
+                      value={transferDate}
+                      onChange={(e) => setTransferDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {(modeKey === "cheque" || modeKey === "check") && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <FieldLabel required>Cheque Number</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Cheque Number"
-                    value={chequeNumber}
-                    onChange={(e) => setChequeNumber(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Bank Name</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Bank Name"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Cheque Date</FieldLabel>
-                  <Input
-                    label=""
-                    type="date"
-                    value={chequeDate}
-                    onChange={(e) => setChequeDate(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {(modeKey === "cheque" || modeKey === "check") && (
+                <>
+                  <div>
+                    <FieldLabel required>Cheque Number</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Cheque Number"
+                      className="h-9 text-xs"
+                      value={chequeNumber}
+                      onChange={(e) => setChequeNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Bank Name</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Bank Name"
+                      className="h-9 text-xs"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Cheque Date</FieldLabel>
+                    <Input
+                      label=""
+                      type="date"
+                      className="h-9 text-xs"
+                      value={chequeDate}
+                      onChange={(e) => setChequeDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {(modeKey.includes("demand draft") || modeKey === "dd") && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <FieldLabel required>DD Number</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter DD Number"
-                    value={ddNumber}
-                    onChange={(e) => setDdNumber(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Bank Name</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Bank Name"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>DD Date</FieldLabel>
-                  <Input
-                    label=""
-                    type="date"
-                    value={ddDate}
-                    onChange={(e) => setDdDate(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {(modeKey.includes("demand draft") || modeKey === "dd") && (
+                <>
+                  <div>
+                    <FieldLabel required>DD Number</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter DD Number"
+                      className="h-9 text-xs"
+                      value={ddNumber}
+                      onChange={(e) => setDdNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Bank Name</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Bank Name"
+                      className="h-9 text-xs"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>DD Date</FieldLabel>
+                    <Input
+                      label=""
+                      type="date"
+                      className="h-9 text-xs"
+                      value={ddDate}
+                      onChange={(e) => setDdDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {(modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel required>Card Last 4 Digits</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="e.g. 4321"
-                    maxLength={4}
-                    value={cardLast4}
-                    onChange={(e) => setCardLast4(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Approval Code</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Approval Code"
-                    value={approvalCode}
-                    onChange={(e) => setApprovalCode(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {(modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) && (
+                <>
+                  <div>
+                    <FieldLabel required>Card Last 4 Digits</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="e.g. 4321"
+                      maxLength={4}
+                      className="h-9 text-xs"
+                      value={cardLast4}
+                      onChange={(e) => setCardLast4(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Approval Code</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Approval Code"
+                      className="h-9 text-xs"
+                      value={approvalCode}
+                      onChange={(e) => setApprovalCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {modeKey.includes("online") && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel required>Payment Gateway</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="e.g. Razorpay / Stripe"
-                    value={paymentGateway}
-                    onChange={(e) => setPaymentGateway(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Transaction ID</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Transaction ID"
-                    value={onlineTransactionId}
-                    onChange={(e) => setOnlineTransactionId(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {modeKey.includes("online") && (
+                <>
+                  <div>
+                    <FieldLabel required>Payment Gateway</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="e.g. Razorpay / Stripe"
+                      className="h-9 text-xs"
+                      value={paymentGateway}
+                      onChange={(e) => setPaymentGateway(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Transaction ID</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Transaction ID"
+                      className="h-9 text-xs"
+                      value={onlineTransactionId}
+                      onChange={(e) => setOnlineTransactionId(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {modeKey === "wallet" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel required>Wallet Name</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="e.g. Paytm / PhonePe"
-                    value={walletName}
-                    onChange={(e) => setWalletName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Wallet Transaction ID</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Wallet Transaction ID"
-                    value={walletTransactionId}
-                    onChange={(e) => setWalletTransactionId(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {modeKey === "wallet" && (
+                <>
+                  <div>
+                    <FieldLabel required>Wallet Name</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="e.g. Paytm / PhonePe"
+                      className="h-9 text-xs"
+                      value={walletName}
+                      onChange={(e) => setWalletName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Wallet Transaction ID</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Wallet Transaction ID"
+                      className="h-9 text-xs"
+                      value={walletTransactionId}
+                      onChange={(e) => setWalletTransactionId(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {modeKey === "other" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel required>Reference Number</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Reference Number"
-                    value={paymentReferenceNo}
-                    onChange={(e) => setPaymentReferenceNo(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>Description</FieldLabel>
-                  <Input
-                    label=""
-                    placeholder="Enter Payment Description"
-                    value={paymentDescription}
-                    onChange={(e) => setPaymentDescription(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            )}
+              {modeKey === "other" && (
+                <>
+                  <div>
+                    <FieldLabel required>Reference Number</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Reference Number"
+                      className="h-9 text-xs"
+                      value={paymentReferenceNo}
+                      onChange={(e) => setPaymentReferenceNo(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel required>Description</FieldLabel>
+                    <Input
+                      label=""
+                      placeholder="Enter Payment Description"
+                      className="h-9 text-xs"
+                      value={paymentDescription}
+                      onChange={(e) => setPaymentDescription(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-            {/* Row 3: Proof Document Type + Remarks */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Row 3: Proof Document Type | Remarks */}
               <div>
                 <FieldLabel>Proof Document Type</FieldLabel>
                 <FieldSelect value={proofFileType} onChange={setProofFileType}>
@@ -767,44 +784,45 @@ export function AddAdvanceModal({
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   rows={2}
+                  className="min-h-[75px] max-h-[85px] text-xs resize-none"
                 />
               </div>
-            </div>
 
-            {/* Row 4: Upload Proof */}
-            <div>
-              <FieldLabel required>Upload Proof</FieldLabel>
-              <div className="[&_label.flex]:p-3 [&_label.flex]:min-h-0 [&_label.flex]:py-4">
-                <MultiFileUpload
-                  label=""
-                  moduleName="Advance Payment Approval"
-                  accept=".jpg,.jpeg,.png,.webp,.pdf"
-                  onFilesChange={(ids) => setProofFileIds(ids)}
-                  required
-                />
+              {/* Upload Proof Section (Full Width) */}
+              <div className="sm:col-span-2 pt-1">
+                <FieldLabel required>Upload Proof</FieldLabel>
+                <div className="[&_label.flex]:py-2.5 [&_label.flex]:px-3 [&_label.flex]:min-h-0 [&_svg.text-blue-500]:size-5 [&_svg.text-blue-500]:mb-1 [&_.space-y-3]:space-y-2">
+                  <MultiFileUpload
+                    label=""
+                    moduleName="Advance Payment Approval"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    onFilesChange={(ids) => setProofFileIds(ids)}
+                    required
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  Accepted: JPG, PNG, WEBP, PDF · Required
+                </p>
               </div>
-              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                Accepted: JPG, PNG, WEBP, PDF · Required
-              </p>
             </div>
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 backdrop-blur-sm">
+        {/* Compact Fixed Footer */}
+        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 backdrop-blur-sm">
           <p className="hidden sm:block text-[11px] text-slate-400 dark:text-slate-500 truncate">
             {proofFileIds.length > 0
               ? `✓ ${proofFileIds.length} proof file${proofFileIds.length > 1 ? "s" : ""} attached`
               : "Upload proof to enable submission"}
           </p>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2.5 ml-auto">
             <Button
               type="button"
               variant="secondary"
               onClick={onClose}
               disabled={submitting}
-              className="h-9 px-4 text-sm"
+              className="h-9 px-4 text-xs font-semibold"
             >
               Cancel
             </Button>
@@ -812,7 +830,7 @@ export function AddAdvanceModal({
               type="submit"
               form="advance-form"
               disabled={submitting || !isAmountValid || proofFileIds.length === 0}
-              className="h-9 px-5 text-sm font-bold gap-1.5"
+              className="h-9 px-5 text-xs font-bold gap-1.5"
             >
               <Save size={15} />
               {submitting ? "Submitting…" : "Submit Request"}
