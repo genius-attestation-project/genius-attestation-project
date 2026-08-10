@@ -89,19 +89,19 @@ export function AdvanceApprovalModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="relative flex flex-col w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900">
+      <div className="relative flex flex-col w-full max-w-[520px] max-h-[85vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+        {/* Compact Header */}
+        <div className="flex items-start justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900 shrink-0">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
               Advance Payment Approval · #{item.trackingNumber}
             </p>
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white mt-0.5 leading-tight">
               Approve Advance Payment
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -115,58 +115,65 @@ export function AdvanceApprovalModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white transition"
+            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white transition"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
-        <form id="approve-advance-form" onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Compact Scrollable Body */}
+        <form
+          id="approve-advance-form"
+          onSubmit={handleSubmit}
+          className="p-5 space-y-3.5 overflow-y-auto overscroll-contain flex-1"
+        >
           {error && (
-            <div className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* 1. Bank Proof Upload (Required) */}
+          {/* 1. Bank Proof Upload (Required & Compact Layout) */}
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
               Bank Proof <span className="text-rose-500">*</span>
             </label>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5">
               Upload the company's bank/payment proof received for the advance payment.
             </p>
-            <MultiFileUpload
-              label=""
-              moduleName="Advance Payment Bank Proof"
-              accept=".jpg,.jpeg,.png,.webp,.pdf"
-              onFilesChange={(ids) => setBankProofFileIds(ids)}
-              required
-            />
+            <div className="[&_label.flex]:py-2.5 [&_label.flex]:px-3 [&_label.flex]:min-h-0 [&_svg.text-blue-500]:size-5 [&_svg.text-blue-500]:mb-1 [&_.space-y-3]:space-y-2 [&_.gap-3]:gap-2">
+              <MultiFileUpload
+                label=""
+                moduleName="Advance Payment Bank Proof"
+                accept=".jpg,.jpeg,.png,.webp,.pdf"
+                onFilesChange={(ids) => setBankProofFileIds(ids)}
+                required
+              />
+            </div>
             {!isBankProofUploaded && (
-              <p className="mt-1 text-[11px] text-rose-500">⚠ Bank Proof upload is required</p>
+              <p className="mt-1 text-[11px] font-semibold text-rose-500">⚠ Bank Proof upload is required</p>
             )}
           </div>
 
-          {/* 2. Date Field (Required) */}
+          {/* 2. Date Field (Required & Compact) */}
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
               Date <span className="text-rose-500">*</span>
             </label>
             <Input
               label=""
               type="date"
+              className="h-9 text-xs"
               value={approvalDate}
               onChange={(e) => setApprovalDate(e.target.value)}
               required
             />
           </div>
 
-          {/* 3. Remarks Field (Required) */}
+          {/* 3. Remarks Field (Required & Compact 80px) */}
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
               Remarks <span className="text-rose-500">*</span>
             </label>
             <Textarea
@@ -174,27 +181,28 @@ export function AdvanceApprovalModal({
               placeholder="e.g. Payment verified from company bank account."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              rows={3}
+              rows={2}
+              className="min-h-[75px] max-h-[100px] text-xs resize-none"
               required
             />
             {!isRemarksEntered && (
-              <p className="mt-1 text-[11px] text-rose-500">⚠ Remarks are required</p>
+              <p className="mt-1 text-[11px] font-semibold text-rose-500">⚠ Remarks are required</p>
             )}
           </div>
         </form>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 dark:border-white/10 dark:bg-slate-900/80">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
+        {/* Compact Footer */}
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 shrink-0">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting} className="h-9 px-4 text-xs">
             Cancel
           </Button>
           <Button
             type="submit"
             form="approve-advance-form"
             disabled={submitting || !isFormValid}
-            className="gap-2 font-bold"
+            className="h-9 px-5 text-xs font-bold gap-1.5"
           >
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={15} />
             {submitting ? "Approving..." : "Approve Advance Payment"}
           </Button>
         </div>
