@@ -26,7 +26,7 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className={cn("min-w-0 overflow-hidden rounded-2xl ring-1 ring-slate-900/5 shadow-sm dark:ring-white/10", className)}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-190 text-left text-sm">
           <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-blue-500/10">
             <tr>
               {columns.map((column) => (
