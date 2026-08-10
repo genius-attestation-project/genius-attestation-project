@@ -111,6 +111,8 @@ export function PendingApprovalDashboard() {
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [allAdvanceRecords, setAllAdvanceRecords] = useState<AdvancePaymentApprovalItem[]>([]);
+  const [hasSearchedAdvanceDetails, setHasSearchedAdvanceDetails] = useState(false);
+
   const [corporateApprovals, setCorporateApprovals] = useState<any[]>([]);
   const [inactiveLeads, setInactiveLeads] = useState<Lead[]>([]);
   const [lobRequests, setLobRequests] = useState<LeadWorkflowApproval[]>([]);
@@ -162,9 +164,6 @@ export function PendingApprovalDashboard() {
       setLobRequests(lobRes.items ?? []);
       setOverdueFollowups(overdueRes.items ?? []);
       setOfficesList(officesRes.offices ?? officesRes.data ?? []);
-
-      // Also initial search for advance details
-      void loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
     } catch (err: any) {
       setError(err.message || "Failed to load approval queues.");
     } finally {
@@ -203,15 +202,17 @@ export function PendingApprovalDashboard() {
   }, []);
 
   const handleSearchAdvanceDetails = async () => {
+    setHasSearchedAdvanceDetails(true);
     await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
   };
 
-  const handleResetAdvanceDetailsFilters = async () => {
+  const handleResetAdvanceDetailsFilters = () => {
     setFilterOffice("");
     setFilterFromDate("");
     setFilterToDate("");
     setFilterStatus("pending");
-    await loadAdvanceDetails("", "", "", "pending");
+    setHasSearchedAdvanceDetails(false);
+    setAllAdvanceRecords([]);
   };
 
   async function submitAction() {
@@ -275,6 +276,9 @@ export function PendingApprovalDashboard() {
       setActionModal(null);
       setReason("");
       await loadData();
+      if (hasSearchedAdvanceDetails) {
+        await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to process action.");
     } finally {
@@ -296,6 +300,9 @@ export function PendingApprovalDashboard() {
       setSuccess(`Advance payment record #${deletingAdvance.trackingNumber} deleted successfully.`);
       setDeletingAdvance(null);
       await loadData();
+      if (hasSearchedAdvanceDetails) {
+        await loadAdvanceDetails(filterOffice, filterFromDate, filterToDate, filterStatus);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to delete advance payment.");
     } finally {
@@ -319,7 +326,7 @@ export function PendingApprovalDashboard() {
     } else if (item.bankProofFileId) {
       window.open(`/api/files/${item.bankProofFileId}/view`, "_blank");
     } else {
-      setError("No bank proof uploaded for this advance payment.");
+      setError("No Bank Proof file available for this approved advance payment.");
     }
   };
 
@@ -337,7 +344,7 @@ export function PendingApprovalDashboard() {
         <div className="flex flex-wrap gap-3">
           {[
             { key: "advance_payment" as const, label: "Advance Payment Approvals", count: advancePaymentRequests.length },
-            { key: "advance_details" as const, label: "Advance Details", count: allAdvanceRecords.length },
+            { key: "advance_details" as const, label: "Advance Details", count: hasSearchedAdvanceDetails ? allAdvanceRecords.length : 0 },
             { key: "corporate_approval" as const, label: "Corporate Details Approval", count: corporateApprovals.length },
             { key: "lob" as const, label: "LOB Requests", count: lobRequests.length },
             { key: "inactive" as const, label: "Inactive Leads", count: inactiveLeads.length },
@@ -570,7 +577,7 @@ export function PendingApprovalDashboard() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => void handleResetAdvanceDetailsFilters()}
+                        onClick={handleResetAdvanceDetailsFilters}
                         className="h-9 px-5 font-bold uppercase text-[11px] tracking-wider bg-sky-500 hover:bg-sky-600 text-white border-none"
                       >
                         RESET
@@ -579,14 +586,13 @@ export function PendingApprovalDashboard() {
                   </div>
                 </div>
 
-                {/* Advance Details Data Table */}
+                {/* Advance Details Data Table (Office Column Removed) */}
                 <div className="overflow-x-auto rounded-2xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
-                  <table className="min-w-345 text-left text-sm">
+                  <table className="min-w-310 text-left text-sm">
                     <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
                       <tr>
                         <th className="px-5 py-4">Tracking Number</th>
                         <th className="px-5 py-4">Customer Name</th>
-                        <th className="px-5 py-4">Office</th>
                         <th className="px-5 py-4">Advance Amount</th>
                         <th className="px-5 py-4">Payment Mode</th>
                         <th className="px-5 py-4">Status</th>
@@ -599,96 +605,95 @@ export function PendingApprovalDashboard() {
                     <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
                       {advanceDetailsLoading ? (
                         <tr>
-                          <td colSpan={10} className="p-8 text-center text-soft">
+                          <td colSpan={9} className="p-8 text-center text-soft">
                             Loading advance details...
+                          </td>
+                        </tr>
+                      ) : !hasSearchedAdvanceDetails ? (
+                        <tr>
+                          <td colSpan={9} className="p-8 text-center text-soft font-medium">
+                            No records found. Please select Office and filters to search advance details.
                           </td>
                         </tr>
                       ) : allAdvanceRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="p-8 text-center text-soft">
+                          <td colSpan={9} className="p-8 text-center text-soft font-medium">
                             No advance payment records match the selected filters.
                           </td>
                         </tr>
                       ) : (
-                        allAdvanceRecords.map((item) => (
-                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                            <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
-                              {item.trackingNumber}
-                            </td>
-                            <td className="px-5 py-4">
-                              <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
-                              <p className="text-xs text-soft">{item.mobile}</p>
-                            </td>
-                            <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                              {item.office || "-"}
-                            </td>
-                            <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
-                              {formatCurrency(item.advanceAmount)}
-                            </td>
-                            <td className="px-5 py-4">
-                              <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
-                              {item.referenceNumber && item.referenceNumber !== "-" && (
-                                <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
-                              )}
-                            </td>
-                            <td className="px-5 py-4">
-                              <StatusBadge status={item.status} />
-                            </td>
-                            <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
-                              {formatDate(item.requestedDate)}
-                            </td>
-                            <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
-                              {item.approvedDate ? formatDate(item.approvedDate) : "-"}
-                            </td>
-                            <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              {item.approvedBy || "-"}
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {item.receiptFileUrl || item.receiptFileId ? (
+                        allAdvanceRecords.map((item) => {
+                          const isApproved = item.status === "Approved";
+
+                          return (
+                            <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                              <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
+                                {item.trackingNumber}
+                              </td>
+                              <td className="px-5 py-4">
+                                <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
+                                <p className="text-xs text-soft">{item.mobile}</p>
+                              </td>
+                              <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
+                                {formatCurrency(item.advanceAmount)}
+                              </td>
+                              <td className="px-5 py-4">
+                                <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
+                                {item.referenceNumber && item.referenceNumber !== "-" && (
+                                  <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
+                                )}
+                              </td>
+                              <td className="px-5 py-4">
+                                <StatusBadge status={item.status} />
+                              </td>
+                              <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                                {formatDate(item.requestedDate)}
+                              </td>
+                              <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                                {item.approvedDate ? formatDate(item.approvedDate) : "-"}
+                              </td>
+                              <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {item.approvedBy || "-"}
+                              </td>
+                              <td className="px-5 py-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Eye icon: ONLY for Approved records, opening Bank Proof */}
+                                  {isApproved && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => viewBankProof(item)}
+                                      title="View Bank Proof"
+                                      className="p-1.5 text-xs text-slate-700 border-slate-200 dark:text-slate-200"
+                                    >
+                                      <Eye size={14} />
+                                    </Button>
+                                  )}
+                                  {/* Edit button */}
                                   <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => viewReceipt(item)}
-                                    title="View Client Uploaded Proof"
+                                    onClick={() => setEditingAdvance(item)}
+                                    title="Edit Advance Payment"
                                     className="p-1.5 text-xs"
                                   >
-                                    <Eye size={14} />
+                                    <Pencil size={14} />
                                   </Button>
-                                ) : null}
-                                {item.bankProofFileUrl || item.bankProofFileId ? (
+                                  {/* Delete button */}
                                   <Button
                                     size="sm"
-                                    variant="secondary"
-                                    onClick={() => viewBankProof(item)}
-                                    title="View Company Bank Proof"
-                                    className="p-1.5 text-xs text-blue-600 border-blue-200"
+                                    variant="danger"
+                                    onClick={() => setDeletingAdvance(item)}
+                                    title="Delete Advance Payment"
+                                    className="p-1.5 text-xs"
                                   >
-                                    <ShieldCheck size={14} />
+                                    <Trash2 size={14} />
                                   </Button>
-                                ) : null}
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => setEditingAdvance(item)}
-                                  title="Edit Advance Payment"
-                                  className="p-1.5 text-xs"
-                                >
-                                  <Pencil size={14} />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="danger"
-                                  onClick={() => setDeletingAdvance(item)}
-                                  title="Delete Advance Payment"
-                                  className="p-1.5 text-xs"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
