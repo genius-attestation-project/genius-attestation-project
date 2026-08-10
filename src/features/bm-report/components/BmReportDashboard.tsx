@@ -235,7 +235,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
                 {/* 11 Column Document Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-100/60 text-xs font-bold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-400">
+                    <thead className="border-b border-slate-200 bg-slate-100/60 text-xs font-bold tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-400">
                       <tr>
                         <th className="px-4 py-3 text-center">SL No</th>
                         <th className="px-4 py-3">Tracking Number</th>
