@@ -216,9 +216,159 @@ export async function getDocumentMovementDetails(ownerAdminId: string, trackingN
 
   if (!registration) return null;
 
+  // Fetch bundle history for this tracking number
+  const bundleItems = await prisma.bundleItem.findMany({
+    where: { trackingNumber },
+    include: {
+      bundle: {
+        include: {
+          fromOffice: true,
+          toOffice: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  }).catch(() => []);
+
+  // Fetch subpackage items if present
+  const subPackages = await (prisma as any).processItem?.findMany({
+    where: { trackingNumber, ownerAdminId },
+    orderBy: { createdAt: "asc" },
+  }).catch(() => []) || [];
+
+  const movements = registration.documentMovements || [];
+
+  // 1. Core Package Status
+  const isCompleted = registration.trackingStatus === "Delivered" || registration.trackingStatus === "Completed";
+  const corePackageStatus = {
+    isCompleted,
+    statusLabel: registration.trackingStatus || "Registered",
+  };
+
+  // 2. Timeline
+  const timeline = movements.map((mov, idx) => ({
+    id: mov.id || `mov-${idx}`,
+    step: mov.status || "Movement Recorded",
+    timestamp: mov.createdAt.toISOString(),
+    fromLocation: mov.fromOffice?.officeName || registration.regionOfRegistration || "Origin Office",
+    toLocation: mov.toOffice?.officeName || mov.currentOffice?.officeName || "Destination Office",
+    module: "Branch Movement",
+    performedBy: (mov as any).performedBy || (mov as any).sentBy || "System User",
+    remarks: mov.remarks || "",
+  }));
+
+  if (timeline.length === 0) {
+    timeline.push({
+      id: `reg-${registration.id}`,
+      step: "Registered",
+      timestamp: registration.createdAt.toISOString(),
+      fromLocation: registration.regionOfRegistration || "Registration Office",
+      toLocation: registration.regionOfRegistration || "Registration Office",
+      module: "Registration",
+      performedBy: registration.collectedPerson || "Staff",
+      remarks: "Document registered in office",
+    });
+  }
+
+  // 3. SubPackage History
+  const subPackageHistory = subPackages.map((sp: any, idx: number) => ({
+    id: sp.id || `sp-${idx}`,
+    subPackageId: sp.processPackageId || sp.subPackageId || `SP-${sp.id?.slice(0, 6)}`,
+    assignedOffice: sp.assignedOffice || registration.regionOfRegistration || "-",
+    status: sp.status || "In Progress",
+    startedAt: sp.createdAt ? new Date(sp.createdAt).toISOString() : registration.createdAt.toISOString(),
+    completedAt: sp.completedAt ? new Date(sp.completedAt).toISOString() : null,
+    createdBy: sp.assignedUser || "Staff",
+  }));
+
+  // 4. Bundle History
+  const bundleHistory = bundleItems.map((bi: any) => ({
+    bundleId: bi.bundle?.id || bi.id,
+    bundleNumber: bi.bundle?.bundleNumber || "BN-000",
+    status: bi.bundle?.status || "Transferred",
+    fromOffice: bi.bundle?.fromOffice?.officeName || registration.regionOfRegistration || "Origin Office",
+    toOffice: bi.bundle?.toOffice?.officeName || "Destination Office",
+    transferredBy: bi.bundle?.createdBy || "Staff",
+    transferredTime: bi.bundle?.createdAt ? new Date(bi.bundle.createdAt).toISOString() : registration.createdAt.toISOString(),
+    receivedBy: bi.bundle?.receivedBy || null,
+  }));
+
+  // 5. Movement Path Nodes for Visual Map
+  const movementPathNodes = [
+    {
+      stepNumber: 1,
+      officeName: registration.regionOfRegistration || "Registration Office",
+      moduleName: "Registration Office",
+      section: "Registered",
+      status: "Initial Location",
+      timestamp: registration.createdAt.toISOString(),
+      performedBy: registration.collectedPerson || "Staff",
+      isCurrent: movements.length === 0,
+      remarks: "Document initially registered",
+    },
+  ];
+
+  movements.forEach((mov, idx) => {
+    const isCurrent = idx === movements.length - 1;
+    const officeName = mov.toOffice?.officeName || mov.currentOffice?.officeName || mov.fromOffice?.officeName || "Branch Office";
+    movementPathNodes.push({
+      stepNumber: idx + 2,
+      officeName,
+      moduleName: "Branch Movement",
+      section: mov.status || "Movement",
+      status: mov.status || "Transferred",
+      timestamp: mov.createdAt.toISOString(),
+      performedBy: (mov as any).performedBy || (mov as any).sentBy || "Staff",
+      isCurrent,
+      remarks: mov.remarks || "",
+    });
+  });
+
+  // 6. History Table Rows
+  const historyTableRows = movements.map((mov, idx) => ({
+    stepNumber: idx + 1,
+    fromOffice: mov.fromOffice?.officeName || registration.regionOfRegistration || "Origin Office",
+    toOffice: mov.toOffice?.officeName || mov.currentOffice?.officeName || "Target Office",
+    module: "Branch Movement",
+    section: mov.status || "Movement",
+    movementType: mov.status || "Transferred",
+    status: mov.status || "Completed",
+    transferredOn: mov.createdAt.toISOString(),
+    transferredBy: (mov as any).performedBy || (mov as any).sentBy || "Staff",
+    documentsCount: 1,
+    remarks: mov.remarks || "-",
+  }));
+
+  // 7. Bundle Details Sidebar Card
+  const latestBundle = bundleItems[bundleItems.length - 1]?.bundle;
+  const bundleDetails = {
+    bundleNumber: latestBundle?.bundleNumber || "N/A",
+    totalDocuments: 1,
+    packageType: registration.processType || "Standard Package",
+    createdOn: latestBundle?.createdAt ? new Date(latestBundle.createdAt).toISOString() : registration.createdAt.toISOString(),
+    createdBy: latestBundle?.createdBy || "Staff",
+    priority: registration.priority || "Normal",
+    currentStatus: latestBundle?.status || registration.trackingStatus || "In Hand",
+  };
+
+  // 8. Audit Trail
+  const auditTrail = (registration.auditTrail || []).map((a) => ({
+    id: a.id,
+    action: a.action,
+    description: a.description || (a as any).remarks || "-",
+    createdAt: a.createdAt.toISOString(),
+    performedBy: a.performedBy || "System",
+  }));
+
   return {
     registration,
-    movements: registration.documentMovements,
-    auditTrail: registration.auditTrail,
+    corePackageStatus,
+    timeline,
+    subPackageHistory,
+    bundleHistory,
+    movementPathNodes,
+    historyTableRows,
+    bundleDetails,
+    auditTrail,
   };
 }

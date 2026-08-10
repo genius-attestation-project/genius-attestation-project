@@ -107,30 +107,30 @@ export function DocumentMovementDetailsModal({
               <div>
                 <span className="text-slate-400 block font-medium">Customer</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {details.registration.customerName}
+                  {details?.registration?.customerName || "-"}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block font-medium">Process Type</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {details.registration.processType || details.registration.documentType || "Standard"}
+                  {details?.registration?.processType || details?.registration?.documentType || "Standard"}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block font-medium">Sub Package</span>
                 <span className="font-mono text-slate-700 dark:text-slate-300">
-                  {details.registration.subPackage || "-"}
+                  {details?.registration?.subPackage || "-"}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block font-medium">Main Process Status</span>
                 <span
                   className={`inline-flex items-center gap-1 font-bold ${
-                    details.corePackageStatus.isCompleted ? "text-emerald-600" : "text-amber-600"
+                    details?.corePackageStatus?.isCompleted ? "text-emerald-600" : "text-amber-600"
                   }`}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  {details.corePackageStatus.statusLabel}
+                  {details?.corePackageStatus?.statusLabel || details?.registration?.trackingStatus || "Registered"}
                 </span>
               </div>
             </div>
@@ -146,7 +146,7 @@ export function DocumentMovementDetailsModal({
                 }`}
               >
                 <Clock className="h-4 w-4" />
-                Movement Timeline ({details.timeline.length})
+                Movement Timeline ({details?.timeline?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab("map")}
@@ -168,7 +168,7 @@ export function DocumentMovementDetailsModal({
                 }`}
               >
                 <Layers className="h-4 w-4" />
-                Sub Package Tracking ({details.subPackageHistory.length})
+                Sub Package Tracking ({details?.subPackageHistory?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab("bundle")}
@@ -179,7 +179,7 @@ export function DocumentMovementDetailsModal({
                 }`}
               >
                 <Package className="h-4 w-4" />
-                Bundle History ({details.bundleHistory.length})
+                Bundle History ({details?.bundleHistory?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab("audit")}
@@ -190,7 +190,7 @@ export function DocumentMovementDetailsModal({
                 }`}
               >
                 <ShieldCheck className="h-4 w-4" />
-                Audit Trail ({details.auditTrail.length})
+                Audit Trail ({details?.auditTrail?.length || 0})
               </button>
             </div>
 
@@ -199,7 +199,7 @@ export function DocumentMovementDetailsModal({
               {/* TIMELINE TAB */}
               {activeTab === "timeline" && (
                 <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-                  {details.timeline.map((item: any, idx: number) => (
+                  {(details?.timeline || []).map((item: any, idx: number) => (
                     <div key={item.id || idx} className="relative group">
                       <span className="absolute -left-7.75 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 ring-4 ring-white dark:ring-[#0f1115]" />
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-white/5">
@@ -253,10 +253,10 @@ export function DocumentMovementDetailsModal({
               {/* MAP TAB */}
               {activeTab === "map" && (
                 <OfficeMovementMap
-                  nodes={details.movementPathNodes}
-                  historyTableRows={details.historyTableRows}
-                  bundleDetails={details.bundleDetails}
-                  deliveryLocation={details.registration.deliveryLocation}
+                  nodes={details?.movementPathNodes || []}
+                  historyTableRows={details?.historyTableRows || []}
+                  bundleDetails={details?.bundleDetails}
+                  deliveryLocation={details?.registration?.deliveryLocation}
                   onViewBundleHistory={() => setActiveTab("bundle")}
                 />
               )}
@@ -264,14 +264,14 @@ export function DocumentMovementDetailsModal({
               {/* SUB PACKAGE TAB */}
               {activeTab === "subpackage" && (
                 <div className="space-y-4">
-                  {details.subPackageHistory.length === 0 ? (
+                  {(!details?.subPackageHistory || details.subPackageHistory.length === 0) ? (
                     <p className="text-center text-xs text-slate-500 py-8">
                       No subpackage movement records found for this document.
                     </p>
                   ) : (
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 dark:bg-white/5 font-bold uppercase text-slate-500">
+                        <thead className="bg-slate-50 dark:bg-white/5 font-bold tracking-wider text-slate-500">
                           <tr>
                             <th className="p-3">Sub Package ID</th>
                             <th className="p-3">Assigned Office</th>
@@ -282,7 +282,7 @@ export function DocumentMovementDetailsModal({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                          {details.subPackageHistory.map((sp: any) => (
+                          {(details?.subPackageHistory || []).map((sp: any) => (
                             <tr key={sp.id}>
                               <td className="p-3 font-mono font-bold text-blue-600">
                                 {sp.subPackageId}
@@ -314,13 +314,13 @@ export function DocumentMovementDetailsModal({
               {/* BUNDLE HISTORY TAB */}
               {activeTab === "bundle" && (
                 <div className="space-y-4">
-                  {details.bundleHistory.length === 0 ? (
+                  {(!details?.bundleHistory || details.bundleHistory.length === 0) ? (
                     <p className="text-center text-xs text-slate-500 py-8">
                       No bundle transfer history recorded for this document.
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {details.bundleHistory.map((bh: any, idx: number) => (
+                      {(details?.bundleHistory || []).map((bh: any, idx: number) => (
                         <div
                           key={bh.bundleId || idx}
                           className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-white/5 space-y-2"
@@ -349,7 +349,7 @@ export function DocumentMovementDetailsModal({
               {/* AUDIT TRAIL TAB */}
               {activeTab === "audit" && (
                 <div className="space-y-3">
-                  {details.auditTrail.map((audit: any) => (
+                  {(details?.auditTrail || []).map((audit: any) => (
                     <div
                       key={audit.id}
                       className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs dark:border-white/10 dark:bg-white/5"
