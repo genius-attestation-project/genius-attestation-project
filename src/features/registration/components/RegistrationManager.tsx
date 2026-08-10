@@ -1306,30 +1306,30 @@ export function RegistrationManager({
         ) : registrations.length ? (
           <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-230 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-blue-500/10">
+              <table className="w-full min-w-300 text-left text-xs">
+                <thead className="bg-blue-50/90 text-xs font-bold tracking-wider text-slate-700 border-b border-slate-200/80 dark:bg-blue-500/10 dark:border-white/10 dark:text-slate-300">
                   <tr>
-                    <th className="px-5 py-4">SL No.</th>
-                    <th className="px-5 py-4">Tracking Number</th>
-                    <th className="px-5 py-4">Customer Name</th>
-                    <th className="px-5 py-4">Mobile</th>
-                    <th className="px-5 py-4">Registered By</th>
-                    <th className="px-5 py-4">Process Type</th>
-                    <th className="px-5 py-4">Document Type</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4">Payment Status</th>
-                    <th className="px-5 py-4">Approval Status</th>
-                    <th className="px-5 py-4">Created Date</th>
-                    <th className="px-5 py-4">Actions</th>
+                    <th className="px-3.5 py-3 text-center w-12">SL No.</th>
+                    <th className="px-3.5 py-3">Tracking Number</th>
+                    <th className="px-3.5 py-3">Customer Name</th>
+                    <th className="px-3.5 py-3">Mobile</th>
+                    <th className="px-3.5 py-3">Registered By</th>
+                    <th className="px-3.5 py-3 min-w-40">Process Type</th>
+                    <th className="px-3.5 py-3 min-w-32.5">Document Type</th>
+                    <th className="px-3.5 py-3 text-center">Status</th>
+                    <th className="px-3.5 py-3 text-center">Payment Status</th>
+                    <th className="px-3.5 py-3 text-center">Approval Status</th>
+                    <th className="px-3.5 py-3 text-center">Created Date</th>
+                    <th className="px-3.5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
                   {registrations.map((registration, index) => (
-                    <tr key={registration.id} className="transition hover:bg-blue-50 dark:hover:bg-blue-500/5">
-                      <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                    <tr key={registration.id} className="transition hover:bg-blue-50/70 dark:hover:bg-blue-500/5">
+                      <td className="px-3.5 py-3 text-center text-slate-500 font-medium">
                         {((page - 1) * pageSize) + index + 1}
                       </td>
-                      <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-200">
+                      <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <PriorityDot priority={registration.priority} size={10} />
                           <Link
@@ -1340,15 +1340,23 @@ export function RegistrationManager({
                           </Link>
                         </div>
                       </td>
-                      <td className="px-5 py-4">{registration.customerName}</td>
-                      <td className="px-5 py-4">{registration.mobile}</td>
-                      <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-300">
+                      <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
+                        {registration.customerName}
+                      </td>
+                      <td className="px-3.5 py-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                        {registration.mobile}
+                      </td>
+                      <td className="px-3.5 py-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
                         {registration.createdBy?.name || "Unknown"}
                       </td>
-                      <td className="px-5 py-4">{registration.processType || "-"}</td>
-                      <td className="px-5 py-4">{registration.documentType || "-"}</td>
-                      <td className="px-5 py-4 font-semibold">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-40">
+                        {registration.processType || "-"}
+                      </td>
+                      <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-32.5">
+                        {registration.documentType || "-"}
+                      </td>
+                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
                           registration.trackingStatus === "Delivered"
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                             : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
@@ -1362,29 +1370,52 @@ export function RegistrationManager({
                           {registration.trackingStatus || "Registered"}
                         </span>
                       </td>
-                      <td className="px-5 py-4">{registration.paymentStatus}</td>
-                      <td className="px-5 py-4">{registration.approvalStatus}</td>
-                      <td className="px-5 py-4">{registration.createdDate}</td>
-                      <td className="px-5 py-4">
-                        <div className="flex gap-2">
+                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                          registration.paymentStatus === "Paid"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                            : registration.paymentStatus === "Partially Paid"
+                            ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                            : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+                        }`}>
+                          {registration.paymentStatus || "Unpaid"}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                          registration.approvalStatus === "Approved"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                            : registration.approvalStatus === "Pending"
+                            ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                            : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                        }`}>
+                          {registration.approvalStatus || "Pending"}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                        {registration.createdDate}
+                      </td>
+                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
                           {hasTimelinePermission && (
                             <Button 
                               variant="ghost" 
                               size="icon" 
                               title="View Branch Movement"
                               onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
+                              className="h-8 w-8"
                             >
-                              <Route size={16} className="text-blue-600" />
+                              <Route size={15} className="text-blue-600" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" onClick={() => openView(registration)}>
-                            <Eye size={16} />
+                          <Button variant="ghost" size="icon" onClick={() => openView(registration)} className="h-8 w-8">
+                            <Eye size={15} />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(registration)}>
-                            <Pencil size={16} />
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(registration)} className="h-8 w-8">
+                            <Pencil size={15} />
                           </Button>
-                          <Button variant="danger" size="icon" onClick={() => handleDelete(registration)}>
-                            <Trash2 size={16} />
+                          <Button variant="danger" size="icon" onClick={() => handleDelete(registration)} className="h-8 w-8">
+                            <Trash2 size={15} />
                           </Button>
                         </div>
                       </td>
