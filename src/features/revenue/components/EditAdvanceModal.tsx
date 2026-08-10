@@ -407,7 +407,7 @@ export function EditAdvanceModal({
                 <FieldLabel>Collected By</FieldLabel>
                 <Input
                   label=""
-                  placeholder="Enter collector name"
+                  placeholder="Enter Collector Name"
                   className="h-9 text-xs"
                   value={collectedBy}
                   onChange={(e) => setCollectedBy(e.target.value)}

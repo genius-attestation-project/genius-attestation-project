@@ -559,7 +559,7 @@ export function PendingApprovalDashboard() {
                         onChange={(e) => setFilterStatus(e.target.value)}
                       >
                         <option value="All">All Statuses</option>
-                        <option value="pending">pending</option>
+                        <option value="pending">Pending Approval</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
                       </select>
@@ -570,17 +570,17 @@ export function PendingApprovalDashboard() {
                       <Button
                         size="sm"
                         onClick={() => void handleSearchAdvanceDetails()}
-                        className="h-9 px-5 font-bold uppercase text-[11px] tracking-wider bg-blue-600 hover:bg-blue-700 text-white"
+                        className="h-9 px-5 font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       >
-                        SEARCH
+                        Search
                       </Button>
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={handleResetAdvanceDetailsFilters}
-                        className="h-9 px-5 font-bold uppercase text-[11px] tracking-wider bg-sky-500 hover:bg-sky-600 text-white border-none"
+                        className="h-9 px-5 font-bold text-xs bg-sky-500 hover:bg-sky-600 text-white border-none"
                       >
-                        RESET
+                        Reset
                       </Button>
                     </div>
                   </div>

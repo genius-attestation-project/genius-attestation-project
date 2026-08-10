@@ -510,7 +510,7 @@ export function AddAdvanceModal({
                 <FieldLabel>Collected By</FieldLabel>
                 {personOptions.length > 0 ? (
                   <FieldSelect value={collectedBy} onChange={setCollectedBy}>
-                    <option value="">Select person</option>
+                    <option value="">Select Person</option>
                     {personOptions.map((opt) => (
                       <option key={opt.value} value={opt.label}>{opt.label}</option>
                     ))}
@@ -518,7 +518,7 @@ export function AddAdvanceModal({
                 ) : (
                   <Input
                     label=""
-                    placeholder="Enter name"
+                    placeholder="Enter Name"
                     className="h-9 text-xs"
                     value={collectedBy}
                     onChange={(e) => setCollectedBy(e.target.value)}
