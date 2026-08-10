@@ -94,7 +94,7 @@ export function AdvanceApprovalModal({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="relative flex flex-col w-full max-w-[520px] max-h-[85vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+      <div className="relative flex flex-col w-full max-w-130 max-h-[85vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
         {/* Compact Header */}
         <div className="flex items-start justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900 shrink-0">
           <div>
@@ -182,7 +182,7 @@ export function AdvanceApprovalModal({
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
-              className="min-h-[75px] max-h-[100px] text-xs resize-none"
+              className="min-h-18.75 max-h-25 text-xs resize-none"
               required
             />
             {!isRemarksEntered && (

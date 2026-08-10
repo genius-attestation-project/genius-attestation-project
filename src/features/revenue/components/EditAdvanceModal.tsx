@@ -330,7 +330,7 @@ export function EditAdvanceModal({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="relative flex flex-col w-full max-w-[620px] max-h-[88vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
+      <div className="relative flex flex-col w-full max-w-155 max-h-[88vh] rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
         {/* Header */}
         <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900">
           <div>
@@ -620,7 +620,7 @@ export function EditAdvanceModal({
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   rows={2}
-                  className="min-h-[75px] max-h-[85px] text-xs resize-none"
+                  className="min-h-18.75 max-h-21.25 text-xs resize-none"
                 />
               </div>
 
