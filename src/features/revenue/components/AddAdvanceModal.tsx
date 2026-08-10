@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, AlertCircle, Save, IndianRupee } from "lucide-react";
+import { X, AlertCircle, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -20,13 +20,16 @@ type AddAdvanceModalProps = {
   onSuccess?: () => void;
 };
 
-const PAYMENT_MODES = [
+const DEFAULT_PAYMENT_MODES = [
   "Cash",
   "UPI",
   "Bank Transfer",
   "Cheque",
   "Card",
   "Online",
+  "Demand Draft",
+  "Wallet",
+  "Other",
 ];
 
 // ─── Reusable Field Label ──────────────────────────────────────────────────
@@ -77,15 +80,35 @@ export function AddAdvanceModal({
 }: AddAdvanceModalProps) {
   const todayStr = new Date().toISOString().split("T")[0];
 
-  // ── State (unchanged) ────────────────────────────────────────────────────
+  // ── Payment Mode Options State ──
+  const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>(DEFAULT_PAYMENT_MODES);
+
+  // ── Form State ──────────────────────────────────────────────────────────
   const [advanceAmount, setAdvanceAmount] = useState<string>("");
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [paymentMode, setPaymentMode] = useState<string>("Cash");
-  const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [collectedBy, setCollectedBy] = useState<string>("");
   const [remarks, setRemarks] = useState<string>("");
   const [proofFileIds, setProofFileIds] = useState<string[]>([]);
   const [proofFileType, setProofFileType] = useState<string>("Receipt");
+
+  // ── Dynamic Payment Fields State ──
+  const [upiTransactionId, setUpiTransactionId] = useState<string>("");
+  const [bankName, setBankName] = useState<string>("");
+  const [transactionRefNo, setTransactionRefNo] = useState<string>("");
+  const [transferDate, setTransferDate] = useState<string>(todayStr);
+  const [chequeNumber, setChequeNumber] = useState<string>("");
+  const [chequeDate, setChequeDate] = useState<string>(todayStr);
+  const [ddNumber, setDdNumber] = useState<string>("");
+  const [ddDate, setDdDate] = useState<string>(todayStr);
+  const [cardLast4, setCardLast4] = useState<string>("");
+  const [approvalCode, setApprovalCode] = useState<string>("");
+  const [paymentGateway, setPaymentGateway] = useState<string>("");
+  const [onlineTransactionId, setOnlineTransactionId] = useState<string>("");
+  const [walletName, setWalletName] = useState<string>("");
+  const [walletTransactionId, setWalletTransactionId] = useState<string>("");
+  const [paymentReferenceNo, setPaymentReferenceNo] = useState<string>("");
+  const [paymentDescription, setPaymentDescription] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,23 +120,71 @@ export function AddAdvanceModal({
     currentBalance: currentBalance || 0,
   });
 
+  // Reset conditional fields whenever payment mode changes
+  const handlePaymentModeChange = (newMode: string) => {
+    setPaymentMode(newMode);
+    setUpiTransactionId("");
+    setBankName("");
+    setTransactionRefNo("");
+    setTransferDate(todayStr);
+    setChequeNumber("");
+    setChequeDate(todayStr);
+    setDdNumber("");
+    setDdDate(todayStr);
+    setCardLast4("");
+    setApprovalCode("");
+    setPaymentGateway("");
+    setOnlineTransactionId("");
+    setWalletName("");
+    setWalletTransactionId("");
+    setPaymentReferenceNo("");
+    setPaymentDescription("");
+  };
+
   useEffect(() => {
     if (isOpen) {
       setAdvanceAmount("");
       setPaymentDate(todayStr);
       setPaymentMode("Cash");
-      setReferenceNumber("");
       setCollectedBy("");
       setRemarks("");
       setProofFileIds([]);
       setProofFileType("Receipt");
       setError(null);
 
-      console.log("Modal received props:", {
-        totalCharges,
-        approvedAdvance: currentApprovedAdvance,
-        balanceAmount: currentBalance,
-      });
+      // Reset dynamic fields
+      setUpiTransactionId("");
+      setBankName("");
+      setTransactionRefNo("");
+      setTransferDate(todayStr);
+      setChequeNumber("");
+      setChequeDate(todayStr);
+      setDdNumber("");
+      setDdDate(todayStr);
+      setCardLast4("");
+      setApprovalCode("");
+      setPaymentGateway("");
+      setOnlineTransactionId("");
+      setWalletName("");
+      setWalletTransactionId("");
+      setPaymentReferenceNo("");
+      setPaymentDescription("");
+
+      // Fetch dynamic payment modes from master data
+      fetch("/api/master-data/payment-mode?status=Active&pageSize=200")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.items && Array.isArray(data.items)) {
+            const names = data.items.map((i: any) => i.paymentModeName || i.name).filter(Boolean);
+            if (names.length > 0) {
+              const merged = Array.from(new Set([...names, ...DEFAULT_PAYMENT_MODES]));
+              setPaymentModeOptions(merged);
+            }
+          }
+        })
+        .catch(() => {
+          setPaymentModeOptions(DEFAULT_PAYMENT_MODES);
+        });
 
       const initTotal = Number(totalCharges || 0);
       const initAdvance = Number(currentApprovedAdvance || 0);
@@ -129,17 +200,11 @@ export function AddAdvanceModal({
         fetch(`/api/registrations/${encodeURIComponent(registrationId)}`)
           .then((res) => res.json())
           .then((data) => {
-            console.log("API response:", data);
             const reg = data?.registration || data;
             if (reg) {
               const liveTotal = Number(reg.totalCharges ?? 0);
               const liveAdvance = Number(reg.advancePaid ?? 0);
               const liveBalance = Number(reg.balanceAmount ?? (liveTotal - liveAdvance));
-              console.log("API response financial summary:", {
-                totalCharges: liveTotal,
-                approvedAdvance: liveAdvance,
-                balanceAmount: liveBalance,
-              });
               setFinancials({
                 totalCharges: liveTotal,
                 currentApprovedAdvance: liveAdvance,
@@ -156,7 +221,7 @@ export function AddAdvanceModal({
 
   if (!isOpen) return null;
 
-  // ── Derived financial values with full multi-level fallbacks ──
+  // ── Derived financial values ──
   const effectiveTotalCharges =
     financials.totalCharges > 0
       ? financials.totalCharges
@@ -177,7 +242,7 @@ export function AddAdvanceModal({
   const numAmount = parseFloat(advanceAmount) || 0;
   const isAmountValid = numAmount > 0 && numAmount <= effectiveBalance;
 
-  // ── Submit (unchanged business logic) ────────────────────────────────────
+  // ── Submit logic matching Revenue Registration dynamic payment mode validation ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -202,6 +267,60 @@ export function AddAdvanceModal({
       return;
     }
 
+    // Dynamic Payment Mode Validations & Reference Construction
+    const modeKey = (paymentMode || "").trim().toLowerCase();
+    let formattedRef = "";
+
+    if (modeKey === "upi") {
+      if (!upiTransactionId.trim()) {
+        setError("UPI Transaction ID is required.");
+        return;
+      }
+      formattedRef = upiTransactionId.trim();
+    } else if (modeKey.includes("bank") || modeKey === "bank transfer") {
+      if (!bankName.trim() || !transactionRefNo.trim() || !transferDate) {
+        setError("Bank Name, Transaction Reference Number, and Transfer Date are required for Bank Transfer.");
+        return;
+      }
+      formattedRef = `Ref: ${transactionRefNo.trim()} (${bankName.trim()})`;
+    } else if (modeKey === "cheque" || modeKey === "check") {
+      if (!chequeNumber.trim() || !bankName.trim() || !chequeDate) {
+        setError("Cheque Number, Bank Name, and Cheque Date are required for Cheque payments.");
+        return;
+      }
+      formattedRef = `Cheque #${chequeNumber.trim()} (${bankName.trim()})`;
+    } else if (modeKey.includes("demand draft") || modeKey === "dd") {
+      if (!ddNumber.trim() || !bankName.trim() || !ddDate) {
+        setError("DD Number, Bank Name, and DD Date are required for Demand Draft.");
+        return;
+      }
+      formattedRef = `DD #${ddNumber.trim()} (${bankName.trim()})`;
+    } else if (modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) {
+      if (!cardLast4.trim() || !approvalCode.trim()) {
+        setError("Card Last 4 Digits and Approval Code are required for Card payments.");
+        return;
+      }
+      formattedRef = `Card ****${cardLast4.trim()} (Auth: ${approvalCode.trim()})`;
+    } else if (modeKey.includes("online")) {
+      if (!paymentGateway.trim() || !onlineTransactionId.trim()) {
+        setError("Payment Gateway and Transaction ID are required for Online payments.");
+        return;
+      }
+      formattedRef = `${paymentGateway.trim()} - ${onlineTransactionId.trim()}`;
+    } else if (modeKey === "wallet") {
+      if (!walletName.trim() || !walletTransactionId.trim()) {
+        setError("Wallet Name and Transaction ID are required for Wallet payments.");
+        return;
+      }
+      formattedRef = `${walletName.trim()} - ${walletTransactionId.trim()}`;
+    } else if (modeKey === "other") {
+      if (!paymentReferenceNo.trim() || !paymentDescription.trim()) {
+        setError("Reference Number and Description are required for Other payment mode.");
+        return;
+      }
+      formattedRef = `Ref: ${paymentReferenceNo.trim()} (${paymentDescription.trim()})`;
+    }
+
     if (proofFileIds.length === 0) {
       setError("Proof upload is mandatory for advance payment requests.");
       return;
@@ -215,7 +334,21 @@ export function AddAdvanceModal({
       amount: numAmount,
       paymentDate,
       paymentMode,
-      referenceNumber: referenceNumber.trim() || null,
+      referenceNumber: formattedRef || null,
+      upiTransactionId: modeKey === "upi" ? upiTransactionId.trim() : null,
+      bankName: (modeKey.includes("bank") || modeKey === "cheque" || modeKey.includes("demand draft")) ? bankName.trim() : null,
+      transactionRefNo: modeKey.includes("bank") ? transactionRefNo.trim() : null,
+      transferDate: modeKey.includes("bank") ? transferDate : null,
+      chequeNumber: modeKey === "cheque" ? chequeNumber.trim() : null,
+      chequeDate: modeKey === "cheque" ? chequeDate : null,
+      ddNumber: modeKey.includes("demand draft") ? ddNumber.trim() : null,
+      ddDate: modeKey.includes("demand draft") ? ddDate : null,
+      cardLast4: modeKey.includes("card") ? cardLast4.trim() : null,
+      approvalCode: modeKey.includes("card") ? approvalCode.trim() : null,
+      paymentGateway: modeKey.includes("online") ? paymentGateway.trim() : null,
+      onlineTransactionId: modeKey.includes("online") ? onlineTransactionId.trim() : null,
+      walletName: modeKey === "wallet" ? walletName.trim() : null,
+      walletTransactionId: modeKey === "wallet" ? walletTransactionId.trim() : null,
       collectedBy: collectedBy.trim() || null,
       remarks: remarks.trim() || null,
       proofFileType,
@@ -224,7 +357,7 @@ export function AddAdvanceModal({
       proofFiles: proofFileIds,
     };
 
-    console.log("[Frontend] Advance payment submission payload before fetch():", payload);
+    console.log("[Frontend] Advance payment submission payload:", payload);
 
     try {
       const res = await fetch("/api/advance-payment-approvals", {
@@ -249,25 +382,17 @@ export function AddAdvanceModal({
     }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  const modeKey = (paymentMode || "").trim().toLowerCase();
+
   return (
-    /* ── Backdrop ── */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/*
-        ── Modal shell ──
-        • max-h-[90vh] keeps it within viewport
-        • flex flex-col lets header/footer stay fixed while body scrolls
-      */}
       <div className="relative flex flex-col w-full max-w-190 max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden">
-
-        {/* ────────────────────────────────────────────────────────────────
-            FIXED HEADER
-        ──────────────────────────────────────────────────────────────── */}
+        {/* Header */}
         <div className="shrink-0 flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900">
           <div className="min-w-0">
             <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-0.5">
@@ -293,12 +418,9 @@ export function AddAdvanceModal({
           </button>
         </div>
 
-        {/* ────────────────────────────────────────────────────────────────
-            SCROLLABLE BODY
-        ──────────────────────────────────────────────────────────────── */}
+        {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
-
-          {/* ── Financial Summary Cards ── */}
+          {/* Financial Summary Cards */}
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-blue-100 bg-linear-to-br from-blue-50/80 to-slate-50/60 p-3 dark:border-blue-900/30 dark:from-blue-950/30 dark:to-slate-900/30">
             {[
               {
@@ -331,7 +453,7 @@ export function AddAdvanceModal({
             ))}
           </div>
 
-          {/* ── Error Banner ── */}
+          {/* Error Banner */}
           {error && (
             <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
               <AlertCircle size={14} className="shrink-0 mt-0.5" />
@@ -339,9 +461,8 @@ export function AddAdvanceModal({
             </div>
           )}
 
-          {/* ── Form Fields ── */}
+          {/* Form Fields */}
           <form id="advance-form" onSubmit={handleSubmit} className="space-y-3">
-
             {/* Row 1: Amount + Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -375,29 +496,16 @@ export function AddAdvanceModal({
               </div>
             </div>
 
-            {/* Row 2: Mode + Reference */}
+            {/* Row 2: Mode + Collected By */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <FieldLabel required>Payment Mode</FieldLabel>
-                <FieldSelect value={paymentMode} onChange={setPaymentMode} required>
-                  {PAYMENT_MODES.map((mode) => (
+                <FieldSelect value={paymentMode} onChange={handlePaymentModeChange} required>
+                  {paymentModeOptions.map((mode) => (
                     <option key={mode} value={mode}>{mode}</option>
                   ))}
                 </FieldSelect>
               </div>
-              <div>
-                <FieldLabel>Reference Number</FieldLabel>
-                <Input
-                  label=""
-                  placeholder="Txn ID / Cheque No / Ref #"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Collected By + Proof Type */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <FieldLabel>Collected By</FieldLabel>
                 {personOptions.length > 0 ? (
@@ -416,6 +524,230 @@ export function AddAdvanceModal({
                   />
                 )}
               </div>
+            </div>
+
+            {/* ── Conditional Dynamic Payment Fields ── */}
+            {modeKey === "upi" && (
+              <div>
+                <FieldLabel required>UPI Transaction ID</FieldLabel>
+                <Input
+                  label=""
+                  placeholder="Enter UPI Transaction ID"
+                  value={upiTransactionId}
+                  onChange={(e) => setUpiTransactionId(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            {(modeKey.includes("bank") || modeKey === "bank transfer") && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <FieldLabel required>Bank Name</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Bank Name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Reference Number</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Reference Number"
+                    value={transactionRefNo}
+                    onChange={(e) => setTransactionRefNo(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Transfer Date</FieldLabel>
+                  <Input
+                    label=""
+                    type="date"
+                    value={transferDate}
+                    onChange={(e) => setTransferDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {(modeKey === "cheque" || modeKey === "check") && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <FieldLabel required>Cheque Number</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Cheque Number"
+                    value={chequeNumber}
+                    onChange={(e) => setChequeNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Bank Name</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Bank Name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Cheque Date</FieldLabel>
+                  <Input
+                    label=""
+                    type="date"
+                    value={chequeDate}
+                    onChange={(e) => setChequeDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {(modeKey.includes("demand draft") || modeKey === "dd") && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <FieldLabel required>DD Number</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter DD Number"
+                    value={ddNumber}
+                    onChange={(e) => setDdNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Bank Name</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Bank Name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>DD Date</FieldLabel>
+                  <Input
+                    label=""
+                    type="date"
+                    value={ddDate}
+                    onChange={(e) => setDdDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {(modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>Card Last 4 Digits</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="e.g. 4321"
+                    maxLength={4}
+                    value={cardLast4}
+                    onChange={(e) => setCardLast4(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Approval Code</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Approval Code"
+                    value={approvalCode}
+                    onChange={(e) => setApprovalCode(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {modeKey.includes("online") && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>Payment Gateway</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="e.g. Razorpay / Stripe"
+                    value={paymentGateway}
+                    onChange={(e) => setPaymentGateway(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Transaction ID</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Transaction ID"
+                    value={onlineTransactionId}
+                    onChange={(e) => setOnlineTransactionId(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {modeKey === "wallet" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>Wallet Name</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="e.g. Paytm / PhonePe"
+                    value={walletName}
+                    onChange={(e) => setWalletName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Wallet Transaction ID</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Wallet Transaction ID"
+                    value={walletTransactionId}
+                    onChange={(e) => setWalletTransactionId(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {modeKey === "other" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel required>Reference Number</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Reference Number"
+                    value={paymentReferenceNo}
+                    onChange={(e) => setPaymentReferenceNo(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Description</FieldLabel>
+                  <Input
+                    label=""
+                    placeholder="Enter Payment Description"
+                    value={paymentDescription}
+                    onChange={(e) => setPaymentDescription(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Proof Document Type + Remarks */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <FieldLabel>Proof Document Type</FieldLabel>
                 <FieldSelect value={proofFileType} onChange={setProofFileType}>
@@ -427,21 +759,19 @@ export function AddAdvanceModal({
                   <option value="PDF">PDF</option>
                 </FieldSelect>
               </div>
+              <div>
+                <FieldLabel>Remarks</FieldLabel>
+                <Textarea
+                  label=""
+                  placeholder="Enter remarks or payment notes..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={2}
+                />
+              </div>
             </div>
 
-            {/* Row 4: Remarks */}
-            <div>
-              <FieldLabel>Remarks</FieldLabel>
-              <Textarea
-                label=""
-                placeholder="Enter remarks or payment notes..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            {/* Row 5: Upload Proof — compact wrapper overrides internal padding */}
+            {/* Row 4: Upload Proof */}
             <div>
               <FieldLabel required>Upload Proof</FieldLabel>
               <div className="[&_label.flex]:p-3 [&_label.flex]:min-h-0 [&_label.flex]:py-4">
@@ -457,22 +787,17 @@ export function AddAdvanceModal({
                 Accepted: JPG, PNG, WEBP, PDF · Required
               </p>
             </div>
-
           </form>
         </div>
 
-        {/* ────────────────────────────────────────────────────────────────
-            STICKY FOOTER — always visible, never scrolls away
-        ──────────────────────────────────────────────────────────────── */}
+        {/* Footer */}
         <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/80 backdrop-blur-sm">
-          {/* Left: status hint */}
           <p className="hidden sm:block text-[11px] text-slate-400 dark:text-slate-500 truncate">
             {proofFileIds.length > 0
               ? `✓ ${proofFileIds.length} proof file${proofFileIds.length > 1 ? "s" : ""} attached`
               : "Upload proof to enable submission"}
           </p>
 
-          {/* Right: action buttons */}
           <div className="flex items-center gap-2 ml-auto">
             <Button
               type="button"
@@ -494,7 +819,6 @@ export function AddAdvanceModal({
             </Button>
           </div>
         </div>
-
       </div>
     </div>
   );
