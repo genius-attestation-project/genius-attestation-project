@@ -69,7 +69,7 @@ export const DashboardTables = memo(function DashboardTables({ rows }: { rows: L
         <div className="min-w-0 overflow-hidden rounded-xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
           <div className="max-h-[420px] overflow-auto">
             <table className="min-w-[780px] w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-(--border) bg-blue-50/95 text-xs font-semibold uppercase tracking-[0.14em] text-soft backdrop-blur dark:bg-blue-500/10">
+              <thead className="sticky top-0 z-10 border-b border-(--border) bg-blue-50/95 text-xs font-semibold tracking-wider text-soft backdrop-blur dark:bg-blue-500/10">
                 <tr>
                   <th className="px-4 py-3">Lead ID</th>
                   <th className="px-4 py-3">Client Name</th>

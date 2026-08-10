@@ -1307,7 +1307,7 @@ export function RegistrationManager({
           <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-230 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-blue-500/10">
                   <tr>
                     <th className="px-5 py-4">SL No.</th>
                     <th className="px-5 py-4">Tracking Number</th>

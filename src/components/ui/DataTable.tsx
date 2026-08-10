@@ -27,7 +27,7 @@ export function DataTable<T extends Record<string, unknown>>({
     <div className={cn("min-w-0 overflow-hidden rounded-2xl ring-1 ring-slate-900/5 shadow-sm dark:ring-white/10", className)}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-blue-500/10">
+          <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-blue-500/10">
             <tr>
               {columns.map((column) => (
                 <th key={String(column.key)} className={cn("px-4 py-3 sm:px-5 sm:py-4", column.className)}>

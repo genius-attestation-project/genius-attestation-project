@@ -608,7 +608,7 @@ function PaymentTable({ data }: { data: PaymentUpdateResponse }) {
   if (!data.items.length) return <EmptyState icon={WalletCards} title="No payment updates" description="Submitted payments will appear here." />;
   return (
     <TableShell minWidth="980px">
-      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft">
         <tr><th className="px-5 py-4">Invoice</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Customers</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">Mode</th><th className="px-5 py-4">Submitted</th><th className="px-5 py-4">Status</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
@@ -632,7 +632,7 @@ function TallyTable({ data }: { data: AccountTallyResponse }) {
   if (!data.items.length) return <EmptyState icon={ClipboardCheck} title="No account tally" description="Grouped invoice totals will appear here." />;
   return (
     <TableShell minWidth="1180px">
-      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft">
         <tr>
           <th className="px-5 py-4">Invoice Number</th>
           <th className="px-5 py-4">Tracking Numbers</th>
@@ -668,7 +668,7 @@ function TransactionTable({ data }: { data: AccountTransactionResponse }) {
   if (!data.items.length) return <EmptyState icon={ReceiptText} title="No account transactions" description="Credits and expenses will appear here." />;
   return (
     <TableShell minWidth="920px">
-      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft">
         <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Voucher</th><th className="px-5 py-4">Type</th><th className="px-5 py-4">Category</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">By</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
@@ -703,7 +703,7 @@ function StatementTable({ data }: { data: AccountStatementResponse }) {
   if (!data.items.length) return <EmptyState icon={FileSearch} title="No statement entries" description="Approved payments and account transactions will appear here." />;
   return (
     <TableShell minWidth="1120px">
-      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft">
         <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Particulars</th><th className="px-5 py-4">Credit</th><th className="px-5 py-4">Debit</th><th className="px-5 py-4">Running Balance</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">
@@ -743,7 +743,7 @@ function ApprovalTable({
   if (!data.items.length) return <EmptyState icon={ShieldCheck} title="No submitted payment updates" description="Payment updates will appear here for finance action." />;
   return (
     <TableShell minWidth="1500px">
-      <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft">
         <tr><th className="px-5 py-4">Invoice Number</th><th className="px-5 py-4">Tracking Numbers</th><th className="px-5 py-4">Customer Names</th><th className="px-5 py-4">Process Types</th><th className="px-5 py-4">Total Charges</th><th className="px-5 py-4">Advance Paid</th><th className="px-5 py-4">Balance Amount</th><th className="px-5 py-4">Payment Mode</th><th className="px-5 py-4">Payment Date</th><th className="px-5 py-4">Transaction Receipt</th><th className="px-5 py-4">Submitted By</th><th className="px-5 py-4">Submitted Date</th><th className="px-5 py-4">Actions</th></tr>
       </thead>
       <tbody className="divide-y divide-(--border)">

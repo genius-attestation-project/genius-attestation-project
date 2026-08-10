@@ -107,7 +107,7 @@ export function AdvanceHistoryTable({ history, loading = false, onRefresh }: Pro
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-2xs dark:border-white/10 dark:bg-slate-900">
         <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-slate-400">
+          <thead className="bg-slate-50 text-[11px] font-bold tracking-wider text-slate-500 border-b border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-slate-400">
             <tr>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Amount</th>
