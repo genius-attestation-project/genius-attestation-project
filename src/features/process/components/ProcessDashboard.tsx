@@ -150,17 +150,19 @@ export function ProcessDashboard() {
     fetchDestinationOffices();
   }, []);
 
-  // Load active assigned office accounts for selector
+  // Load active assigned office accounts & office locations for selector
   useEffect(() => {
     async function fetchAssignedOffices() {
       setLoadingOffices(true);
       try {
-        const res = await fetch("/api/assigned-office?pageSize=100&status=Active");
+        const res = await fetch("/api/offices/all");
         if (res.ok) {
           const data = await res.json();
-          const list = (data.items || []).map((o: any) => ({
-            label: o.officeName || o.username || o.name || "Assigned Office",
+          const rawList = data.offices || data.data || [];
+          const list = rawList.map((o: any) => ({
+            label: formatTitleCase(o.officeName || o.username || o.name || "Assigned Office"),
             value: o.id,
+            category: o.type ? formatTitleCase(o.type) : "Office",
           }));
           setAssignedOfficeOptions(list);
           if (list.length > 0) {
