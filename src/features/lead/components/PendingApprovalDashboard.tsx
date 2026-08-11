@@ -15,7 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { formatDate, formatDateTime } from "@/utils/format";
+import { formatDate, formatDateTime, formatTitleCase } from "@/utils/format";
 
 import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
@@ -88,14 +88,15 @@ function formatCurrency(amount: number) {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const formatted = formatTitleCase(status);
   const tone =
-    status === "Approved"
+    formatted === "Approved"
       ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-      : status === "Rejected"
+      : formatted === "Rejected"
         ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
         : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
 
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{status}</span>;
+  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{formatted}</span>;
 }
 
 export function PendingApprovalDashboard() {
@@ -391,7 +392,7 @@ export function PendingApprovalDashboard() {
           <div className="overflow-x-auto">
             {activeTab === "advance_payment" && (
               <table className="min-w-345 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Tracking Number</th>
                     <th className="px-5 py-4">Customer Name</th>
@@ -419,11 +420,11 @@ export function PendingApprovalDashboard() {
                           {item.trackingNumber}
                         </td>
                         <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
                           <p className="text-xs text-soft">{item.mobile}</p>
                         </td>
                         <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                          {item.documentName || "-"}
+                          {item.documentName ? formatTitleCase(item.documentName) : "-"}
                         </td>
                         <td className="px-5 py-4 text-xs">
                           <p className="font-bold text-emerald-700 dark:text-emerald-300">
@@ -440,7 +441,7 @@ export function PendingApprovalDashboard() {
                           <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
                         </td>
                         <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
                           <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
                             Ref: {item.referenceNumber || "-"}
                           </p>
@@ -463,7 +464,7 @@ export function PendingApprovalDashboard() {
                           {item.remarks || "-"}
                         </td>
                         <td className="px-5 py-4 text-xs">
-                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedBy}</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.requestedBy)}</p>
                           <p className="text-soft">{formatDate(item.requestedDate)}</p>
                         </td>
                         <td className="px-5 py-4">
@@ -589,7 +590,7 @@ export function PendingApprovalDashboard() {
                 {/* Advance Details Data Table (Office Column Removed) */}
                 <div className="overflow-x-auto rounded-2xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
                   <table className="min-w-310 text-left text-sm">
-                    <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                    <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                       <tr>
                         <th className="px-5 py-4">Tracking Number</th>
                         <th className="px-5 py-4">Customer Name</th>
@@ -631,14 +632,14 @@ export function PendingApprovalDashboard() {
                                 {item.trackingNumber}
                               </td>
                               <td className="px-5 py-4">
-                                <p className="font-bold text-slate-900 dark:text-white">{item.customerName}</p>
+                                <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
                                 <p className="text-xs text-soft">{item.mobile}</p>
                               </td>
                               <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
                                 {formatCurrency(item.advanceAmount)}
                               </td>
                               <td className="px-5 py-4">
-                                <p className="font-bold text-slate-900 dark:text-white">{item.paymentMode || "Cash"}</p>
+                                <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
                                 {item.referenceNumber && item.referenceNumber !== "-" && (
                                   <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
                                 )}
@@ -653,7 +654,7 @@ export function PendingApprovalDashboard() {
                                 {isApproved && item.approvedDate ? formatDate(item.approvedDate) : ""}
                               </td>
                               <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                {isApproved ? item.approvedBy || "" : ""}
+                                {isApproved ? formatTitleCase(item.approvedBy) || "" : ""}
                               </td>
                               <td className="px-5 py-4 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
@@ -705,7 +706,7 @@ export function PendingApprovalDashboard() {
 
             {activeTab === "corporate_approval" && (
               <table className="min-w-7xl text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Company Name</th>
                     <th className="px-5 py-4">Contact Person</th>
@@ -729,10 +730,10 @@ export function PendingApprovalDashboard() {
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
-                          {item.companyName}
+                          {formatTitleCase(item.companyName)}
                         </td>
                         <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {item.contactPersonName}
+                          {formatTitleCase(item.contactPersonName)}
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900 dark:text-white">{item.contactPersonMobile}</p>
@@ -745,7 +746,7 @@ export function PendingApprovalDashboard() {
                           <AgreementCell file={item.agreementFile} />
                         </td>
                         <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-900 dark:text-white">{item.createdBy || "System User"}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white">{formatTitleCase(item.createdBy || "System User")}</p>
                           <p className="text-xs text-soft">{formatDate(item.createdAt)}</p>
                         </td>
                         <td className="px-5 py-4">
@@ -799,7 +800,7 @@ export function PendingApprovalDashboard() {
 
             {activeTab === "lob" && (
               <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
                     <th className="px-5 py-4">Requested By</th>
@@ -814,7 +815,7 @@ export function PendingApprovalDashboard() {
                     lobRequests.map((item) => (
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.lead?.leadCode}</td>
-                        <td className="px-5 py-4">{item.requestedBy}</td>
+                        <td className="px-5 py-4">{formatTitleCase(item.requestedBy)}</td>
                         <td className="px-5 py-4">{formatDate(item.requestedAt)}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
@@ -832,7 +833,7 @@ export function PendingApprovalDashboard() {
 
             {activeTab === "inactive" && (
               <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
                     <th className="px-5 py-4">Service</th>
@@ -848,9 +849,9 @@ export function PendingApprovalDashboard() {
                     inactiveLeads.map((item) => (
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
-                        <td className="px-5 py-4">{item.service}</td>
+                        <td className="px-5 py-4">{formatTitleCase(item.service)}</td>
                         <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.updatedAt)}</td>
-                        <td className="px-5 py-4">{item.assignedUser || "Unassigned"}</td>
+                        <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "INACTIVE_LEAD", id: item.id, title: "Move Inactive Lead to LOB" })}>Move to LOB</Button>
@@ -866,7 +867,7 @@ export function PendingApprovalDashboard() {
 
             {activeTab === "overdue" && (
               <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft dark:bg-white/5">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
                     <th className="px-5 py-4">Due Date</th>
@@ -882,7 +883,7 @@ export function PendingApprovalDashboard() {
                       <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
                         <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.nextFollowupAt)}</td>
-                        <td className="px-5 py-4">{item.assignedUser || "Unassigned"}</td>
+                        <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Unlock Follow-up" })}>Unlock</Button>
