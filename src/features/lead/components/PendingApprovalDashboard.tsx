@@ -650,10 +650,10 @@ export function PendingApprovalDashboard() {
                                 {formatDate(item.requestedDate)}
                               </td>
                               <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
-                                {item.approvedDate ? formatDate(item.approvedDate) : "-"}
+                                {isApproved && item.approvedDate ? formatDate(item.approvedDate) : ""}
                               </td>
                               <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                {item.approvedBy || "-"}
+                                {isApproved ? item.approvedBy || "" : ""}
                               </td>
                               <td className="px-5 py-4 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
@@ -669,17 +669,19 @@ export function PendingApprovalDashboard() {
                                       <Eye size={14} />
                                     </Button>
                                   )}
-                                  {/* Edit button */}
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => setEditingAdvance(item)}
-                                    title="Edit Advance Payment"
-                                    className="p-1.5 text-xs"
-                                  >
-                                    <Pencil size={14} />
-                                  </Button>
-                                  {/* Delete button */}
+                                  {/* Edit button: ONLY for Approved records */}
+                                  {isApproved && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => setEditingAdvance(item)}
+                                      title="Edit Advance Payment"
+                                      className="p-1.5 text-xs"
+                                    >
+                                      <Pencil size={14} />
+                                    </Button>
+                                  )}
+                                  {/* Delete button: Visible for Pending Approval, Rejected, and Approved */}
                                   <Button
                                     size="sm"
                                     variant="danger"
