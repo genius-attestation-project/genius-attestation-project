@@ -133,7 +133,7 @@ export function MovementModal({
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         {targetCount > 0 && (
           <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3 text-xs font-semibold text-blue-900 flex items-center justify-between">
-            <span>Executing action for {targetCount} selected document{targetCount > 1 ? "s" : ""}.</span>
+            <span>Executing Action For {targetCount} Selected Document{targetCount > 1 ? "s" : ""}.</span>
           </div>
         )}
 
@@ -151,15 +151,15 @@ export function MovementModal({
               {officeLabel}
             </label>
             {loadingOffices ? (
-              <p className="text-sm text-slate-500">Loading offices...</p>
+              <p className="text-sm text-slate-500">Loading Offices...</p>
             ) : offices.length === 0 ? (
-              <p className="text-sm text-amber-600">No available offices found.</p>
+              <p className="text-sm text-amber-600">No Available Offices Found.</p>
             ) : (
               <SearchableSelect
                 value={selectedOfficeId}
                 options={offices}
                 onChange={(val) => setSelectedOfficeId(val)}
-                placeholder="Choose office..."
+                placeholder="Choose Office..."
                 name="targetOffice"
               />
             )}
@@ -173,7 +173,7 @@ export function MovementModal({
             description="Optional notes regarding this action."
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            placeholder="Add relevant notes..."
+            placeholder="Add Relevant Notes..."
             rows={4}
           />
         </div>

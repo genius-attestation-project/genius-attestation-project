@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDate, formatBundleNumber } from "@/utils/format";
+import { formatDate, formatBundleNumber, formatTitleCase } from "@/utils/format";
 import { 
   Building2, 
   CheckCheck, 
@@ -335,7 +335,7 @@ export function ProcessDashboard() {
       label: "Document In Hand", 
       value: stats.inHand.toLocaleString(), 
       delta: "Active", 
-      description: "Currently being processed", 
+      description: "Currently Being Processed", 
       icon: LoaderCircle, 
       tone: "blue" as const 
     },
@@ -343,7 +343,7 @@ export function ProcessDashboard() {
       label: "Inbound", 
       value: stats.inbound.toLocaleString(), 
       delta: "Queued", 
-      description: "Incoming from Assigned Office", 
+      description: "Incoming From Assigned Office", 
       icon: Inbox, 
       tone: "amber" as const 
     },
@@ -351,7 +351,7 @@ export function ProcessDashboard() {
       label: "Outbound", 
       value: stats.outbound.toLocaleString(), 
       delta: "Dispatched", 
-      description: "Sent to BM Report or Assigned Office", 
+      description: "Sent To BM Report Or Assigned Office", 
       icon: Send, 
       tone: "blue" as const 
     },
@@ -359,7 +359,7 @@ export function ProcessDashboard() {
       label: "Total Operations", 
       value: stats.total.toLocaleString(), 
       delta: "Total", 
-      description: "All document movements", 
+      description: "All Document Movements", 
       icon: FileText, 
       tone: "slate" as const 
     },
@@ -370,25 +370,25 @@ export function ProcessDashboard() {
       key: "in_hand" as const, 
       label: "Document In Hand", 
       count: stats.inHand,
-      description: "Live documents under processing" 
+      description: "Live Documents Under Processing" 
     },
     { 
       key: "inbound" as const, 
       label: "Inbound", 
       count: stats.inbound,
-      description: "Incoming from Assigned Office" 
+      description: "Incoming From Assigned Office" 
     },
     { 
       key: "outbound" as const, 
       label: "Outbound", 
       count: stats.outbound,
-      description: "Completed / Outgoing documents" 
+      description: "Completed / Outgoing Documents" 
     },
     { 
       key: "bundle" as const, 
       label: "Bundle Movement", 
       count: 0,
-      description: "Sub-package & bundle transfers" 
+      description: "Sub-Package & Bundle Transfers" 
     },
   ];
 
@@ -396,10 +396,10 @@ export function ProcessDashboard() {
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Top Banner with Header & Assigned Office Login Selector */}
       <section className="relative overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+              <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold tracking-wider text-blue-600">
                 Process Module
               </span>
               <span className="inline-flex items-center rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700">
@@ -414,45 +414,57 @@ export function ProcessDashboard() {
             </p>
           </div>
 
-          {/* Single Responsive Action Bar */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-3.5 shadow-sm backdrop-blur-xs sm:flex-row sm:items-center sm:gap-3">
-            {/* Assigned Office Dropdown (Width: ~320px - 350px) */}
-            <div className="w-full sm:w-[320px] md:w-87.5 shrink-0">
-              <SearchableSelect
-                options={assignedOfficeOptions}
-                value={selectedOfficeId}
-                onChange={setSelectedOfficeId}
-                placeholder={loadingOffices ? "Loading assigned offices..." : "Select Assigned Office"}
-              />
+          {/* Structured Controls Section with Explicit Labels */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-xs sm:flex-row sm:items-end sm:gap-3 shrink-0">
+            {/* Assigned Office Login Selector Group */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-[340px]">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Building2 size={14} className="text-blue-600" />
+                <span>Assigned Office</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    options={assignedOfficeOptions}
+                    value={selectedOfficeId}
+                    onChange={setSelectedOfficeId}
+                    placeholder={loadingOffices ? "Loading Assigned Offices..." : "Select Assigned Office"}
+                  />
+                </div>
+                <Button
+                  disabled={!selectedOfficeId || loadingOffices}
+                  onClick={handleOfficeLogin}
+                  className="h-10.5 gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
+                >
+                  <Building2 size={16} />
+                  <span>Login</span>
+                </Button>
+              </div>
             </div>
 
-            {/* Login Button immediately beside Assigned Office Dropdown */}
-            <Button
-              disabled={!selectedOfficeId || loadingOffices}
-              onClick={handleOfficeLogin}
-              className="h-10.5 gap-2 rounded-xl bg-blue-600 px-5 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
-            >
-              <Building2 size={16} />
-              <span>Login</span>
-            </Button>
-
-            {/* Process Type Filter */}
-            <div className="w-full sm:w-55 shrink-0">
+            {/* Process Type Filter Group */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-48">
+              <label className="text-xs font-bold text-slate-700">
+                Process Type
+              </label>
               <SearchableSelect
                 options={availableProcessTypes}
                 value={processType}
                 onChange={setProcessType}
-                placeholder="Filter by Process Type"
+                placeholder="Filter By Process Type"
               />
             </div>
 
-            {/* Priority Filter */}
-            <div className="w-full sm:w-48 shrink-0">
+            {/* Priority Filter Group */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-44">
+              <label className="text-xs font-bold text-slate-700">
+                Priority
+              </label>
               <SearchableSelect
                 options={priorityFilterOptions}
                 value={priorityFilter}
                 onChange={setPriorityFilter}
-                placeholder="Filter by Priority"
+                placeholder="Filter By Priority"
               />
             </div>
           </div>
@@ -523,15 +535,15 @@ export function ProcessDashboard() {
           <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
             <span>
               {activeTab === "in_hand"
-                ? `Selected: ${selectedTrackingNumbers.length} documents`
-                : `Selected: ${selectedTrackingNumbers.length} of ${items.length} documents`}
+                ? `Selected: ${selectedTrackingNumbers.length} Documents`
+                : `Selected: ${selectedTrackingNumbers.length} Of ${items.length} Documents`}
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === "in_hand" && (
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">Select Destination Office:</span>
+                <span className="text-xs font-semibold text-slate-700">Select Destination Office:</span>
                 <select
                   value={destinationOfficeId}
                   onChange={(event) => setDestinationOfficeId(event.target.value)}
@@ -591,14 +603,14 @@ export function ProcessDashboard() {
       ) : displayedItems.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
-          title={`No documents in ${activeTab.replace("_", " ")}`}
+          title={`No Documents In ${formatTitleCase(activeTab.replace("_", " "))}`}
           description="There are currently no document assignments matching this stage or filter."
         />
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
           <div className="overflow-x-auto">
             <table className="w-full min-w-255 text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 dark:bg-white/5">
                 <tr>
                   {(activeTab === "in_hand" || activeTab === "inbound") && (
                     <th className="px-4 py-4 w-10">
@@ -622,7 +634,7 @@ export function ProcessDashboard() {
                       <th className="px-5 py-4">Document Type</th>
                       <th className="px-5 py-4">Delivery At</th>
                       <th className="px-5 py-4">Process Type</th>
-                      <th className="px-5 py-4">Number of Days</th>
+                      <th className="px-5 py-4">Number Of Days</th>
                       <th className="px-5 py-4">Total Amount</th>
                       <th className="px-5 py-4">Advance Amount</th>
                       <th className="px-5 py-4 text-right">Action</th>
@@ -686,19 +698,19 @@ export function ProcessDashboard() {
                             {formatDate(item.registrationDate || item.receivedDate || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-semibold text-slate-800">
-                            {item.registeredOffice || item.fromOfficeName || "Main"}
+                            {item.registeredOffice ? formatTitleCase(item.registeredOffice) : item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Main"}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-900 text-xs sm:text-sm">
-                            {item.customerName || item.clientName || "-"}
+                            {item.customerName ? formatTitleCase(item.customerName) : item.clientName ? formatTitleCase(item.clientName) : "-"}
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-800">
-                            {item.documentType || "-"}
+                            {item.documentType ? formatTitleCase(item.documentType) : "-"}
                           </td>
                           <td className="px-5 py-4 text-xs text-slate-600">
-                            {item.deliveryLocation || "-"}
+                            {item.deliveryLocation ? formatTitleCase(item.deliveryLocation) : "-"}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-blue-800">
-                            {item.mainProcess || item.processType || "-"}
+                            {item.mainProcess ? formatTitleCase(item.mainProcess) : item.processType ? formatTitleCase(item.processType) : "-"}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
                             {calculateNumberOfDays(item.currentStageEnteredAt)}
@@ -733,7 +745,7 @@ export function ProcessDashboard() {
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
-                            {item.registeredOffice || item.fromOfficeName || "Origin Office"}
+                            {item.registeredOffice ? formatTitleCase(item.registeredOffice) : item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Origin Office"}
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
                             {formatDate(item.receivedDate || item.createdAt)}
@@ -772,10 +784,10 @@ export function ProcessDashboard() {
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
-                            {item.fromOfficeName || "Current Office"}
+                            {item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Current Office"}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
-                            {item.toOfficeName || "Destination"}
+                            {item.toOfficeName ? formatTitleCase(item.toOfficeName) : "Destination"}
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
                             {formatDate(item.sentDate || item.createdAt)}
