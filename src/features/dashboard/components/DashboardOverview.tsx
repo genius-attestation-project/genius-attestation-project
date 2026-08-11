@@ -69,7 +69,7 @@ export async function DashboardOverview({
   if (canAccess(permissions, isSuperAdmin, ["revenue_registration.view", "account_update.view"])) {
     cards.push({
       label: "Revenue",
-      value: `$${Math.round(stats.totalRevenue).toLocaleString()}`,
+      value: `₹${Math.round(stats.totalRevenue).toLocaleString("en-IN")}`,
       delta: "Live",
       description: "Approved revenue",
       icon: BadgeDollarSign,

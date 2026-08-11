@@ -39,7 +39,7 @@ export function DashboardRightRail({ activities }: { activities: ActivityItem[] 
               key={`${activity.title}-${activity.time}`}
               className="group relative pl-12"
             >
-              <span className="absolute left-0 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-600 shadow-sm dark:border-blue-500/20 dark:bg-[var(--bg-sidebar)]">
+              <span className="absolute left-0 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-600 shadow-sm dark:border-blue-500/20 dark:bg-(--bg-sidebar)">
                 <UserCircle size={21} />
               </span>
               <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-blue-100 hover:bg-blue-50/40 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:hover:bg-blue-500/10">

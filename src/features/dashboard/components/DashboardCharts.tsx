@@ -59,7 +59,7 @@ export function DashboardCharts({
               </span>
             </div>
             <div className="min-w-0 overflow-x-auto">
-              <div className="flex h-64 min-w-[360px] items-end justify-center gap-3">
+              <div className="flex h-64 min-w-90 items-end justify-center gap-3">
                 {monthlyLeads.map((point, index) => (
                   <motion.div
                     key={point.month}
@@ -109,7 +109,7 @@ export function DashboardCharts({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-soft">
                       {item.month}
                     </p>
-                    <p className="text-sm font-semibold">${Math.round(item.value).toLocaleString()}</p>
+                    <p className="text-sm font-semibold">₹{Math.round(item.value).toLocaleString("en-IN")}</p>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/10">
                     <div

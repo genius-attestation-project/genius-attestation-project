@@ -185,12 +185,8 @@ function parseLeadStatus(status?: string): LeadStatus | undefined {
 
 function formatCurrency(amount: Prisma.Decimal | number) {
   const numericValue = typeof amount === "number" ? amount : Number(amount);
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(numericValue);
+  if (isNaN(numericValue)) return "-";
+  return `₹${Math.round(numericValue).toLocaleString("en-IN")}`;
 }
 
 function formatDate(date: Date) {
