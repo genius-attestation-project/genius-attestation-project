@@ -417,7 +417,7 @@ export function ProcessDashboard() {
           {/* Structured Controls Section with Explicit Labels */}
           <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-xs sm:flex-row sm:items-end sm:gap-3 shrink-0">
             {/* Assigned Office Login Selector Group */}
-            <div className="flex flex-col gap-1.5 w-full sm:w-[340px]">
+            <div className="flex flex-col gap-1.5 w-full sm:w-85">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Building2 size={14} className="text-blue-600" />
                 <span>Assigned Office</span>
