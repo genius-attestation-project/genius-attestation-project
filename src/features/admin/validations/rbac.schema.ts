@@ -19,10 +19,13 @@ export const rolePermissionSchema = z.object({
   permissionScopes: z.record(z.string(), z.string()).optional(),
 });
 
+const optionalPasswordSchema = z
+  .preprocess((val) => (val === "" ? undefined : val), passwordSchema.optional());
+
 export const userSchema = z.object({
   name: z.string().trim().min(1, "Name is required."),
   email: z.string().trim().email("Email is required."),
-  password: passwordSchema.optional(),
+  password: optionalPasswordSchema,
   monthlySalary: z.coerce.number().min(0, "Monthly salary cannot be negative.").default(0),
   phone: z.string().trim().optional().default(""),
   image: z.string().trim().optional().default(""),
