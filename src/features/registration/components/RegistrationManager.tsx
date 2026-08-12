@@ -1603,7 +1603,7 @@ export function RegistrationManager({
               />
             </label>
             <Input
-              label="Address Process"
+              label="Additional Process"
               value={form.externalProcess}
               onChange={(event) => updateField("externalProcess", event.target.value)}
               required

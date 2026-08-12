@@ -164,7 +164,7 @@ export function RegistrationDetail({
           <Field label="Document Name" value={registration.documentName} />
           <Field label="Issued Country" value={registration.documentIssuedCountry} />
           <Field label="Process Type" value={registration.processType} />
-          <Field label="Address Process" value={registration.externalProcess} />
+          <Field label="Additional Process" value={registration.externalProcess} />
           <Field label="Priority" value={registration.priority} />
           <Field label="Committed SLA" value={registration.committedDuration} />
           <Field label="Delivery Location" value={registration.deliveryLocation} />

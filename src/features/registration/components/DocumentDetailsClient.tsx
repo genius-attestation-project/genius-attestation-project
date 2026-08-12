@@ -114,7 +114,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             { label: "Document Type", value: reg.documentType }, { label: "Process Type", value: reg.processType },
             { label: "Committed Duration / SLA", value: reg.committedDuration }, { label: "Priority", value: reg.priority || "Normal" },
             { label: "Customer Type", value: reg.customerType || "Individual" }, { label: "Issued Country", value: reg.documentIssuedCountry },
-            { label: "Delivery Location", value: reg.deliveryLocation }, { label: "Address Process", value: reg.externalProcess },
+            { label: "Delivery Location", value: reg.deliveryLocation }, { label: "Additional Process", value: reg.externalProcess },
             { label: "Current Office", value: proc.currentOffice }, { label: "Current Stage", value: proc.currentStage },
             { label: "Current Status", value: currentStatus }, { label: "Current Sub Package", value: proc.currentSubPackage },
           ]} />
