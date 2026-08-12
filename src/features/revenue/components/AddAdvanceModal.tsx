@@ -18,6 +18,29 @@ type AddAdvanceModalProps = {
   currentBalance: number;
   personOptions?: { label: string; value: string }[];
   onSuccess?: () => void;
+  onPendingSubmit?: (data: {
+    advanceAmount: number;
+    paymentDate: string;
+    paymentMode: string;
+    referenceNumber: string | null;
+    collectedBy: string | null;
+    remarks: string | null;
+    proofFileIds: string[];
+    upiTransactionId?: string | null;
+    bankName?: string | null;
+    transactionRefNo?: string | null;
+    transferDate?: string | null;
+    chequeNumber?: string | null;
+    chequeDate?: string | null;
+    ddNumber?: string | null;
+    ddDate?: string | null;
+    cardLast4?: string | null;
+    approvalCode?: string | null;
+    paymentGateway?: string | null;
+    onlineTransactionId?: string | null;
+    walletName?: string | null;
+    walletTransactionId?: string | null;
+  }) => void;
 };
 
 const DEFAULT_PAYMENT_MODES = [
@@ -77,6 +100,7 @@ export function AddAdvanceModal({
   currentBalance,
   personOptions = [],
   onSuccess,
+  onPendingSubmit,
 }: AddAdvanceModalProps) {
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -358,6 +382,39 @@ export function AddAdvanceModal({
     };
 
     console.log("[Frontend] Advance payment submission payload:", payload);
+
+    if (!registrationId) {
+      if (onPendingSubmit) {
+        onPendingSubmit({
+          advanceAmount: numAmount,
+          paymentDate,
+          paymentMode,
+          referenceNumber: formattedRef || null,
+          collectedBy: collectedBy.trim() || null,
+          remarks: remarks.trim() || null,
+          proofFileIds,
+          upiTransactionId: modeKey === "upi" ? upiTransactionId.trim() : null,
+          bankName: (modeKey.includes("bank") || modeKey === "cheque" || modeKey.includes("demand draft")) ? bankName.trim() : null,
+          transactionRefNo: modeKey.includes("bank") ? transactionRefNo.trim() : null,
+          transferDate: modeKey.includes("bank") ? transferDate : null,
+          chequeNumber: modeKey === "cheque" ? chequeNumber.trim() : null,
+          chequeDate: modeKey === "cheque" ? chequeDate : null,
+          ddNumber: modeKey.includes("demand draft") ? ddNumber.trim() : null,
+          ddDate: modeKey.includes("demand draft") ? ddDate : null,
+          cardLast4: modeKey.includes("card") ? cardLast4.trim() : null,
+          approvalCode: modeKey.includes("card") ? approvalCode.trim() : null,
+          paymentGateway: modeKey.includes("online") ? paymentGateway.trim() : null,
+          onlineTransactionId: modeKey.includes("online") ? onlineTransactionId.trim() : null,
+          walletName: modeKey === "wallet" ? walletName.trim() : null,
+          walletTransactionId: modeKey === "wallet" ? walletTransactionId.trim() : null,
+        });
+      }
+      if (onSuccess) {
+        onSuccess();
+      }
+      onClose();
+      return;
+    }
 
     try {
       const res = await fetch("/api/advance-payment-approvals", {

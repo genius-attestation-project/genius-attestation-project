@@ -1675,45 +1675,37 @@ export function RegistrationManager({
               <button
                 type="button"
                 onClick={() => {
-                  if (selected) {
-                    const tc = Number(form.totalCharges || selected.totalCharges || 0);
-                    const adv = Number(selected.advancePaid || 0);
-                    const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected.balanceAmount || 0);
-                    console.log("Parent before opening modal:", {
-                      totalCharges: tc,
-                      approvedAdvance: adv,
-                      balanceAmount: bal,
-                    });
-                    setIsAddAdvanceOpen(true);
-                  } else {
-                    setError("Please save the registration first before adding an advance payment request.");
-                  }
+                  const tc = Number(form.totalCharges || selected?.totalCharges || 0);
+                  const adv = Number(selected ? selected.advancePaid : (form.advancePaid || 0));
+                  const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected?.balanceAmount || 0);
+                  console.log("Parent before opening modal:", {
+                    totalCharges: tc,
+                    approvedAdvance: adv,
+                    balanceAmount: bal,
+                  });
+                  setIsAddAdvanceOpen(true);
                 }}
                 title="Click to add an advance payment request"
                 className={[
                   "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
                   "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
                   "transition-all duration-150 cursor-pointer",
-                  selected
-                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600"
-                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
+                  "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600",
                 ].join(" ")}
               >
                 <span className="flex items-center gap-2">
                   <span>
                     ₹{" "}
                     {Number(
-                      selected ? selected.advancePaid : 0
+                      selected ? selected.advancePaid : (form.advancePaid || 0)
                     ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
-                  {selected && (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
-                      <Plus size={12} /> Add Advance
-                    </span>
-                  )}
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                    <Plus size={12} /> Add Advance
+                  </span>
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
-                  {selected ? "Approved Only" : "Save first"}
+                  {selected ? "Approved Only" : "Request Advance"}
                 </span>
               </button>
             </div>
@@ -1735,11 +1727,10 @@ export function RegistrationManager({
               if (mode === "upi") {
                 return (
                   <Input
-                    label="UPI Transaction ID *"
+                    label="UPI Transaction ID"
                     value={form.upiTransactionId || ""}
                     placeholder="Enter UPI Transaction ID"
                     onChange={(e) => updateField("upiTransactionId", e.target.value)}
-                    required
                   />
                 );
               }
@@ -1748,25 +1739,22 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Bank Name *"
+                      label="Bank Name"
                       value={form.bankName || ""}
                       placeholder="Enter Bank Name"
                       onChange={(e) => updateField("bankName", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Transaction Reference Number *"
+                      label="Transaction Reference Number"
                       value={form.transactionRefNo || ""}
                       placeholder="Enter Reference Number"
                       onChange={(e) => updateField("transactionRefNo", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Transfer Date *"
+                      label="Transfer Date"
                       type="date"
                       value={form.transferDate || ""}
                       onChange={(e) => updateField("transferDate", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1776,25 +1764,22 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Cheque Number *"
+                      label="Cheque Number"
                       value={form.chequeNumber || ""}
                       placeholder="Enter Cheque Number"
                       onChange={(e) => updateField("chequeNumber", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Bank Name *"
+                      label="Bank Name"
                       value={form.bankName || ""}
                       placeholder="Enter Bank Name"
                       onChange={(e) => updateField("bankName", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Cheque Date *"
+                      label="Cheque Date"
                       type="date"
                       value={form.chequeDate || ""}
                       onChange={(e) => updateField("chequeDate", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1804,25 +1789,22 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="DD Number *"
+                      label="DD Number"
                       value={form.ddNumber || ""}
                       placeholder="Enter Demand Draft Number"
                       onChange={(e) => updateField("ddNumber", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Bank Name *"
+                      label="Bank Name"
                       value={form.bankName || ""}
                       placeholder="Enter Bank Name"
                       onChange={(e) => updateField("bankName", e.target.value)}
-                      required
                     />
                     <Input
-                      label="DD Date *"
+                      label="DD Date"
                       type="date"
                       value={form.ddDate || ""}
                       onChange={(e) => updateField("ddDate", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1832,19 +1814,17 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Card Last 4 Digits *"
+                      label="Card Last 4 Digits"
                       value={form.cardLast4 || ""}
                       placeholder="e.g. 4321"
                       maxLength={4}
                       onChange={(e) => updateField("cardLast4", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Approval Code *"
+                      label="Approval Code"
                       value={form.approvalCode || ""}
                       placeholder="Enter Approval Code"
                       onChange={(e) => updateField("approvalCode", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1854,18 +1834,16 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Payment Gateway *"
+                      label="Payment Gateway"
                       value={form.paymentGateway || ""}
                       placeholder="e.g. Razorpay / Stripe"
                       onChange={(e) => updateField("paymentGateway", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Transaction ID *"
+                      label="Transaction ID"
                       value={form.onlineTransactionId || ""}
                       placeholder="Enter Transaction ID"
                       onChange={(e) => updateField("onlineTransactionId", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1875,18 +1853,16 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Wallet Name *"
+                      label="Wallet Name"
                       value={form.walletName || ""}
                       placeholder="e.g. Paytm / PhonePe"
                       onChange={(e) => updateField("walletName", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Wallet Transaction ID *"
+                      label="Wallet Transaction ID"
                       value={form.walletTransactionId || ""}
                       placeholder="Enter Wallet Transaction ID"
                       onChange={(e) => updateField("walletTransactionId", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -1896,18 +1872,16 @@ export function RegistrationManager({
                 return (
                   <>
                     <Input
-                      label="Reference Number *"
+                      label="Reference Number"
                       value={form.paymentReferenceNo || ""}
                       placeholder="Enter Reference Number"
                       onChange={(e) => updateField("paymentReferenceNo", e.target.value)}
-                      required
                     />
                     <Input
-                      label="Description *"
+                      label="Description"
                       value={form.paymentDescription || ""}
                       placeholder="Enter Payment Description"
                       onChange={(e) => updateField("paymentDescription", e.target.value)}
-                      required
                     />
                   </>
                 );
@@ -2027,21 +2001,46 @@ export function RegistrationManager({
         description="Fill company details to save and select immediately in registration."
       />
 
-      {selected && (
+      {(selected || drawerMode === "form") && (
         <AddAdvanceModal
           isOpen={isAddAdvanceOpen}
           onClose={() => setIsAddAdvanceOpen(false)}
-          registrationId={selected.id}
-          trackingNumber={selected.trackingNumber}
-          customerName={selected.customerName || form.customerName}
-          totalCharges={Number(form.totalCharges || selected.totalCharges || 0)}
-          currentApprovedAdvance={Number(selected.advancePaid || 0)}
+          registrationId={selected?.id || ""}
+          trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}
+          customerName={selected?.customerName || form.customerName || "Customer"}
+          totalCharges={Number(form.totalCharges || selected?.totalCharges || 0)}
+          currentApprovedAdvance={Number(selected ? selected.advancePaid : (form.advancePaid || 0))}
           currentBalance={
-            Number(form.totalCharges || selected.totalCharges || 0) > 0
-              ? Math.max(0, Number(form.totalCharges || selected.totalCharges || 0) - Number(selected.advancePaid || 0))
-              : Number(selected.balanceAmount || 0)
+            Number(form.totalCharges || selected?.totalCharges || 0) > 0
+              ? Math.max(0, Number(form.totalCharges || selected?.totalCharges || 0) - Number(selected ? selected.advancePaid : (form.advancePaid || 0)))
+              : Number(selected?.balanceAmount || 0)
           }
           personOptions={toSelectOptions(personOptions)}
+          onPendingSubmit={(pendingData) => {
+            setForm((prev) => ({
+              ...prev,
+              advancePaid: String(pendingData.advanceAmount),
+              paymentMode: pendingData.paymentMode || prev.paymentMode,
+              collectedPerson: pendingData.collectedBy || prev.collectedPerson,
+              ...(pendingData.upiTransactionId ? { upiTransactionId: pendingData.upiTransactionId } : {}),
+              ...(pendingData.bankName ? { bankName: pendingData.bankName } : {}),
+              ...(pendingData.transactionRefNo ? { transactionRefNo: pendingData.transactionRefNo } : {}),
+              ...(pendingData.transferDate ? { transferDate: pendingData.transferDate } : {}),
+              ...(pendingData.chequeNumber ? { chequeNumber: pendingData.chequeNumber } : {}),
+              ...(pendingData.chequeDate ? { chequeDate: pendingData.chequeDate } : {}),
+              ...(pendingData.ddNumber ? { ddNumber: pendingData.ddNumber } : {}),
+              ...(pendingData.ddDate ? { ddDate: pendingData.ddDate } : {}),
+              ...(pendingData.cardLast4 ? { cardLast4: pendingData.cardLast4 } : {}),
+              ...(pendingData.approvalCode ? { approvalCode: pendingData.approvalCode } : {}),
+              ...(pendingData.paymentGateway ? { paymentGateway: pendingData.paymentGateway } : {}),
+              ...(pendingData.onlineTransactionId ? { onlineTransactionId: pendingData.onlineTransactionId } : {}),
+              ...(pendingData.walletName ? { walletName: pendingData.walletName } : {}),
+              ...(pendingData.walletTransactionId ? { walletTransactionId: pendingData.walletTransactionId } : {}),
+            }));
+            if (pendingData.proofFileIds && pendingData.proofFileIds.length > 0) {
+              setAdvancePaymentFileIds(pendingData.proofFileIds);
+            }
+          }}
           onSuccess={() => {
             fetchRegistrations(query, filters);
           }}
