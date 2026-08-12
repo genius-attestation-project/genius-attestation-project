@@ -9,6 +9,11 @@ export const leadStatusOptions = [
   "Potential Qualified",
   "Closed",
   "LOB",
+  "Followup",
+  "Assigned",
+  "Pending Approval",
+  "Pending_Approval",
+  "Potential_Qualified",
 ] as const;
 
 const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>

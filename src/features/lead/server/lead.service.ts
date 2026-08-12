@@ -1101,19 +1101,37 @@ export async function updateLead(
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
   const statusChanged = existingLead.leadStatus !== newLeadStatus;
   
-  let isSelfSupervisor = false;
+  let bypassApproval = false;
   if (changedByUserId) {
     const requesterUser = await prisma.user.findUnique({
       where: { id: changedByUserId },
-      select: { supervisorUserId: true }
+      select: {
+        id: true,
+        ownerAdminId: true,
+        supervisorUserId: true,
+        role: { select: { name: true } },
+      },
     });
-    // Check if the user is their own supervisor (or if they are explicitly resolved as such)
-    if (requesterUser && (requesterUser.supervisorUserId === changedByUserId)) {
-      isSelfSupervisor = true;
+
+    if (requesterUser) {
+      const isSuperAdmin =
+        requesterUser.role?.name === "Super Admin" || requesterUser.role?.name === "Admin";
+      const isOwner =
+        requesterUser.ownerAdminId === changedByUserId ||
+        requesterUser.id === ownerAdminId ||
+        !requesterUser.ownerAdminId;
+      const isSelfSupervised = requesterUser.supervisorUserId === changedByUserId;
+      const noSupervisor = !requesterUser.supervisorUserId;
+
+      if (isSuperAdmin || isOwner || isSelfSupervised || noSupervisor) {
+        bypassApproval = true;
+      }
     }
+  } else {
+    bypassApproval = true;
   }
-  
-  const needsApproval = statusChanged && requiresLeadApproval(newLeadStatus) && !isSelfSupervisor;
+
+  const needsApproval = statusChanged && requiresLeadApproval(newLeadStatus) && !bypassApproval;
   if (needsApproval && !changedByUserId) {
     throw new Error("Authenticated user is required to request approval.");
   }
