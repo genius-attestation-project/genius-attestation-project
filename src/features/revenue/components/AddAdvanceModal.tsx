@@ -291,58 +291,30 @@ export function AddAdvanceModal({
       return;
     }
 
-    // Dynamic Payment Mode Validations & Reference Construction
+    // Dynamic Payment Mode Reference Construction
     const modeKey = (paymentMode || "").trim().toLowerCase();
     let formattedRef = "";
 
     if (modeKey === "upi") {
-      if (!upiTransactionId.trim()) {
-        setError("UPI Transaction ID is required.");
-        return;
-      }
       formattedRef = upiTransactionId.trim();
     } else if (modeKey.includes("bank") || modeKey === "bank transfer") {
-      if (!bankName.trim() || !transactionRefNo.trim() || !transferDate) {
-        setError("Bank Name, Transaction Reference Number, and Transfer Date are required for Bank Transfer.");
-        return;
-      }
-      formattedRef = `Ref: ${transactionRefNo.trim()} (${bankName.trim()})`;
+      const parts = [transactionRefNo.trim(), bankName.trim()].filter(Boolean);
+      formattedRef = parts.length > 0 ? `Ref: ${parts.join(" (")}${parts.length > 1 ? ")" : ""}` : "";
     } else if (modeKey === "cheque" || modeKey === "check") {
-      if (!chequeNumber.trim() || !bankName.trim() || !chequeDate) {
-        setError("Cheque Number, Bank Name, and Cheque Date are required for Cheque payments.");
-        return;
-      }
-      formattedRef = `Cheque #${chequeNumber.trim()} (${bankName.trim()})`;
+      const parts = [chequeNumber.trim(), bankName.trim()].filter(Boolean);
+      formattedRef = parts.length > 0 ? `Cheque #${parts.join(" (")}${parts.length > 1 ? ")" : ""}` : "";
     } else if (modeKey.includes("demand draft") || modeKey === "dd") {
-      if (!ddNumber.trim() || !bankName.trim() || !ddDate) {
-        setError("DD Number, Bank Name, and DD Date are required for Demand Draft.");
-        return;
-      }
-      formattedRef = `DD #${ddNumber.trim()} (${bankName.trim()})`;
+      const parts = [ddNumber.trim(), bankName.trim()].filter(Boolean);
+      formattedRef = parts.length > 0 ? `DD #${parts.join(" (")}${parts.length > 1 ? ")" : ""}` : "";
     } else if (modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) {
-      if (!cardLast4.trim() || !approvalCode.trim()) {
-        setError("Card Last 4 Digits and Approval Code are required for Card payments.");
-        return;
-      }
-      formattedRef = `Card ****${cardLast4.trim()} (Auth: ${approvalCode.trim()})`;
+      const parts = [cardLast4.trim() ? `****${cardLast4.trim()}` : "", approvalCode.trim() ? `Auth: ${approvalCode.trim()}` : ""].filter(Boolean);
+      formattedRef = parts.length > 0 ? `Card ${parts.join(" ")}` : "";
     } else if (modeKey.includes("online")) {
-      if (!paymentGateway.trim() || !onlineTransactionId.trim()) {
-        setError("Payment Gateway and Transaction ID are required for Online payments.");
-        return;
-      }
-      formattedRef = `${paymentGateway.trim()} - ${onlineTransactionId.trim()}`;
+      formattedRef = [paymentGateway.trim(), onlineTransactionId.trim()].filter(Boolean).join(" - ");
     } else if (modeKey === "wallet") {
-      if (!walletName.trim() || !walletTransactionId.trim()) {
-        setError("Wallet Name and Transaction ID are required for Wallet payments.");
-        return;
-      }
-      formattedRef = `${walletName.trim()} - ${walletTransactionId.trim()}`;
+      formattedRef = [walletName.trim(), walletTransactionId.trim()].filter(Boolean).join(" - ");
     } else if (modeKey === "other") {
-      if (!paymentReferenceNo.trim() || !paymentDescription.trim()) {
-        setError("Reference Number and Description are required for Other payment mode.");
-        return;
-      }
-      formattedRef = `Ref: ${paymentReferenceNo.trim()} (${paymentDescription.trim()})`;
+      formattedRef = [paymentReferenceNo.trim(), paymentDescription.trim()].filter(Boolean).join(" - ");
     }
 
     if (proofFileIds.length === 0) {
@@ -586,14 +558,13 @@ export function AddAdvanceModal({
               {/* ── Dynamic Conditional Payment Mode Fields Integrated into Grid ── */}
               {modeKey === "upi" && (
                 <div className="sm:col-span-2">
-                  <FieldLabel required>UPI Transaction ID</FieldLabel>
+                  <FieldLabel>UPI Transaction ID</FieldLabel>
                   <Input
                     label=""
                     placeholder="Enter UPI Transaction ID"
                     className="h-9 text-xs"
                     value={upiTransactionId}
                     onChange={(e) => setUpiTransactionId(e.target.value)}
-                    required
                   />
                 </div>
               )}
@@ -601,36 +572,33 @@ export function AddAdvanceModal({
               {(modeKey.includes("bank") || modeKey === "bank transfer") && (
                 <>
                   <div>
-                    <FieldLabel required>Bank Name</FieldLabel>
+                    <FieldLabel>Bank Name</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Bank Name"
                       className="h-9 text-xs"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Reference Number</FieldLabel>
+                    <FieldLabel>Reference Number</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Reference Number"
                       className="h-9 text-xs"
                       value={transactionRefNo}
                       onChange={(e) => setTransactionRefNo(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Transfer Date</FieldLabel>
+                    <FieldLabel>Transfer Date</FieldLabel>
                     <Input
                       label=""
                       type="date"
                       className="h-9 text-xs"
                       value={transferDate}
                       onChange={(e) => setTransferDate(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -639,36 +607,33 @@ export function AddAdvanceModal({
               {(modeKey === "cheque" || modeKey === "check") && (
                 <>
                   <div>
-                    <FieldLabel required>Cheque Number</FieldLabel>
+                    <FieldLabel>Cheque Number</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Cheque Number"
                       className="h-9 text-xs"
                       value={chequeNumber}
                       onChange={(e) => setChequeNumber(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Bank Name</FieldLabel>
+                    <FieldLabel>Bank Name</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Bank Name"
                       className="h-9 text-xs"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Cheque Date</FieldLabel>
+                    <FieldLabel>Cheque Date</FieldLabel>
                     <Input
                       label=""
                       type="date"
                       className="h-9 text-xs"
                       value={chequeDate}
                       onChange={(e) => setChequeDate(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -677,36 +642,33 @@ export function AddAdvanceModal({
               {(modeKey.includes("demand draft") || modeKey === "dd") && (
                 <>
                   <div>
-                    <FieldLabel required>DD Number</FieldLabel>
+                    <FieldLabel>DD Number</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter DD Number"
                       className="h-9 text-xs"
                       value={ddNumber}
                       onChange={(e) => setDdNumber(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Bank Name</FieldLabel>
+                    <FieldLabel>Bank Name</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Bank Name"
                       className="h-9 text-xs"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>DD Date</FieldLabel>
+                    <FieldLabel>DD Date</FieldLabel>
                     <Input
                       label=""
                       type="date"
                       className="h-9 text-xs"
                       value={ddDate}
                       onChange={(e) => setDdDate(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -715,7 +677,7 @@ export function AddAdvanceModal({
               {(modeKey.includes("card") || modeKey.includes("credit") || modeKey.includes("debit")) && (
                 <>
                   <div>
-                    <FieldLabel required>Card Last 4 Digits</FieldLabel>
+                    <FieldLabel>Card Last 4 Digits</FieldLabel>
                     <Input
                       label=""
                       placeholder="e.g. 4321"
@@ -723,18 +685,16 @@ export function AddAdvanceModal({
                       className="h-9 text-xs"
                       value={cardLast4}
                       onChange={(e) => setCardLast4(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Approval Code</FieldLabel>
+                    <FieldLabel>Approval Code</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Approval Code"
                       className="h-9 text-xs"
                       value={approvalCode}
                       onChange={(e) => setApprovalCode(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -743,25 +703,23 @@ export function AddAdvanceModal({
               {modeKey.includes("online") && (
                 <>
                   <div>
-                    <FieldLabel required>Payment Gateway</FieldLabel>
+                    <FieldLabel>Payment Gateway</FieldLabel>
                     <Input
                       label=""
                       placeholder="e.g. Razorpay / Stripe"
                       className="h-9 text-xs"
                       value={paymentGateway}
                       onChange={(e) => setPaymentGateway(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Transaction ID</FieldLabel>
+                    <FieldLabel>Transaction ID</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Transaction ID"
                       className="h-9 text-xs"
                       value={onlineTransactionId}
                       onChange={(e) => setOnlineTransactionId(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -770,25 +728,23 @@ export function AddAdvanceModal({
               {modeKey === "wallet" && (
                 <>
                   <div>
-                    <FieldLabel required>Wallet Name</FieldLabel>
+                    <FieldLabel>Wallet Name</FieldLabel>
                     <Input
                       label=""
                       placeholder="e.g. Paytm / PhonePe"
                       className="h-9 text-xs"
                       value={walletName}
                       onChange={(e) => setWalletName(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Wallet Transaction ID</FieldLabel>
+                    <FieldLabel>Wallet Transaction ID</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Wallet Transaction ID"
                       className="h-9 text-xs"
                       value={walletTransactionId}
                       onChange={(e) => setWalletTransactionId(e.target.value)}
-                      required
                     />
                   </div>
                 </>
@@ -797,25 +753,23 @@ export function AddAdvanceModal({
               {modeKey === "other" && (
                 <>
                   <div>
-                    <FieldLabel required>Reference Number</FieldLabel>
+                    <FieldLabel>Reference Number</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Reference Number"
                       className="h-9 text-xs"
                       value={paymentReferenceNo}
                       onChange={(e) => setPaymentReferenceNo(e.target.value)}
-                      required
                     />
                   </div>
                   <div>
-                    <FieldLabel required>Description</FieldLabel>
+                    <FieldLabel>Description</FieldLabel>
                     <Input
                       label=""
                       placeholder="Enter Payment Description"
                       className="h-9 text-xs"
                       value={paymentDescription}
                       onChange={(e) => setPaymentDescription(e.target.value)}
-                      required
                     />
                   </div>
                 </>
