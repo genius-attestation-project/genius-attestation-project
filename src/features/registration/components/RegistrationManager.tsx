@@ -490,6 +490,12 @@ export function RegistrationManager({
   }, [form.advancePaid, form.totalCharges]);
   const hasPaymentEntry = form.totalCharges.trim() !== "" || form.advancePaid.trim() !== "";
 
+  const isAdvancePaidEnabled = useMemo(() => {
+    const rawVal = form.totalCharges ? String(form.totalCharges).trim() : "";
+    const num = Number(rawVal);
+    return Boolean(rawVal) && !Number.isNaN(num) && num > 0;
+  }, [form.totalCharges]);
+
   const computedPaymentStatus = useMemo(() => {
     const total = Number(form.totalCharges || 0);
     const advance = Number(form.advancePaid || 0);
@@ -1668,13 +1674,15 @@ export function RegistrationManager({
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Advance Paid
                 </span>
-                <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
-                  Click to request advance
+                <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  {isAdvancePaidEnabled ? "Click to request advance" : "Enter Total Charges first"}
                 </span>
               </div>
               <button
                 type="button"
+                disabled={!isAdvancePaidEnabled}
                 onClick={() => {
+                  if (!isAdvancePaidEnabled) return;
                   const tc = Number(form.totalCharges || selected?.totalCharges || 0);
                   const adv = Number(selected ? selected.advancePaid : (form.advancePaid || 0));
                   const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected?.balanceAmount || 0);
@@ -1685,12 +1693,14 @@ export function RegistrationManager({
                   });
                   setIsAddAdvanceOpen(true);
                 }}
-                title="Click to add an advance payment request"
+                title={isAdvancePaidEnabled ? "Click to add an advance payment request" : "Enter Total Charges first to enable advance payment"}
                 className={[
                   "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
                   "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
-                  "transition-all duration-150 cursor-pointer",
-                  "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600",
+                  "transition-all duration-150",
+                  isAdvancePaidEnabled
+                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
+                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
                 ].join(" ")}
               >
                 <span className="flex items-center gap-2">
@@ -1700,12 +1710,18 @@ export function RegistrationManager({
                       selected ? selected.advancePaid : (form.advancePaid || 0)
                     ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
-                    <Plus size={12} /> Add Advance
-                  </span>
+                  {isAdvancePaidEnabled && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                      <Plus size={12} /> Add Advance
+                    </span>
+                  )}
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
-                  {selected ? "Approved Only" : "Request Advance"}
+                  {!isAdvancePaidEnabled
+                    ? "Enter Total Charges First"
+                    : selected
+                    ? "Approved Only"
+                    : "Request Advance"}
                 </span>
               </button>
             </div>
@@ -2003,7 +2019,7 @@ export function RegistrationManager({
 
       {(selected || drawerMode === "form") && (
         <AddAdvanceModal
-          isOpen={isAddAdvanceOpen}
+          isOpen={isAddAdvanceOpen && isAdvancePaidEnabled}
           onClose={() => setIsAddAdvanceOpen(false)}
           registrationId={selected?.id || ""}
           trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}
