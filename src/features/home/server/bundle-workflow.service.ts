@@ -242,7 +242,7 @@ export async function createTransferBundle(params: {
     }
 
     return bundle;
-  });
+  }, { timeout: 20000 });
 }
 
 export async function listInboundBundles(params: {
@@ -561,7 +561,7 @@ export async function receiveBundle(params: {
         remainingCount: unreceivedItems.length,
       };
     }
-  });
+  }, { timeout: 20000 });
 }
 
 export async function getMovementHistory(params: {

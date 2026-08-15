@@ -197,6 +197,7 @@ export async function retrieveOutboundDocuments(
           currentModule: previousModule,
           currentOfficeId: previousOfficeId,
           toOfficeId: previousOfficeId,
+          fromOfficeId: previousOfficeId,
           status: previousModule === "PROCESS_MODULE" ? "IN_HAND" : "HOME",
           currentStatus: "Document In Hand",
           remarks: reason || `Retrieved by ${userOfficeName}`,
@@ -211,27 +212,28 @@ export async function retrieveOutboundDocuments(
         currentStatus: updatedMovement.currentStatus,
       });
 
-      // 4. Record MovementHistory entry
-      await tx.movementHistory.create({
-        data: {
-          trackingNumber,
-          action: "Retrieved",
-          oldStatus: movement.status || "Transferred",
-          newStatus: "Retrieved",
-          oldOffice: destinationOfficeName,
-          newOffice: userOfficeName,
-          performedBy: userName || userId,
-          remarks: reason || `Retrieved by ${userOfficeName}`,
-        },
-      });
-
-      // 5. Record DocumentWorkflowHistory entry
+      // 4. Update Registration trackingStatus & bmStatus to make document visible in sender's Document In Hand
       const reg = await tx.registration.findUnique({
         where: { trackingNumber },
-        select: { id: true },
+        select: { id: true, trackingStatus: true, bmStatus: true },
       });
 
       if (reg) {
+        // Prevent retrieval if completed or delivered
+        if (reg.trackingStatus === "Completed" || reg.trackingStatus === "Delivered") {
+          console.log(`[DEBUG Retrieve Service] Skipped #${trackingNumber} registration update because trackingStatus is ${reg.trackingStatus}`);
+          continue;
+        }
+
+        await tx.registration.update({
+          where: { trackingNumber },
+          data: {
+            trackingStatus: "Document In Hand",
+            bmStatus: "Document In Hand",
+          },
+        });
+
+        // 5. Record DocumentWorkflowHistory entry
         await tx.documentWorkflowHistory.create({
           data: {
             documentId: reg.id,
@@ -245,7 +247,21 @@ export async function retrieveOutboundDocuments(
         });
       }
 
-      // 6. Update BranchMovementRecord if present
+      // 6. Record MovementHistory entry
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber,
+          action: "Retrieved",
+          oldStatus: movement.status || "Transferred",
+          newStatus: "Retrieved",
+          oldOffice: destinationOfficeName,
+          newOffice: userOfficeName,
+          performedBy: userName || userId,
+          remarks: reason || `Retrieved by ${userOfficeName}`,
+        },
+      });
+
+      // 7. Update BranchMovementRecord if present
       const latestBranchMovement = await tx.branchMovementRecord.findFirst({
         where: {
           trackingNumber,
@@ -334,5 +350,5 @@ export async function retrieveOutboundDocuments(
       isPartial,
       message: `Successfully retrieved ${retrievedCount} document(s) back to ${userOfficeName}.`,
     };
-  });
+  }, { timeout: 20000 });
 }
