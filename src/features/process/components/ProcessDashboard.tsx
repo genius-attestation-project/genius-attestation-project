@@ -799,12 +799,26 @@ export function ProcessDashboard() {
                           </td>
                           <td className="px-5 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {item.status !== "Received" && item.status !== "COMPLETED" && item.status !== "Retrieved" && (
+                              {item.status !== "Received" && item.status !== "COMPLETED" && item.status !== "Retrieved" ? (
                                 <Button
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => setRetrieveItem(item)}
                                   className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                                >
+                                  <RotateCcw size={14} /> Retrieve
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  title={
+                                    item.status === "Retrieved"
+                                      ? "Already retrieved."
+                                      : "Cannot retrieve because destination office has already received this document."
+                                  }
+                                  className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
                                 >
                                   <RotateCcw size={14} /> Retrieve
                                 </Button>

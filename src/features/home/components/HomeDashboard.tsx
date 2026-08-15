@@ -607,9 +607,9 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {outboundBundles.map((bundle: any, index: number) => {
-                      const canRetrieve = bundle.canRetrieve !== undefined
-                        ? Boolean(bundle.canRetrieve)
-                        : bundle.status !== "Received" && bundle.status !== "Retrieved" && bundle.status !== "Completed" && bundle.status !== "COMPLETED";
+                      const isFullyReceived = bundle.status === "Received";
+                      const isRetrieved = bundle.status === "Retrieved";
+                      const canRetrieve = !isFullyReceived && !isRetrieved;
 
                       return (
                         <tr key={bundle.id} className="hover:bg-slate-50">
@@ -630,12 +630,26 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                             {calculateFinishedDays(bundle.createdAt)}
                           </td>
                           <td className="p-4 text-right">
-                            {canRetrieve && (
+                            {canRetrieve ? (
                               <Button
                                 size="sm"
                                 variant="secondary"
                                 onClick={() => setRetrieveBundle(bundle)}
                                 className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                              >
+                                <RotateCcw size={14} /> Retrieve
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                title={
+                                  isFullyReceived
+                                    ? "Cannot retrieve because destination office has already received these documents."
+                                    : "Already retrieved."
+                                }
+                                className="gap-1.5 text-xs opacity-50 cursor-not-allowed"
                               >
                                 <RotateCcw size={14} /> Retrieve
                               </Button>
