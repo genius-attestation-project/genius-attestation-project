@@ -82,7 +82,7 @@ async function runTests() {
 
     // Check Kochi Document In Hand before transfer
     let inHandKochi = await listDocumentInHand({ ownerAdminId, officeId: kochiOffice.id });
-    let hasDocInHand = inHandKochi.some((r) => r.trackingNumber === testTrackingNumber);
+    let hasDocInHand = inHandKochi.some((r: any) => r.trackingNumber === testTrackingNumber);
     console.log(`  Kochi Document In Hand includes test doc: ${hasDocInHand} (Expected: true)`);
     if (!hasDocInHand) throw new Error("Test doc should be in Kochi Document In Hand initially");
 
@@ -102,7 +102,7 @@ async function runTests() {
 
     // Verify Kochi Document In Hand excludes test doc after transfer
     inHandKochi = await listDocumentInHand({ ownerAdminId, officeId: kochiOffice.id });
-    hasDocInHand = inHandKochi.some((r) => r.trackingNumber === testTrackingNumber);
+    hasDocInHand = inHandKochi.some((r: any) => r.trackingNumber === testTrackingNumber);
     console.log(`  After transfer, Kochi Document In Hand includes test doc: ${hasDocInHand} (Expected: false)`);
 
     // Verify Malappuram Inbound Bundles includes bundle1
@@ -134,7 +134,7 @@ async function runTests() {
 
     // Verify Kochi Document In Hand HAS RESTORED THE DOCUMENT!
     inHandKochi = await listDocumentInHand({ ownerAdminId, officeId: kochiOffice.id });
-    hasDocInHand = inHandKochi.some((r) => r.trackingNumber === testTrackingNumber);
+    hasDocInHand = inHandKochi.some((r: any) => r.trackingNumber === testTrackingNumber);
     console.log(`  After retrieve, Kochi Document In Hand includes test doc: ${hasDocInHand} (Expected: true)`);
     if (!hasDocInHand) throw new Error("TEST CASE 1 FAILED: Document was not restored to Kochi Document In Hand!");
     console.log("✔ TEST CASE 1 PASSED!");
