@@ -242,7 +242,7 @@ export async function createTransferBundle(params: {
     }
 
     return bundle;
-  }, { timeout: 20000 });
+  }, { timeout: 60000 });
 }
 
 export async function listInboundBundles(params: {
@@ -335,7 +335,28 @@ export async function listOutboundBundles(params: {
     }
   }
 
-  return bundles;
+  return bundles.map((b: any) => {
+    const isFullyReceived = b.status === "Received";
+    const isRetrieved = b.status === "Retrieved";
+    const isCompleted = b.status === "Completed" || b.status === "COMPLETED";
+
+    const hasEligibleUnreceivedItem = (b.items || []).some((item: any) => {
+      const isItemReceived = item.status === "Received";
+      const isItemRetrieved = item.status === "Retrieved";
+      const isItemCompleted =
+        item.status === "Completed" ||
+        item.registration?.trackingStatus === "Completed" ||
+        item.registration?.trackingStatus === "Delivered";
+      return !isItemReceived && !isItemRetrieved && !isItemCompleted;
+    });
+
+    const canRetrieve = !isFullyReceived && !isRetrieved && !isCompleted && hasEligibleUnreceivedItem;
+
+    return {
+      ...b,
+      canRetrieve,
+    };
+  });
 }
 
 export async function receiveBundle(params: {
@@ -561,7 +582,7 @@ export async function receiveBundle(params: {
         remainingCount: unreceivedItems.length,
       };
     }
-  }, { timeout: 20000 });
+  }, { timeout: 60000 });
 }
 
 export async function getMovementHistory(params: {

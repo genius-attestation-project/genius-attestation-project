@@ -350,5 +350,5 @@ export async function retrieveOutboundDocuments(
       isPartial,
       message: `Successfully retrieved ${retrievedCount} document(s) back to ${userOfficeName}.`,
     };
-  }, { timeout: 20000 });
+  }, { timeout: 60000 });
 }
