@@ -6,6 +6,7 @@ import Google from "next-auth/providers/google";
 
 import { authConfig } from "@/auth.config";
 import { getSessionAccess } from "@/features/admin/server/rbac.service";
+import { createRefreshTokenRecord, setRefreshTokenCookie } from "@/features/auth/server/refresh-token.service";
 import { env } from "@/config/env";
 import { loginSchema } from "@/features/auth/validations/auth.schema";
 import { prisma } from "@/lib/prisma";
@@ -214,8 +215,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       const isInitialSignIn = !!user;
-      const isUpdate = trigger === "update";
-      const needsRefresh = !token.id || token.isAssignedOffice === undefined;
+
+      // Create refresh token record and set HttpOnly cookie on initial sign-in
+      if (isInitialSignIn && user?.id) {
+        try {
+          const { rawToken, expiresAt } = await createRefreshTokenRecord({
+            userId: user.id,
+          });
+          await setRefreshTokenCookie(rawToken, expiresAt);
+          console.info("[auth] Issued Refresh Token cookie on initial sign-in:", { userId: user.id });
+        } catch (refErr) {
+          console.error("[auth] Failed to set refresh token cookie on initial sign-in", refErr);
+        }
+      }
 
       try {
         if (user && (user as any).accountType === "ASSIGNED_OFFICE") {
@@ -230,7 +242,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.ownerAdminId = (user as any).ownerAdminId;
           token.role = "AssignedOffice";
           token.isSuperAdmin = false;
-          token.permissions = ["menu.assigned-office", "assigned_office.view"];
           token.roles = ["AssignedOffice"];
 
           console.info("[auth] JWT Payload (AssignedOffice):", {
@@ -301,18 +312,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.officeLocationId = officeLocationId;
         token.officeLocationName = officeLocationName;
         token.isAssignedOffice = isAssignedOffice;
-
         token.roles = access?.roles ?? [];
-        token.permissions = access?.permissions ?? [];
 
-        console.info("[auth] JWT Payload:", {
+        // Omit full permissions array from JWT token to prevent cookie bloat (stored in DB, fetched on demand in session callback)
+
+        console.info("[auth] JWT Payload (Slimmed):", {
           "user.id": dbUser.id,
           email: dbUser.email,
           role: token.role,
           officeLocationId: officeLocationId,
-          "officeLocation.name": officeLocationName,
-          officeLocationName: officeLocationName,
-          region: region,
           isAssignedOffice: isAssignedOffice,
         });
 
@@ -380,21 +388,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ? token.roles
             : [];
 
-          session.user.permissions = Array.isArray(token.permissions)
-            ? token.permissions
-            : [];
-
           session.user.isSuperAdmin =
             typeof token.isSuperAdmin === "boolean"
               ? token.isSuperAdmin
               : false;
 
+          // Load real-time session access permissions for server-side evaluation
+          if (token.id && token.accountType !== "ASSIGNED_OFFICE") {
+            const access = await getSessionAccess(String(token.id));
+            if (access) {
+              session.user.permissions = access.permissions;
+              session.user.roles = access.roles;
+              session.user.isSuperAdmin = access.isSuperAdmin;
+            } else {
+              session.user.permissions = [];
+            }
+          } else if (token.accountType === "ASSIGNED_OFFICE") {
+            session.user.permissions = ["menu.assigned-office", "assigned_office.view"];
+          } else {
+            session.user.permissions = [];
+          }
+
           console.info("[auth] Session Payload:", {
             "user.id": session.user.id,
             email: session.user.email,
             role: session.user.role,
-            officeLocationId: session.user.officeLocationId,
-            "officeLocation.name": session.user.officeLocationName,
+            permissionCount: session.user.permissions.length,
             isAssignedOffice: session.user.isAssignedOffice,
           });
         }
