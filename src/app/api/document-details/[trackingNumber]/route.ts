@@ -56,10 +56,8 @@ export async function GET(
       );
     }
 
-    // Fetch related timeline, activity movements, advance payment approvals, and audit history.
-    // The process-type mapping is the source of truth for the full activity list, including
-    // activities that have not yet been started for this tracking number.
-    const [subPackageMovements, movementHistory, workflowHistory, advancePaymentApprovals, processType] = await Promise.all([
+    // Fetch related timeline, activity movements, advance payment approvals, processType, and bundles.
+    const [subPackageMovements, rawMovementHistory, workflowHistory, advancePaymentApprovals, processType, bundles] = await Promise.all([
       (prisma as any).subPackageMovement.findMany({
         where: { trackingNumber: trackingNumber.trim() },
         orderBy: { createdAt: "desc" },
@@ -87,7 +85,64 @@ export async function GET(
             include: { subPackages: { orderBy: { name: "asc" } } },
           })
         : null,
+      prisma.bundle.findMany({
+        where: { items: { some: { trackingNumber: trackingNumber.trim() } } },
+        include: { fromOffice: true, toOffice: true },
+      }),
     ]);
+
+    const bundleByNumber = new Map<string, any>();
+    for (const b of bundles) {
+      bundleByNumber.set(b.bundleNumber, b);
+    }
+
+    const movementHistory = rawMovementHistory.map((mov: any) => {
+      let fromOfficeName: string | null = mov.oldOffice || null;
+      let toOfficeName: string | null = mov.newOffice || null;
+
+      // Extract bundle number from remarks if present (e.g., "Added to Bundle HOME-20260817-9746")
+      if (mov.remarks) {
+        const match = mov.remarks.match(/Bundle\s+([A-Za-z0-9-]+)/i);
+        if (match && match[1]) {
+          const bundleNo = match[1];
+          const b = bundleByNumber.get(bundleNo);
+          if (b) {
+            if (!fromOfficeName && b.fromOffice) fromOfficeName = b.fromOffice.officeName;
+            if (!toOfficeName && b.toOffice) toOfficeName = b.toOffice.officeName;
+          }
+        }
+      }
+
+      // If Created action, fromOffice is null (or "-") and toOffice is newOffice or origin office or regionOfRegistration
+      if (mov.action === "Created") {
+        fromOfficeName = null;
+        if (!toOfficeName) {
+          toOfficeName =
+            registration.documentMovements[0]?.currentOffice?.officeName ||
+            registration.regionOfRegistration ||
+            null;
+        }
+      }
+
+      // Fallback from documentMovements if still missing
+      if (!fromOfficeName && mov.action !== "Created" && registration.documentMovements.length > 0) {
+        fromOfficeName = registration.documentMovements[0]?.fromOffice?.officeName || null;
+      }
+      if (!toOfficeName && registration.documentMovements.length > 0) {
+        toOfficeName =
+          registration.documentMovements[0]?.toOffice?.officeName ||
+          registration.documentMovements[0]?.currentOffice?.officeName ||
+          null;
+      }
+
+      return {
+        ...mov,
+        oldOffice: fromOfficeName,
+        newOffice: toOfficeName,
+        fromOffice: fromOfficeName ? { name: fromOfficeName, officeName: fromOfficeName } : null,
+        toOffice: toOfficeName ? { name: toOfficeName, officeName: toOfficeName } : null,
+      };
+    });
 
     const movementsByActivity = new Map<string, any>();
     for (const movement of subPackageMovements) {

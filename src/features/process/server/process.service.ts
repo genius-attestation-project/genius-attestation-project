@@ -249,6 +249,9 @@ export async function transferProcessDocumentsToHome(params: {
     const sourceOffice = await tx.officeLocation.findFirst({
       where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
     });
+    const destOffice = await tx.officeLocation.findFirst({
+      where: { id: params.toOfficeId },
+    });
 
     const fromOfficeId = sourceOffice?.id || params.toOfficeId;
 
@@ -325,6 +328,8 @@ export async function transferProcessDocumentsToHome(params: {
           action: "Transfer to Home",
           oldStatus: "IN_HAND",
           newStatus: "Pending Receive",
+          oldOffice: sourceOffice?.officeName || null,
+          newOffice: destOffice?.officeName || null,
           performedBy: params.userName || params.userId,
           remarks: `Added to Bundle ${bundleNumber}`,
         },
@@ -353,6 +358,9 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
   return prisma.$transaction(async (tx: any) => {
     const sourceOffice = await tx.officeLocation.findFirst({
       where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
+    });
+    const targetOffice = await tx.officeLocation.findFirst({
+      where: { id: params.targetAssignedOfficeId },
     });
     const fromOfficeId = sourceOffice?.id || params.targetAssignedOfficeId;
 
@@ -474,6 +482,8 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           action: "Transfer to Assigned Office",
           oldStatus: "IN_HAND",
           newStatus: "Pending Receive",
+          oldOffice: sourceOffice?.officeName || null,
+          newOffice: targetOffice?.officeName || null,
           performedBy: params.userName || params.userId,
           remarks: params.remarks || `Added to Bundle ${bundle.bundleNumber}`,
         },
