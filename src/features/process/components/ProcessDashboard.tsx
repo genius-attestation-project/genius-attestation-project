@@ -184,7 +184,8 @@ export function ProcessDashboard() {
 
     try {
       const typeQuery = processType === "All" ? "" : `&processType=${encodeURIComponent(processType)}`;
-      const res = await fetch(`/api/process?tab=${activeTab}${typeQuery}`, { cache: "no-store" });
+      const officeQuery = selectedOfficeId ? `&officeId=${encodeURIComponent(selectedOfficeId)}` : "";
+      const res = await fetch(`/api/process?tab=${activeTab}${typeQuery}${officeQuery}`, { cache: "no-store" });
       const payload = await res.json();
       
       if (!res.ok) {
@@ -203,7 +204,7 @@ export function ProcessDashboard() {
   useEffect(() => {
     loadData();
     setSelectedTrackingNumbers([]);
-  }, [activeTab, processType]);
+  }, [activeTab, processType, selectedOfficeId]);
 
   // Multi-selection helpers
   const handleSelectAll = () => {
@@ -397,7 +398,7 @@ export function ProcessDashboard() {
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Top Banner with Header & Assigned Office Login Selector */}
-      <section className="relative overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
+      <section className="relative z-30 rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">

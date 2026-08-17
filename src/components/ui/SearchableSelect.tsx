@@ -241,6 +241,11 @@ export function SearchableSelect({
                           } ${isActive ? "bg-slate-100 dark:bg-slate-800/70" : ""} ${
                             isSelected && isActive ? "bg-blue-50 dark:bg-blue-500/10" : ""
                           }`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onChange(option.value);
+                            setIsOpen(false);
+                          }}
                           onClick={() => {
                             onChange(option.value);
                             setIsOpen(false);
@@ -281,6 +286,11 @@ export function SearchableSelect({
                       } ${isActive ? "bg-slate-50 dark:bg-slate-800/50" : ""} ${
                         isSelected && isActive ? "bg-blue-50 dark:bg-blue-500/10" : ""
                       }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onChange(option.value);
+                        setIsOpen(false);
+                      }}
                       onClick={() => {
                         onChange(option.value);
                         setIsOpen(false);
