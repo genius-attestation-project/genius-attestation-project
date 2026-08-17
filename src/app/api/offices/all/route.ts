@@ -12,9 +12,15 @@ export async function GET(req: NextRequest) {
     const ownerAdminId = currentUser.ownerAdminId;
     const db = prisma as any;
 
+    const { searchParams } = new URL(req.url);
+    const processOnly = searchParams.get("processOnly") === "true" || searchParams.get("isProcessOffice") === "true";
+
     const [officeLocations, assignedOffices] = await Promise.all([
       prisma.officeLocation.findMany({
-        where: { ownerAdminId },
+        where: {
+          ownerAdminId,
+          ...(processOnly ? { isProcessOffice: true } : {}),
+        },
         select: { id: true, officeName: true, isProcessOffice: true },
         orderBy: { officeName: "asc" },
       }),

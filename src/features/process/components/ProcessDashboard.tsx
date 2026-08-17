@@ -155,14 +155,13 @@ export function ProcessDashboard() {
     async function fetchAssignedOffices() {
       setLoadingOffices(true);
       try {
-        const res = await fetch("/api/offices/all");
+        const res = await fetch("/api/offices/all?processOnly=true");
         if (res.ok) {
           const data = await res.json();
           const rawList = data.offices || data.data || [];
           const list = rawList.map((o: any) => ({
-            label: formatTitleCase(o.officeName || o.username || o.name || "Assigned Office"),
+            label: formatTitleCase(o.officeName || o.username || o.name || "Process Office"),
             value: o.id,
-            category: o.type ? formatTitleCase(o.type) : "Office",
           }));
           setAssignedOfficeOptions(list);
           if (list.length > 0) {
@@ -431,7 +430,9 @@ export function ProcessDashboard() {
                     options={assignedOfficeOptions}
                     value={selectedOfficeId}
                     onChange={setSelectedOfficeId}
-                    placeholder={loadingOffices ? "Loading Assigned Offices..." : "Select Assigned Office"}
+                    placeholder={loadingOffices ? "Loading Process Offices..." : "Select Process Office"}
+                    groupByCategory={false}
+                    showDescription={false}
                   />
                 </div>
                 <Button
