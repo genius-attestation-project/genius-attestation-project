@@ -50,6 +50,8 @@ function mapMovement(movement: any): HomeItem {
     acceptedBy: movement.acceptedBy ?? null,
     isBmLocked: Boolean(reg.isBmLocked),
     bmExtensionStatus: reg.bmExtensionStatus || null,
+    advancePaid: reg.advancePaid ? Number(reg.advancePaid) : 0,
+    movementApproved: Boolean(reg.movementApproved),
   };
 }
 

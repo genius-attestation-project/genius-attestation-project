@@ -30,6 +30,7 @@ import { EditAdvanceModal } from "@/features/revenue/components/EditAdvanceModal
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
 type MainTabKey =
   | "advance_payment"
+  | "movement_approval"
   | "advance_details"
   | "corporate_approval"
   | "lob"
@@ -38,6 +39,21 @@ type MainTabKey =
 
 type Lead = any;
 type LeadWorkflowApproval = any;
+type MovementApprovalItem = {
+  id: string;
+  registrationId: string;
+  trackingNumber: string;
+  customerName: string;
+  documentName?: string;
+  registrationOffice?: string;
+  currentOffice?: string;
+  advanceAmount: number;
+  totalAmount?: number;
+  status: string;
+  requestedBy: string;
+  requestedDate: string;
+  mobile?: string;
+};
 type AdvancePaymentApprovalItem = {
   id: string;
   registrationId: string;
@@ -110,7 +126,15 @@ export function PendingApprovalDashboard() {
     currentUser?.permissions?.includes("pendingApproval.approve") ||
     currentUser?.permissions?.includes("*");
 
+  const canApproveMovement =
+    currentUser?.isSuperAdmin ||
+    currentUser?.permissions?.includes("movement_approval.approve") ||
+    currentUser?.permissions?.includes("pending_approval.edit") ||
+    currentUser?.permissions?.includes("pendingApproval.approve") ||
+    currentUser?.permissions?.includes("*");
+
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
+  const [movementApprovals, setMovementApprovals] = useState<MovementApprovalItem[]>([]);
   const [allAdvanceRecords, setAllAdvanceRecords] = useState<AdvancePaymentApprovalItem[]>([]);
   const [hasSearchedAdvanceDetails, setHasSearchedAdvanceDetails] = useState(false);
 
@@ -151,8 +175,9 @@ export function PendingApprovalDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [advanceRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
+      const [advanceRes, movementRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
         parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })),
+        parseResponse<{ items: MovementApprovalItem[] }>(await fetch("/api/movement-approvals", { cache: "no-store" })).catch(() => ({ items: [] })),
         parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })),
         parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive", { cache: "no-store" })),
         parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob", { cache: "no-store" })),
@@ -160,6 +185,7 @@ export function PendingApprovalDashboard() {
         fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] })),
       ]);
       setAdvancePaymentRequests(advanceRes.items ?? []);
+      setMovementApprovals(movementRes.items ?? []);
       setCorporateApprovals(corporateRes.items ?? []);
       setInactiveLeads(inactiveRes.items ?? []);
       setLobRequests(lobRes.items ?? []);
@@ -246,6 +272,26 @@ export function PendingApprovalDashboard() {
           if (!reason.trim()) {
             throw new Error("Rejection reason is required for rejecting an advance payment request.");
           }
+          body.rejectionReason = reason.trim();
+        } else if (reason.trim()) {
+          body.remarks = reason.trim();
+        }
+
+        await parseResponse<{ success: boolean }>(
+          await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+        );
+      } else if (actionModal.requestType === "MOVEMENT_APPROVAL") {
+        const endpoint =
+          actionModal.type === "Approved"
+            ? `/api/movement-approvals/${actionModal.id}/approve`
+            : `/api/movement-approvals/${actionModal.id}/reject`;
+
+        const body: Record<string, string> = {};
+        if (actionModal.type === "Rejected") {
           body.rejectionReason = reason.trim();
         } else if (reason.trim()) {
           body.remarks = reason.trim();
@@ -345,6 +391,7 @@ export function PendingApprovalDashboard() {
         <div className="flex flex-wrap gap-3">
           {[
             { key: "advance_payment" as const, label: "Advance Payment Approvals", count: advancePaymentRequests.length },
+            { key: "movement_approval" as const, label: "Movement Approval", count: movementApprovals.length },
             { key: "advance_details" as const, label: "Advance Details", count: hasSearchedAdvanceDetails ? allAdvanceRecords.length : 0 },
             { key: "corporate_approval" as const, label: "Corporate Details Approval", count: corporateApprovals.length },
             { key: "lob" as const, label: "LOB Requests", count: lobRequests.length },
@@ -485,6 +532,109 @@ export function PendingApprovalDashboard() {
                                     requestType: "ADVANCE_PAYMENT",
                                     id: item.id,
                                     title: `Reject Advance Payment (${item.trackingNumber})`,
+                                  })
+                                }
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs italic text-slate-400" title="Approval permission required">
+                              Approval Permission Required
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {activeTab === "movement_approval" && (
+              <table className="min-w-345 text-left text-sm">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                  <tr>
+                    <th className="px-5 py-4">Tracking Number</th>
+                    <th className="px-5 py-4">Customer Name</th>
+                    <th className="px-5 py-4">Document Name</th>
+                    <th className="px-5 py-4">Registration Office</th>
+                    <th className="px-5 py-4">Current Office</th>
+                    <th className="px-5 py-4">Advance Amount</th>
+                    <th className="px-5 py-4">Requested By</th>
+                    <th className="px-5 py-4">Requested Date</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                  {movementApprovals.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="p-8 text-center text-soft">
+                        No pending movement approval requests.
+                      </td>
+                    </tr>
+                  ) : (
+                    movementApprovals.map((item) => (
+                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
+                          {item.trackingNumber}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                          {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
+                        </td>
+                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                          {item.documentName ? formatTitleCase(item.documentName) : "-"}
+                        </td>
+                        <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {item.registrationOffice || "-"}
+                        </td>
+                        <td className="px-5 py-4 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                          {item.currentOffice || "-"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            {formatCurrency(item.advanceAmount)}
+                          </p>
+                          {item.totalAmount ? (
+                            <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-4 text-xs font-medium text-slate-800 dark:text-slate-200">
+                          {formatTitleCase(item.requestedBy || "System User")}
+                        </td>
+                        <td className="px-5 py-4 text-xs text-soft">
+                          {formatDate(item.requestedDate)}
+                        </td>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={item.status} />
+                        </td>
+                        <td className="px-5 py-4">
+                          {canApproveMovement ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Approved",
+                                    requestType: "MOVEMENT_APPROVAL",
+                                    id: item.id,
+                                    title: `Approve Document Movement (${item.trackingNumber})`,
+                                  })
+                                }
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Rejected",
+                                    requestType: "MOVEMENT_APPROVAL",
+                                    id: item.id,
+                                    title: `Reject Document Movement (${item.trackingNumber})`,
                                   })
                                 }
                               >

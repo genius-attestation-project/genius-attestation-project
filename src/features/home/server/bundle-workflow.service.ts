@@ -103,6 +103,23 @@ export async function createTransferBundle(params: {
     throw new Error("At least one tracking number must be selected for transfer.");
   }
 
+  // Validate document movement eligibility before creating bundle or movement records
+  for (const trackingNumber of params.trackingNumbers) {
+    const reg = await prisma.registration.findUnique({
+      where: { trackingNumber },
+      select: { trackingNumber: true, advancePaid: true, movementApproved: true },
+    });
+
+    if (reg) {
+      const advanceAmount = Number(reg.advancePaid ?? 0);
+      const isApproved = Boolean(reg.movementApproved);
+
+      if (advanceAmount <= 0 && !isApproved) {
+        throw new Error(`Movement approval required before transfer (${trackingNumber})`);
+      }
+    }
+  }
+
   const bundleNumber = generateBundleNumber();
 
   return prisma.$transaction(async (tx: any) => {

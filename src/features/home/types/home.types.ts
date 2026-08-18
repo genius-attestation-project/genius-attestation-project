@@ -24,6 +24,8 @@ export type HomeItem = {
   acceptedBy: string | null;
   isBmLocked: boolean;
   bmExtensionStatus: string | null;
+  advancePaid?: number;
+  movementApproved?: boolean;
 };
 
 export type HomeStats = {

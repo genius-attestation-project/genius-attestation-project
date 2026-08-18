@@ -133,12 +133,18 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
     setSelectedTrackingNumbers([]);
   }, [activeTab, selectedOfficeId, searchQuery]);
 
+  const eligibleInHandDocs = useMemo(() => {
+    return inHandDocs.filter(
+      (doc) => Number(doc.advancePaid ?? doc.advanceAmount ?? 0) > 0 || Boolean(doc.movementApproved)
+    );
+  }, [inHandDocs]);
+
   // Checkbox helpers for Document In Hand
   const handleSelectAllInHand = () => {
-    if (selectedTrackingNumbers.length === inHandDocs.length) {
+    if (selectedTrackingNumbers.length === eligibleInHandDocs.length && eligibleInHandDocs.length > 0) {
       setSelectedTrackingNumbers([]);
     } else {
-      setSelectedTrackingNumbers(inHandDocs.map((doc) => doc.trackingNumber));
+      setSelectedTrackingNumbers(eligibleInHandDocs.map((doc) => doc.trackingNumber || doc.registrationNumber));
     }
   };
 
@@ -436,7 +442,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                     <tr>
                       <th className="p-3 w-10 text-center">
                         <button onClick={handleSelectAllInHand} className="text-slate-600">
-                          {selectedTrackingNumbers.length === inHandDocs.length ? (
+                          {selectedTrackingNumbers.length === eligibleInHandDocs.length && eligibleInHandDocs.length > 0 ? (
                             <CheckSquare className="h-5 w-5 text-blue-600" />
                           ) : (
                             <Square className="h-5 w-5 text-slate-400" />
@@ -458,21 +464,31 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {inHandDocs.map((doc: any, index: number) => {
-                      const isSelected = selectedTrackingNumbers.includes(doc.trackingNumber || doc.registrationNumber);
                       const tNum = doc.trackingNumber || doc.registrationNumber;
+                      const isSelected = selectedTrackingNumbers.includes(tNum);
+                      const advanceAmount = Number(doc.advancePaid ?? doc.advanceAmount ?? 0);
+                      const isMovementApproved = Boolean(doc.movementApproved);
+                      const canMove = advanceAmount > 0 || isMovementApproved;
+
                       return (
-                        <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : "hover:bg-slate-50"}>
+                        <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : !canMove ? "bg-amber-50/20 hover:bg-amber-50/30" : "hover:bg-slate-50"}>
                           <td className="p-3 text-center">
-                            <button
-                              onClick={() => handleToggleSelectInHand(tNum)}
-                              className="text-slate-600"
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="h-5 w-5 text-blue-600" />
-                              ) : (
-                                <Square className="h-5 w-5 text-slate-400" />
-                              )}
-                            </button>
+                            {canMove ? (
+                              <button
+                                onClick={() => handleToggleSelectInHand(tNum)}
+                                className="text-slate-600"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="h-5 w-5 text-blue-600" />
+                                ) : (
+                                  <Square className="h-5 w-5 text-slate-400" />
+                                )}
+                              </button>
+                            ) : (
+                              <div title="Movement approval pending" className="flex items-center justify-center">
+                                <Square className="h-5 w-5 text-slate-300 dark:text-slate-600 cursor-not-allowed" />
+                              </div>
+                            )}
                           </td>
                           <td className="p-3 text-center font-semibold text-slate-500">{index + 1}</td>
                           <td className="p-3 text-left font-mono font-bold text-blue-600 whitespace-nowrap">
@@ -484,6 +500,11 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                               >
                                 {tNum}
                               </Link>
+                              {!canMove && (
+                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                                  Movement approval pending
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="p-3 text-center text-xs font-medium text-slate-700 whitespace-nowrap">

@@ -476,6 +476,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     description: "Corporate Details approval workflow access.",
     actions: ["view", "edit", "approve", "reject"]
   },
+  {
+    key: "movement_approval",
+    label: "Movement Approval",
+    description: "Document movement approval workflow access.",
+    actions: ["view", "approve"]
+  },
   { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
   { key: "subpackage", label: "Sub Package Workflow", description: "Sub Package workflow access.", actions: ["view", "transfer", "complete", "return", "reject"] },
   { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
