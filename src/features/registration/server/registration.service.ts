@@ -457,7 +457,7 @@ export async function createRegistration(
     });
 
     return reg;
-  });
+  }, { timeout: 20000 });
 
   logRegistrationWorkflow("Created registration.", {
     trackingNumber: registrationResult.trackingNumber,
@@ -601,7 +601,7 @@ export async function updateRegistration(
     });
 
     return reg;
-  });
+  }, { timeout: 20000 });
 
   if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
     await submitAdvancePaymentApproval({
@@ -614,6 +614,12 @@ export async function updateRegistration(
       collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
+  } else if ((input.advancePaid ?? 0) <= 0 && !registrationResult.movementApproved) {
+    await createMovementApprovalRequest({
+      ownerAdminId,
+      registrationId: registrationResult.id,
+      performedBy: performedBy ?? "System User",
+    }).catch((err) => console.error("[registration] Movement approval update request error:", err));
   }
 
   logRegistrationWorkflow("Updated registration.", {

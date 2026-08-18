@@ -3,6 +3,7 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -234,6 +235,15 @@ export async function POST(req: NextRequest) {
               performedBy: importedBy
             }
           });
+
+          if ((payload.advancePaid ?? 0) <= 0) {
+            await createMovementApprovalRequest({
+              ownerAdminId,
+              registrationId: createdReg.id,
+              performedBy: importedBy,
+              requestedByUserId: importedBy,
+            }).catch((err) => console.error("[import] Movement approval creation error:", err));
+          }
           
           successfulRows++;
         }

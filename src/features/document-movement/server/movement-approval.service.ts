@@ -1,6 +1,26 @@
 import { prisma } from "@/lib/prisma";
 
 export async function listPendingMovementApprovals(ownerAdminId: string) {
+  // Ensure every registration requiring movement approval (advancePaid <= 0 & movementApproved = false)
+  // has a corresponding pending MovementApproval record so both Home and Pending Approval use the same source of truth.
+  const unapprovedZeroAdvanceRegs = await prisma.registration.findMany({
+    where: {
+      ownerAdminId,
+      advancePaid: { lte: 0 },
+      movementApproved: false,
+    },
+    select: { id: true, trackingNumber: true, createdBy: true },
+  });
+
+  for (const reg of unapprovedZeroAdvanceRegs) {
+    await createMovementApprovalRequest({
+      ownerAdminId,
+      registrationId: reg.id,
+      performedBy: "System User",
+      requestedByUserId: reg.createdBy ?? undefined,
+    }).catch((err) => console.error("[listPendingMovementApprovals] Reconcile error:", err));
+  }
+
   const items = await prisma.movementApproval.findMany({
     where: {
       ownerAdminId,
