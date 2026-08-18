@@ -626,20 +626,6 @@ export function PendingApprovalDashboard() {
                               >
                                 Approve
                               </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() =>
-                                  setActionModal({
-                                    type: "Rejected",
-                                    requestType: "MOVEMENT_APPROVAL",
-                                    id: item.id,
-                                    title: `Reject Document Movement (${item.trackingNumber})`,
-                                  })
-                                }
-                              >
-                                Reject
-                              </Button>
                             </div>
                           ) : (
                             <span className="text-xs italic text-slate-400" title="Approval permission required">
