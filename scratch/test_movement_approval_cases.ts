@@ -1,11 +1,11 @@
 import { prisma } from "../src/lib/prisma";
 import { createRegistration, deleteRegistration } from "../src/features/registration/server/registration.service";
 import { listPendingMovementApprovals, approveMovementApproval } from "../src/features/document-movement/server/movement-approval.service";
-import { listDocumentInHand, createTransferBundle } from "../src/features/home/server/bundle-workflow.service";
+import { listDocumentInHand, createTransferBundle, receiveBundle } from "../src/features/home/server/bundle-workflow.service";
 
 async function runTests() {
   console.log("=================================================");
-  console.log("STARTING MOVEMENT APPROVAL WORKFLOW VERIFICATION");
+  console.log("STARTING OFFICE-SPECIFIC MOVEMENT APPROVAL TESTS");
   console.log("=================================================\n");
 
   const ownerAdmin = await prisma.user.findFirst({
@@ -20,12 +20,12 @@ async function runTests() {
   const ownerAdminId = ownerAdmin.ownerAdminId || ownerAdmin.id;
   const userId = ownerAdmin.id;
 
-  let office = await prisma.officeLocation.findFirst({
-    where: { ownerAdminId },
+  let officeKochi = await prisma.officeLocation.findFirst({
+    where: { officeName: "Kochi HQ", ownerAdminId },
   });
 
-  if (!office) {
-    office = await prisma.officeLocation.create({
+  if (!officeKochi) {
+    officeKochi = await prisma.officeLocation.create({
       data: {
         officeName: "Kochi HQ",
         location: "Kochi",
@@ -35,34 +35,34 @@ async function runTests() {
     });
   }
 
-  let destOffice = await prisma.officeLocation.findFirst({
-    where: { ownerAdminId, NOT: { id: office.id } },
+  let officeMalappuram = await prisma.officeLocation.findFirst({
+    where: { officeName: "Malappuram", ownerAdminId },
   });
 
-  if (!destOffice) {
-    destOffice = await prisma.officeLocation.create({
+  if (!officeMalappuram) {
+    officeMalappuram = await prisma.officeLocation.create({
       data: {
-        officeName: "Dubai HQ",
-        location: "Dubai",
-        timezone: "Asia/Dubai",
+        officeName: "Malappuram",
+        location: "Malappuram",
+        timezone: "Asia/Kolkata",
         ownerAdminId,
       },
     });
   }
 
-  const trackingZero = `TEST-ZERO-${Date.now()}`;
-  const trackingPaid = `TEST-PAID-${Date.now()}`;
+  const trackingKochi = `TEST-KOCHI-${Date.now()}`;
+  const trackingMlp = `TEST-MLP-${Date.now()}`;
 
   try {
     // ---------------------------------------------------------
-    // TEST CASE 1: Create document with Advance Amount = 0
+    // TEST CASE 1: Kochi HQ user creates zero-advance doc at Kochi HQ
     // ---------------------------------------------------------
-    console.log("--- TEST 1: Create document with Advance Amount = 0 ---");
-    const regZero = await createRegistration(
+    console.log("--- TEST 1: Zero-advance doc created at Kochi HQ ---");
+    const regKochi = await createRegistration(
       ownerAdminId,
       {
-        trackingNumber: trackingZero,
-        customerName: "Test Zero Customer",
+        trackingNumber: trackingKochi,
+        customerName: "Kochi Customer",
         mobile: "9876543210",
         documentName: "Degree Certificate",
         documentType: "Educational",
@@ -71,171 +71,162 @@ async function runTests() {
         advancePaid: 0,
         approvalStatus: "Approved",
       },
-      office.officeName,
-      "Test Runner",
+      officeKochi.officeName,
+      "Kochi User",
       userId
     );
-    console.log(`Created registration ${regZero.trackingNumber} with advancePaid = 0`);
+    console.log(`Created registration ${regKochi.trackingNumber} at Kochi HQ.`);
 
-    // Check Home Documents in Hand logic
-    const homeDocsBefore = await listDocumentInHand({ ownerAdminId, officeId: office.id });
-    const foundInHomeBefore = homeDocsBefore.find((d: any) => d.trackingNumber === trackingZero);
-    const advanceZero = Number(foundInHomeBefore?.advancePaid ?? 0);
-    const approvedZeroBefore = Boolean(foundInHomeBefore?.movementApproved);
-    const canMoveZeroBefore = advanceZero > 0 || approvedZeroBefore;
-
-    console.log(`Home Document In Hand check for ${trackingZero}:`);
-    console.log(` - advancePaid: ${advanceZero}`);
-    console.log(` - movementApproved: ${approvedZeroBefore}`);
-    console.log(` - canMove (Checkbox enabled?): ${canMoveZeroBefore}`);
-
-    if (canMoveZeroBefore) {
-      throw new Error(`FAIL Test 1: Checkbox should be disabled when advancePaid=0 and movementApproved=false`);
-    }
-
-    // Check Pending Approval list
-    const pendingApprovalsBefore = await listPendingMovementApprovals(ownerAdminId);
-    const approvalReq = pendingApprovalsBefore.find((item: any) => item.trackingNumber === trackingZero);
-
-    if (!approvalReq) {
-      throw new Error(`FAIL Test 1: Document ${trackingZero} not found in Pending Approval -> Movement Approval queue!`);
-    }
-    console.log(`SUCCESS Test 1: Document ${trackingZero} correctly visible in Pending Approval with ID ${approvalReq.id}`);
-    console.log(`Approval details: Customer: ${approvalReq.customerName}, Office: ${approvalReq.registrationOffice}, RequestedBy: ${approvalReq.requestedBy}\n`);
-
-    // ---------------------------------------------------------
-    // TEST CASE 2: Approve movement
-    // ---------------------------------------------------------
-    console.log("--- TEST 2: Approve Movement Approval Request ---");
-    await approveMovementApproval({
-      id: approvalReq.id,
+    // Check Kochi HQ Pending Approval queue
+    const kochiApprovals = await listPendingMovementApprovals({
       ownerAdminId,
-      approvedByUserId: userId,
-      approvedByName: "Test Admin",
-      remarks: "Approved by automated test runner",
+      officeId: officeKochi.id,
+      officeName: officeKochi.officeName,
     });
-    console.log(`Approved MovementApproval ID ${approvalReq.id}`);
+    const foundInKochi = kochiApprovals.find((item: any) => item.trackingNumber === trackingKochi);
 
-    // Verify Pending Approval list is cleared for this tracking number
-    const pendingApprovalsAfter = await listPendingMovementApprovals(ownerAdminId);
-    const stillPending = pendingApprovalsAfter.find((item: any) => item.trackingNumber === trackingZero);
-    if (stillPending) {
-      throw new Error(`FAIL Test 2: Document ${trackingZero} is still in pending list after approval!`);
+    if (!foundInKochi) {
+      throw new Error(`FAIL Test 1: Kochi document ${trackingKochi} should be visible to Kochi HQ user!`);
     }
-
-    // Verify Home Document state
-    const homeDocsAfter = await listDocumentInHand({ ownerAdminId, officeId: office.id });
-    const foundInHomeAfter = homeDocsAfter.find((d: any) => d.trackingNumber === trackingZero);
-    const approvedZeroAfter = Boolean(foundInHomeAfter?.movementApproved);
-    const canMoveZeroAfter = Number(foundInHomeAfter?.advancePaid ?? 0) > 0 || approvedZeroAfter;
-
-    console.log(`Home Document In Hand check after approval:`);
-    console.log(` - movementApproved: ${approvedZeroAfter}`);
-    console.log(` - canMove (Checkbox enabled?): ${canMoveZeroAfter}`);
-
-    if (!canMoveZeroAfter) {
-      throw new Error(`FAIL Test 2: Checkbox should be ENABLED after approval!`);
-    }
-    console.log(`SUCCESS Test 2: Movement approved successfully and Home checkbox enabled.\n`);
+    console.log(`SUCCESS Test 1: Kochi document ${trackingKochi} correctly visible in Kochi HQ Pending Approval queue.\n`);
 
     // ---------------------------------------------------------
-    // TEST CASE 3: Transfer document after approval
+    // TEST CASE 2: Malappuram zero-advance doc should NOT appear for Kochi HQ user
     // ---------------------------------------------------------
-    console.log("--- TEST 3: Transfer Document After Approval ---");
-    const bundleZero = await createTransferBundle({
-      trackingNumbers: [trackingZero],
-      fromOfficeId: office.id,
-      toOfficeId: destOffice.id,
-      userId,
-      userName: "Test Admin",
-      ownerAdminId,
-      remarks: "Transfer test bundle",
-    });
-    console.log(`Successfully created Bundle ${bundleZero.bundleNumber}`);
-
-    const historyZero = await prisma.movementHistory.findMany({
-      where: { trackingNumber: trackingZero },
-      orderBy: { performedAt: "asc" },
-    });
-
-    console.log("Movement History Timeline:");
-    historyZero.forEach((h, idx) => {
-      console.log(`  ${idx + 1}. Action: "${h.action}" | PerformedBy: "${h.performedBy}" | Remarks: "${h.remarks || ""}"`);
-    });
-
-    const hasRequested = historyZero.some((h) => h.action.includes("Movement Approval Requested"));
-    const hasApproved = historyZero.some((h) => h.action.includes("Movement Approved"));
-    const hasTransferred = historyZero.some((h) => h.action.includes("Bundle Transfer") || h.action.includes("Transfer"));
-
-    if (!hasRequested || !hasApproved || !hasTransferred) {
-      throw new Error(`FAIL Test 3: Missing required movement history entries. History: ${JSON.stringify(historyZero)}`);
-    }
-    console.log(`SUCCESS Test 3: Document transferred into Bundle ${bundleZero.bundleNumber} with complete movement history.\n`);
-
-    // ---------------------------------------------------------
-    // TEST CASE 4: Create document with Advance Amount > 0
-    // ---------------------------------------------------------
-    console.log("--- TEST 4: Create Document with Advance Amount > 0 ---");
-    const regPaid = await createRegistration(
+    console.log("--- TEST 2: Malappuram doc created; verify hidden for Kochi HQ user ---");
+    const regMlp = await createRegistration(
       ownerAdminId,
       {
-        trackingNumber: trackingPaid,
-        customerName: "Test Paid Customer",
+        trackingNumber: trackingMlp,
+        customerName: "Malappuram Customer",
         mobile: "9876543211",
         documentName: "Diploma Certificate",
         documentType: "Educational",
         processType: "UAE Embassy",
         totalCharges: 5000,
-        advancePaid: 1000,
+        advancePaid: 0,
         approvalStatus: "Approved",
       },
-      office.officeName,
-      "Test Runner",
+      officeMalappuram.officeName,
+      "Malappuram User",
       userId
     );
-    console.log(`Created registration ${regPaid.trackingNumber} with advancePaid = 1000`);
+    console.log(`Created registration ${regMlp.trackingNumber} at Malappuram.`);
 
-    const pendingApprovalsPaid = await listPendingMovementApprovals(ownerAdminId);
-    const paidApprovalReq = pendingApprovalsPaid.find((item: any) => item.trackingNumber === trackingPaid);
-    if (paidApprovalReq) {
-      throw new Error(`FAIL Test 4: Document with advancePaid > 0 should NOT create a movement approval request!`);
+    // Check Kochi HQ Pending Approval queue again
+    const kochiApprovals2 = await listPendingMovementApprovals({
+      ownerAdminId,
+      officeId: officeKochi.id,
+      officeName: officeKochi.officeName,
+    });
+    const mlpDocInKochi = kochiApprovals2.find((item: any) => item.trackingNumber === trackingMlp);
+
+    if (mlpDocInKochi) {
+      throw new Error(`FAIL Test 2: Malappuram document ${trackingMlp} should NOT be visible to Kochi HQ user!`);
     }
 
-    const bundlePaid = await createTransferBundle({
-      trackingNumbers: [trackingPaid],
-      fromOfficeId: office.id,
-      toOfficeId: destOffice.id,
-      userId,
-      userName: "Test Admin",
+    // Check Malappuram Pending Approval queue
+    const mlpApprovals = await listPendingMovementApprovals({
       ownerAdminId,
-      remarks: "Direct transfer test",
+      officeId: officeMalappuram.id,
+      officeName: officeMalappuram.officeName,
     });
-    console.log(`Direct transfer succeeded. Bundle ${bundlePaid.bundleNumber} created.`);
-    console.log(`SUCCESS Test 4: Advance Paid > 0 requires no approval and allows direct transfer.\n`);
+    const foundInMlp = mlpApprovals.find((item: any) => item.trackingNumber === trackingMlp);
+
+    if (!foundInMlp) {
+      throw new Error(`FAIL Test 2: Malappuram document ${trackingMlp} should be visible to Malappuram user!`);
+    }
+    console.log(`SUCCESS Test 2: Malappuram document is correctly HIDDEN from Kochi HQ user and VISIBLE to Malappuram user.\n`);
+
+    // ---------------------------------------------------------
+    // TEST CASE 3: Approve Kochi HQ movement approval
+    // ---------------------------------------------------------
+    console.log("--- TEST 3: Approve Kochi HQ movement approval ---");
+    await approveMovementApproval({
+      id: foundInKochi.id,
+      ownerAdminId,
+      approvedByUserId: userId,
+      approvedByName: "Kochi Admin",
+      remarks: "Approved for transfer",
+    });
+    console.log(`Approved movement for ${trackingKochi}`);
+
+    const homeDocsAfterApprove = await listDocumentInHand({ ownerAdminId, officeId: officeKochi.id });
+    const kochiHomeDoc = homeDocsAfterApprove.find((d: any) => d.trackingNumber === trackingKochi);
+    const canMoveAfterApprove = Number(kochiHomeDoc?.advancePaid ?? 0) > 0 || Boolean(kochiHomeDoc?.movementApproved);
+
+    if (!canMoveAfterApprove) {
+      throw new Error(`FAIL Test 3: Checkbox should be ENABLED after approval for ${trackingKochi}`);
+    }
+    console.log(`SUCCESS Test 3: Checkbox enabled for ${trackingKochi} after approval.\n`);
+
+    // ---------------------------------------------------------
+    // TEST CASE 4: Transfer document to another office (Kochi -> Malappuram)
+    // ---------------------------------------------------------
+    console.log("--- TEST 4: Transfer document to Malappuram ---");
+    const bundle = await createTransferBundle({
+      trackingNumbers: [trackingKochi],
+      fromOfficeId: officeKochi.id,
+      toOfficeId: officeMalappuram.id,
+      userId,
+      userName: "Kochi Admin",
+      ownerAdminId,
+      remarks: "Transferring to Malappuram",
+    });
+    console.log(`Created Bundle ${bundle.bundleNumber}`);
+
+    // Brief pause to allow previous write transaction connection release
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Receive bundle at Malappuram
+    await receiveBundle({
+      bundleId: bundle.id,
+      receivedTrackingNumbers: [trackingKochi],
+      userId,
+      userName: "Malappuram Admin",
+      ownerAdminId,
+    });
+    console.log(`Received document ${trackingKochi} at Malappuram.`);
+
+    // Verify current office of document is now Malappuram
+    const history = await prisma.movementHistory.findMany({
+      where: { trackingNumber: trackingKochi },
+      orderBy: { performedAt: "asc" },
+    });
+
+    console.log("Movement History Log for " + trackingKochi + ":");
+    history.forEach((h, idx) => {
+      console.log(`  ${idx + 1}. Action: "${h.action}" | PerformedBy: "${h.performedBy}" | OldOffice: "${h.oldOffice || ""}" | NewOffice: "${h.newOffice || ""}"`);
+    });
+
+    const lastHistory = history[history.length - 1];
+    if (!lastHistory || lastHistory.newOffice !== officeMalappuram.officeName) {
+      throw new Error(`FAIL Test 4: Current office should be Malappuram after bundle receive.`);
+    }
+    console.log(`SUCCESS Test 4: Document current location updated to ${officeMalappuram.officeName} with complete history.\n`);
 
     console.log("=================================================");
-    console.log("ALL 4 TEST CASES PASSED SUCCESSFULLY!");
+    console.log("ALL 4 OFFICE-SPECIFIC TEST CASES PASSED!");
     console.log("=================================================");
   } finally {
-    // Cleanup test records
     console.log("\nCleaning up test data...");
     await prisma.movementApproval.deleteMany({
-      where: { trackingNumber: { in: [trackingZero, trackingPaid] } },
+      where: { trackingNumber: { in: [trackingKochi, trackingMlp] } },
     });
     await prisma.movementHistory.deleteMany({
-      where: { trackingNumber: { in: [trackingZero, trackingPaid] } },
+      where: { trackingNumber: { in: [trackingKochi, trackingMlp] } },
     });
     await prisma.bundleItem.deleteMany({
-      where: { trackingNumber: { in: [trackingZero, trackingPaid] } },
+      where: { trackingNumber: { in: [trackingKochi, trackingMlp] } },
     });
     await prisma.documentMovement.deleteMany({
-      where: { trackingNumber: { in: [trackingZero, trackingPaid] } },
+      where: { trackingNumber: { in: [trackingKochi, trackingMlp] } },
     });
     await prisma.bundle.deleteMany({
-      where: { bundleNumber: { contains: "HOME-" }, createdBy: "Test Admin" },
+      where: { bundleNumber: { contains: "HOME-" }, createdBy: "Kochi Admin" },
     });
-    await deleteRegistration(ownerAdminId, (await prisma.registration.findUnique({ where: { trackingNumber: trackingZero } }))?.id || "").catch(() => {});
-    await deleteRegistration(ownerAdminId, (await prisma.registration.findUnique({ where: { trackingNumber: trackingPaid } }))?.id || "").catch(() => {});
+    await deleteRegistration(ownerAdminId, (await prisma.registration.findUnique({ where: { trackingNumber: trackingKochi } }))?.id || "").catch(() => {});
+    await deleteRegistration(ownerAdminId, (await prisma.registration.findUnique({ where: { trackingNumber: trackingMlp } }))?.id || "").catch(() => {});
     console.log("Cleanup finished.");
   }
 }

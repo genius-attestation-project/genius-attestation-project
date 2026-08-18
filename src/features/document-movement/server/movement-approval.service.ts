@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 
-export async function listPendingMovementApprovals(ownerAdminId: string) {
+export async function listPendingMovementApprovals(
+  param: string | { ownerAdminId: string; officeId?: string; officeName?: string }
+) {
+  const ownerAdminId = typeof param === "string" ? param : param.ownerAdminId;
+  const targetOfficeId = typeof param === "string" ? undefined : param.officeId?.trim();
+  const targetOfficeName = typeof param === "string" ? undefined : param.officeName?.trim();
+
   // Ensure every registration requiring movement approval (advancePaid <= 0 & movementApproved = false)
   // has a corresponding pending MovementApproval record so both Home and Pending Approval use the same source of truth.
   const unapprovedZeroAdvanceRegs = await prisma.registration.findMany({
@@ -19,6 +25,17 @@ export async function listPendingMovementApprovals(ownerAdminId: string) {
       performedBy: "System User",
       requestedByUserId: reg.createdBy ?? undefined,
     }).catch((err) => console.error("[listPendingMovementApprovals] Reconcile error:", err));
+  }
+
+  let resolvedTargetOfficeName = targetOfficeName;
+  if (!resolvedTargetOfficeName && targetOfficeId) {
+    const off = await prisma.officeLocation.findFirst({
+      where: { id: targetOfficeId, ownerAdminId },
+      select: { officeName: true },
+    });
+    if (off?.officeName) {
+      resolvedTargetOfficeName = off.officeName.trim();
+    }
   }
 
   const items = await prisma.movementApproval.findMany({
@@ -50,10 +67,11 @@ export async function listPendingMovementApprovals(ownerAdminId: string) {
     orderBy: { requestedDate: "desc" },
   });
 
-  return items.map((item) => {
+  const mapped = items.map((item) => {
     const reg = item.registration;
     const currentMov = reg?.documentMovements?.[0];
     const currentOfficeName = currentMov?.currentOffice?.officeName || reg?.regionOfRegistration || item.currentOffice || "-";
+    const currentOfficeId = currentMov?.currentOfficeId || currentMov?.currentOffice?.id || null;
 
     return {
       id: item.id,
@@ -63,6 +81,7 @@ export async function listPendingMovementApprovals(ownerAdminId: string) {
       documentName: item.documentName || reg?.documentName || "-",
       registrationOffice: item.registrationOffice || reg?.regionOfRegistration || "-",
       currentOffice: currentOfficeName,
+      currentOfficeId,
       advanceAmount: Number(item.advanceAmount ?? reg?.advancePaid ?? 0),
       totalAmount: Number(reg?.totalCharges ?? 0),
       status: item.status,
@@ -71,6 +90,19 @@ export async function listPendingMovementApprovals(ownerAdminId: string) {
       mobile: reg?.mobile || "-",
     };
   });
+
+  if (targetOfficeId || resolvedTargetOfficeName) {
+    return mapped.filter((item) => {
+      const matchId = targetOfficeId && item.currentOfficeId && item.currentOfficeId === targetOfficeId;
+      const matchName =
+        resolvedTargetOfficeName &&
+        item.currentOffice &&
+        item.currentOffice.toLowerCase() === resolvedTargetOfficeName.toLowerCase();
+      return Boolean(matchId || matchName);
+    });
+  }
+
+  return mapped;
 }
 
 export async function createMovementApprovalRequest(params: {
@@ -151,7 +183,7 @@ export async function createMovementApprovalRequest(params: {
     });
 
     return approval;
-  });
+  }, { timeout: 20000 });
 }
 
 export async function approveMovementApproval(params: {
@@ -215,7 +247,7 @@ export async function approveMovementApproval(params: {
     });
 
     return updated;
-  });
+  }, { timeout: 20000 });
 }
 
 export async function rejectMovementApproval(params: {
@@ -275,5 +307,5 @@ export async function rejectMovementApproval(params: {
     });
 
     return updated;
-  });
+  }, { timeout: 20000 });
 }
