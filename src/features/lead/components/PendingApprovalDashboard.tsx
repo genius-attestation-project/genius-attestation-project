@@ -45,6 +45,7 @@ type MovementApprovalItem = {
   trackingNumber: string;
   customerName: string;
   documentName?: string;
+  documentType?: string;
   registrationOffice?: string;
   currentOffice?: string;
   advanceAmount: number;
@@ -552,25 +553,21 @@ export function PendingApprovalDashboard() {
             )}
 
             {activeTab === "movement_approval" && (
-              <table className="min-w-345 text-left text-sm">
+              <table className="w-full text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                   <tr>
                     <th className="px-5 py-4">Tracking Number</th>
                     <th className="px-5 py-4">Customer Name</th>
                     <th className="px-5 py-4">Document Name</th>
-                    <th className="px-5 py-4">Registration Office</th>
-                    <th className="px-5 py-4">Current Office</th>
+                    <th className="px-5 py-4">Document Type</th>
                     <th className="px-5 py-4">Advance Amount</th>
-                    <th className="px-5 py-4">Requested By</th>
-                    <th className="px-5 py-4">Requested Date</th>
-                    <th className="px-5 py-4">Status</th>
                     <th className="px-5 py-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
                   {movementApprovals.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-soft">
+                      <td colSpan={6} className="p-8 text-center text-soft">
                         No pending movement approval requests.
                       </td>
                     </tr>
@@ -587,11 +584,8 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
                           {item.documentName ? formatTitleCase(item.documentName) : "-"}
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {item.registrationOffice || "-"}
-                        </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                          {item.currentOffice || "-"}
+                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                          {item.documentType ? formatTitleCase(item.documentType) : "-"}
                         </td>
                         <td className="px-5 py-4">
                           <p className="font-extrabold text-slate-900 dark:text-white text-sm">
@@ -600,15 +594,6 @@ export function PendingApprovalDashboard() {
                           {item.totalAmount ? (
                             <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
                           ) : null}
-                        </td>
-                        <td className="px-5 py-4 text-xs font-medium text-slate-800 dark:text-slate-200">
-                          {formatTitleCase(item.requestedBy || "System User")}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-soft">
-                          {formatDate(item.requestedDate)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <StatusBadge status={item.status} />
                         </td>
                         <td className="px-5 py-4">
                           {canApproveMovement ? (
