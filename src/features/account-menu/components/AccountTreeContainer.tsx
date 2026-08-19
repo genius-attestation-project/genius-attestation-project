@@ -11,13 +11,9 @@ import { Button } from "@/components/ui/Button";
 import {
   Search,
   FolderTree,
-  TrendingUp,
-  TrendingDown,
   RefreshCw,
   Maximize2,
   Minimize2,
-  Folder,
-  FileText,
   AlertTriangle,
 } from "lucide-react";
 
@@ -145,38 +141,6 @@ export const AccountTreeContainer: React.FC = () => {
     setAuditModalOpen(true);
   };
 
-  // Tree Statistics Calculation
-  const stats = useMemo(() => {
-    let totalNodes = 0;
-    let folderNodes = 0;
-    let leafNodes = 0;
-
-    const countNodes = (nodes: AccountNode[]) => {
-      nodes.forEach((n) => {
-        totalNodes++;
-        if (n.children && n.children.length > 0) {
-          folderNodes++;
-          countNodes(n.children);
-        } else {
-          leafNodes++;
-        }
-      });
-    };
-
-    countNodes(treeData);
-
-    const creditNode = treeData.find((n) => n.name === "CREDIT" || n.type === "CREDIT");
-    const debitNode = treeData.find((n) => n.name === "DEBIT" || n.type === "DEBIT");
-
-    return {
-      totalNodes,
-      folderNodes,
-      leafNodes,
-      creditChildren: creditNode?.children?.length || 0,
-      debitChildren: debitNode?.children?.length || 0,
-    };
-  }, [treeData]);
-
   // Fuzzy recursive search filter
   const filterTree = useCallback((nodes: AccountNode[], query: string): AccountNode[] => {
     if (!query.trim()) return nodes;
@@ -204,49 +168,6 @@ export const AccountTreeContainer: React.FC = () => {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
-      {/* Header Cards & Summary Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-slate-900">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-            <FolderTree className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Accounts</p>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">{stats.totalNodes}</h3>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-slate-900">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">CREDIT Categories</p>
-            <h3 className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{stats.creditChildren}</h3>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-slate-900">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
-            <TrendingDown className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">DEBIT Categories</p>
-            <h3 className="text-xl font-bold text-rose-600 dark:text-rose-400">{stats.debitChildren}</h3>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-slate-900">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-            <FileText className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Leaf Accounts (Configured)</p>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">{stats.leafNodes}</h3>
-          </div>
-        </div>
-      </div>
-
       {/* Main Account Tree Card */}
       <div className="rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
         {/* Toolbar & Search Header */}
