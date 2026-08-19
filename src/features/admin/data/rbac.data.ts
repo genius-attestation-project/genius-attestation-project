@@ -31,7 +31,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export const permissionActions = [
-  "view", "create", "edit", "delete", "manage", "export",
+  "view", "create", "edit", "update", "delete", "settings", "manage", "export",
   "approve", "reject", "return", "request",
   "bulkApprove", "bulkReject", "bulkReturn",
   "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
@@ -175,6 +175,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         icon: Truck,
         menuPermission: "menu.master-configuration.courier-companies",
         pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Account Menu",
+        href: "/dashboard/master-configuration/account-menu",
+        icon: FolderTree,
+        menuPermission: "menu.master-configuration.account-menu",
+        pagePermission: "account_menu.view",
       },
     ],
   },
@@ -453,6 +460,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
   },
   {
+    key: "account_menu",
+    label: "Account Menu",
+    description: "Manage financial account hierarchy and settings.",
+    actions: ["view", "create", "update", "delete", "settings"]
+  },
+  {
     key: "customer_type",
     label: "Customer Type",
     description: "Customer Type master data management.",
@@ -632,6 +645,12 @@ export const defaultRoleDefinitions = [
       "menu.search-report",
       "menu.search-report.general",
 
+      "menu.master-configuration.account-menu",
+      "account_menu.view",
+      "account_menu.create",
+      "account_menu.update",
+      "account_menu.delete",
+      "account_menu.settings",
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",
