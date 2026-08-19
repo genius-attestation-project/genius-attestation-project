@@ -66,7 +66,7 @@ export async function DashboardOverview({
     });
   }
 
-  if (canAccess(permissions, isSuperAdmin, ["revenue_registration.view", "account_update.view"])) {
+  if (canAccess(permissions, isSuperAdmin, ["revenue_registration.view"])) {
     cards.push({
       label: "Revenue",
       value: `₹${Math.round(stats.totalRevenue).toLocaleString("en-IN")}`,

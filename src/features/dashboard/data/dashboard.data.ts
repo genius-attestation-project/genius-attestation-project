@@ -75,11 +75,7 @@ export const sidebarItems: SidebarItem[] = [
     href: "/dashboard/bm-report",
     icon: ChartNoAxesColumn,
   },
-  {
-    label: "Account Update",
-    href: "/dashboard/account-update",
-    icon: RefreshCw,
-  },
+
   {
     label: "Process Module",
     href: "/dashboard/process",

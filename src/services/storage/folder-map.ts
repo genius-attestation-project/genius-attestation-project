@@ -14,8 +14,7 @@ export const FOLDER_MAP: Record<string, string> = {
   "Advance Payment": "revenue",
   "Advance Payment Request": "revenue",
   "Payment Approval": "revenue",
-  "Payment Update": "revenue",
-  "Account Update": "revenue",
+
   "READY_FOR_DELIVERY": "ready-for-delivery",
   "Ready For Delivery": "ready-for-delivery",
 };

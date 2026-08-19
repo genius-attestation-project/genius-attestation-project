@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { createNotification } from "@/features/notifications/server/notification.service";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
-import { recalculateRunningBalances } from "@/features/account-update/server/account-update.service";
+import { recalculateRunningBalances } from "@/features/revenue/server/running-balance.service";
 import { prisma } from "@/lib/prisma";
 
 /**

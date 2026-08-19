@@ -280,13 +280,7 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     menuPermission: "menu.process",
     pagePermission: "process.view",
   },
-  {
-    label: "Account Update",
-    href: "/dashboard/account-update",
-    icon: RefreshCw,
-    menuPermission: "menu.account-update",
-    pagePermission: "account_update.view",
-  },
+
   {
     label: "Ready For Delivery",
     href: "/dashboard/ready-for-delivery",
@@ -512,9 +506,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
     description: "Process Module tracking access.",
     actions: ["view", "create", "edit", "delete", "complete", "reject", "transfer", "move", "manage", "export"]
   },
-  { key: "account_update", label: "Account Update", description: "Account update access." },
-  { key: "account_approval", label: "Account Approval", description: "Financial approval access." },
-  { key: "account_admin_approval", label: "Account Admin Approval", description: "Account admin approval access." },
+
   {
     key: "ready_for_delivery",
     label: "Ready For Delivery",
@@ -616,7 +608,7 @@ export const defaultRoleDefinitions = [
       "revenue_registration.import",
       "revenue_registration.downloadTemplate",
       "revenue_registration.viewImportHistory",
-      "account_update.view",
+
       "ready_for_delivery.view",
       "welcome_call.view",
       "leave.view",
@@ -639,7 +631,7 @@ export const defaultRoleDefinitions = [
       "menu.reports",
       "menu.search-report",
       "menu.search-report.general",
-      "menu.account-update",
+
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",
@@ -743,7 +735,7 @@ export const defaultRoleDefinitions = [
   },
   {
     name: "Operations",
-    description: "Operational access to delivery, approvals, and account updates.",
+    description: "Operational access to delivery and approvals.",
     isActive: true,
     permissions: [
       "dashboard.view",
@@ -752,7 +744,7 @@ export const defaultRoleDefinitions = [
       "followups.view",
       "pending_approval.view",
       "pending_approval.edit",
-      "account_update.view",
+
       "ready_for_delivery.view",
       "welcome_call.view",
       "leave.view",
@@ -763,7 +755,7 @@ export const defaultRoleDefinitions = [
       "menu.lead-management.all-leads",
       "menu.lead-management.followups",
       "menu.lead-management.pending-approval",
-      "menu.account-update",
+
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",
