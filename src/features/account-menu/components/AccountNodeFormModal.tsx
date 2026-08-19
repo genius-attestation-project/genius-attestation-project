@@ -23,26 +23,14 @@ export const AccountNodeFormModal: React.FC<AccountNodeFormModalProps> = ({
 }) => {
   const isEdit = Boolean(editingNode);
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [ledgerMapping, setLedgerMapping] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (editingNode) {
       setName(editingNode.name || "");
-      setCode(editingNode.code || "");
-      setLedgerMapping(editingNode.ledgerMapping || "");
-      setDescription(editingNode.description || "");
-      setStatus(editingNode.status ?? true);
     } else {
       setName("");
-      setCode("");
-      setLedgerMapping("");
-      setDescription("");
-      setStatus(true);
     }
     setErrorMessage("");
   }, [editingNode, parentNode, open]);
@@ -65,18 +53,10 @@ export const AccountNodeFormModal: React.FC<AccountNodeFormModalProps> = ({
       const payload = isEdit
         ? {
             name: name.trim(),
-            code: code.trim() || null,
-            ledgerMapping: ledgerMapping.trim() || null,
-            description: description.trim() || null,
-            status,
           }
         : {
             name: name.trim(),
             parentId: parentNode?.id || null,
-            code: code.trim() || null,
-            ledgerMapping: ledgerMapping.trim() || null,
-            description: description.trim() || null,
-            status,
           };
 
       const res = await fetch(url, {
@@ -110,7 +90,7 @@ export const AccountNodeFormModal: React.FC<AccountNodeFormModalProps> = ({
         isEdit
           ? `Edit "${editingNode?.name}"`
           : parentNode
-          ? `Add Child under "${parentNode.name}"`
+          ? `Add Child Under "${parentNode.name}"`
           : "Add Account Node"
       }
       description={
@@ -136,52 +116,6 @@ export const AccountNodeFormModal: React.FC<AccountNodeFormModalProps> = ({
             autoFocus
             className="rounded-xl border-slate-200/60 bg-slate-50/50 focus:bg-white dark:border-white/10 dark:bg-white/5"
           />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Account Code (Optional)"
-              placeholder="e.g. ACC-1002"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="rounded-xl border-slate-200/60 bg-slate-50/50 focus:bg-white dark:border-white/10 dark:bg-white/5"
-            />
-            <Input
-              label="Ledger Mapping (Optional)"
-              placeholder="e.g. BANK-ENBD"
-              value={ledgerMapping}
-              onChange={(e) => setLedgerMapping(e.target.value)}
-              className="rounded-xl border-slate-200/60 bg-slate-50/50 focus:bg-white dark:border-white/10 dark:bg-white/5"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-              Description
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Add optional notes or description..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 p-3 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 pt-1">
-            <input
-              type="checkbox"
-              id="nodeStatus"
-              checked={status}
-              onChange={(e) => setStatus(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label
-              htmlFor="nodeStatus"
-              className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-            >
-              Active Status
-            </label>
-          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-200/60 pt-4 dark:border-white/10">
