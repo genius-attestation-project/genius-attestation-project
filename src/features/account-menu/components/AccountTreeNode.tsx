@@ -12,7 +12,6 @@ import {
   Pencil,
   Trash2,
   Settings,
-  History,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
@@ -215,8 +214,8 @@ export const AccountTreeNode: React.FC<AccountTreeNodeProps> = ({
             </button>
           )}
 
-          {/* IMPORTANT RULE: Settings button MUST ONLY appear for Leaf Nodes (isLeafNode === true) */}
-          {isLeafNode && userPermissions.canSettings && (
+          {/* IMPORTANT RULE: Settings button MUST ONLY appear for non-root Leaf Nodes (!isRoot && isLeafNode === true) */}
+          {!isRoot && isLeafNode && userPermissions.canSettings && (
             <button
               type="button"
               onClick={(e) => {
@@ -230,19 +229,6 @@ export const AccountTreeNode: React.FC<AccountTreeNodeProps> = ({
               <span className="hidden sm:inline">Settings</span>
             </button>
           )}
-
-          {/* Audit Trail History Log Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewAudit(node);
-            }}
-            title="View History Log"
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-white/10 dark:hover:text-slate-200"
-          >
-            <History className="h-3.5 w-3.5" />
-          </button>
         </div>
       </div>
 
