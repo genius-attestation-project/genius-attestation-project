@@ -452,3 +452,189 @@ export async function getAccountNodeAuditLogs(
 
   return logs as AccountMenuAuditLogItem[];
 }
+
+/**
+ * Fetches all available offices for an ownerAdmin grouped by country / location.
+ */
+export async function getAvailableOfficesGroupedByCountry(ownerAdminId: string) {
+  const officeLocations = await db.officeLocation.findMany({
+    where: { ownerAdminId },
+    select: {
+      id: true,
+      officeName: true,
+      location: true,
+      isProcessOffice: true,
+    },
+    orderBy: [{ location: "asc" }, { officeName: "asc" }],
+  });
+
+  const map = new Map<string, { id: string; name: string; location: string; isProcessOffice: boolean }[]>();
+
+  for (const office of officeLocations) {
+    const country = office.location?.trim() || "Other";
+    if (!map.has(country)) {
+      map.set(country, []);
+    }
+    map.get(country)!.push({
+      id: office.id,
+      name: office.officeName,
+      location: country,
+      isProcessOffice: office.isProcessOffice,
+    });
+  }
+
+  const groups = Array.from(map.entries()).map(([country, offices]) => ({
+    country,
+    offices,
+  }));
+
+  return groups;
+}
+
+/**
+ * Fetches assigned office IDs for a specific account node.
+ */
+export async function getAccountOfficeAssignments(ownerAdminId: string, nodeId: string): Promise<string[]> {
+  const assignments = await db.accountOfficeAssignment.findMany({
+    where: {
+      accountNodeId: nodeId,
+      ownerAdminId,
+    },
+    select: {
+      officeId: true,
+    },
+  });
+
+  return assignments.map((a: any) => a.officeId);
+}
+
+/**
+ * Updates office assignments for a leaf account node.
+ */
+export async function updateAccountOfficeAssignments(
+  ownerAdminId: string,
+  userId: string | undefined,
+  userName: string | undefined,
+  nodeId: string,
+  officeIds: string[]
+): Promise<void> {
+  const existing = await db.accountMenu.findFirst({
+    where: { id: nodeId, ownerAdminId },
+  });
+
+  if (!existing) {
+    throw new Error("Account node not found.");
+  }
+
+  // Fetch current assignments for audit log
+  const oldAssignments = await db.accountOfficeAssignment.findMany({
+    where: { accountNodeId: nodeId, ownerAdminId },
+    select: { officeId: true },
+  });
+  const oldOfficeIds = oldAssignments.map((a: any) => a.officeId);
+
+  // Delete existing assignments for this node
+  await db.accountOfficeAssignment.deleteMany({
+    where: { accountNodeId: nodeId, ownerAdminId },
+  });
+
+  // Create new assignments
+  if (officeIds.length > 0) {
+    await db.accountOfficeAssignment.createMany({
+      data: officeIds.map((officeId) => ({
+        accountNodeId: nodeId,
+        officeId,
+        ownerAdminId,
+        createdBy: userId,
+      })),
+    });
+  }
+
+  // Audit log entry
+  await db.accountMenuAuditLog.create({
+    data: {
+      accountMenuId: nodeId,
+      nodeName: existing.name,
+      action: "OFFICE_ASSIGNMENT_UPDATE",
+      oldValue: { officeIds: oldOfficeIds },
+      newValue: { officeIds },
+      performedBy: userId,
+      performedByName: userName,
+      ownerAdminId,
+    },
+  });
+}
+
+/**
+ * Fetches the account menu tree filtered for a specific office.
+ * Implements server-side security: returns only accounts assigned to the given office
+ * plus their parent ancestor nodes.
+ */
+export async function getAssignedAccountTree(
+  ownerAdminId: string,
+  officeId?: string,
+  officeName?: string
+): Promise<AccountNode[]> {
+  await ensureAccountMenuBootstrap(ownerAdminId);
+
+  // 1. Resolve officeId if officeName is provided
+  let targetOfficeId = officeId;
+  if (!targetOfficeId && officeName) {
+    const matchedOffice = await db.officeLocation.findFirst({
+      where: {
+        ownerAdminId,
+        officeName: { equals: officeName.trim() },
+      },
+      select: { id: true },
+    });
+    if (matchedOffice) {
+      targetOfficeId = matchedOffice.id;
+    }
+  }
+
+  // Fetch all active raw nodes
+  const rawNodes = await db.accountMenu.findMany({
+    where: { ownerAdminId, status: true },
+    orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+  });
+
+  // If no officeId specified (e.g. unassigned user context), return empty tree
+  if (!targetOfficeId) {
+    return [];
+  }
+
+  // 2. Fetch assigned account node IDs for this office
+  const officeAssignments = await db.accountOfficeAssignment.findMany({
+    where: {
+      officeId: targetOfficeId,
+      ownerAdminId,
+    },
+    select: { accountNodeId: true },
+  });
+
+  const assignedNodeIds = new Set<string>(officeAssignments.map((a: any) => a.accountNodeId));
+
+  if (assignedNodeIds.size === 0) {
+    return [];
+  }
+
+  // 3. Collect assigned nodes and all their ancestor parent node IDs
+  const nodeMap = new Map<string, any>(rawNodes.map((node: any) => [node.id, node]));
+  const visibleNodeIds = new Set<string>();
+
+  for (const assignedId of assignedNodeIds) {
+    let currId: string | null = assignedId;
+    while (currId && nodeMap.has(currId)) {
+      visibleNodeIds.add(currId);
+      const currNode = nodeMap.get(currId);
+      currId = currNode.parentId;
+    }
+  }
+
+  // 4. Prune rawNodes to include only visible nodes
+  const prunedNodes = rawNodes.filter((node: any) => visibleNodeIds.has(node.id));
+
+  // 5. Build and return hierarchical tree
+  return buildTree(prunedNodes, null);
+}
+

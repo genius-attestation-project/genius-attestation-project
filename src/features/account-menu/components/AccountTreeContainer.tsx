@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import type { AccountNode } from "../types/account-menu.types";
 import { AccountTreeNode } from "./AccountTreeNode";
 import { AccountNodeFormModal } from "./AccountNodeFormModal";
-import { AccountNodeSettingsModal } from "./AccountNodeSettingsModal";
+import { OfficeAssignmentModal } from "./OfficeAssignmentModal";
 import { AccountNodeAuditModal } from "./AccountNodeAuditModal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -263,8 +263,8 @@ export const AccountTreeContainer: React.FC = () => {
         onSuccess={fetchTree}
       />
 
-      {/* Leaf Settings Modal */}
-      <AccountNodeSettingsModal
+      {/* Leaf Office Assignment Modal */}
+      <OfficeAssignmentModal
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
         node={settingsNode}

@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Settings,
+  Building2,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
@@ -214,7 +215,7 @@ export const AccountTreeNode: React.FC<AccountTreeNodeProps> = ({
             </button>
           )}
 
-          {/* IMPORTANT RULE: Settings button MUST ONLY appear for non-root Leaf Nodes (!isRoot && isLeafNode === true) */}
+          {/* Office Assignment button for non-root Leaf Nodes (!isRoot && isLeafNode === true) */}
           {!isRoot && isLeafNode && userPermissions.canSettings && (
             <button
               type="button"
@@ -222,11 +223,11 @@ export const AccountTreeNode: React.FC<AccountTreeNodeProps> = ({
                 e.stopPropagation();
                 onOpenSettings(node);
               }}
-              title="Configure Settings"
+              title="Assign Office"
               className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 shadow-xs hover:bg-purple-100 dark:border-purple-800/40 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50"
             >
-              <Settings className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-              <span className="hidden sm:inline">Settings</span>
+              <Building2 className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              <span className="hidden sm:inline">Office Assignment</span>
             </button>
           )}
         </div>

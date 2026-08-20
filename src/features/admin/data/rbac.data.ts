@@ -183,6 +183,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         menuPermission: "menu.master-configuration.account-menu",
         pagePermission: "account_menu.view",
       },
+      {
+        label: "Account Panel",
+        href: "/dashboard/account-panel",
+        icon: FolderTree,
+        menuPermission: "menu.account-panel",
+        pagePermission: "account_panel.view",
+      },
     ],
   },
   {
@@ -466,6 +473,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     actions: ["view", "create", "update", "delete", "settings"]
   },
   {
+    key: "account_panel",
+    label: "Account Panel",
+    description: "Office-based account panel access.",
+    actions: ["view"]
+  },
+  {
     key: "customer_type",
     label: "Customer Type",
     description: "Customer Type master data management.",
@@ -651,6 +664,8 @@ export const defaultRoleDefinitions = [
       "account_menu.update",
       "account_menu.delete",
       "account_menu.settings",
+      "menu.account-panel",
+      "account_panel.view",
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",
