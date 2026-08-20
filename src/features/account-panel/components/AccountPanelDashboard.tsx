@@ -16,47 +16,28 @@ export const AccountPanelDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
-
   const [activeOffice, setActiveOffice] = useState<{ id: string; name: string } | null>(null);
-  const [availableOffices, setAvailableOffices] = useState<AvailableOffice[]>([]);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  const fetchAccountPanelData = useCallback(async (officeId?: string) => {
+  const fetchAccountPanelData = useCallback(async () => {
     setLoading(true);
     try {
-      const url = officeId
-        ? `/api/account-panel?officeId=${encodeURIComponent(officeId)}`
-        : "/api/account-panel";
-
-      const res = await fetch(url);
+      const res = await fetch("/api/account-panel");
       const json = await res.json();
 
       if (res.ok) {
         setTreeData(json.tree || []);
         setActiveOffice(json.activeOffice || null);
-        setAvailableOffices(json.availableOffices || []);
-        setIsSuperAdmin(Boolean(json.isSuperAdmin));
-
-        if (json.activeOffice?.id && !selectedOfficeId) {
-          setSelectedOfficeId(json.activeOffice.id);
-        }
       }
     } catch (error) {
       console.error("Failed to fetch Account Panel tree:", error);
     } finally {
       setLoading(false);
     }
-  }, [selectedOfficeId]);
+  }, []);
 
   useEffect(() => {
     fetchAccountPanelData();
   }, [fetchAccountPanelData]);
-
-  const handleOfficeChange = (newOfficeId: string) => {
-    setSelectedOfficeId(newOfficeId);
-    fetchAccountPanelData(newOfficeId);
-  };
 
   // Collect all node IDs for Expand / Collapse All
   const getAllNodeIds = useCallback((nodes: AccountNode[]): string[] => {
@@ -139,27 +120,6 @@ export const AccountPanelDashboard: React.FC = () => {
               </p>
             </div>
           </div>
-
-          {/* Admin Office Switcher */}
-          {isSuperAdmin && availableOffices.length > 0 && (
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2 dark:border-white/10 dark:bg-white/5">
-              <ShieldCheck className="h-4 w-4 text-amber-500 ml-1" />
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 hidden sm:inline">
-                Office:
-              </span>
-              <select
-                value={selectedOfficeId}
-                onChange={(e) => handleOfficeChange(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 outline-none dark:border-white/10 dark:bg-slate-800 dark:text-white"
-              >
-                {availableOffices.map((off) => (
-                  <option key={off.id} value={off.id}>
-                    {off.name} ({off.country})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </div>
 
@@ -199,7 +159,7 @@ export const AccountPanelDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => fetchAccountPanelData(selectedOfficeId)}
+              onClick={() => fetchAccountPanelData()}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />

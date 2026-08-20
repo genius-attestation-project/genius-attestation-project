@@ -183,13 +183,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         menuPermission: "menu.master-configuration.account-menu",
         pagePermission: "account_menu.view",
       },
-      {
-        label: "Account Panel",
-        href: "/dashboard/account-panel",
-        icon: FolderTree,
-        menuPermission: "menu.account-panel",
-        pagePermission: "account_panel.view",
-      },
     ],
   },
   {
@@ -198,6 +191,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     icon: Users,
     menuPermission: "menu.assigned-office",
     pagePermission: "assigned_office.view",
+  },
+  {
+    label: "Account Panel",
+    href: "/dashboard/account-panel",
+    icon: FolderTree,
+    menuPermission: "menu.account-panel",
+    pagePermission: "account_panel.view",
   },
   {
     label: "Lead Management",
