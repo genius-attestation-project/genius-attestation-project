@@ -577,8 +577,8 @@ export async function updateAccountOfficeAssignments(
 
 /**
  * Fetches the account menu tree filtered for a specific office.
- * Implements server-side security: returns only accounts assigned to the given office
- * plus their parent ancestor nodes.
+ * Implements server-side security: returns root categories (CREDIT & DEBIT) always,
+ * plus assigned child accounts for the given office (along with their ancestor branches).
  */
 export async function getAssignedAccountTree(
   ownerAdminId: string,
@@ -608,36 +608,33 @@ export async function getAssignedAccountTree(
     orderBy: [{ createdAt: "asc" }, { name: "asc" }],
   });
 
-  // If no officeId specified (e.g. unassigned user context), return empty tree
-  if (!targetOfficeId) {
-    return [];
-  }
-
-  // 2. Fetch assigned account node IDs for this office
-  const officeAssignments = await db.accountOfficeAssignment.findMany({
-    where: {
-      officeId: targetOfficeId,
-      ownerAdminId,
-    },
-    select: { accountNodeId: true },
-  });
-
-  const assignedNodeIds = new Set<string>(officeAssignments.map((a: any) => a.accountNodeId));
-
-  if (assignedNodeIds.size === 0) {
-    return [];
-  }
-
-  // 3. Collect assigned nodes and all their ancestor parent node IDs
   const nodeMap = new Map<string, any>(rawNodes.map((node: any) => [node.id, node]));
   const visibleNodeIds = new Set<string>();
 
-  for (const assignedId of assignedNodeIds) {
-    let currId: string | null = assignedId;
-    while (currId && nodeMap.has(currId)) {
-      visibleNodeIds.add(currId);
-      const currNode = nodeMap.get(currId);
-      currId = currNode.parentId;
+  // 2. Always include Root nodes (CREDIT and DEBIT where parentId is null or category is Root)
+  for (const node of rawNodes) {
+    if (!node.parentId || node.category === "Root" || node.name === "CREDIT" || node.name === "DEBIT") {
+      visibleNodeIds.add(node.id);
+    }
+  }
+
+  // 3. If officeId is specified, collect assigned nodes and all their ancestor parent node IDs
+  if (targetOfficeId) {
+    const officeAssignments = await db.accountOfficeAssignment.findMany({
+      where: {
+        officeId: targetOfficeId,
+        ownerAdminId,
+      },
+      select: { accountNodeId: true },
+    });
+
+    for (const assignment of officeAssignments) {
+      let currId: string | null = assignment.accountNodeId;
+      while (currId && nodeMap.has(currId)) {
+        visibleNodeIds.add(currId);
+        const currNode = nodeMap.get(currId);
+        currId = currNode.parentId;
+      }
     }
   }
 
