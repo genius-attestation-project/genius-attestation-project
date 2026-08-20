@@ -64,7 +64,8 @@ export const OfficeAssignmentModal: React.FC<OfficeAssignmentModalProps> = ({
           return;
         }
 
-        const groups: CountryOfficeGroup[] = json.groupedOffices || [];
+        const rawGroups: CountryOfficeGroup[] = json.groupedOffices || [];
+        const groups = rawGroups.filter((g) => g.country !== "External Processing Office");
         setGroupedOffices(groups);
 
         const assignedIds = new Set<string>(json.assignedOfficeIds || []);

@@ -458,7 +458,13 @@ export async function getAccountNodeAuditLogs(
  */
 export async function getAvailableOfficesGroupedByCountry(ownerAdminId: string) {
   const officeLocations = await db.officeLocation.findMany({
-    where: { ownerAdminId },
+    where: {
+      ownerAdminId,
+      isProcessOffice: false,
+      NOT: {
+        location: "External Processing Office",
+      },
+    },
     select: {
       id: true,
       officeName: true,
@@ -472,6 +478,8 @@ export async function getAvailableOfficesGroupedByCountry(ownerAdminId: string) 
 
   for (const office of officeLocations) {
     const country = office.location?.trim() || "Other";
+    if (country === "External Processing Office") continue;
+
     if (!map.has(country)) {
       map.set(country, []);
     }
@@ -483,10 +491,12 @@ export async function getAvailableOfficesGroupedByCountry(ownerAdminId: string) 
     });
   }
 
-  const groups = Array.from(map.entries()).map(([country, offices]) => ({
-    country,
-    offices,
-  }));
+  const groups = Array.from(map.entries())
+    .filter(([country]) => country !== "External Processing Office")
+    .map(([country, offices]) => ({
+      country,
+      offices,
+    }));
 
   return groups;
 }
