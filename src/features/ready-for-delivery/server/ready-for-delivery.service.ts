@@ -165,8 +165,8 @@ function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQue
   }
 
   if (officeLocation) {
-    const regionMatches = normalizeText(row.regionOfRegistration) === officeLocation;
-    if (!regionMatches) {
+    const deliveryMatches = normalizeText(row.deliveryLocation) === officeLocation;
+    if (!deliveryMatches) {
       return false;
     }
   }
@@ -225,7 +225,7 @@ async function listReadyRows(ownerAdminId: string, officeLocationName: string | 
     LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
     LEFT JOIN users creator_user ON creator_user.id = r.created_by
     WHERE r.owner_admin_id = ${ownerAdminId}
-      AND (${officeLocationName} IS NULL OR LOWER(COALESCE(r.region_of_registration, '')) = LOWER(${officeLocationName}))
+      AND (${officeLocationName} IS NULL OR LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName}))
       AND COALESCE(r.delivery_status, '') != 'Delivered'
       AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
       AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
@@ -267,8 +267,8 @@ async function buildFilters(ownerAdminId: string, rows: ReadyForDeliveryRow[]): 
   const setOfOffices = new Set<string>();
 
   rows.forEach((row) => {
-    if (row.regionOfRegistration && row.regionOfRegistration.trim()) {
-      setOfOffices.add(row.regionOfRegistration.trim());
+    if (row.deliveryLocation && row.deliveryLocation.trim()) {
+      setOfOffices.add(row.deliveryLocation.trim());
     }
   });
 
@@ -284,12 +284,12 @@ async function buildFilters(ownerAdminId: string, rows: ReadyForDeliveryRow[]): 
 
   const dbRegs = await prisma.registration.findMany({
     where: { ownerAdminId },
-    distinct: ["regionOfRegistration"],
-    select: { regionOfRegistration: true },
+    distinct: ["deliveryLocation"],
+    select: { deliveryLocation: true },
   });
   dbRegs.forEach((r) => {
-    if (r.regionOfRegistration && r.regionOfRegistration.trim()) {
-      setOfOffices.add(r.regionOfRegistration.trim());
+    if (r.deliveryLocation && r.deliveryLocation.trim()) {
+      setOfOffices.add(r.deliveryLocation.trim());
     }
   });
 
@@ -305,8 +305,8 @@ function buildSections(items: ReadyForDeliveryItem[]): ReadyForDeliverySection[]
 
   for (const item of items) {
     const locName =
-      item.regionOfRegistration && item.regionOfRegistration !== "-"
-        ? item.regionOfRegistration.trim()
+      item.deliveryLocation && item.deliveryLocation !== "-"
+        ? item.deliveryLocation.trim()
         : "Unassigned";
     if (!sectionsMap.has(locName)) {
       sectionsMap.set(locName, []);
@@ -337,7 +337,7 @@ export async function listReadyForDelivery(
     where: {
       ownerAdminId,
       trackingStatus: "Delivered",
-      ...(officeLocationName ? { regionOfRegistration: officeLocationName } : {}),
+      ...(officeLocationName ? { deliveryLocation: officeLocationName } : {}),
     },
   });
 

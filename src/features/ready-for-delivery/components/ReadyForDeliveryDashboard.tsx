@@ -262,8 +262,8 @@ export function ReadyForDeliveryDashboard({
         const secMap = new Map<string, ReadyForDeliveryItem[]>();
         for (const item of fetchedItems) {
           const loc =
-            item.regionOfRegistration && item.regionOfRegistration !== "-"
-              ? item.regionOfRegistration.trim()
+            item.deliveryLocation && item.deliveryLocation !== "-"
+              ? item.deliveryLocation.trim()
               : "Unassigned";
           if (!secMap.has(loc)) secMap.set(loc, []);
           secMap.get(loc)!.push(item);
@@ -501,7 +501,7 @@ export function ReadyForDeliveryDashboard({
       <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs md:grid-cols-12 dark:border-slate-800 dark:bg-slate-900">
         <div className="md:col-span-3">
           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Registration Office
+            Delivery Location
           </label>
           <SearchableSelect
             value={officeLocation}
@@ -510,7 +510,7 @@ export function ReadyForDeliveryDashboard({
               setOfficeLocation(nextValue);
               void loadReadyForDelivery({ officeLocation: nextValue });
             }}
-            placeholder="All Registration Offices"
+            placeholder="All Delivery Locations"
           />
         </div>
 
