@@ -10,6 +10,7 @@ import {
   ChevronDown,
   TrendingUp,
   TrendingDown,
+  Plus,
 } from "lucide-react";
 
 interface AccountPanelTreeNodeProps {
@@ -18,6 +19,7 @@ interface AccountPanelTreeNodeProps {
   expandedMap: Record<string, boolean>;
   onToggleExpand: (nodeId: string) => void;
   searchQuery?: string;
+  onSelectLeafAccount?: (node: AccountNode) => void;
 }
 
 export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
@@ -26,6 +28,7 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
   expandedMap,
   onToggleExpand,
   searchQuery = "",
+  onSelectLeafAccount,
 }) => {
   const hasChildren = Boolean(node.children && node.children.length > 0);
   const isExpanded = expandedMap[node.id] ?? (level < 1 || Boolean(searchQuery.trim()));
@@ -39,14 +42,27 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
     searchQuery.trim().length > 0 &&
     node.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
 
+  const handleRowClick = () => {
+    if (!hasChildren && onSelectLeafAccount) {
+      onSelectLeafAccount(node);
+    } else if (hasChildren) {
+      onToggleExpand(node.id);
+    }
+  };
+
   return (
     <div className="select-none text-slate-800 dark:text-slate-100">
       {/* Node Row */}
       <div
+        onClick={handleRowClick}
         className={`group relative flex items-center justify-between rounded-2xl px-3.5 py-2.5 transition-all duration-150 ${
+          !hasChildren
+            ? "cursor-pointer hover:bg-blue-50/80 hover:ring-1 hover:ring-blue-300 dark:hover:bg-blue-950/30 dark:hover:ring-blue-500/40"
+            : "cursor-pointer hover:bg-slate-100/80 dark:hover:bg-white/5"
+        } ${
           matchesSearch
             ? "bg-amber-50/80 ring-1 ring-amber-300 dark:bg-amber-950/30 dark:ring-amber-500/50"
-            : "hover:bg-slate-100/80 dark:hover:bg-white/5"
+            : ""
         }`}
         style={{ paddingLeft: `${level * 24 + 14}px` }}
       >
@@ -56,7 +72,10 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
           {hasChildren ? (
             <button
               type="button"
-              onClick={() => onToggleExpand(node.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(node.id);
+              }}
               className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-200"
             >
               {isExpanded ? (
@@ -101,7 +120,7 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
                   : level === 1
                   ? "text-sm font-semibold text-slate-800 dark:text-slate-100"
                   : "text-sm font-medium text-slate-700 dark:text-slate-300"
-              }`}
+              } ${!hasChildren ? "group-hover:text-blue-600 dark:group-hover:text-blue-400" : ""}`}
             >
               {node.name}
             </span>
@@ -128,6 +147,16 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
             )}
           </div>
         </div>
+
+        {/* Right Section: Add Transaction Action Badge on Hover for Leaf Accounts */}
+        {!hasChildren && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <span className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs">
+              <Plus className="h-3 w-3" />
+              Add Transaction
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Recursive Children Rendering */}
@@ -146,6 +175,7 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
               expandedMap={expandedMap}
               onToggleExpand={onToggleExpand}
               searchQuery={searchQuery}
+              onSelectLeafAccount={onSelectLeafAccount}
             />
           ))}
         </div>
@@ -153,3 +183,4 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
     </div>
   );
 };
+

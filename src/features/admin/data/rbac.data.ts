@@ -476,7 +476,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
     key: "account_panel",
     label: "Account Panel",
     description: "Office-based account panel access.",
-    actions: ["view"]
+    actions: ["view", "create"]
   },
   {
     key: "customer_type",
@@ -666,6 +666,7 @@ export const defaultRoleDefinitions = [
       "account_menu.settings",
       "menu.account-panel",
       "account_panel.view",
+      "account_panel.create",
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",

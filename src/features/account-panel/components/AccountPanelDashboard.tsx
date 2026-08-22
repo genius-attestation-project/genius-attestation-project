@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import type { AccountNode } from "@/features/account-menu/types/account-menu.types";
 import { AccountPanelTreeNode } from "./AccountPanelTreeNode";
-import { Search, FolderTree, RefreshCw, Maximize2, Minimize2, Building2, Globe, ShieldCheck } from "lucide-react";
+import { TransactionEntryModal } from "./TransactionEntryModal";
+import { Search, FolderTree, RefreshCw, Maximize2, Minimize2, Building2 } from "lucide-react";
 
 interface AvailableOffice {
   id: string;
@@ -17,6 +18,7 @@ export const AccountPanelDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const [activeOffice, setActiveOffice] = useState<{ id: string; name: string } | null>(null);
+  const [selectedLeafAccount, setSelectedLeafAccount] = useState<AccountNode | null>(null);
 
   const fetchAccountPanelData = useCallback(async () => {
     setLoading(true);
@@ -69,6 +71,11 @@ export const AccountPanelDashboard: React.FC = () => {
     }));
   };
 
+  // Handle clicking a leaf account (node with 0 children)
+  const handleSelectLeafAccount = (node: AccountNode) => {
+    setSelectedLeafAccount(node);
+  };
+
   // Recursive search filter
   const filterTree = useCallback((nodes: AccountNode[], query: string): AccountNode[] => {
     if (!query.trim()) return nodes;
@@ -116,7 +123,7 @@ export const AccountPanelDashboard: React.FC = () => {
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Showing financial accounts assigned to your current office location.
+                Showing financial accounts assigned to your current office location. Click any leaf account to add a transaction.
               </p>
             </div>
           </div>
@@ -203,12 +210,22 @@ export const AccountPanelDashboard: React.FC = () => {
                   expandedMap={expandedMap}
                   onToggleExpand={handleToggleExpand}
                   searchQuery={searchQuery}
+                  onSelectLeafAccount={handleSelectLeafAccount}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* Transaction Entry Modal */}
+      <TransactionEntryModal
+        isOpen={Boolean(selectedLeafAccount)}
+        account={selectedLeafAccount}
+        activeOfficeName={activeOffice?.name}
+        onClose={() => setSelectedLeafAccount(null)}
+      />
     </div>
   );
 };
+

@@ -1710,6 +1710,7 @@ model AccountMenu {
   children       AccountMenu[]         @relation("AccountMenuHierarchy")
   auditLogs      AccountMenuAuditLog[]
   officeAssignments AccountOfficeAssignment[]
+  panelTransactions AccountPanelTransaction[]
 
   @@unique([name, parentId, ownerAdminId])
   @@index([ownerAdminId])
@@ -1753,3 +1754,27 @@ model AccountOfficeAssignment {
   @@index([ownerAdminId])
   @@map("account_office_assignments")
 }
+
+model AccountPanelTransaction {
+  id              String      @id @default(cuid())
+  accountId       String      @map("account_id")
+  account         AccountMenu @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  invoiceNumber   String?     @map("invoice_number")
+  billAttachment  String?     @map("bill_attachment")
+  transactionDate DateTime    @map("transaction_date")
+  amount          Decimal     @db.Decimal(12, 2)
+  narration       String?     @db.Text
+  officeId        String?     @map("office_id")
+  createdBy       String?     @map("created_by")
+  createdByName   String?     @map("created_by_name")
+  ownerAdminId    String      @map("owner_admin_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([accountId])
+  @@index([ownerAdminId])
+  @@index([officeId])
+  @@index([transactionDate])
+  @@map("account_panel_transactions")
+}
+
