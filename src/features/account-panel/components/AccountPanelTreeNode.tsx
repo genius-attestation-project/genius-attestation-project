@@ -55,9 +55,9 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
       {/* Node Row */}
       <div
         onClick={handleRowClick}
-        className={`group relative flex items-center justify-between rounded-2xl px-3.5 py-2.5 transition-all duration-150 ${
+        className={`group relative flex items-center justify-between rounded-2xl px-3.5 py-2.5 transition-all duration-200 ease-in-out border border-transparent ${
           !hasChildren
-            ? "cursor-pointer hover:bg-blue-50/80 hover:ring-1 hover:ring-blue-300 dark:hover:bg-blue-950/30 dark:hover:ring-blue-500/40"
+            ? "cursor-pointer hover:bg-blue-50/70 hover:border-blue-200/80 hover:shadow-xs dark:hover:bg-blue-950/30 dark:hover:border-blue-800/50"
             : "cursor-pointer hover:bg-slate-100/80 dark:hover:bg-white/5"
         } ${
           matchesSearch
@@ -89,7 +89,7 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
           )}
 
           {/* Node Icon */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
             {isRoot ? (
               isCredit ? (
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-xs">
@@ -107,20 +107,20 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
                 <Folder className="h-4.5 w-4.5 text-amber-500" />
               )
             ) : (
-              <FileText className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+              <FileText className="h-4 w-4 text-blue-500 dark:text-blue-400 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors duration-200" />
             )}
           </div>
 
           {/* Node Name & Metadata */}
           <div className="flex items-center gap-2.5 truncate">
             <span
-              className={`truncate font-semibold tracking-tight ${
+              className={`truncate font-semibold tracking-tight transition-colors duration-200 ${
                 isRoot
                   ? "text-base font-extrabold text-slate-900 dark:text-white"
                   : level === 1
                   ? "text-sm font-semibold text-slate-800 dark:text-slate-100"
                   : "text-sm font-medium text-slate-700 dark:text-slate-300"
-              } ${!hasChildren ? "group-hover:text-blue-600 dark:group-hover:text-blue-400" : ""}`}
+              } ${!hasChildren ? "group-hover:text-blue-700 dark:group-hover:text-blue-300" : ""}`}
             >
               {node.name}
             </span>
@@ -150,9 +150,9 @@ export const AccountPanelTreeNode: React.FC<AccountPanelTreeNodeProps> = ({
 
         {/* Right Section: Add Transaction Action Badge on Hover for Leaf Accounts */}
         {!hasChildren && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-            <span className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs">
-              <Plus className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 ease-out transform translate-x-1 group-hover:translate-x-0">
+            <span className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-colors">
+              <Plus className="h-3.5 w-3.5" />
               Add Transaction
             </span>
           </div>
