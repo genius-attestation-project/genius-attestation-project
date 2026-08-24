@@ -102,7 +102,7 @@ export const registrationInputSchema = z.object({
   leadId: optionalText,
 }).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= data.totalCharges, {
   message: "Advance payment cannot exceed Total Charges.",
-  path: ["advancePaid"],
+  path: ["requestedAdvanceAmount"],
 });
 
 export type RegistrationInput = z.infer<typeof registrationInputSchema>;

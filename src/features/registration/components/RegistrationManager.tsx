@@ -74,7 +74,8 @@ const blankForm: RegistrationFormState = {
   committedDuration: "",
   deliveryLocation: "",
   totalCharges: "",
-  advancePaid: "",
+  advancePaid: "0",
+  requestedAdvanceAmount: "0",
   paymentMode: "",
   upiTransactionId: "",
   bankName: "",
@@ -127,7 +128,8 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     committedDuration: registration.committedDuration ?? "",
     deliveryLocation: registration.deliveryLocation ?? "",
     totalCharges: String(registration.totalCharges),
-    advancePaid: String(registration.advancePaid),
+    advancePaid: String(registration.advancePaid ?? 0),
+    requestedAdvanceAmount: String((registration as any).requestedAdvanceAmount ?? 0),
     paymentMode: registration.paymentMode ?? "",
     upiTransactionId: registration.upiTransactionId ?? "",
     bankName: registration.bankName ?? "",
@@ -483,12 +485,22 @@ export function RegistrationManager({
     maxAdvancePaid: "",
   });
 
+  const approvedAdvance = useMemo(() => {
+    return selected ? Number(selected.advancePaid || 0) : 0;
+  }, [selected]);
+
+  const pendingRequestedAdvance = useMemo(() => {
+    if (selected?.advancePaymentStatus === "Pending Approval" && Number((selected as any).requestedAdvanceAmount || 0) > 0) {
+      return Number((selected as any).requestedAdvanceAmount);
+    }
+    return Number(form.requestedAdvanceAmount || 0);
+  }, [selected, form.requestedAdvanceAmount]);
+
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
-    const advance = Number(form.advancePaid || 0);
-    return Number.isNaN(total - advance) ? 0 : total - advance;
-  }, [form.advancePaid, form.totalCharges]);
-  const hasPaymentEntry = form.totalCharges.trim() !== "" || form.advancePaid.trim() !== "";
+    return Number.isNaN(total - approvedAdvance) ? 0 : Math.max(0, total - approvedAdvance);
+  }, [approvedAdvance, form.totalCharges]);
+  const hasPaymentEntry = form.totalCharges.trim() !== "";
 
   const isAdvancePaidEnabled = useMemo(() => {
     const rawVal = form.totalCharges ? String(form.totalCharges).trim() : "";
@@ -498,15 +510,15 @@ export function RegistrationManager({
 
   const computedPaymentStatus = useMemo(() => {
     const total = Number(form.totalCharges || 0);
-    const advance = Number(form.advancePaid || 0);
-    const balance = Number.isNaN(total - advance) ? 0 : total - advance;
+    const balance = Number.isNaN(total - approvedAdvance) ? 0 : Math.max(0, total - approvedAdvance);
     return calculatePaymentStatus({
       approvalStatus: form.approvalStatus || selected?.approvalStatus || "Pending",
+      advancePaymentStatus: selected?.advancePaymentStatus || "None",
       totalCharges: total,
-      advancePaid: advance,
+      advancePaid: approvedAdvance,
       balanceAmount: balance,
     });
-  }, [form.advancePaid, form.totalCharges, form.approvalStatus, selected?.approvalStatus]);
+  }, [approvedAdvance, form.totalCharges, form.approvalStatus, selected]);
 
   const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
   const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
@@ -1678,10 +1690,28 @@ export function RegistrationManager({
               placeholder="Enter amount"
               onChange={(event) => updateField("totalCharges", event.target.value)}
             />
+            {pendingRequestedAdvance > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-950/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                    Requested Advance
+                  </span>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                    Pending Approval
+                  </span>
+                </div>
+                <p className="mt-1 text-base font-extrabold text-amber-900 dark:text-amber-100">
+                  ₹ {pendingRequestedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+                <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  Does not reduce balance amount until approved by admin.
+                </p>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  Advance Paid
+                  Approved Advance
                 </span>
                 <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
                   {isAdvancePaidEnabled ? "Click to request advance" : "Enter Total Charges first"}
@@ -1692,14 +1722,6 @@ export function RegistrationManager({
                 disabled={!isAdvancePaidEnabled}
                 onClick={() => {
                   if (!isAdvancePaidEnabled) return;
-                  const tc = Number(form.totalCharges || selected?.totalCharges || 0);
-                  const adv = Number(selected ? selected.advancePaid : (form.advancePaid || 0));
-                  const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected?.balanceAmount || 0);
-                  console.log("Parent before opening modal:", {
-                    totalCharges: tc,
-                    approvedAdvance: adv,
-                    balanceAmount: bal,
-                  });
                   setIsAddAdvanceOpen(true);
                 }}
                 title={isAdvancePaidEnabled ? "Click to add an advance payment request" : "Enter Total Charges first to enable advance payment"}
@@ -1714,23 +1736,18 @@ export function RegistrationManager({
               >
                 <span className="flex items-center gap-2">
                   <span>
-                    ₹{" "}
-                    {Number(
-                      selected ? selected.advancePaid : (form.advancePaid || 0)
-                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₹ {approvedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                   {isAdvancePaidEnabled && (
                     <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
-                      <Plus size={12} /> Add Advance
+                      <Plus size={12} /> Request Advance
                     </span>
                   )}
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
                   {!isAdvancePaidEnabled
                     ? "Enter Total Charges First"
-                    : selected
-                    ? "Approved Only"
-                    : "Request Advance"}
+                    : "Approved Only"}
                 </span>
               </button>
             </div>
@@ -2034,17 +2051,14 @@ export function RegistrationManager({
           trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}
           customerName={selected?.customerName || form.customerName || "Customer"}
           totalCharges={Number(form.totalCharges || selected?.totalCharges || 0)}
-          currentApprovedAdvance={Number(selected ? selected.advancePaid : (form.advancePaid || 0))}
-          currentBalance={
-            Number(form.totalCharges || selected?.totalCharges || 0) > 0
-              ? Math.max(0, Number(form.totalCharges || selected?.totalCharges || 0) - Number(selected ? selected.advancePaid : (form.advancePaid || 0)))
-              : Number(selected?.balanceAmount || 0)
-          }
+          currentApprovedAdvance={approvedAdvance}
+          currentBalance={balanceAmount}
           personOptions={toSelectOptions(personOptions)}
           onPendingSubmit={(pendingData) => {
             setForm((prev) => ({
               ...prev,
-              advancePaid: String(pendingData.advanceAmount),
+              requestedAdvanceAmount: String(pendingData.advanceAmount),
+              advancePaid: String(approvedAdvance),
               paymentMode: pendingData.paymentMode || prev.paymentMode,
               collectedPerson: pendingData.collectedBy || prev.collectedPerson,
               ...(pendingData.upiTransactionId ? { upiTransactionId: pendingData.upiTransactionId } : {}),

@@ -19,6 +19,10 @@ const registrationInclude = {
     },
   },
   auditTrail: { orderBy: { createdAt: "desc" as const } },
+  advancePaymentApprovals: {
+    orderBy: { requestedAt: "desc" as const },
+    take: 1,
+  },
 };
 
 type RegistrationRecord = Prisma.RegistrationGetPayload<{
@@ -44,10 +48,17 @@ function mapRegistration(registration: RegistrationRecord) {
     approvedAt?: Date | null;
   };
 
+  const latestAdvanceApproval = (registration as any).advancePaymentApprovals?.[0];
+  const pendingAdvanceAmount =
+    registration.advancePaymentStatus === "Pending Approval" && latestAdvanceApproval?.status === "Pending Approval"
+      ? Number(latestAdvanceApproval.advanceAmount)
+      : 0;
+
   return {
     ...registration,
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
+    requestedAdvanceAmount: pendingAdvanceAmount,
     balanceAmount: Number(registration.balanceAmount),
     balanceReceivedAmount: Number(financeRegistration.balanceReceivedAmount ?? 0),
     subPackage: registration.subPackage ?? null,
@@ -353,8 +364,9 @@ export async function createRegistration(
     throw new Error("Office location is required to create a registration.");
   }
 
-  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
-    throw new Error("Advance Paid cannot exceed Total Charges.");
+  const requestedAdvance = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
+  if (requestedAdvance > (input.totalCharges ?? 0)) {
+    throw new Error("Advance amount cannot exceed Total Charges.");
   }
 
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
@@ -472,11 +484,11 @@ export async function createRegistration(
     bmStatus: registrationResult.bmStatus,
   });
 
-  if ((input.advancePaid ?? 0) > 0) {
+  if (requestedAdvance > 0) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: input.advancePaid ?? 0,
+      advanceAmount: requestedAdvance,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
@@ -507,8 +519,9 @@ export async function updateRegistration(
   sourceOfficeName: string,
   performedBy?: string,
 ) {
-  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
-    throw new Error("Advance Paid cannot exceed Total Charges.");
+  const requestedAdvance = Number(input.requestedAdvanceAmount ?? 0);
+  if (requestedAdvance > (input.totalCharges ?? 0)) {
+    throw new Error("Advance amount cannot exceed Total Charges.");
   }
 
   const existing = await prisma.registration.findFirst({
@@ -536,8 +549,7 @@ export async function updateRegistration(
 
   const paymentChanged =
     existing.paymentStatus !== input.paymentStatus ||
-    Number(existing.totalCharges) !== Number(input.totalCharges) ||
-    Number(existing.advancePaid) !== Number(input.advancePaid);
+    Number(existing.totalCharges) !== Number(input.totalCharges);
 
   const countryChanged =
     Boolean(input.documentIssuedCountry) &&
@@ -609,18 +621,18 @@ export async function updateRegistration(
     return reg;
   }, { timeout: 20000 });
 
-  if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
+  if (requestedAdvance > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: input.advancePaid ?? 0,
+      advanceAmount: requestedAdvance,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
       collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
-  } else if ((input.advancePaid ?? 0) <= 0 && !registrationResult.movementApproved) {
+  } else if (Number(registrationResult.advancePaid) <= 0 && !registrationResult.movementApproved) {
     await createMovementApprovalRequest({
       ownerAdminId,
       registrationId: registrationResult.id,
