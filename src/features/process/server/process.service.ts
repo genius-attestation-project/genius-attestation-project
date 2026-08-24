@@ -249,14 +249,49 @@ export async function transferProcessDocumentsToHome(params: {
     const sourceOffice = await tx.officeLocation.findFirst({
       where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
     });
-    const destOffice = await tx.officeLocation.findFirst({
+    let destOffice = await tx.officeLocation.findFirst({
       where: { id: params.toOfficeId },
     });
 
+    if (!destOffice && tx.assignedOffice) {
+      const ao = await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } });
+      if (ao) {
+        destOffice = { id: ao.id, officeName: ao.username } as any;
+      }
+    }
+
+    const destOfficeName = destOffice?.officeName || "";
     const fromOfficeId = sourceOffice?.id || params.toOfficeId;
 
+    const registrations = await tx.registration.findMany({
+      where: { trackingNumber: { in: params.trackingNumbers } },
+    });
+    const regMap = new Map<string, any>(registrations.map((r: any) => [r.trackingNumber, r]));
+
+    const inboundDocs: string[] = [];
+    const inHandDocs: string[] = [];
+    const destNameNormalized = destOfficeName.trim().toLowerCase();
+
+    for (const trackingNumber of params.trackingNumbers) {
+      const reg: any = regMap.get(trackingNumber);
+      if (!reg) continue;
+
+      const deliveryLocNormalized = (reg.deliveryLocation || "").trim().toLowerCase();
+      const isFinalDeliveryOffice =
+        Boolean(destNameNormalized) &&
+        Boolean(deliveryLocNormalized) &&
+        destNameNormalized === deliveryLocNormalized;
+
+      if (isFinalDeliveryOffice) {
+        inboundDocs.push(trackingNumber);
+      } else {
+        inHandDocs.push(trackingNumber);
+      }
+    }
+
+    // Condition 1: Destination Office == Document Delivery At -> Inbound Bundles
     let bundle: any = null;
-    if (tx.bundle) {
+    if (inboundDocs.length > 0 && tx.bundle) {
       bundle = await tx.bundle.create({
         data: {
           bundleNumber,
@@ -267,22 +302,79 @@ export async function transferProcessDocumentsToHome(params: {
           ownerAdminId: params.ownerAdminId,
         },
       });
-    }
 
-    for (const trackingNumber of params.trackingNumbers) {
-      const reg = await tx.registration.findUnique({ where: { trackingNumber } });
-      if (!reg) continue;
+      for (const trackingNumber of inboundDocs) {
+        const reg: any = regMap.get(trackingNumber);
+        if (!reg) continue;
 
-      if (bundle && tx.bundleItem) {
-        await tx.bundleItem.create({
+        if (tx.bundleItem) {
+          await tx.bundleItem.create({
+            data: {
+              bundleId: bundle.id,
+              registrationId: reg.id,
+              trackingNumber,
+              status: "Pending Receive",
+            },
+          });
+        }
+
+        await tx.documentMovement.updateMany({
+          where: { trackingNumber },
           data: {
-            bundleId: bundle.id,
-            registrationId: reg.id,
-            trackingNumber,
+            fromModule: "PROCESS_MODULE",
+            toModule: "HOME",
+            currentModule: "HOME",
+            fromOfficeId,
+            toOfficeId: params.toOfficeId,
+            currentOfficeId: params.toOfficeId,
             status: "Pending Receive",
+            bundleId: bundle.id,
+            sentAt: new Date(),
+            remarks: params.remarks,
+          } as any,
+        });
+
+        await tx.registration.update({
+          where: { trackingNumber },
+          data: {
+            trackingStatus: "In Transfer",
+            bmStatus: "Transferred",
+          },
+        });
+
+        if (tx.documentWorkflowHistory) {
+          await tx.documentWorkflowHistory.create({
+            data: {
+              documentId: reg.id,
+              trackingNumber,
+              workflowStep: "Process Transfer to Home (Inbound Bundle)",
+              status: "Pending Receive",
+              performedBy: params.userName || params.userId,
+              remarks: params.remarks || `Transferred to Home in Bundle ${bundleNumber}`,
+              ownerAdminId: params.ownerAdminId,
+            },
+          });
+        }
+
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber,
+            action: "Transfer to Home",
+            oldStatus: "IN_HAND",
+            newStatus: "Pending Receive",
+            oldOffice: sourceOffice?.officeName || null,
+            newOffice: destOfficeName || null,
+            performedBy: params.userName || params.userId,
+            remarks: `Added to Bundle ${bundleNumber}`,
           },
         });
       }
+    }
+
+    // Condition 2: Destination Office != Document Delivery At -> Document In Hand directly
+    for (const trackingNumber of inHandDocs) {
+      const reg: any = regMap.get(trackingNumber);
+      if (!reg) continue;
 
       await tx.documentMovement.updateMany({
         where: { trackingNumber },
@@ -293,8 +385,8 @@ export async function transferProcessDocumentsToHome(params: {
           fromOfficeId,
           toOfficeId: params.toOfficeId,
           currentOfficeId: params.toOfficeId,
-          status: "Pending Receive",
-          bundleId: bundle ? bundle.id : undefined,
+          status: "Document In Hand",
+          bundleId: null,
           sentAt: new Date(),
           remarks: params.remarks,
         } as any,
@@ -303,8 +395,8 @@ export async function transferProcessDocumentsToHome(params: {
       await tx.registration.update({
         where: { trackingNumber },
         data: {
-          trackingStatus: "In Transfer",
-          bmStatus: "Transferred",
+          trackingStatus: "Document In Hand",
+          bmStatus: "Document In Hand",
         },
       });
 
@@ -313,10 +405,10 @@ export async function transferProcessDocumentsToHome(params: {
           data: {
             documentId: reg.id,
             trackingNumber,
-            workflowStep: "Process Transfer to Home",
-            status: "Pending Receive",
+            workflowStep: "Process Transfer to Home (Document In Hand)",
+            status: "Document In Hand",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || `Transferred to Home in Bundle ${bundleNumber}`,
+            remarks: params.remarks || `Transferred to Document In Hand at ${destOfficeName || "Destination Office"}`,
             ownerAdminId: params.ownerAdminId,
           },
         });
@@ -327,17 +419,23 @@ export async function transferProcessDocumentsToHome(params: {
           trackingNumber,
           action: "Transfer to Home",
           oldStatus: "IN_HAND",
-          newStatus: "Pending Receive",
+          newStatus: "Document In Hand",
           oldOffice: sourceOffice?.officeName || null,
-          newOffice: destOffice?.officeName || null,
+          newOffice: destOfficeName || null,
           performedBy: params.userName || params.userId,
-          remarks: `Added to Bundle ${bundleNumber}`,
+          remarks: `Transferred directly to Document In Hand at ${destOfficeName || "Destination Office"}`,
         },
       });
     }
 
-    return { success: true, bundleNumber };
-  });
+    return {
+      success: true,
+      bundleNumber: bundle ? bundle.bundleNumber : null,
+      inboundCount: inboundDocs.length,
+      inHandCount: inHandDocs.length,
+      totalTransferred: params.trackingNumbers.length,
+    };
+  }, { timeout: 20000 });
 }
 
 export async function transferProcessDocumentsToAssignedOffice(params: {

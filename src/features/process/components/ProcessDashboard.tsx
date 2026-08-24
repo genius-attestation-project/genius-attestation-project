@@ -309,9 +309,17 @@ export function ProcessDashboard() {
 
       setSelectedTrackingNumbers([]);
       setDestinationOfficeId("");
-      setSuccessMessage(
-        `${selectedTrackingNumbers.length} document${selectedTrackingNumbers.length === 1 ? "" : "s"} transferred successfully.`
-      );
+      const data = payload.data || {};
+      let msg = `${selectedTrackingNumbers.length} document${selectedTrackingNumbers.length === 1 ? "" : "s"} transferred successfully.`;
+      if (typeof data.inboundCount === "number" && typeof data.inHandCount === "number") {
+        const parts: string[] = [];
+        if (data.inboundCount > 0) parts.push(`${data.inboundCount} to Inbound Bundles`);
+        if (data.inHandCount > 0) parts.push(`${data.inHandCount} to Document In Hand`);
+        if (parts.length > 0) {
+          msg = `Transferred ${selectedTrackingNumbers.length} document${selectedTrackingNumbers.length === 1 ? "" : "s"} (${parts.join(", ")}).`;
+        }
+      }
+      setSuccessMessage(msg);
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to transfer documents");
