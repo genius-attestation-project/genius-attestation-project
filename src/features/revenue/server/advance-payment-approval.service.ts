@@ -117,9 +117,7 @@ export async function submitAdvancePaymentApproval(args: {
     receiptFileName = registration.files[0].fileStorage.originalName;
   }
 
-  if (!receiptFileId && !receiptFileUrl) {
-    throw new Error("Proof upload is mandatory for advance payment requests.");
-  }
+  // Proof file is optional on initial submission; proof can be attached during file upload or approval.
 
   // Determine user performing action
   let performedByName = "System";
@@ -172,10 +170,11 @@ export async function submitAdvancePaymentApproval(args: {
     },
   });
 
-  // Update registration advance payment status flag ONLY
+  // Update registration advance payment status flag & requestedAdvanceAmount
   await prisma.registration.update({
     where: { id: registration.id },
     data: {
+      requestedAdvanceAmount: new Prisma.Decimal(currentApprovedAdvance + advanceAmount),
       advancePaymentStatus: "Pending Approval",
       advancePaymentRejectionReason: null,
       auditTrail: {
@@ -494,6 +493,9 @@ export async function approveAdvancePayment(args: {
     where: { id: approval.registrationId },
     data: {
       advancePaid: new Prisma.Decimal(newTotalApprovedAdvance),
+      requestedAdvanceAmount: new Prisma.Decimal(
+        Math.max(Number((reg as any)?.requestedAdvanceAmount ?? 0), newTotalApprovedAdvance)
+      ),
       balanceAmount: new Prisma.Decimal(newBalanceAmount),
       paymentStatus: newPaymentStatus,
       advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : "Approved",

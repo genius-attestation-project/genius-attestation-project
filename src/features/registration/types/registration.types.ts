@@ -39,6 +39,8 @@ export type Registration = {
   deliveryLocation: string | null;
   totalCharges: number;
   advancePaid: number;
+  requestedAdvanceAmount?: number;
+  approvedAdvanceAmount?: number;
   balanceAmount: number;
   paymentMode: string | null;
   upiTransactionId?: string | null;
@@ -113,6 +115,7 @@ export type RegistrationFormState = {
   deliveryLocation: string;
   totalCharges: string;
   advancePaid: string;
+  requestedAdvanceAmount?: string;
   paymentMode: string;
   upiTransactionId?: string;
   bankName?: string;

@@ -73,6 +73,7 @@ export const registrationInputSchema = z.object({
   deliveryLocation: requiredText("Delivery location"),
   totalCharges: numericField("Total charges", false),
   advancePaid: numericField("Advance paid", false),
+  requestedAdvanceAmount: numericField("Requested advance", false),
   paymentMode: requiredText("Payment mode"),
   upiTransactionId: optionalText,
   bankName: optionalText,
@@ -100,9 +101,9 @@ export const registrationInputSchema = z.object({
   approvalStatus: z.enum(approvalStatusOptions).optional().default("Pending"),
   trackingStatus: optionalText,
   leadId: optionalText,
-}).refine((data) => data.advancePaid <= data.totalCharges, {
-  message: "Advance Paid cannot exceed Total Charges.",
-  path: ["advancePaid"],
+}).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= data.totalCharges, {
+  message: "Requested Advance cannot exceed Total Charges.",
+  path: ["requestedAdvanceAmount"],
 });
 
 export type RegistrationInput = z.infer<typeof registrationInputSchema>;

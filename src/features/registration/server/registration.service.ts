@@ -1,6 +1,6 @@
 import { Prisma, FollowupActionType } from "@prisma/client";
 
-import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
+import { submitAdvancePaymentApproval, getApprovedAdvanceSum } from "@/features/revenue/server/advance-payment-approval.service";
 import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
 import { prisma } from "@/lib/prisma";
 import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
@@ -48,6 +48,8 @@ function mapRegistration(registration: RegistrationRecord) {
     ...registration,
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
+    requestedAdvanceAmount: Number((registration as any).requestedAdvanceAmount ?? registration.advancePaid ?? 0),
+    approvedAdvanceAmount: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
     balanceReceivedAmount: Number(financeRegistration.balanceReceivedAmount ?? 0),
     subPackage: registration.subPackage ?? null,
@@ -102,18 +104,26 @@ function mapRegistration(registration: RegistrationRecord) {
 
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 
-function buildRegistrationData(input: RegistrationInput) {
+function buildRegistrationData(
+  input: RegistrationInput,
+  options?: { approvedAdvance?: number },
+) {
   const totalCharges = new Prisma.Decimal(input.totalCharges ?? 0);
-  const advancePaid = new Prisma.Decimal(input.advancePaid ?? 0);
-  const balanceAmount = totalCharges.minus(advancePaid);
+  const reqAdv = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
+  const requestedAdvanceAmount = new Prisma.Decimal(reqAdv);
+  
+  // Approved Advance: for new registrations, starts at 0 (or options.approvedAdvance).
+  const approvedAdvance = new Prisma.Decimal(options?.approvedAdvance ?? 0);
+  const balanceAmount = Prisma.Decimal.max(new Prisma.Decimal(0), totalCharges.minus(approvedAdvance));
   const hasCommissionTarget = Boolean(
     input.commissionToUserId || input.commissionToName || input.commissionToEmail,
   );
 
   const computedPaymentStatus = calculatePaymentStatus({
     approvalStatus: input.approvalStatus || "Pending",
+    advancePaymentStatus: (input as any).advancePaymentStatus || "Pending Approval",
     totalCharges: Number(totalCharges),
-    advancePaid: Number(advancePaid),
+    advancePaid: Number(approvedAdvance),
     balanceAmount: Number(balanceAmount),
   });
 
@@ -150,7 +160,8 @@ function buildRegistrationData(input: RegistrationInput) {
     committedDuration: input.committedDuration || null,
     deliveryLocation: input.deliveryLocation || null,
     totalCharges,
-    advancePaid,
+    requestedAdvanceAmount,
+    advancePaid: approvedAdvance,
     balanceAmount,
     paymentMode: input.paymentMode || null,
     upiTransactionId: isUpi ? input.upiTransactionId || null : null,
@@ -349,8 +360,9 @@ export async function createRegistration(
     throw new Error("Office location is required to create a registration.");
   }
 
-  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
-    throw new Error("Advance Paid cannot exceed Total Charges.");
+  const requestedAdvance = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
+  if (requestedAdvance > (input.totalCharges ?? 0)) {
+    throw new Error("Requested Advance cannot exceed Total Charges.");
   }
 
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
@@ -402,10 +414,10 @@ export async function createRegistration(
     // 3. Create Revenue Registration
     const reg = await tx.registration.create({
       data: {
-        ...buildRegistrationData({
-          ...input,
-          regionOfRegistration: sourceOfficeName,
-        }),
+        ...buildRegistrationData(
+          { ...input, regionOfRegistration: sourceOfficeName },
+          { approvedAdvance: 0 },
+        ),
         welcomeCallStatus: "Pending",
         ownerAdminId,
         createdBy: userId ?? null,
@@ -468,11 +480,11 @@ export async function createRegistration(
     bmStatus: registrationResult.bmStatus,
   });
 
-  if ((input.advancePaid ?? 0) > 0) {
+  if (requestedAdvance > 0) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: input.advancePaid ?? 0,
+      advanceAmount: requestedAdvance,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
@@ -503,8 +515,9 @@ export async function updateRegistration(
   sourceOfficeName: string,
   performedBy?: string,
 ) {
-  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
-    throw new Error("Advance Paid cannot exceed Total Charges.");
+  const requestedAdvance = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
+  if (requestedAdvance > (input.totalCharges ?? 0)) {
+    throw new Error("Requested Advance cannot exceed Total Charges.");
   }
 
   const existing = await prisma.registration.findFirst({
@@ -514,6 +527,7 @@ export async function updateRegistration(
       paymentStatus: true,
       totalCharges: true,
       advancePaid: true,
+      requestedAdvanceAmount: true,
       regionOfRegistration: true,
       isBmLocked: true,
       advancePaymentStatus: true,
@@ -528,10 +542,12 @@ export async function updateRegistration(
     throw new Error("This registration is locked for BM Report processing and cannot be updated.");
   }
 
+  const approvedAdvanceSum = await getApprovedAdvanceSum(existing.id);
+
   const paymentChanged =
     existing.paymentStatus !== input.paymentStatus ||
     Number(existing.totalCharges) !== Number(input.totalCharges) ||
-    Number(existing.advancePaid) !== Number(input.advancePaid);
+    Number(existing.requestedAdvanceAmount) !== requestedAdvance;
 
   const countryChanged =
     Boolean(input.documentIssuedCountry) &&
@@ -572,10 +588,10 @@ export async function updateRegistration(
     const reg = await tx.registration.update({
       where: { id: existing.id },
       data: {
-        ...buildRegistrationData({
-          ...input,
-          regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName,
-        }),
+        ...buildRegistrationData(
+          { ...input, regionOfRegistration: existing.regionOfRegistration ?? sourceOfficeName },
+          { approvedAdvance: approvedAdvanceSum },
+        ),
         auditTrail: {
           create: [
             {
@@ -603,18 +619,18 @@ export async function updateRegistration(
     return reg;
   }, { timeout: 20000 });
 
-  if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
+  if (requestedAdvance > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: input.advancePaid ?? 0,
+      advanceAmount: requestedAdvance,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
       collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
-  } else if ((input.advancePaid ?? 0) <= 0 && !registrationResult.movementApproved) {
+  } else if (requestedAdvance <= 0 && !registrationResult.movementApproved) {
     await createMovementApprovalRequest({
       ownerAdminId,
       registrationId: registrationResult.id,
