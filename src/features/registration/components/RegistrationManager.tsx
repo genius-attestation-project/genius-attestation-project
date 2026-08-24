@@ -127,8 +127,7 @@ function formFromRegistration(registration: Registration): RegistrationFormState
     committedDuration: registration.committedDuration ?? "",
     deliveryLocation: registration.deliveryLocation ?? "",
     totalCharges: String(registration.totalCharges),
-    advancePaid: String(registration.requestedAdvanceAmount ?? registration.advancePaid),
-    requestedAdvanceAmount: String(registration.requestedAdvanceAmount ?? registration.advancePaid),
+    advancePaid: String(registration.advancePaid),
     paymentMode: registration.paymentMode ?? "",
     upiTransactionId: registration.upiTransactionId ?? "",
     bankName: registration.bankName ?? "",
@@ -484,19 +483,11 @@ export function RegistrationManager({
     maxAdvancePaid: "",
   });
 
-  const approvedAdvanceAmount = useMemo(() => {
-    return Number(selected ? selected.advancePaid : 0);
-  }, [selected]);
-
-  const requestedAdvanceAmount = useMemo(() => {
-    const fromForm = form.requestedAdvanceAmount || form.advancePaid;
-    return Number(selected ? (selected.requestedAdvanceAmount ?? selected.advancePaid) : (fromForm || 0));
-  }, [selected, form.requestedAdvanceAmount, form.advancePaid]);
-
   const balanceAmount = useMemo(() => {
     const total = Number(form.totalCharges || 0);
-    return Number.isNaN(total - approvedAdvanceAmount) ? 0 : Math.max(0, total - approvedAdvanceAmount);
-  }, [approvedAdvanceAmount, form.totalCharges]);
+    const advance = Number(form.advancePaid || 0);
+    return Number.isNaN(total - advance) ? 0 : total - advance;
+  }, [form.advancePaid, form.totalCharges]);
   const hasPaymentEntry = form.totalCharges.trim() !== "" || form.advancePaid.trim() !== "";
 
   const isAdvancePaidEnabled = useMemo(() => {
@@ -507,15 +498,15 @@ export function RegistrationManager({
 
   const computedPaymentStatus = useMemo(() => {
     const total = Number(form.totalCharges || 0);
-    const balance = Number.isNaN(total - approvedAdvanceAmount) ? 0 : Math.max(0, total - approvedAdvanceAmount);
+    const advance = Number(form.advancePaid || 0);
+    const balance = Number.isNaN(total - advance) ? 0 : total - advance;
     return calculatePaymentStatus({
       approvalStatus: form.approvalStatus || selected?.approvalStatus || "Pending",
-      advancePaymentStatus: selected?.advancePaymentStatus || (requestedAdvanceAmount > 0 ? "Pending Approval" : "None"),
       totalCharges: total,
-      advancePaid: approvedAdvanceAmount,
+      advancePaid: advance,
       balanceAmount: balance,
     });
-  }, [approvedAdvanceAmount, requestedAdvanceAmount, form.totalCharges, form.approvalStatus, selected?.approvalStatus, selected?.advancePaymentStatus]);
+  }, [form.advancePaid, form.totalCharges, form.approvalStatus, selected?.approvalStatus]);
 
   const needsDocumentFile = !hasUploadedFile(selected, "DOCUMENT");
   const needsInvoiceFile = !hasUploadedFile(selected, "INVOICE");
@@ -897,7 +888,16 @@ export function RegistrationManager({
       const parsed = registrationInputSchema.safeParse(payload);
 
       if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? "Please complete all required fields.");
+        const firstIssue = parsed.error.issues[0];
+        const fieldPath = firstIssue?.path.join(".");
+        console.error("[RegistrationManager] Form validation error:", {
+          issues: parsed.error.issues,
+          payload,
+        });
+        const errorMsg = fieldPath
+          ? `${fieldPath}: ${firstIssue.message}`
+          : firstIssue?.message ?? "Please complete all required fields.";
+        setError(errorMsg);
         return;
       }
 
@@ -1665,7 +1665,7 @@ export function RegistrationManager({
                 {selected.advancePaymentRejectionReason || "No reason specified."}
                 <br />
                 <span className="text-[11px] text-rose-600 dark:text-rose-400">
-                  Update the Advance Requested amount or upload a new receipt file to re-submit for approval.
+                  Update the Advance Paid amount or upload a new receipt file to re-submit for approval.
                 </span>
               </div>
             )}
@@ -1680,11 +1680,8 @@ export function RegistrationManager({
             />
             <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  Advance Requested
-                  <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/50">
-                    Status: {selected?.advancePaymentStatus || (requestedAdvanceAmount > 0 ? "Pending Approval" : "None")}
-                  </span>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  Advance Paid
                 </span>
                 <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
                   {isAdvancePaidEnabled ? "Click to request advance" : "Enter Total Charges first"}
@@ -1696,52 +1693,46 @@ export function RegistrationManager({
                 onClick={() => {
                   if (!isAdvancePaidEnabled) return;
                   const tc = Number(form.totalCharges || selected?.totalCharges || 0);
-                  const adv = approvedAdvanceAmount;
+                  const adv = Number(selected ? selected.advancePaid : (form.advancePaid || 0));
                   const bal = tc > 0 ? Math.max(0, tc - adv) : Number(selected?.balanceAmount || 0);
+                  console.log("Parent before opening modal:", {
+                    totalCharges: tc,
+                    approvedAdvance: adv,
+                    balanceAmount: bal,
+                  });
                   setIsAddAdvanceOpen(true);
                 }}
                 title={isAdvancePaidEnabled ? "Click to add an advance payment request" : "Enter Total Charges first to enable advance payment"}
                 className={[
                   "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
-                  "text-sm font-extrabold text-amber-700 dark:text-amber-300",
+                  "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
                   "transition-all duration-150",
                   isAdvancePaidEnabled
-                    ? "border-amber-200 bg-amber-50/60 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-amber-900/50 dark:bg-amber-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
+                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
                     : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
                 ].join(" ")}
               >
                 <span className="flex items-center gap-2">
                   <span>
                     ₹{" "}
-                    {requestedAdvanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {Number(
+                      selected ? selected.advancePaid : (form.advancePaid || 0)
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                   {isAdvancePaidEnabled && (
                     <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
-                      <Plus size={12} /> Request Advance
+                      <Plus size={12} /> Add Advance
                     </span>
                   )}
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
                   {!isAdvancePaidEnabled
                     ? "Enter Total Charges First"
-                    : selected?.advancePaymentStatus === "Approved"
-                    ? "Approved"
+                    : selected
+                    ? "Approved Only"
                     : "Request Advance"}
                 </span>
               </button>
-            </div>
-            <div className="grid gap-1.5">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                Approved Advance
-              </span>
-              <div className="flex h-12 w-full items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-2 text-sm font-extrabold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">
-                <span>
-                  ₹ {approvedAdvanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                  Confirmed Payment
-                </span>
-              </div>
             </div>
             <MultiFileUpload
               label="Advance Payment Upload"
@@ -2043,10 +2034,10 @@ export function RegistrationManager({
           trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}
           customerName={selected?.customerName || form.customerName || "Customer"}
           totalCharges={Number(form.totalCharges || selected?.totalCharges || 0)}
-          currentApprovedAdvance={approvedAdvanceAmount}
+          currentApprovedAdvance={Number(selected ? selected.advancePaid : (form.advancePaid || 0))}
           currentBalance={
             Number(form.totalCharges || selected?.totalCharges || 0) > 0
-              ? Math.max(0, Number(form.totalCharges || selected?.totalCharges || 0) - approvedAdvanceAmount)
+              ? Math.max(0, Number(form.totalCharges || selected?.totalCharges || 0) - Number(selected ? selected.advancePaid : (form.advancePaid || 0)))
               : Number(selected?.balanceAmount || 0)
           }
           personOptions={toSelectOptions(personOptions)}

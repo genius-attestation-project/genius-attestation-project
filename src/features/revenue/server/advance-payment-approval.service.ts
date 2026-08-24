@@ -170,11 +170,10 @@ export async function submitAdvancePaymentApproval(args: {
     },
   });
 
-  // Update registration advance payment status flag & requestedAdvanceAmount
+  // Update registration advance payment status flag ONLY
   await prisma.registration.update({
     where: { id: registration.id },
     data: {
-      requestedAdvanceAmount: new Prisma.Decimal(currentApprovedAdvance + advanceAmount),
       advancePaymentStatus: "Pending Approval",
       advancePaymentRejectionReason: null,
       auditTrail: {
@@ -493,9 +492,6 @@ export async function approveAdvancePayment(args: {
     where: { id: approval.registrationId },
     data: {
       advancePaid: new Prisma.Decimal(newTotalApprovedAdvance),
-      requestedAdvanceAmount: new Prisma.Decimal(
-        Math.max(Number((reg as any)?.requestedAdvanceAmount ?? 0), newTotalApprovedAdvance)
-      ),
       balanceAmount: new Prisma.Decimal(newBalanceAmount),
       paymentStatus: newPaymentStatus,
       advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : "Approved",
@@ -504,10 +500,10 @@ export async function approveAdvancePayment(args: {
       advancePaymentRejectionReason: null,
       ...(shouldAutoDeliver
         ? {
-            trackingStatus: "Delivered",
-            deliveryStatus: "Delivered",
-            bmStatus: "Delivered",
-          }
+          trackingStatus: "Delivered",
+          deliveryStatus: "Delivered",
+          bmStatus: "Delivered",
+        }
         : {}),
       auditTrail: {
         create: [
@@ -518,12 +514,12 @@ export async function approveAdvancePayment(args: {
           },
           ...(shouldAutoDeliver
             ? [
-                {
-                  action: "DELIVERED",
-                  description: `Document status automatically updated to Delivered after advance payment approval (Balance = 0).`,
-                  performedBy: approvedByName,
-                },
-              ]
+              {
+                action: "DELIVERED",
+                description: `Document status automatically updated to Delivered after advance payment approval (Balance = 0).`,
+                performedBy: approvedByName,
+              },
+            ]
             : []),
         ],
       },

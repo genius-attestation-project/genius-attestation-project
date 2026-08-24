@@ -1,26 +1,26 @@
 import { z } from "zod";
 
-// We keep system-level status options as enums because they drive hardcoded logic.
-// Master data options (Process Types, Document Types, etc.) are now fetched dynamically from the DB via the API.
-export const paymentStatusOptions = ["Pending Approval", "Unpaid", "Partially Paid", "Paid"] as const;
-export const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
+const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
 
 const optionalText = z
   .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
   .optional()
   .default("");
 
-const requiredText = (label: string, maxLen?: number) =>
-  z
+const requiredText = (label: string, maxLen?: number) => {
+  let base = z
     .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
-    .refine((val) => val.length > 0, `${label} is required.`)
-    .refine((val) => !maxLen || val.length <= maxLen, `${label} cannot exceed ${maxLen} characters.`);
+    .pipe(z.string().min(1, `${label} is required.`));
+  if (maxLen) {
+    base = base.pipe(z.string().max(maxLen, `${label} cannot exceed ${maxLen} characters.`));
+  }
+  return base;
+};
 
 const requiredEmail = (label: string) =>
   z
     .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
-    .refine((val) => val.length > 0, `${label} is required.`)
-    .refine((val) => z.string().email().safeParse(val).success, "Enter a valid email address.");
+    .pipe(z.string().min(1, `${label} is required.`).email("Enter a valid email address."));
 
 const mobileNumber = z
   .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
@@ -45,9 +45,9 @@ const numericField = (label: string, required = false) =>
       return cleaned === "" ? (required ? undefined : 0) : Number(cleaned);
     }
     return val;
-  }, z.number({ message: `${label} must be a valid number.` }).min(0, `${label} cannot be negative.`));
+  }, z.number({ invalid_type_error: `${label} must be a valid number.` }).min(0, `${label} cannot be negative.`));
 
-export const registrationInputSchema = z.object({
+const schema = z.object({
   trackingNumber: requiredText("Tracking number"),
   customerName: requiredText("Customer name"),
   mobile: mobileNumber,
@@ -96,8 +96,8 @@ export const registrationInputSchema = z.object({
   regionOfRegistration: optionalText,
   approvalStatus: z.preprocess(
     (val) => (val && approvalStatusOptions.includes(val as any) ? val : "Pending"),
-    z.enum(approvalStatusOptions),
-  ).optional().default("Pending"),
+    z.enum(approvalStatusOptions)
+  ),
   trackingStatus: optionalText,
   leadId: optionalText,
 }).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= data.totalCharges, {
@@ -105,4 +105,69 @@ export const registrationInputSchema = z.object({
   path: ["advancePaid"],
 });
 
-export type RegistrationInput = z.infer<typeof registrationInputSchema>;
+// Run test payloads
+const payloads: Record<string, any> = {
+  "Full form with nulls": {
+    trackingNumber: "REG-001",
+    customerName: "Alice",
+    mobile: "9876543210",
+    email: "alice@test.com",
+    address: "Street 1",
+    country: "India",
+    state: null,
+    city: null,
+    customerType: "Individual",
+    corporateDetailId: null,
+    documentType: "Degree",
+    documentName: "B.Sc Degree",
+    documentIssuedCountry: "India",
+    processType: "HRD",
+    subPackage: null,
+    externalProcess: "None",
+    priority: "Normal",
+    committedDuration: "5 Days",
+    deliveryLocation: "Kochi HQ",
+    totalCharges: "5000",
+    advancePaid: "500",
+    requestedAdvanceAmount: "500",
+    paymentMode: "Cash",
+    paymentStatus: "Pending Approval",
+    approvalStatus: null,
+  },
+  "Form with rupee symbols & strings": {
+    trackingNumber: "REG-002",
+    customerName: "Bob",
+    mobile: "+919876543210",
+    email: "bob@test.com",
+    address: "Street 2",
+    country: "India",
+    customerType: "Individual",
+    documentType: "Degree",
+    documentName: "M.Sc Degree",
+    documentIssuedCountry: "India",
+    processType: "MEA",
+    externalProcess: "None",
+    priority: "Normal",
+    committedDuration: "3 Days",
+    deliveryLocation: "Kochi HQ",
+    totalCharges: "₹ 5,000",
+    advancePaid: "₹ 500",
+    requestedAdvanceAmount: "₹ 500",
+    paymentMode: "Cash",
+  },
+};
+
+for (const [key, payload] of Object.entries(payloads)) {
+  const res = schema.safeParse(payload);
+  if (res.success) {
+    console.log(`[PASS] ${key}:`, {
+      totalCharges: res.data.totalCharges,
+      advancePaid: res.data.advancePaid,
+      requestedAdvanceAmount: res.data.requestedAdvanceAmount,
+      mobile: res.data.mobile,
+      approvalStatus: res.data.approvalStatus,
+    });
+  } else {
+    console.log(`[FAIL] ${key}:`, res.error.issues);
+  }
+}

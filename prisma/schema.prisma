@@ -398,7 +398,6 @@ model Registration {
   deliveryLocation       String?   @map("delivery_location")
   totalCharges           Decimal   @default(0) @map("total_charges") @db.Decimal(12, 2)
   advancePaid            Decimal   @default(0) @map("advance_paid") @db.Decimal(12, 2)
-  requestedAdvanceAmount Decimal   @default(0) @map("requested_advance_amount") @db.Decimal(12, 2)
   balanceAmount          Decimal   @default(0) @map("balance_amount") @db.Decimal(12, 2)
   balanceReceivedAmount  Decimal   @default(0) @map("balance_received_amount") @db.Decimal(12, 2)
   paymentMode            String?   @map("payment_mode")

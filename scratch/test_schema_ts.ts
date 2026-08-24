@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// We keep system-level status options as enums because they drive hardcoded logic.
-// Master data options (Process Types, Document Types, etc.) are now fetched dynamically from the DB via the API.
 export const paymentStatusOptions = ["Pending Approval", "Unpaid", "Partially Paid", "Paid"] as const;
 export const approvalStatusOptions = ["Pending", "Approved", "Accepted", "Rejected"] as const;
 

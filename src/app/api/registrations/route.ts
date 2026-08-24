@@ -91,7 +91,16 @@ export async function POST(request: NextRequest) {
     const parsed = registrationInputSchema.safeParse(body);
 
     if (!parsed.success) {
-      return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
+      const firstIssue = parsed.error.issues[0];
+      const fieldPath = firstIssue?.path.join(".");
+      console.error("[POST /api/registrations] Validation error:", {
+        issues: parsed.error.issues,
+        receivedBody: body,
+      });
+      const errorMsg = fieldPath
+        ? `${fieldPath}: ${firstIssue.message}`
+        : firstIssue?.message ?? "Invalid registration payload.";
+      return jsonError(errorMsg, 400);
     }
 
     const sourceOfficeName = await resolveOfficeLocationName({

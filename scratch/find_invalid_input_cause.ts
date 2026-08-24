@@ -1,0 +1,113 @@
+import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
+
+// Test different realistic form state scenarios
+const formScenarios: Record<string, any> = {
+  "Default blank form + user filled": {
+    trackingNumber: "REG-2026-001",
+    customerName: "Jane Doe",
+    mobile: "+919876543210",
+    email: "jane@example.com",
+    address: "123 Main St",
+    country: "India",
+    state: "Kerala",
+    city: "Kochi",
+    customerType: "Individual",
+    documentType: "Degree Certificate",
+    documentName: "B.Tech Degree",
+    documentIssuedCountry: "India",
+    processType: "HRD Attestation",
+    subPackage: "",
+    externalProcess: "None",
+    priority: "Normal",
+    committedDuration: "7 Working Days",
+    deliveryLocation: "Kochi HQ",
+    totalCharges: "5000",
+    advancePaid: "500",
+    paymentMode: "Cash",
+    upiTransactionId: "",
+    bankName: "",
+    transactionRefNo: "",
+    transferDate: "",
+    chequeNumber: "",
+    chequeDate: "",
+    ddNumber: "",
+    ddDate: "",
+    cardLast4: "",
+    approvalCode: "",
+    paymentGateway: "",
+    onlineTransactionId: "",
+    walletName: "",
+    walletTransactionId: "",
+    paymentReferenceNo: "",
+    paymentDescription: "",
+    paymentStatus: "Pending Approval",
+    collectedPerson: "Staff",
+    commissionToUserId: "",
+    commissionToName: "",
+    commissionToEmail: "",
+    registeredPerson: "Staff",
+    regionOfRegistration: "Kochi HQ",
+    approvalStatus: "Pending",
+    trackingStatus: "Registered",
+    leadId: "",
+  },
+  "Form with null values": {
+    trackingNumber: "REG-2026-002",
+    customerName: "Jane Doe",
+    mobile: "+919876543210",
+    email: "jane@example.com",
+    address: "123 Main St",
+    country: "India",
+    state: null,
+    city: null,
+    customerType: "Individual",
+    documentType: "Degree Certificate",
+    documentName: "B.Tech Degree",
+    documentIssuedCountry: "India",
+    processType: "HRD Attestation",
+    subPackage: null,
+    externalProcess: "None",
+    priority: "Normal",
+    committedDuration: "7 Working Days",
+    deliveryLocation: "Kochi HQ",
+    totalCharges: 5000,
+    advancePaid: 500,
+    paymentMode: "Cash",
+    paymentStatus: null,
+    approvalStatus: "Pending",
+  },
+  "Form with advancePaid=0": {
+    trackingNumber: "REG-2026-003",
+    customerName: "Jane Doe",
+    mobile: "+919876543210",
+    email: "jane@example.com",
+    address: "123 Main St",
+    country: "India",
+    customerType: "Individual",
+    documentType: "Degree Certificate",
+    documentName: "B.Tech Degree",
+    documentIssuedCountry: "India",
+    processType: "HRD Attestation",
+    externalProcess: "None",
+    priority: "Normal",
+    committedDuration: "7 Working Days",
+    deliveryLocation: "Kochi HQ",
+    totalCharges: "5000",
+    advancePaid: "0",
+    paymentMode: "Cash",
+    approvalStatus: "Pending",
+  },
+};
+
+for (const [name, payload] of Object.entries(formScenarios)) {
+  const result = registrationInputSchema.safeParse(payload);
+  console.log(`\n=== SCENARIO: ${name} ===`);
+  if (result.success) {
+    console.log("SUCCESS!");
+  } else {
+    console.log("ERRORS:");
+    for (const issue of result.error.issues) {
+      console.log(`  Field '${issue.path.join(".")}': code=${issue.code}, message="${issue.message}"`);
+    }
+  }
+}

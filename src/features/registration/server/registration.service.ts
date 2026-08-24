@@ -48,8 +48,6 @@ function mapRegistration(registration: RegistrationRecord) {
     ...registration,
     totalCharges: Number(registration.totalCharges),
     advancePaid: Number(registration.advancePaid),
-    requestedAdvanceAmount: Number((registration as any).requestedAdvanceAmount ?? registration.advancePaid ?? 0),
-    approvedAdvanceAmount: Number(registration.advancePaid),
     balanceAmount: Number(registration.balanceAmount),
     balanceReceivedAmount: Number(financeRegistration.balanceReceivedAmount ?? 0),
     subPackage: registration.subPackage ?? null,
@@ -109,10 +107,6 @@ function buildRegistrationData(
   options?: { approvedAdvance?: number },
 ) {
   const totalCharges = new Prisma.Decimal(input.totalCharges ?? 0);
-  const reqAdv = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
-  const requestedAdvanceAmount = new Prisma.Decimal(reqAdv);
-  
-  // Approved Advance: for new registrations, starts at 0 (or options.approvedAdvance).
   const approvedAdvance = new Prisma.Decimal(options?.approvedAdvance ?? 0);
   const balanceAmount = Prisma.Decimal.max(new Prisma.Decimal(0), totalCharges.minus(approvedAdvance));
   const hasCommissionTarget = Boolean(
@@ -160,7 +154,6 @@ function buildRegistrationData(
     committedDuration: input.committedDuration || null,
     deliveryLocation: input.deliveryLocation || null,
     totalCharges,
-    requestedAdvanceAmount,
     advancePaid: approvedAdvance,
     balanceAmount,
     paymentMode: input.paymentMode || null,
@@ -185,10 +178,10 @@ function buildRegistrationData(
     leadId: input.leadId || null,
     ...(hasCommissionTarget
       ? {
-          commissionToUserId: input.commissionToUserId || null,
-          commissionToName: input.commissionToName || null,
-          commissionToEmail: input.commissionToEmail || null,
-        }
+        commissionToUserId: input.commissionToUserId || null,
+        commissionToName: input.commissionToName || null,
+        commissionToEmail: input.commissionToEmail || null,
+      }
       : {}),
     registeredPerson: input.registeredPerson || null,
     regionOfRegistration: input.regionOfRegistration || null,
@@ -206,9 +199,9 @@ function logRegistrationWorkflow(
 
 export async function listRegistrations(
   ownerAdminId: string,
-  params: { 
-    query?: string; 
-    page?: number; 
+  params: {
+    query?: string;
+    page?: number;
     pageSize?: number;
     fromDate?: string;
     toDate?: string;
@@ -360,9 +353,8 @@ export async function createRegistration(
     throw new Error("Office location is required to create a registration.");
   }
 
-  const requestedAdvance = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
-  if (requestedAdvance > (input.totalCharges ?? 0)) {
-    throw new Error("Requested Advance cannot exceed Total Charges.");
+  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
+    throw new Error("Advance Paid cannot exceed Total Charges.");
   }
 
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
@@ -433,12 +425,12 @@ export async function createRegistration(
             },
             ...(countryChangedFromLead
               ? [
-                  {
-                    action: "Document Issued Country updated",
-                    description: `Field: Document Issued Country | Old: ${countryChangedFromLead.previous} | New: ${countryChangedFromLead.new} | Changed By: ${performedBy ?? "Current User"}`,
-                    performedBy: performedBy ?? null,
-                  },
-                ]
+                {
+                  action: "Document Issued Country updated",
+                  description: `Field: Document Issued Country | Old: ${countryChangedFromLead.previous} | New: ${countryChangedFromLead.new} | Changed By: ${performedBy ?? "Current User"}`,
+                  performedBy: performedBy ?? null,
+                },
+              ]
               : []),
           ],
         },
@@ -480,11 +472,11 @@ export async function createRegistration(
     bmStatus: registrationResult.bmStatus,
   });
 
-  if (requestedAdvance > 0) {
+  if ((input.advancePaid ?? 0) > 0) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: requestedAdvance,
+      advanceAmount: input.advancePaid ?? 0,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
@@ -515,9 +507,8 @@ export async function updateRegistration(
   sourceOfficeName: string,
   performedBy?: string,
 ) {
-  const requestedAdvance = Number(input.requestedAdvanceAmount ?? input.advancePaid ?? 0);
-  if (requestedAdvance > (input.totalCharges ?? 0)) {
-    throw new Error("Requested Advance cannot exceed Total Charges.");
+  if ((input.advancePaid ?? 0) > (input.totalCharges ?? 0)) {
+    throw new Error("Advance Paid cannot exceed Total Charges.");
   }
 
   const existing = await prisma.registration.findFirst({
@@ -527,7 +518,6 @@ export async function updateRegistration(
       paymentStatus: true,
       totalCharges: true,
       advancePaid: true,
-      requestedAdvanceAmount: true,
       regionOfRegistration: true,
       isBmLocked: true,
       advancePaymentStatus: true,
@@ -547,7 +537,7 @@ export async function updateRegistration(
   const paymentChanged =
     existing.paymentStatus !== input.paymentStatus ||
     Number(existing.totalCharges) !== Number(input.totalCharges) ||
-    Number(existing.requestedAdvanceAmount) !== requestedAdvance;
+    Number(existing.advancePaid) !== Number(input.advancePaid);
 
   const countryChanged =
     Boolean(input.documentIssuedCountry) &&
@@ -603,12 +593,12 @@ export async function updateRegistration(
             },
             ...(countryChanged
               ? [
-                  {
-                    action: "Document Issued Country updated",
-                    description: `Field: Document Issued Country | Old: ${prevCountry} | New: ${newCountry} | Changed By: ${performedBy ?? "Current User"}`,
-                    performedBy: performedBy ?? null,
-                  },
-                ]
+                {
+                  action: "Document Issued Country updated",
+                  description: `Field: Document Issued Country | Old: ${prevCountry} | New: ${newCountry} | Changed By: ${performedBy ?? "Current User"}`,
+                  performedBy: performedBy ?? null,
+                },
+              ]
               : []),
           ],
         },
@@ -619,18 +609,18 @@ export async function updateRegistration(
     return reg;
   }, { timeout: 20000 });
 
-  if (requestedAdvance > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
+  if ((input.advancePaid ?? 0) > 0 && (paymentChanged || existing.advancePaymentStatus === "Rejected" || existing.advancePaymentStatus === "None")) {
     await submitAdvancePaymentApproval({
       ownerAdminId,
       registrationId: registrationResult.id,
-      advanceAmount: requestedAdvance,
+      advanceAmount: input.advancePaid ?? 0,
       paymentDate: new Date(),
       paymentMode: input.paymentMode || "Cash",
       referenceNumber: input.transactionRefNo || input.upiTransactionId || null,
       collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
-  } else if (requestedAdvance <= 0 && !registrationResult.movementApproved) {
+  } else if ((input.advancePaid ?? 0) <= 0 && !registrationResult.movementApproved) {
     await createMovementApprovalRequest({
       ownerAdminId,
       registrationId: registrationResult.id,

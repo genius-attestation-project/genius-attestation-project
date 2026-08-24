@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     for (const docName of newDocTypes) {
       const trimmedName = String(docName).trim();
       if (!trimmedName) continue;
-      
+
       const categoryName = (newDocTypesMap[docName] || "General").trim().slice(0, 100) || "General";
 
       let categoryRecord = await (prisma as any).documentTypeCategory.findFirst({
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       const data = rowObj.data;
       const subPkgName = String(data["Sub Package"] || data["sub_package"] || "").trim();
       const procTypeName = String(data["Service/Process Type*"] || data["Service/Process Type"] || "").trim();
-      
+
       if (!subPkgName) continue;
 
       let subPkg = await (prisma as any).subPackage.findFirst({
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
     let successfulRows = 0;
     let failedRows = 0;
     let skippedRows = 0;
-    
+
     // 2. Process Rows
     for (const rowObj of rows) {
       if (rowObj.status === "Error" || rowObj.resolutionAction === "Skip") {
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
 
       const data = rowObj.data;
       let trackingNumber = data["Tracking Number"] || `IMP-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-      
+
       const payload: any = {
         trackingNumber,
         customerName: data["Customer Name*"] || data["Customer Name"],
@@ -172,8 +172,7 @@ export async function POST(req: NextRequest) {
         committedDuration: data["Committed Duration"] || null,
         deliveryLocation: data["Delivery Location"] || null,
         totalCharges: parseFloat(data["Total Charges*"] || data["Total Charges"] || "0"),
-        requestedAdvanceAmount: parseFloat(data["Advance Paid"] || "0"),
-        advancePaid: data["Advance Payment Status"] === "Approved" || data["Approval Status"] === "Approved" ? parseFloat(data["Advance Paid"] || "0") : 0,
+        advancePaid: parseFloat(data["Advance Paid"] || "0"),
         paymentMode: data["Payment Mode"] || null,
         paymentStatus: data["Payment Status"] || "Pending",
         financeApprovalStatus: data["Finance Approval Status"] || "Pending",
@@ -194,9 +193,9 @@ export async function POST(req: NextRequest) {
         importedAt: importedAt,
         originalRowNumber: rowObj.rowNumber,
       };
-      
+
       payload.balanceAmount = payload.totalCharges - payload.advancePaid;
-      
+
       try {
         if (rowObj.resolutionAction === "Update") {
           await prisma.registration.update({
@@ -207,7 +206,7 @@ export async function POST(req: NextRequest) {
               createdBy: undefined
             }
           });
-          
+
           await prisma.auditTrail.create({
             data: {
               registrationId: (await prisma.registration.findUnique({ where: { trackingNumber } }))!.id,
@@ -216,18 +215,18 @@ export async function POST(req: NextRequest) {
               performedBy: importedBy
             }
           });
-          
+
           successfulRows++;
         } else {
           // "Create" or "Duplicate"
           if (rowObj.resolutionAction === "Duplicate") {
-             // Generate a new tracking number suffix to avoid unique constraint error
-             trackingNumber = `${trackingNumber}-DUP-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
-             payload.trackingNumber = trackingNumber;
+            // Generate a new tracking number suffix to avoid unique constraint error
+            trackingNumber = `${trackingNumber}-DUP-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
+            payload.trackingNumber = trackingNumber;
           }
-          
+
           const createdReg = await prisma.registration.create({ data: payload });
-          
+
           await prisma.auditTrail.create({
             data: {
               registrationId: createdReg.id,
@@ -245,7 +244,7 @@ export async function POST(req: NextRequest) {
               requestedByUserId: importedBy,
             }).catch((err) => console.error("[import] Movement approval creation error:", err));
           }
-          
+
           successfulRows++;
         }
       } catch (err: any) {
