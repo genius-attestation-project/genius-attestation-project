@@ -8,54 +8,110 @@ function formatDate(date: Date) {
   return `${day}/${month}/${year}`;
 }
 
-export async function getProcessStats(ownerAdminId: string, officeLocationName: string, processType?: string): Promise<ProcessStats> {
-  const baseWhere: any = {
+export function buildProcessWhereClause(
+  ownerAdminId: string,
+  officeLocationName?: string,
+  processType?: string,
+  tab?: "inhand" | "inbound" | "completed" | "rejected" | "outbound" | "bundle" | "total"
+) {
+  const where: any = {
     registration: { ownerAdminId },
   };
 
   if (processType && processType !== "All") {
-    baseWhere.registration.processType = processType;
+    where.registration.processType = processType;
   }
 
-  const [inHand, inbound, completed, rejected, outbound, total] = await Promise.all([
-    prisma.documentMovement.count({
-      where: {
-        ...baseWhere,
-        currentModule: "PROCESS_MODULE",
-        status: { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] },
-      },
-    }),
-    prisma.documentMovement.count({
-      where: {
-        ...baseWhere,
-        currentModule: "PROCESS_MODULE",
-        status: { in: ["INBOUND", "Pending Receive", "Pending"] },
-      },
-    }),
-    prisma.documentMovement.count({
-      where: {
-        ...baseWhere,
-        currentModule: "PROCESS_MODULE",
-        status: "COMPLETED",
-      },
-    }),
-    prisma.documentMovement.count({
-      where: {
-        ...baseWhere,
-        currentModule: "PROCESS_MODULE",
-        status: "REJECTED",
-      },
-    }),
-    prisma.documentMovement.count({
-      where: {
-        ...baseWhere,
+  const officeFilter = officeLocationName
+    ? [
+        { currentOffice: { officeName: officeLocationName } },
+        { toOffice: { officeName: officeLocationName } },
+      ]
+    : null;
+
+  if (tab === "inbound") {
+    where.currentModule = "PROCESS_MODULE";
+    where.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  } else if (tab === "inhand") {
+    where.currentModule = "PROCESS_MODULE";
+    where.status = { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] };
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  } else if (tab === "completed") {
+    where.currentModule = "PROCESS_MODULE";
+    where.status = "COMPLETED";
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  } else if (tab === "rejected") {
+    where.currentModule = "PROCESS_MODULE";
+    where.status = "REJECTED";
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  } else if (tab === "outbound") {
+    where.AND = [
+      {
         OR: [
           { currentModule: { not: "PROCESS_MODULE" } },
-          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED"] } },
+          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED", "Pending Receive", "INBOUND"] } },
         ],
       },
+      {
+        OR: [
+          {
+            fromOffice: {
+              ownerAdminId,
+              ...(officeLocationName ? { officeName: officeLocationName } : {}),
+            },
+          },
+          {
+            bundle: {
+              ownerAdminId,
+            },
+          },
+        ],
+      },
+    ];
+  } else if (tab === "bundle") {
+    where.bundleId = { not: null };
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  } else {
+    // Total / default
+    if (officeFilter) {
+      where.OR = officeFilter;
+    }
+  }
+
+  return where;
+}
+
+export async function getProcessStats(ownerAdminId: string, officeLocationName: string, processType?: string): Promise<ProcessStats> {
+  const [inHand, inbound, completed, rejected, outbound, total] = await Promise.all([
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "inhand"),
     }),
-    prisma.documentMovement.count({ where: baseWhere }),
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "inbound"),
+    }),
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "completed"),
+    }),
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "rejected"),
+    }),
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "outbound"),
+    }),
+    prisma.documentMovement.count({
+      where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "total"),
+    }),
   ]);
 
   return { inbound, inHand, completed, rejected, outbound, total };
@@ -68,66 +124,17 @@ export async function listProcessAssignments(
   tab?: string,
   currentOfficeName?: string
 ) {
-  const whereClause: any = {
-    registration: { ownerAdminId },
-  };
+  const targetOfficeName = currentOfficeName || officeLocationName;
+  const rawTab = (tab || "inhand").toLowerCase().replace("_", "");
 
-  if (processType && processType !== "All") {
-    whereClause.registration.processType = processType;
-  }
+  let mapTab: "inhand" | "inbound" | "completed" | "rejected" | "outbound" | "bundle" | "total" = "inhand";
+  if (rawTab === "inbound") mapTab = "inbound";
+  else if (rawTab === "outbound") mapTab = "outbound";
+  else if (rawTab === "completed") mapTab = "completed";
+  else if (rawTab === "rejected") mapTab = "rejected";
+  else if (rawTab === "bundle") mapTab = "bundle";
 
-  if (tab === "inbound") {
-    whereClause.currentModule = "PROCESS_MODULE";
-    whereClause.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
-    if (currentOfficeName) {
-      whereClause.OR = [
-        { currentOffice: { officeName: currentOfficeName } },
-        { toOffice: { officeName: currentOfficeName } },
-      ];
-    }
-  } else if (tab === "outbound") {
-    // Scope to documents that were transferred FROM the current process office.
-    // The document movement's fromOffice should match the user's office so that
-    // only this office's outbound records appear — not records from other offices.
-    whereClause.AND = [
-      {
-        OR: [
-          { currentModule: { not: "PROCESS_MODULE" } },
-          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED", "Pending Receive", "INBOUND"] } },
-        ],
-      },
-      {
-        // Only show movements whose sending office belongs to this ownerAdminId.
-        // The fromOffice relation ensures we only see records originating here.
-        OR: [
-          {
-            fromOffice: {
-              ownerAdminId,
-              ...(currentOfficeName ? { officeName: currentOfficeName } : {}),
-            },
-          },
-          // Fallback: include bundled documents where bundle was created by this org
-          {
-            bundle: {
-              ownerAdminId,
-            },
-          },
-        ],
-      },
-    ];
-  } else if (tab === "bundle") {
-    whereClause.bundleId = { not: null };
-  } else {
-    // Default: 'in_hand'
-    whereClause.currentModule = "PROCESS_MODULE";
-    whereClause.status = { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] };
-    if (currentOfficeName) {
-      whereClause.OR = [
-        { currentOffice: { officeName: currentOfficeName } },
-        { toOffice: { officeName: currentOfficeName } },
-      ];
-    }
-  }
+  const whereClause = buildProcessWhereClause(ownerAdminId, targetOfficeName, processType, mapTab);
 
   const movements = await (prisma as any).documentMovement.findMany({
     where: whereClause,
