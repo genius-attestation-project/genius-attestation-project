@@ -79,6 +79,12 @@ export async function listProcessAssignments(
   if (tab === "inbound") {
     whereClause.currentModule = "PROCESS_MODULE";
     whereClause.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
+    if (currentOfficeName) {
+      whereClause.OR = [
+        { currentOffice: { officeName: currentOfficeName } },
+        { toOffice: { officeName: currentOfficeName } },
+      ];
+    }
   } else if (tab === "outbound") {
     // Scope to documents that were transferred FROM the current process office.
     // The document movement's fromOffice should match the user's office so that
@@ -115,6 +121,12 @@ export async function listProcessAssignments(
     // Default: 'in_hand'
     whereClause.currentModule = "PROCESS_MODULE";
     whereClause.status = { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] };
+    if (currentOfficeName) {
+      whereClause.OR = [
+        { currentOffice: { officeName: currentOfficeName } },
+        { toOffice: { officeName: currentOfficeName } },
+      ];
+    }
   }
 
   const movements = await (prisma as any).documentMovement.findMany({
