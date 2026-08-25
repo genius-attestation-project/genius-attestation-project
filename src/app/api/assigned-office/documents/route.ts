@@ -60,12 +60,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    if (action === "back_to_process" || action === "reject_transfer") {
-      const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
-      const result = await createTransferBundle({
+    if (action === "back_to_process") {
+      const { trackingNumbers, officeId, remarks } = body;
+      const { transferBackToProcess } = await import("@/features/assigned-office/server/assigned-office.service");
+      const result = await transferBackToProcess({
         trackingNumbers,
-        fromOfficeId: fromOfficeId || currentUser.officeId || currentUser.officeLocationId,
-        toOfficeId,
+        officeId: officeId || currentUser.officeId || currentUser.officeLocationId,
         userId: currentUser.id,
         userName: currentUser.name || undefined,
         ownerAdminId: currentUser.ownerAdminId,

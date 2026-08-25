@@ -65,6 +65,13 @@ export async function POST(request: NextRequest) {
 
     if (action === "TRANSFER_TO_ASSIGNED_OFFICE") {
       if (!targetOfficeId) return jsonError("Target Assigned Office required", 400);
+      const { resolveOfficeLocationId } = await import("@/lib/office-location");
+      const userOfficeLocationId = await resolveOfficeLocationId({
+        ownerAdminId,
+        officeLocationName: officeLocationName || undefined,
+        officeLocationId: session?.user?.officeLocationId,
+        userId,
+      });
       const result = await transferProcessDocumentsToAssignedOffice({
         trackingNumbers: targetList,
         targetAssignedOfficeId: targetOfficeId,
@@ -72,6 +79,7 @@ export async function POST(request: NextRequest) {
         userName,
         ownerAdminId,
         remarks,
+        fromOfficeId: userOfficeLocationId || undefined,
       });
       return jsonOk({ success: true, data: result });
     }
