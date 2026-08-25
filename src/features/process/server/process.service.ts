@@ -252,6 +252,7 @@ export async function transferProcessDocumentsToHome(params: {
   userName?: string;
   ownerAdminId: string;
   remarks?: string;
+  fromOfficeId?: string;
 }) {
   if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
     throw new Error("No documents selected.");
@@ -265,9 +266,6 @@ export async function transferProcessDocumentsToHome(params: {
   const bundleNumber = `HOME-PROC-${dateStr}-${randomSuffix}`;
 
   return prisma.$transaction(async (tx: any) => {
-    const sourceOffice = await tx.officeLocation.findFirst({
-      where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
-    });
     let destOffice = await tx.officeLocation.findFirst({
       where: { id: params.toOfficeId },
     });
@@ -280,17 +278,25 @@ export async function transferProcessDocumentsToHome(params: {
     }
 
     const destOfficeName = destOffice?.officeName || "";
-    const fromOfficeId = sourceOffice?.id || params.toOfficeId;
 
-    const registrations = await tx.registration.findMany({
+    const movements = await tx.documentMovement.findMany({
       where: { trackingNumber: { in: params.trackingNumbers } },
+      include: { currentOffice: true, fromOffice: true },
     });
-    const regMap = new Map<string, any>(registrations.map((r: any) => [r.trackingNumber, r]));
+    const movementMap = new Map<string, any>(movements.map((m: any) => [m.trackingNumber, m]));
+
+    // Determine primary source office ID from the first movement or params
+    const firstMov = movements[0];
+    const defaultFromOfficeId = params.fromOfficeId || firstMov?.currentOfficeId || firstMov?.toOfficeId || params.toOfficeId;
+
+    let sourceOffice = await tx.officeLocation.findFirst({
+      where: { id: defaultFromOfficeId },
+    });
 
     const bundle = await tx.bundle.create({
       data: {
         bundleNumber,
-        fromOfficeId,
+        fromOfficeId: defaultFromOfficeId,
         toOfficeId: params.toOfficeId,
         status: "Pending Receive",
         createdBy: params.userName || params.userId,
@@ -298,9 +304,17 @@ export async function transferProcessDocumentsToHome(params: {
       },
     });
 
+    const registrations = await tx.registration.findMany({
+      where: { trackingNumber: { in: params.trackingNumbers } },
+    });
+    const regMap = new Map<string, any>(registrations.map((r: any) => [r.trackingNumber, r]));
+
     for (const trackingNumber of params.trackingNumbers) {
       const reg: any = regMap.get(trackingNumber);
       if (!reg) continue;
+
+      const docMov = movementMap.get(trackingNumber);
+      const docFromOfficeId = docMov?.currentOfficeId || docMov?.toOfficeId || defaultFromOfficeId;
 
       if (tx.bundleItem) {
         await tx.bundleItem.create({
@@ -319,7 +333,7 @@ export async function transferProcessDocumentsToHome(params: {
           fromModule: "PROCESS_MODULE",
           toModule: "HOME",
           currentModule: "HOME",
-          fromOfficeId,
+          fromOfficeId: docFromOfficeId,
           toOfficeId: params.toOfficeId,
           currentOfficeId: params.toOfficeId,
           status: "Pending Receive",
@@ -358,8 +372,8 @@ export async function transferProcessDocumentsToHome(params: {
           action: "Transfer to Home",
           oldStatus: "Document In Hand",
           newStatus: "Pending Receive",
-          oldOffice: sourceOffice?.officeName || null,
-          newOffice: destOfficeName || null,
+          oldOffice: docMov?.currentOffice?.officeName || sourceOffice?.officeName || "Process Office",
+          newOffice: destOfficeName || "Home Office",
           performedBy: params.userName || params.userId,
           remarks: `Added to Bundle ${bundleNumber}`,
         },
@@ -381,6 +395,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
   userName?: string;
   ownerAdminId: string;
   remarks?: string;
+  fromOfficeId?: string;
 }) {
   if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
     throw new Error("No documents selected.");
@@ -390,13 +405,22 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
   }
 
   return prisma.$transaction(async (tx: any) => {
-    const sourceOffice = await tx.officeLocation.findFirst({
-      where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
-    });
     const targetOffice = await tx.officeLocation.findFirst({
       where: { id: params.targetAssignedOfficeId },
     });
-    const fromOfficeId = sourceOffice?.id || params.targetAssignedOfficeId;
+
+    const movements = await tx.documentMovement.findMany({
+      where: { trackingNumber: { in: params.trackingNumbers } },
+      include: { currentOffice: true, fromOffice: true },
+    });
+    const movementMap = new Map<string, any>(movements.map((m: any) => [m.trackingNumber, m]));
+
+    const firstMov = movements[0];
+    const defaultFromOfficeId = params.fromOfficeId || firstMov?.currentOfficeId || firstMov?.toOfficeId || params.targetAssignedOfficeId;
+
+    let sourceOffice = await tx.officeLocation.findFirst({
+      where: { id: defaultFromOfficeId },
+    });
 
     // 1. Identify if selected tracking numbers belong to an existing bundle
     const existingMovement = await tx.documentMovement.findFirst({
@@ -421,7 +445,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
       await tx.bundle.update({
         where: { id: bundle.id },
         data: {
-          fromOfficeId,
+          fromOfficeId: defaultFromOfficeId,
           toOfficeId: params.targetAssignedOfficeId,
           status: "Pending Receive",
         },
@@ -459,7 +483,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
       bundle = await tx.bundle.create({
         data: {
           bundleNumber,
-          fromOfficeId,
+          fromOfficeId: defaultFromOfficeId,
           toOfficeId: params.targetAssignedOfficeId,
           status: "Pending Receive",
           createdBy: params.userName || params.userId,
@@ -479,17 +503,20 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
       const reg = await tx.registration.findUnique({ where: { trackingNumber } });
       if (!reg) continue;
 
+      const docMov = movementMap.get(trackingNumber);
+      const docSenderOfficeId = docMov?.currentOfficeId || docMov?.toOfficeId || defaultFromOfficeId;
+
       await tx.documentMovement.updateMany({
         where: { trackingNumber },
         data: {
           fromModule: "PROCESS_MODULE",
           toModule: "ASSIGNED_OFFICE",
           currentModule: "ASSIGNED_OFFICE",
-          fromOfficeId,
+          fromOfficeId: docSenderOfficeId,
           toOfficeId: params.targetAssignedOfficeId,
           currentOfficeId: params.targetAssignedOfficeId,
-          originalProcessOfficeId: fromOfficeId,
-          returnOfficeId: fromOfficeId,
+          originalProcessOfficeId: docSenderOfficeId,
+          returnOfficeId: docSenderOfficeId,
           status: "INBOUND",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -518,8 +545,8 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           action: "Transfer to Assigned Office",
           oldStatus: "IN_HAND",
           newStatus: "Pending Receive",
-          oldOffice: sourceOffice?.officeName || null,
-          newOffice: targetOffice?.officeName || null,
+          oldOffice: docMov?.currentOffice?.officeName || sourceOffice?.officeName || "Process Office",
+          newOffice: targetOffice?.officeName || "Assigned Office",
           performedBy: params.userName || params.userId,
           remarks: params.remarks || `Added to Bundle ${bundle.bundleNumber}`,
         },

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
 import { resolveOfficeLocationId } from "@/lib/office-location";
+import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 function logHomeWorkflow(message: string, payload: Record<string, unknown>) {
   console.info(`[home] ${message}`, payload);
@@ -64,7 +65,6 @@ export async function getHomeStats(ownerAdminId: string, officeLocationName: str
   const movements = await prisma.documentMovement.findMany({
     where: {
       registration: { ownerAdminId },
-      currentModule: "REGISTRATION",
     },
     select: {
       status: true,
@@ -78,16 +78,16 @@ export async function getHomeStats(ownerAdminId: string, officeLocationName: str
 
   return movements.reduce<HomeStats>(
     (stats, mov) => {
-      if (mov.currentOfficeId === officeId && mov.status === "INBOUND") {
+      if (mov.currentOfficeId === officeId && (mov.status === "INBOUND" || mov.status === "INBOUND_PENDING" || mov.status === "Pending Receive")) {
         stats.totalInward += 1;
         stats.pendingInward += 1;
       }
 
-      if (mov.fromOfficeId === officeId && mov.currentOfficeId !== officeId && mov.status === "INBOUND") {
+      if (mov.fromOfficeId === officeId && mov.currentOfficeId !== officeId && (mov.status === "INBOUND" || mov.status === "INBOUND_PENDING" || mov.status === "Pending Receive")) {
         stats.totalOutward += 1;
       }
 
-      if (mov.currentOfficeId === officeId && mov.status === "HOME" && mov.acceptedAt && isSameDay(mov.acceptedAt, today)) {
+      if (mov.currentOfficeId === officeId && (mov.status === "HOME" || mov.status === "Received" || mov.status === "Document In Hand") && mov.acceptedAt && isSameDay(mov.acceptedAt, today)) {
         stats.acceptedToday += 1;
       }
 
@@ -104,9 +104,8 @@ export async function listHomeInward(ownerAdminId: string, officeLocationName: s
   const movements = await prisma.documentMovement.findMany({
     where: {
       registration: { ownerAdminId },
-      currentModule: "REGISTRATION",
       currentOfficeId: officeId,
-      status: "INBOUND",
+      status: { in: ["INBOUND", "INBOUND_PENDING", "Pending Receive", "Pending"] },
     },
     include: {
       registration: true,
@@ -125,9 +124,9 @@ export async function listHomeInHand(ownerAdminId: string, officeLocationName: s
   const movements = await prisma.documentMovement.findMany({
     where: {
       registration: { ownerAdminId },
-      currentModule: "REGISTRATION",
       currentOfficeId: officeId,
-      status: "HOME",
+      status: { in: ["HOME", "Received", "Document In Hand", "IN_HAND"] },
+      currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package", "Ready for Delivery", "READY_FOR_DELIVERY"] },
     },
     include: {
       registration: true,
@@ -147,7 +146,7 @@ export async function listHomeOutward(ownerAdminId: string, officeLocationName: 
     where: {
       registration: { ownerAdminId },
       fromOfficeId: officeId,
-      status: "INBOUND",
+      status: { in: ["INBOUND", "INBOUND_PENDING", "Pending Receive"] },
     },
     include: {
       registration: true,
@@ -177,9 +176,8 @@ export async function acceptHomeRegistration(params: {
     const movement = await tx.documentMovement.findFirst({
       where: {
         registrationId: params.id,
-        currentModule: "REGISTRATION",
         currentOfficeId: officeId,
-        status: "INBOUND",
+        status: { in: ["INBOUND", "INBOUND_PENDING", "Pending Receive"] },
         registration: { ownerAdminId: params.ownerAdminId },
       },
       include: { registration: true },
@@ -191,6 +189,8 @@ export async function acceptHomeRegistration(params: {
       where: { trackingNumber: movement.trackingNumber },
       data: {
         status: "HOME",
+        currentModule: "HOME",
+        currentStatus: "Document In Hand",
         acceptedAt: new Date(),
         acceptedBy: params.acceptedByName ?? params.acceptedByUserId,
       },
@@ -200,7 +200,7 @@ export async function acceptHomeRegistration(params: {
       data: {
         trackingNumber: movement.trackingNumber,
         action: "Accepted",
-        oldStatus: "INBOUND",
+        oldStatus: movement.status,
         newStatus: "HOME",
         oldOffice: params.officeLocationName,
         newOffice: params.officeLocationName,
@@ -250,9 +250,8 @@ export async function markReadyForDelivery(params: {
     const movement = await tx.documentMovement.findFirst({
       where: {
         registrationId: params.id,
-        currentModule: "REGISTRATION",
         currentOfficeId: officeId,
-        status: "HOME",
+        status: { in: ["HOME", "Received", "Document In Hand", "IN_HAND"] },
         registration: { ownerAdminId: params.ownerAdminId },
       },
       include: { registration: true },
@@ -260,12 +259,34 @@ export async function markReadyForDelivery(params: {
 
     if (!movement) throw new Error("Document movement not found in HOME.");
 
+    const reg = movement.registration;
+    const deliveryLoc = (reg?.deliveryLocation || "").trim().toLowerCase();
+    const currentLoc = params.officeLocationName.trim().toLowerCase();
+
+    if (deliveryLoc && deliveryLoc !== currentLoc) {
+      throw new Error(`Cannot mark ready for delivery: Delivery Location is ${reg?.deliveryLocation}, but current receiving office is ${params.officeLocationName}.`);
+    }
+
+    const mainProcessCheck = await verifyCoreSubProcessCompleted(movement.trackingNumber, params.ownerAdminId);
+    if (!mainProcessCheck.isCompleted) {
+      throw new Error(`Cannot mark ready for delivery: Main Process is not completed.`);
+    }
+
     const updated = await tx.documentMovement.update({
       where: { trackingNumber: movement.trackingNumber },
       data: {
-        status: "READY_FOR_DELIVERY",
+        status: "Ready for Delivery",
         currentModule: "READY_FOR_DELIVERY",
+        currentStatus: "READY_FOR_DELIVERY",
         updatedAt: new Date(),
+      },
+    });
+
+    await tx.registration.update({
+      where: { trackingNumber: movement.trackingNumber },
+      data: {
+        trackingStatus: "Ready for Delivery",
+        bmStatus: "Ready for Delivery",
       },
     });
 
@@ -273,8 +294,8 @@ export async function markReadyForDelivery(params: {
       data: {
         trackingNumber: movement.trackingNumber,
         action: "Ready For Delivery",
-        oldStatus: "HOME",
-        newStatus: "READY_FOR_DELIVERY",
+        oldStatus: movement.status,
+        newStatus: "Ready for Delivery",
         oldOffice: params.officeLocationName,
         newOffice: params.officeLocationName,
         performedBy: params.performedByName ?? params.performedByUserId,

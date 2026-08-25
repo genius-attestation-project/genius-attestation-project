@@ -1060,6 +1060,19 @@ export async function receiveBundleDocuments(params: {
               },
             });
 
+            await tx.movementHistory.create({
+              data: {
+                trackingNumber: item.trackingNumber,
+                action: "Automatic Ready For Delivery Route",
+                oldStatus: "Pending Receive",
+                newStatus: "Ready for Delivery",
+                oldOffice: bundle.fromOffice?.officeName || null,
+                newOffice: receivingOfficeName,
+                performedBy: params.userName || params.userId,
+                remarks: `Received into Ready For Delivery from Bundle ${bundle.bundleNumber}`,
+              },
+            });
+
             await tx.auditTrail.create({
               data: {
                 registrationId: reg.id,
@@ -1091,6 +1104,19 @@ export async function receiveBundleDocuments(params: {
                 performedBy: params.userName || params.userId,
                 remarks: `Received into Document In Hand from Bundle ${bundle.bundleNumber}`,
                 ownerAdminId: params.ownerAdminId,
+              },
+            });
+
+            await tx.movementHistory.create({
+              data: {
+                trackingNumber: item.trackingNumber,
+                action: "Bundle Receive",
+                oldStatus: "Pending Receive",
+                newStatus: "Document In Hand",
+                oldOffice: bundle.fromOffice?.officeName || null,
+                newOffice: receivingOfficeName,
+                performedBy: params.userName || params.userId,
+                remarks: `Received from Bundle ${bundle.bundleNumber}`,
               },
             });
           }
@@ -1283,6 +1309,12 @@ export async function processSubPackageDocumentAction(params: {
   }
 
   return prisma.$transaction(async (tx: any) => {
+    const office = params.officeId ? await tx.officeLocation.findFirst({
+      where: { OR: [{ id: params.officeId }, { officeName: params.officeId }] },
+      select: { officeName: true },
+    }) : null;
+    const currentOfficeName = office?.officeName || "Assigned Office";
+
     for (const movementId of params.movementIds) {
       const subMov = await tx.subPackageMovement.findUnique({
         where: { id: movementId },
@@ -1326,6 +1358,19 @@ export async function processSubPackageDocumentAction(params: {
           },
         });
 
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber: subMov.trackingNumber,
+            action: "Sub Package Completed",
+            oldStatus: "In Sub Package",
+            newStatus: "Completed",
+            oldOffice: currentOfficeName,
+            newOffice: currentOfficeName,
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || "Sub Package processing completed",
+          },
+        });
+
         await tx.auditTrail.create({
           data: {
             registrationId: reg.id,
@@ -1360,6 +1405,19 @@ export async function processSubPackageDocumentAction(params: {
             performedBy: params.userName || params.userId,
             remarks: params.remarks || "Returned during sub package processing",
             ownerAdminId: params.ownerAdminId,
+          },
+        });
+
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber: subMov.trackingNumber,
+            action: "Sub Package Return",
+            oldStatus: "In Sub Package",
+            newStatus: "Returned",
+            oldOffice: currentOfficeName,
+            newOffice: currentOfficeName,
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || "Returned during sub package processing",
           },
         });
 
@@ -1399,6 +1457,19 @@ export async function processSubPackageDocumentAction(params: {
             performedBy: params.userName || params.userId,
             remarks: rejectionReason,
             ownerAdminId: params.ownerAdminId,
+          },
+        });
+
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber: subMov.trackingNumber,
+            action: "Sub Package Rejected",
+            oldStatus: "In Sub Package",
+            newStatus: "Rejected",
+            oldOffice: currentOfficeName,
+            newOffice: currentOfficeName,
+            performedBy: params.userName || params.userId,
+            remarks: rejectionReason,
           },
         });
 
