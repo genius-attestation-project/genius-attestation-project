@@ -1,24 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { StatementFilters } from "./StatementFilters";
-import { StatementTotals } from "./StatementTotals";
+import { EmptyState } from "./EmptyState";
 import { DebitSection } from "./DebitSection";
 import { CreditSection } from "./CreditSection";
 import { TransactionProofViewer } from "./TransactionProofViewer";
 import { EditTransactionModal } from "./EditTransactionModal";
 import type { AccountStatementsData, AccountStatementItem } from "../types/account-statements.types";
+import { AlertCircle } from "lucide-react";
 
 export const AccountStatementsPage: React.FC = () => {
-  const [office, setOffice] = useState("All");
+  const [office, setOffice] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationWarning, setValidationWarning] = useState<string | null>(null);
 
   const [data, setData] = useState<AccountStatementsData>({
-    office: "All Offices",
+    office: "",
     fromDate: "",
     toDate: "",
     openingBalance: 0,
@@ -45,13 +48,21 @@ export const AccountStatementsPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchStatements = useCallback(async () => {
+    // Validate mandatory parameters
+    if (!office || office === "All" || !fromDate || !toDate) {
+      setValidationWarning("Please select an Office, From Date, and To Date before searching.");
+      return;
+    }
+
+    setValidationWarning(null);
     setLoading(true);
     setError(null);
+
     try {
       const params = new URLSearchParams();
-      if (office && office !== "All") params.set("office", office);
-      if (fromDate) params.set("fromDate", fromDate);
-      if (toDate) params.set("toDate", toDate);
+      params.set("office", office);
+      params.set("fromDate", fromDate);
+      params.set("toDate", toDate);
       if (search) params.set("search", search);
 
       const res = await fetch(`/api/account-statements?${params.toString()}`, {
@@ -64,6 +75,7 @@ export const AccountStatementsPage: React.FC = () => {
       }
 
       setData(json);
+      setHasSearched(true);
     } catch (err: any) {
       console.error("Failed to fetch statements:", err);
       setError(err?.message || "Failed to fetch account statements.");
@@ -72,15 +84,34 @@ export const AccountStatementsPage: React.FC = () => {
     }
   }, [office, fromDate, toDate, search]);
 
-  useEffect(() => {
-    fetchStatements();
-  }, [fetchStatements]);
-
   const handleResetFilters = () => {
-    setOffice("All");
+    setOffice("");
     setFromDate("");
     setToDate("");
     setSearch("");
+    setHasSearched(false);
+    setValidationWarning(null);
+    setError(null);
+    setData({
+      office: "",
+      fromDate: "",
+      toDate: "",
+      openingBalance: 0,
+      credit: {
+        advances: [],
+        advancesTotal: 0,
+        moreAdvances: [],
+        moreAdvancesTotal: 0,
+        panelCredits: [],
+        panelCreditsTotal: 0,
+        creditTotal: 0,
+      },
+      debit: {
+        groups: [],
+        debitTotal: 0,
+      },
+      cashInHand: 0,
+    });
   };
 
   const handlePrint = () => {
@@ -116,9 +147,19 @@ export const AccountStatementsPage: React.FC = () => {
           fromDate={fromDate}
           toDate={toDate}
           search={search}
-          onOfficeChange={setOffice}
-          onFromDateChange={setFromDate}
-          onToDateChange={setToDate}
+          hasSearched={hasSearched}
+          onOfficeChange={(val) => {
+            setOffice(val);
+            if (validationWarning) setValidationWarning(null);
+          }}
+          onFromDateChange={(val) => {
+            setFromDate(val);
+            if (validationWarning) setValidationWarning(null);
+          }}
+          onToDateChange={(val) => {
+            setToDate(val);
+            if (validationWarning) setValidationWarning(null);
+          }}
           onSearchChange={setSearch}
           onApplyFilters={fetchStatements}
           onResetFilters={handleResetFilters}
@@ -127,10 +168,13 @@ export const AccountStatementsPage: React.FC = () => {
         />
       </div>
 
-      {/* Metric Summary Cards */}
-      <div className="print:hidden">
-        <StatementTotals data={data} />
-      </div>
+      {/* Mandatory Validation Warning */}
+      {validationWarning && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-300 animate-in fade-in">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>{validationWarning}</span>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl bg-red-50 p-4 text-xs font-semibold text-red-600 dark:bg-red-950/60 dark:text-red-300">
@@ -138,27 +182,31 @@ export const AccountStatementsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Dual-Column Statement Grid: Debit Left, Credit Right */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
-        {/* Left Column: Debit Side */}
-        <DebitSection
-          groups={data.debit.groups}
-          debitTotal={data.debit.debitTotal}
-          onViewProof={(item) => setViewingProofItem(item)}
-          onEdit={(item) => setEditingItem(item)}
-          onDelete={(item) => setDeletingItem(item)}
-        />
+      {/* Main View Area: Initial Empty State vs Dual Column Statement Tables */}
+      {!hasSearched ? (
+        <EmptyState />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+          {/* Left Column: Debit Side */}
+          <DebitSection
+            groups={data.debit.groups}
+            debitTotal={data.debit.debitTotal}
+            onViewProof={(item) => setViewingProofItem(item)}
+            onEdit={(item) => setEditingItem(item)}
+            onDelete={(item) => setDeletingItem(item)}
+          />
 
-        {/* Right Column: Credit Side */}
-        <CreditSection
-          creditData={data.credit}
-          openingBalance={data.openingBalance}
-          cashInHand={data.cashInHand}
-          onViewProof={(item) => setViewingProofItem(item)}
-          onEdit={(item) => setEditingItem(item)}
-          onDelete={(item) => setDeletingItem(item)}
-        />
-      </div>
+          {/* Right Column: Credit Side */}
+          <CreditSection
+            creditData={data.credit}
+            openingBalance={data.openingBalance}
+            cashInHand={data.cashInHand}
+            onViewProof={(item) => setViewingProofItem(item)}
+            onEdit={(item) => setEditingItem(item)}
+            onDelete={(item) => setDeletingItem(item)}
+          />
+        </div>
+      )}
 
       {/* Proof Viewer Modal */}
       <TransactionProofViewer

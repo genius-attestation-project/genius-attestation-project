@@ -13,6 +13,7 @@ interface StatementFiltersProps {
   fromDate: string;
   toDate: string;
   search: string;
+  hasSearched?: boolean;
   onOfficeChange: (office: string) => void;
   onFromDateChange: (date: string) => void;
   onToDateChange: (date: string) => void;
@@ -28,6 +29,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
   fromDate,
   toDate,
   search,
+  hasSearched = false,
   onOfficeChange,
   onFromDateChange,
   onToDateChange,
@@ -73,30 +75,32 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onPrint}
-          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer"
-        >
-          <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          Print / Export
-        </button>
+        {hasSearched && (
+          <button
+            type="button"
+            onClick={onPrint}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer"
+          >
+            <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            Print / Export
+          </button>
+        )}
       </div>
 
       {/* Main Filter Controls */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 items-end">
-        {/* Office Dropdown */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
+        {/* Office Dropdown (Strict Real Offices Only) */}
         <div className="space-y-1.5 lg:col-span-1">
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-blue-500" />
-            Office
+            Office *
           </label>
           <select
             value={office}
             onChange={(e) => onOfficeChange(e.target.value)}
             className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
-            <option value="All">All Offices</option>
+            <option value="">Select Office...</option>
             {offices.map((off) => (
               <option key={off.id} value={off.officeName}>
                 {off.officeName}
@@ -109,7 +113,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
         <div className="space-y-1.5 lg:col-span-1">
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Calendar className="h-3.5 w-3.5 text-blue-500" />
-            From Date
+            From Date *
           </label>
           <input
             type="date"
@@ -123,27 +127,12 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
         <div className="space-y-1.5 lg:col-span-1">
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Calendar className="h-3.5 w-3.5 text-blue-500" />
-            To Date
+            To Date *
           </label>
           <input
             type="date"
             value={toDate}
             onChange={(e) => onToDateChange(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
-          />
-        </div>
-
-        {/* Search Input */}
-        <div className="space-y-1.5 lg:col-span-1">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Search className="h-3.5 w-3.5 text-blue-500" />
-            Search
-          </label>
-          <input
-            type="text"
-            placeholder="Search invoice, person, item..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
             className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
         </div>
@@ -170,6 +159,22 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Conditional Post-Search Filter Input Box */}
+      {hasSearched && (
+        <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Filter loaded transactions by invoice, person, or narration..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/80 pl-10 pr-4 py-2 text-xs font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

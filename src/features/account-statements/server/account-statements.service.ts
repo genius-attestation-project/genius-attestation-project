@@ -20,9 +20,33 @@ export async function getAccountStatements(
   const officeFilter = office && office !== "All" && office !== "Select Office" ? office.trim() : null;
   const searchFilter = search ? search.trim().toLowerCase() : null;
 
+  // Enforce mandatory parameters: office, fromDate, and toDate
+  if (!officeFilter || !fromDate || !toDate) {
+    return {
+      office: officeFilter || "",
+      fromDate: fromDate || "",
+      toDate: toDate || "",
+      openingBalance: 0,
+      credit: {
+        advances: [],
+        advancesTotal: 0,
+        moreAdvances: [],
+        moreAdvancesTotal: 0,
+        panelCredits: [],
+        panelCreditsTotal: 0,
+        creditTotal: 0,
+      },
+      debit: {
+        groups: [],
+        debitTotal: 0,
+      },
+      cashInHand: 0,
+    };
+  }
+
   // Build Date filters
-  const dateFrom = fromDate ? new Date(fromDate) : null;
-  const dateTo = toDate ? new Date(`${toDate}T23:59:59.999Z`) : null;
+  const dateFrom = new Date(fromDate);
+  const dateTo = new Date(`${toDate}T23:59:59.999Z`);
 
   // ----------------------------------------------------
   // 1. Fetch APPROVED Advance Payments (Status = 'Approved')

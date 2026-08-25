@@ -31,6 +31,30 @@ export async function GET(request: Request) {
       );
     }
 
+    const { office, fromDate, toDate } = parseResult.data;
+    if (!office || office === "All" || !fromDate || !toDate) {
+      return NextResponse.json({
+        office: office || "",
+        fromDate: fromDate || "",
+        toDate: toDate || "",
+        openingBalance: 0,
+        credit: {
+          advances: [],
+          advancesTotal: 0,
+          moreAdvances: [],
+          moreAdvancesTotal: 0,
+          panelCredits: [],
+          panelCreditsTotal: 0,
+          creditTotal: 0,
+        },
+        debit: {
+          groups: [],
+          debitTotal: 0,
+        },
+        cashInHand: 0,
+      });
+    }
+
     const data = await getAccountStatements(ownerAdminId, parseResult.data);
     return NextResponse.json(data);
   } catch (error: any) {
