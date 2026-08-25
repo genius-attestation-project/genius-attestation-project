@@ -114,3 +114,80 @@ export async function getAccountTransactions(
 
   return transactions;
 }
+
+/**
+ * Updates an existing Account Panel transaction.
+ */
+export async function updateAccountPanelTransaction(
+  ownerAdminId: string,
+  transactionId: string,
+  data: {
+    amount?: number;
+    transactionDate?: string | Date;
+    invoiceNumber?: string | null;
+    narration?: string | null;
+    billAttachment?: string | null;
+  }
+) {
+  const transaction = await db.accountPanelTransaction.findFirst({
+    where: { id: transactionId, ownerAdminId },
+  });
+
+  if (!transaction) {
+    throw new Error("Account panel transaction not found.");
+  }
+
+  const updateData: any = {};
+  if (data.amount !== undefined) {
+    const amt = Number(data.amount);
+    if (isNaN(amt) || amt <= 0) throw new Error("Amount must be greater than zero.");
+    updateData.amount = amt;
+  }
+  if (data.transactionDate !== undefined) {
+    updateData.transactionDate = new Date(data.transactionDate);
+  }
+  if (data.invoiceNumber !== undefined) {
+    updateData.invoiceNumber = data.invoiceNumber?.trim() || null;
+  }
+  if (data.narration !== undefined) {
+    updateData.narration = data.narration?.trim() || null;
+  }
+  if (data.billAttachment !== undefined) {
+    updateData.billAttachment = data.billAttachment?.trim() || null;
+  }
+
+  const updated = await db.accountPanelTransaction.update({
+    where: { id: transactionId },
+    data: updateData,
+    include: {
+      account: {
+        select: { id: true, name: true, type: true },
+      },
+    },
+  });
+
+  return updated;
+}
+
+/**
+ * Deletes an existing Account Panel transaction.
+ */
+export async function deleteAccountPanelTransaction(
+  ownerAdminId: string,
+  transactionId: string
+) {
+  const transaction = await db.accountPanelTransaction.findFirst({
+    where: { id: transactionId, ownerAdminId },
+  });
+
+  if (!transaction) {
+    throw new Error("Account panel transaction not found.");
+  }
+
+  await db.accountPanelTransaction.delete({
+    where: { id: transactionId },
+  });
+
+  return { success: true };
+}
+

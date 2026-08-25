@@ -200,6 +200,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     pagePermission: "account_panel.view",
   },
   {
+    label: "Account Statements",
+    href: "/dashboard/account-statements",
+    icon: BadgeDollarSign,
+    menuPermission: "menu.account-statements",
+    pagePermission: "account_statements.view",
+  },
+  {
     label: "Lead Management",
     href: "/dashboard/lead-management",
     icon: Users,
@@ -595,6 +602,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     description: "Advance Payment Approval workflow permissions.",
     actions: ["view", "approve", "reject", "view_receipt"]
   },
+  {
+    key: "account_statements",
+    label: "Account Statements",
+    description: "Account Statements and financial ledger reporting access.",
+    actions: ["view", "edit", "delete", "export"]
+  },
 ];
 
 export const defaultRoleDefinitions = [
@@ -667,6 +680,11 @@ export const defaultRoleDefinitions = [
       "menu.account-panel",
       "account_panel.view",
       "account_panel.create",
+      "menu.account-statements",
+      "account_statements.view",
+      "account_statements.edit",
+      "account_statements.delete",
+      "account_statements.export",
       "menu.ready-for-delivery",
       "menu.welcome-call",
       "menu.leave-management",
