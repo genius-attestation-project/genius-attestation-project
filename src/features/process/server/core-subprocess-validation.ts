@@ -57,7 +57,73 @@ export async function verifyMainProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // 1. First, check overall document movement / assignment status if marked COMPLETED / Ready for Delivery
+  // 1. Check if any sub-package movement for this tracking number is pending or in progress
+  const pendingSubMovements = await (prisma as any).subPackageMovement.findMany({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      ownerAdminId,
+      status: { notIn: ["Completed", "COMPLETED"] },
+    },
+  });
+
+  if (pendingSubMovements.length > 0) {
+    return {
+      isCompleted: false,
+      processType: processTypeName || null,
+      message: `Document has ${pendingSubMovements.length} pending sub-process(es). All sub-processes must be completed before delivery.`,
+    };
+  }
+
+  // 2. Query Master Configuration for configured sub-packages
+  if (processTypeName) {
+    const masterProcessType = await prisma.masterData.findFirst({
+      where: {
+        type: "PROCESS_TYPES",
+        name: processTypeName,
+        ownerAdminId,
+      },
+      include: {
+        subPackages: true,
+      },
+    });
+
+    if (masterProcessType) {
+      const completedSubMovements = await (prisma as any).subPackageMovement.findMany({
+        where: {
+          trackingNumber: registration.trackingNumber,
+          ownerAdminId,
+          status: { in: ["Completed", "COMPLETED"] },
+        },
+        select: { subPackageId: true },
+      });
+
+      const completedSubPkgIds = new Set(completedSubMovements.map((m: any) => m.subPackageId));
+
+      if (masterProcessType.coreSubPackageId && !completedSubPkgIds.has(masterProcessType.coreSubPackageId)) {
+        return {
+          isCompleted: false,
+          processType: processTypeName,
+          message: `Main core process is not completed.`,
+        };
+      }
+
+      const totalSubMovementsCount = await (prisma as any).subPackageMovement.count({
+        where: {
+          trackingNumber: registration.trackingNumber,
+          ownerAdminId,
+        },
+      });
+
+      if (totalSubMovementsCount > 0 && completedSubMovements.length >= totalSubMovementsCount) {
+        return {
+          isCompleted: true,
+          processType: processTypeName,
+        };
+      }
+    }
+  }
+
+  // 3. Check overall document movement / assignment status
   const isDocMovCompleted = registration.documentMovements.some(
     (mov) =>
       mov.status === "COMPLETED" ||
@@ -83,88 +149,25 @@ export async function verifyMainProcessCompleted(
     };
   }
 
-  // 2. Query Master Configuration for the configured Main Process (coreSubPackageId) of this Process Type
-  if (processTypeName) {
-    const masterProcessType = await prisma.masterData.findFirst({
-      where: {
-        type: "PROCESS_TYPES",
-        name: processTypeName,
-        ownerAdminId,
-      },
-      select: {
-        id: true,
-        coreSubPackageId: true,
-        coreSubPackage: { select: { id: true, name: true } },
-      },
-    });
-
-    if (masterProcessType?.coreSubPackageId) {
-      // Check the SubPackageMovement for this specific Main Process (coreSubPackageId)
-      const coreSubMovement = await (prisma as any).subPackageMovement.findFirst({
-        where: {
-          trackingNumber: registration.trackingNumber,
-          subPackageId: masterProcessType.coreSubPackageId,
-          ownerAdminId,
-        },
-        select: {
-          status: true,
-        },
-      });
-
-      if (coreSubMovement && (coreSubMovement.status === "Completed" || coreSubMovement.status === "COMPLETED")) {
-        return {
-          isCompleted: true,
-          coreSubPackageId: masterProcessType.coreSubPackageId,
-          coreSubPackageName: masterProcessType.coreSubPackage?.name || null,
-          processType: processTypeName,
-        };
-      }
-
-      // If coreSubPackageId exists and its status is NOT Completed, return false.
-      // (Even if other sub-processes like MEA or UAE Embassy are completed!)
-      return {
-        isCompleted: false,
-        coreSubPackageId: masterProcessType.coreSubPackageId,
-        coreSubPackageName: masterProcessType.coreSubPackage?.name || null,
-        processType: processTypeName,
-        message: `Main Process "${masterProcessType.coreSubPackage?.name || "Main Process"}" status is not Completed.`,
-      };
-    }
-  }
-
-  // 3. Fallback: check if any assigned office core package movement for this document is completed
-  const coreAssignedSubMovement = await (prisma as any).subPackageMovement.findFirst({
-    where: {
-      trackingNumber: registration.trackingNumber,
-      ownerAdminId,
-      status: { in: ["Completed", "COMPLETED"] },
-    },
-    select: {
-      subPackageId: true,
-    },
+  // 4. Fallback check for completed subpackage movements
+  const totalSubMovs = await (prisma as any).subPackageMovement.count({
+    where: { trackingNumber: registration.trackingNumber, ownerAdminId },
+  });
+  const completedSubMovs = await (prisma as any).subPackageMovement.count({
+    where: { trackingNumber: registration.trackingNumber, ownerAdminId, status: { in: ["Completed", "COMPLETED"] } },
   });
 
-  if (coreAssignedSubMovement) {
-    // Check if this subPackageId is marked as isCorePackage in assignedOfficeSubPackage
-    const isCorePackage = await (prisma as any).assignedOfficeSubPackage.findFirst({
-      where: {
-        subPackageId: coreAssignedSubMovement.subPackageId,
-        isCorePackage: true,
-      },
-    });
-
-    if (isCorePackage) {
-      return {
-        isCompleted: true,
-        processType: processTypeName || null,
-      };
-    }
+  if (totalSubMovs > 0 && totalSubMovs === completedSubMovs) {
+    return {
+      isCompleted: true,
+      processType: processTypeName || null,
+    };
   }
 
   return {
     isCompleted: false,
     processType: processTypeName || null,
-    message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
+    message: "This document cannot be moved to Ready For Delivery because process completion requirements are not met.",
   };
 }
 

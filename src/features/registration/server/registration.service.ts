@@ -371,10 +371,22 @@ export async function createRegistration(
 
   const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
 
-  const sourceOffice = await prisma.officeLocation.findFirst({
+  let sourceOffice = await prisma.officeLocation.findFirst({
     where: { officeName: sourceOfficeName, ownerAdminId },
     select: { id: true },
   });
+
+  if (!sourceOffice) {
+    sourceOffice = await prisma.officeLocation.create({
+      data: {
+        officeName: sourceOfficeName,
+        location: "Office",
+        timezone: "UTC",
+        ownerAdminId,
+      },
+      select: { id: true },
+    });
+  }
 
   const registrationResult = await prisma.$transaction(async (tx) => {
     let countryChangedFromLead: { previous: string; new: string } | null = null;

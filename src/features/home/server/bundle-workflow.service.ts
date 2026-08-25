@@ -401,8 +401,10 @@ export async function receiveBundle(params: {
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";
 
-        // Main Process Activity Status is the deciding factor for moving to Ready For Delivery vs Document In Hand
-        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess;
+        // Document moves to Ready For Delivery ONLY when ALL processing is complete AND receiving office matches deliveryLocation
+        const isReadyForDeliveryAutoRoute =
+          hasCompletedMainProcess &&
+          Boolean(receivingOfficeName && deliveryLocation && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase());
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({

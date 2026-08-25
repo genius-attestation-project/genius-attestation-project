@@ -552,6 +552,8 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           fromOfficeId,
           toOfficeId: params.targetAssignedOfficeId,
           currentOfficeId: params.targetAssignedOfficeId,
+          originalProcessOfficeId: fromOfficeId,
+          returnOfficeId: fromOfficeId,
           status: "INBOUND",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,

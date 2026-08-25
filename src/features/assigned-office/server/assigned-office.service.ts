@@ -1021,8 +1021,10 @@ export async function receiveBundleDocuments(params: {
         const receivingOfficeName = targetOffice?.officeName || params.officeId;
         const deliveryLocation = reg?.deliveryLocation || "";
 
-        // Main Process Activity Status is the deciding factor for moving to Ready For Delivery vs Document In Hand
-        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess;
+        // Document moves to Ready For Delivery ONLY when ALL processing is complete AND receiving office matches deliveryLocation
+        const isReadyForDeliveryAutoRoute =
+          hasCompletedMainProcess &&
+          Boolean(receivingOfficeName && deliveryLocation && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase());
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
@@ -1507,10 +1509,28 @@ export async function transferBackToProcess(params: {
       });
     }
 
-    // Target process office (headquarters / main process location)
-    let mainOffice = await tx.officeLocation.findFirst({
-      where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
-    });
+    // Target process office: restore the exact process office that originally sent the document
+    let targetProcessOfficeId: string | null = null;
+    if (params.trackingNumbers.length > 0) {
+      const sampleMovement = await tx.documentMovement.findFirst({
+        where: { trackingNumber: { in: params.trackingNumbers } },
+        select: { returnOfficeId: true, originalProcessOfficeId: true, fromOfficeId: true },
+      });
+      targetProcessOfficeId = sampleMovement?.returnOfficeId || sampleMovement?.originalProcessOfficeId || sampleMovement?.fromOfficeId || null;
+    }
+
+    let mainOffice: any = null;
+    if (targetProcessOfficeId) {
+      mainOffice = await tx.officeLocation.findFirst({
+        where: { id: targetProcessOfficeId },
+      });
+    }
+
+    if (!mainOffice) {
+      mainOffice = await tx.officeLocation.findFirst({
+        where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
+      });
+    }
 
     if (!mainOffice) {
       mainOffice = sourceOffice;
@@ -1598,6 +1618,19 @@ export async function transferBackToProcess(params: {
 
     // 3. Update documentMovement records for all tracking numbers
     for (const tNum of params.trackingNumbers) {
+      const docMov = await tx.documentMovement.findFirst({
+        where: { trackingNumber: tNum },
+        select: { returnOfficeId: true, originalProcessOfficeId: true, fromOfficeId: true },
+      });
+
+      const docReturnOfficeId = docMov?.returnOfficeId || docMov?.originalProcessOfficeId || mainOffice.id;
+      let docReturnOffice = mainOffice;
+
+      if (docReturnOfficeId !== mainOffice.id) {
+        const found = await tx.officeLocation.findFirst({ where: { id: docReturnOfficeId } });
+        if (found) docReturnOffice = found;
+      }
+
       await tx.documentMovement.updateMany({
         where: { trackingNumber: tNum },
         data: {
@@ -1605,7 +1638,8 @@ export async function transferBackToProcess(params: {
           toModule: "PROCESS_MODULE",
           currentModule: "PROCESS_MODULE",
           fromOfficeId: sourceOffice.id,
-          toOfficeId: mainOffice.id,
+          toOfficeId: docReturnOffice.id,
+          currentOfficeId: docReturnOffice.id,
           status: "INBOUND",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -1614,15 +1648,38 @@ export async function transferBackToProcess(params: {
 
       const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
       if (reg) {
-        await tx.documentWorkflowHistory.create({
+        await tx.registration.update({
+          where: { trackingNumber: tNum },
           data: {
-            documentId: reg.id,
+            trackingStatus: "In Transfer",
+            bmStatus: "Transferred",
+          },
+        });
+
+        if (tx.documentWorkflowHistory) {
+          await tx.documentWorkflowHistory.create({
+            data: {
+              documentId: reg.id,
+              trackingNumber: tNum,
+              workflowStep: "Back To Process Transfer",
+              status: "Pending Receive",
+              performedBy: params.userName || params.userId,
+              remarks: params.remarks || `Transferred back to Process Office (${docReturnOffice.officeName}) via Bundle ${bundle.bundleNumber}`,
+              ownerAdminId: params.ownerAdminId,
+            },
+          });
+        }
+
+        await tx.movementHistory.create({
+          data: {
             trackingNumber: tNum,
-            workflowStep: "Back To Process Transfer",
-            status: "Pending Receive",
+            action: "Back To Process Transfer",
+            oldStatus: "Document In Hand",
+            newStatus: "Pending Receive",
+            oldOffice: sourceOffice.officeName || "Assigned Office",
+            newOffice: docReturnOffice.officeName || "Process Office",
             performedBy: params.userName || params.userId,
-            remarks: params.remarks || `Transferred back to Process Module via Bundle ${bundle.bundleNumber}`,
-            ownerAdminId: params.ownerAdminId,
+            remarks: params.remarks || `Transferred back to ${docReturnOffice.officeName} via Bundle ${bundle.bundleNumber}`,
           },
         });
       }
