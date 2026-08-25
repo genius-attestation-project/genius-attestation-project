@@ -9,7 +9,8 @@
     "postinstall": "prisma generate",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "db:reset-dev": "tsx scripts/reset-development-data.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "latest",
