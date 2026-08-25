@@ -275,11 +275,28 @@ export async function listInboundBundles(params: {
   const officeIds = [params.toOfficeId];
   if (office) officeIds.push(office.id);
 
+  // Exclude bundles belonging to PROCESS_MODULE or ASSIGNED_OFFICE
+  const nonHomeMovements = await db.documentMovement.findMany({
+    where: {
+      OR: [
+        { toModule: { in: ["PROCESS_MODULE", "ASSIGNED_OFFICE"] } },
+        { currentModule: { in: ["PROCESS_MODULE", "ASSIGNED_OFFICE"] } },
+      ],
+      bundleId: { not: null },
+    },
+    select: { bundleId: true },
+  });
+
+  const excludedBundleIds = new Set(
+    nonHomeMovements.map((m: any) => m.bundleId).filter(Boolean)
+  );
+
   const bundles = await db.bundle.findMany({
     where: {
       toOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
       status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING", "In Transit"] },
+      ...(excludedBundleIds.size > 0 ? { id: { notIn: Array.from(excludedBundleIds) } } : {}),
     },
     include: {
       fromOffice: true,
