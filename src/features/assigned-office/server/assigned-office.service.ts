@@ -1607,17 +1607,20 @@ export async function transferBackToProcess(params: {
       mainOffice = sourceOffice;
     }
 
-    // 1. Identify if documents already belong to an existing bundle
+    // 1. Identify if documents already belong to an active Process bundle (BND-PROC-)
     let bundle: any = null;
 
     if (params.bundleId) {
-      bundle = await tx.bundle.findUnique({
+      const found = await tx.bundle.findUnique({
         where: { id: params.bundleId },
       });
+      if (found && found.bundleNumber.startsWith("BND-PROC-")) {
+        bundle = found;
+      }
     }
 
     if (!bundle && params.trackingNumbers.length > 0) {
-      const existingMovement = await tx.documentMovement.findFirst({
+      const existingMovements = await tx.documentMovement.findMany({
         where: {
           trackingNumber: { in: params.trackingNumbers },
           bundleId: { not: null },
@@ -1625,16 +1628,20 @@ export async function transferBackToProcess(params: {
         select: { bundleId: true },
       });
 
-      if (existingMovement?.bundleId) {
-        bundle = await tx.bundle.findUnique({
-          where: { id: existingMovement.bundleId },
-        });
+      for (const mov of existingMovements) {
+        if (mov.bundleId) {
+          const b = await tx.bundle.findUnique({ where: { id: mov.bundleId } });
+          if (b && b.bundleNumber.startsWith("BND-PROC-")) {
+            bundle = b;
+            break;
+          }
+        }
       }
     }
 
-    // 2. Update existing bundle OR create a new bundle if unbundled
+    // 2. Create a new dedicated Process Bundle (BND-PROC-) OR update existing process bundle
     if (bundle) {
-      // Preserve existing bundle! Update status and routing offices
+      // Preserve existing process bundle! Update status and routing offices
       await tx.bundle.update({
         where: { id: bundle.id },
         data: {
@@ -1644,7 +1651,6 @@ export async function transferBackToProcess(params: {
         },
       });
 
-      // Update/create bundleItems for selected tracking numbers
       for (const tNum of params.trackingNumbers) {
         const existingItem = await tx.bundleItem.findFirst({
           where: { bundleId: bundle.id, trackingNumber: tNum },
@@ -1665,7 +1671,7 @@ export async function transferBackToProcess(params: {
         }
       }
     } else {
-      // Create new bundle for unbundled documents
+      // Create new process bundle for documents returning to Process Module
       const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
       const bundleNumber = `BND-PROC-${String(count + 1).padStart(5, "0")}`;
 
@@ -1700,6 +1706,13 @@ export async function transferBackToProcess(params: {
       if (docReturnOfficeId !== mainOffice.id) {
         const found = await tx.officeLocation.findFirst({ where: { id: docReturnOfficeId } });
         if (found) docReturnOffice = found;
+      }
+
+      if (bundle && bundle.toOfficeId !== docReturnOffice.id) {
+        await tx.bundle.update({
+          where: { id: bundle.id },
+          data: { toOfficeId: docReturnOffice.id },
+        });
       }
 
       await tx.documentMovement.updateMany({
