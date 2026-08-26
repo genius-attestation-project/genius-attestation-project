@@ -197,10 +197,14 @@ export function PhoneInput({
       {error && <p className="text-xs font-semibold text-rose-500">{error}</p>}
 
       <style jsx global>{`
+        .custom-phone-container {
+          width: 100% !important;
+        }
+
         .custom-phone-container .react-international-phone-input-container {
           display: flex;
           align-items: center;
-          width: 100%;
+          width: 100% !important;
           height: 100%;
           border: 0;
           background: transparent;
@@ -212,6 +216,9 @@ export function PhoneInput({
         }
 
         .custom-phone-input.react-international-phone-input {
+          width: 100% !important;
+          min-width: 0 !important;
+          flex: 1 1 0% !important;
           border: 0 !important;
           box-shadow: none !important;
           outline: none !important;
