@@ -264,17 +264,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return token;
         }
 
-        if (token.accountType === "AGENCY" || token.accountType === "ASSIGNED_OFFICE") {
+        if (token.accountType === "ASSIGNED_OFFICE") {
+          const office = await (prisma as any).assignedOffice.findUnique({
+            where: { id: String(token.id) },
+            select: { id: true, status: true },
+          });
+
+          if (!office || office.status === false) {
+            console.warn("[auth] Invalidating session for deleted or inactive AssignedOffice:", { id: token.id });
+            return {} as any;
+          }
+
+          return token;
+        }
+
+        if (token.accountType === "AGENCY") {
+          const agency = await (prisma as any).assignedAgency.findUnique({
+            where: { id: String(token.id) },
+            select: { id: true, isActive: true, deletedAt: true },
+          });
+
+          if (!agency || !agency.isActive || agency.deletedAt) {
+            console.warn("[auth] Invalidating session for deleted or inactive Agency:", { id: token.id });
+            return {} as any;
+          }
+
           return token;
         }
 
         const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
+          where: token.id ? { id: String(token.id) } : { email: token.email },
           select: {
             id: true,
             name: true,
             email: true,
             image: true,
+            isActive: true,
             ownerAdminId: true,
             officeLocationId: true,
             officeLocationName: true,
@@ -288,8 +313,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        if (!dbUser) {
-          return token;
+        if (!dbUser || !dbUser.isActive) {
+          console.warn("[auth] Invalidating session for deleted or inactive user:", {
+            email: token.email,
+            id: token.id,
+            userExists: Boolean(dbUser),
+            isActive: dbUser?.isActive ?? false,
+          });
+          return {} as any;
         }
 
         const access = await getSessionAccess(dbUser.id);
@@ -332,6 +363,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       try {
+        if (!token || !token.id || !token.email) {
+          console.info("[auth] Session callback returning empty session for invalidated token.");
+          return {
+            ...session,
+            user: undefined as any,
+          };
+        }
         if (session.user && token.id) {
           session.user.id = String(token.id);
         }

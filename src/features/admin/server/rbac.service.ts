@@ -701,6 +701,22 @@ export async function deleteUser(ownerAdminId: string, userId: string) {
     return false; // Cannot delete oneself or unauthorized
   }
 
+  try {
+    await (prisma as any).refreshToken.deleteMany({
+      where: { userId },
+    });
+  } catch (e) {
+    console.error("[deleteUser] Error cleaning up refresh tokens:", e);
+  }
+
+  try {
+    await (prisma as any).session.deleteMany({
+      where: { userId },
+    });
+  } catch (e) {
+    console.error("[deleteUser] Error cleaning up database sessions:", e);
+  }
+
   await prisma.user.delete({
     where: { id: userId },
   });
