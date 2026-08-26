@@ -8,6 +8,7 @@ import Select from "react-select";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput, validatePhoneNumber } from "@/components/ui/PhoneInput";
 import { Loader } from "@/components/ui/Loader";
 import { Textarea } from "@/components/ui/Textarea";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -236,6 +237,11 @@ export function LeadForm({
 
     if (!values.mobileNumber.trim()) {
       nextErrors.mobileNumber = "Mobile number is required.";
+    } else {
+      const phoneValidation = validatePhoneNumber(values.countryCode || "+91", values.mobileNumber);
+      if (!phoneValidation.isValid) {
+        nextErrors.mobileNumber = phoneValidation.error ?? "Invalid mobile number for selected country.";
+      }
     }
 
     if (!values.email.trim()) {
@@ -344,22 +350,22 @@ export function LeadForm({
             placeholder="Enter last name"
           />
         </FieldWrapper>
-        <FieldWrapper error={errors.mobileNumber}>
-          <SearchableSelect
-            label="Country Code"
-            name="countryCode"
-            value={values.countryCode}
-            onChange={(value) => updateField("countryCode", value)}
-            options={mapToOptions(countryCodes)}
-          />
-        </FieldWrapper>
-        <FieldWrapper error={errors.mobileNumber}>
-          <Input
+        <FieldWrapper error={errors.mobileNumber} className="md:col-span-2">
+          <PhoneInput
             label="Mobile Number"
             name="mobileNumber"
             value={values.mobileNumber}
-            onChange={(event) => updateField("mobileNumber", event.target.value)}
-            placeholder="Enter mobile number"
+            countryCode={values.countryCode || "+91"}
+            error={errors.mobileNumber}
+            onChange={(data) => {
+              setValues((current) => ({
+                ...current,
+                countryCode: data.countryCode,
+                mobileNumber: data.mobileNumber,
+              }));
+              setErrors((current) => ({ ...current, mobileNumber: undefined }));
+              setMessage("");
+            }}
           />
         </FieldWrapper>
         <FieldWrapper error={errors.email} className="md:col-span-2">

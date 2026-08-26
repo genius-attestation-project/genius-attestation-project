@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -464,12 +465,11 @@ export function UsersManagement() {
             }
             placeholder="50000"
           />
-          <Input
+          <PhoneInput
             label="Phone"
             name="phone"
             value={formState.phone}
-            onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
-            placeholder="+91 98765 43210"
+            onChange={(data) => setFormState((current) => ({ ...current, phone: data.fullPhone }))}
           />
           <Input
             label="Profile Image"
