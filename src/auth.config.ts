@@ -49,26 +49,21 @@ export const authConfig = {
         }
         return true;
       } else if (isOnLogin && isLoggedIn) {
+        if (nextUrl.searchParams.has("callbackUrl") || nextUrl.searchParams.has("error")) {
+          console.info("[auth] Middleware decision: Allowing /login render due to callbackUrl or error param.", {
+            path: nextUrl.pathname,
+            searchParams: nextUrl.search,
+          });
+          return true;
+        }
+
         if (isAssignedOfficePortalUser) {
           console.info("[auth] Middleware decision: Redirecting logged-in AssignedOffice portal user from login.", {
             destination: workspacePath,
           });
           return Response.redirect(new URL(workspacePath, nextUrl));
         }
-        const callbackUrl = nextUrl.searchParams.get("callbackUrl");
-        if (callbackUrl) {
-          try {
-            const parsedUrl = new URL(callbackUrl, nextUrl);
-            if (parsedUrl.origin === nextUrl.origin && !parsedUrl.pathname.startsWith("/login")) {
-              console.info("[auth] Middleware decision: Redirecting logged-in user to callbackUrl.", {
-                destination: parsedUrl.toString(),
-              });
-              return Response.redirect(parsedUrl);
-            }
-          } catch (e) {
-            // Fallback to /dashboard
-          }
-        }
+
         console.info("[auth] Middleware decision: Redirecting logged-in user from login to dashboard.", {
           destination: "/dashboard",
         });
