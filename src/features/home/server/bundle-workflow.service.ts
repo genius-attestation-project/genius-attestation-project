@@ -316,16 +316,49 @@ export async function listInboundBundles(params: {
     });
     const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
 
-    for (const b of bundles) {
+    const currentMovements = await db.documentMovement.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+      select: { trackingNumber: true, toOfficeId: true, currentOfficeId: true, bundleId: true, status: true },
+    });
+    const movementMap = new Map<string, any>(currentMovements.map((m: any) => [m.trackingNumber, m]));
+
+    const validBundles = bundles.filter((b: any) => {
+      if (!b.items || b.items.length === 0) return false;
+
+      const activeItems = b.items.filter((item: any) => {
+        if (item.status === "Received" || item.status === "Completed" || item.status === "Transferred") {
+          return false;
+        }
+        const mov: any = movementMap.get(item.trackingNumber);
+        if (!mov) return true;
+
+        // If the document's active movement belongs to a DIFFERENT bundle or DIFFERENT destination office,
+        // it is no longer an active inbound item for this bundle/office.
+        if (mov.bundleId && mov.bundleId !== b.id) {
+          return false;
+        }
+        if (mov.toOfficeId && !officeIds.includes(mov.toOfficeId) && !officeIds.includes(mov.currentOfficeId)) {
+          return false;
+        }
+        return true;
+      });
+
+      b.items = activeItems;
+      return activeItems.length > 0;
+    });
+
+    for (const b of validBundles) {
       if (b.items) {
         for (const item of b.items) {
           item.registration = regMap.get(item.trackingNumber) || null;
         }
       }
     }
+
+    return validBundles;
   }
 
-  return bundles;
+  return bundles.filter((b: any) => b.items && b.items.length > 0);
 }
 
 export async function listOutboundBundles(params: {

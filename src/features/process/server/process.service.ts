@@ -316,6 +316,33 @@ export async function transferProcessDocumentsToHome(params: {
       const docMov = movementMap.get(trackingNumber);
       const docFromOfficeId = docMov?.currentOfficeId || docMov?.toOfficeId || defaultFromOfficeId;
 
+      // Clean up previous inbound bundle at the source office if it exists
+      if (docMov?.bundleId) {
+        await tx.bundleItem.updateMany({
+          where: {
+            bundleId: docMov.bundleId,
+            trackingNumber,
+          },
+          data: {
+            status: "Transferred",
+          },
+        });
+
+        const unreceivedCount = await tx.bundleItem.count({
+          where: {
+            bundleId: docMov.bundleId,
+            status: { notIn: ["Received", "Completed", "Transferred"] },
+          },
+        });
+
+        if (unreceivedCount === 0) {
+          await tx.bundle.update({
+            where: { id: docMov.bundleId },
+            data: { status: "Received" },
+          });
+        }
+      }
+
       if (tx.bundleItem) {
         await tx.bundleItem.create({
           data: {
@@ -611,6 +638,39 @@ export async function processBulkMove(params: {
             bmStatus: "Received",
           },
         });
+
+        if (movement.bundleId) {
+          await tx.bundleItem.updateMany({
+            where: {
+              bundleId: movement.bundleId,
+              trackingNumber,
+            },
+            data: {
+              status: "Received",
+              receivedAt: new Date(),
+              receivedBy: params.userId,
+            },
+          });
+
+          const unreceivedCount = await tx.bundleItem.count({
+            where: {
+              bundleId: movement.bundleId,
+              status: { notIn: ["Received", "Completed", "Transferred"] },
+            },
+          });
+
+          if (unreceivedCount === 0) {
+            await tx.bundle.update({
+              where: { id: movement.bundleId },
+              data: { status: "Received" },
+            });
+          } else {
+            await tx.bundle.update({
+              where: { id: movement.bundleId },
+              data: { status: "Partially Received" },
+            });
+          }
+        }
       }
 
       const actionLabel =
