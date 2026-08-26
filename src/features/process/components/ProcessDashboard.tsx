@@ -164,9 +164,6 @@ export function ProcessDashboard() {
             value: o.id,
           }));
           setAssignedOfficeOptions(list);
-          if (list.length > 0) {
-            setSelectedOfficeId(list[0].value);
-          }
         }
       } catch (e) {
         console.error("Error fetching assigned offices for selector:", e);
@@ -438,7 +435,7 @@ export function ProcessDashboard() {
                     options={assignedOfficeOptions}
                     value={selectedOfficeId}
                     onChange={setSelectedOfficeId}
-                    placeholder={loadingOffices ? "Loading Process Offices..." : "Select Process Office"}
+                    placeholder={loadingOffices ? "Loading Assigned Offices..." : "Select Assigned Office"}
                     groupByCategory={false}
                     showDescription={false}
                   />
