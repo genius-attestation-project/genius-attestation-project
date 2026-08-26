@@ -138,6 +138,7 @@ async function main() {
         await tx.verificationToken.deleteMany({});
         await tx.assignedOfficeAuditLog.deleteMany({});
         await tx.accountMenuAuditLog.deleteMany({});
+        await tx.paymentModeAuditLog.deleteMany({});
 
         // Step 9: Transactional Storage Files (Preserve corporate files)
         const corporateFiles = await tx.corporateDetail.findMany({
