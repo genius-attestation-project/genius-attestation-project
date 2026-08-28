@@ -507,13 +507,6 @@ export async function createRegistration(
       collectedBy: input.collectedPerson || null,
       performedByUserId: userId,
     }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
-  } else {
-    await createMovementApprovalRequest({
-      ownerAdminId,
-      registrationId: registrationResult.id,
-      performedBy: performedBy ?? "System User",
-      requestedByUserId: userId,
-    }).catch((err) => console.error("[registration] Movement approval request creation error:", err));
   }
 
   const reloaded = await prisma.registration.findUnique({

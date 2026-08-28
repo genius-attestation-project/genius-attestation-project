@@ -134,9 +134,20 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
   }, [activeTab, selectedOfficeId, searchQuery]);
 
   const eligibleInHandDocs = useMemo(() => {
-    return inHandDocs.filter(
-      (doc) => Number(doc.advancePaid ?? doc.advanceAmount ?? 0) > 0 || Boolean(doc.movementApproved)
-    );
+    return inHandDocs.filter((doc) => !doc.hasMovementApprovalPending);
+  }, [inHandDocs]);
+
+  const { receivedDocs, registeredDocs } = useMemo(() => {
+    const received: any[] = [];
+    const registered: any[] = [];
+    for (const doc of inHandDocs) {
+      if (doc.inHandCategory === "RECEIVED") {
+        received.push(doc);
+      } else {
+        registered.push(doc);
+      }
+    }
+    return { receivedDocs: received, registeredDocs: registered };
   }, [inHandDocs]);
 
   // Checkbox helpers for Document In Hand
@@ -153,6 +164,124 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       prev.includes(trackingNumber)
         ? prev.filter((t) => t !== trackingNumber)
         : [...prev, trackingNumber]
+    );
+  };
+
+  const renderDocumentTable = (docs: any[], startIndex = 0) => {
+    return (
+      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white dark:bg-slate-900/40">
+        <table className="w-full min-w-300 text-left text-xs text-slate-700 dark:text-slate-300">
+          <thead className="bg-slate-50/90 dark:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-200 tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <tr>
+              <th className="p-3 w-10 text-center">
+                <button onClick={handleSelectAllInHand} className="text-slate-600 dark:text-slate-400">
+                  {selectedTrackingNumbers.length === eligibleInHandDocs.length && eligibleInHandDocs.length > 0 ? (
+                    <CheckSquare className="h-5 w-5 text-blue-600" />
+                  ) : (
+                    <Square className="h-5 w-5 text-slate-400" />
+                  )}
+                </button>
+              </th>
+              <th className="p-3 text-center w-12">SL No.</th>
+              <th className="p-3 text-left">Tracking Number</th>
+              <th className="p-3 text-center">Registration Date</th>
+              <th className="p-3 text-left">Registration Office</th>
+              <th className="p-3 text-left min-w-32.5">Document Name</th>
+              <th className="p-3 text-left min-w-32.5">Document Type</th>
+              <th className="p-3 text-left">Delivery At</th>
+              <th className="p-3 text-left min-w-40">Process Type</th>
+              <th className="p-3 text-center">Number Of Days</th>
+              <th className="p-3 text-right">Total Amount</th>
+              <th className="p-3 text-right">Advance Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900">
+            {docs.map((doc: any, index: number) => {
+              const tNum = doc.trackingNumber || doc.registrationNumber;
+              const isSelected = selectedTrackingNumbers.includes(tNum);
+              const isPendingApproval = Boolean(doc.hasMovementApprovalPending);
+              const canMove = !isPendingApproval;
+
+              return (
+                <tr
+                  key={doc.id || tNum}
+                  className={
+                    isSelected
+                      ? "bg-blue-50/50 dark:bg-blue-950/20"
+                      : isPendingApproval
+                      ? "bg-amber-50/20 dark:bg-amber-950/10 hover:bg-amber-50/30"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  }
+                >
+                  <td className="p-3 text-center">
+                    {canMove ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectInHand(tNum)}
+                        className="text-slate-600 dark:text-slate-400 focus:outline-hidden"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Square className="h-5 w-5 text-slate-400" />
+                        )}
+                      </button>
+                    ) : (
+                      <div title="Movement approval pending" className="flex items-center justify-center">
+                        <Square className="h-5 w-5 text-slate-300 dark:text-slate-600 cursor-not-allowed" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3 text-center font-semibold text-slate-500">{startIndex + index + 1}</td>
+                  <td className="p-3 text-left font-mono font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <PriorityDot priority={doc.priority} size={10} />
+                      <Link
+                        href={`/dashboard/document-details/${encodeURIComponent(tNum)}`}
+                        className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        {tNum}
+                      </Link>
+                      {isPendingApproval && (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                          Movement approval pending
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3 text-center text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {formatDate(doc.createdDate || doc.createdAt)}
+                  </td>
+                  <td className="p-3 text-left text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {doc.regionOfRegistration || doc.sourceOffice || "Main"}
+                  </td>
+                  <td className="p-3 text-left font-semibold text-slate-900 dark:text-white min-w-32.5">
+                    {doc.documentName || doc.customerName || doc.clientName || "-"}
+                  </td>
+                  <td className="p-3 text-left text-xs font-medium text-slate-800 dark:text-slate-300 leading-snug min-w-32.5">
+                    {doc.documentType || "-"}
+                  </td>
+                  <td className="p-3 text-left text-xs text-slate-600 dark:text-slate-400">
+                    {doc.deliveryLocation || "-"}
+                  </td>
+                  <td className="p-3 text-left text-xs font-bold text-blue-800 dark:text-blue-300 leading-snug min-w-40">
+                    {doc.processType || doc.mainProcess || "-"}
+                  </td>
+                  <td className="p-3 text-center text-xs font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                    {calculateNumberOfDays(doc.receivedAt || doc.documentMovements?.[0]?.updatedAt || doc.createdAt)}
+                  </td>
+                  <td className="p-3 text-right text-xs font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                    ₹{Number(doc.totalCharges || 0).toFixed(2)}
+                  </td>
+                  <td className="p-3 text-right text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                    ₹{Number(doc.advancePaid || 0).toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -428,7 +557,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
               </div>
             </div>
 
-            {/* Document Table */}
+            {/* Document Tables by Section */}
             {inHandDocs.length === 0 ? (
               <EmptyState
                 icon={Package}
@@ -436,109 +565,36 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 description="Newly registered or received documents for this office will appear here."
               />
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full min-w-300 text-left text-xs text-slate-700">
-                  <thead className="bg-slate-50/90 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 w-10 text-center">
-                        <button onClick={handleSelectAllInHand} className="text-slate-600">
-                          {selectedTrackingNumbers.length === eligibleInHandDocs.length && eligibleInHandDocs.length > 0 ? (
-                            <CheckSquare className="h-5 w-5 text-blue-600" />
-                          ) : (
-                            <Square className="h-5 w-5 text-slate-400" />
-                          )}
-                        </button>
-                      </th>
-                      <th className="p-3 text-center w-12">SL No.</th>
-                      <th className="p-3 text-left">Tracking Number</th>
-                      <th className="p-3 text-center">Registration Date</th>
-                      <th className="p-3 text-left">Registration Office</th>
-                      <th className="p-3 text-left min-w-32.5">Document Name</th>
-                      <th className="p-3 text-left min-w-32.5">Document Type</th>
-                      <th className="p-3 text-left">Delivery At</th>
-                      <th className="p-3 text-left min-w-40">Process Type</th>
-                      <th className="p-3 text-center">Number Of Days</th>
-                      <th className="p-3 text-right">Total Amount</th>
-                      <th className="p-3 text-right">Advance Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {inHandDocs.map((doc: any, index: number) => {
-                      const tNum = doc.trackingNumber || doc.registrationNumber;
-                      const isSelected = selectedTrackingNumbers.includes(tNum);
-                      const advanceAmount = Number(doc.advancePaid ?? doc.advanceAmount ?? 0);
-                      const isMovementApproved = Boolean(doc.movementApproved);
-                      const canMove = advanceAmount > 0 || isMovementApproved;
+              <div className="space-y-6">
+                {/* Section A: Successfully Received Documents */}
+                {receivedDocs.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Inbox className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                          Successfully Received Documents ({receivedDocs.length})
+                        </h3>
+                      </div>
+                    </div>
+                    {renderDocumentTable(receivedDocs, 0)}
+                  </div>
+                )}
 
-                      return (
-                        <tr key={doc.id} className={isSelected ? "bg-blue-50/50" : !canMove ? "bg-amber-50/20 hover:bg-amber-50/30" : "hover:bg-slate-50"}>
-                          <td className="p-3 text-center">
-                            {canMove ? (
-                              <button
-                                onClick={() => handleToggleSelectInHand(tNum)}
-                                className="text-slate-600"
-                              >
-                                {isSelected ? (
-                                  <CheckSquare className="h-5 w-5 text-blue-600" />
-                                ) : (
-                                  <Square className="h-5 w-5 text-slate-400" />
-                                )}
-                              </button>
-                            ) : (
-                              <div title="Movement approval pending" className="flex items-center justify-center">
-                                <Square className="h-5 w-5 text-slate-300 dark:text-slate-600 cursor-not-allowed" />
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-3 text-center font-semibold text-slate-500">{index + 1}</td>
-                          <td className="p-3 text-left font-mono font-bold text-blue-600 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <PriorityDot priority={doc.priority} size={10} />
-                              <Link
-                                href={`/dashboard/document-details/${encodeURIComponent(tNum)}`}
-                                className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                              >
-                                {tNum}
-                              </Link>
-                              {!canMove && (
-                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                                  Movement approval pending
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 text-center text-xs font-medium text-slate-700 whitespace-nowrap">
-                            {formatDate(doc.createdDate || doc.createdAt)}
-                          </td>
-                          <td className="p-3 text-left text-xs font-semibold text-slate-800">
-                            {doc.regionOfRegistration || doc.sourceOffice || "Main"}
-                          </td>
-                          <td className="p-3 text-left font-semibold text-slate-900 min-w-32.5">
-                            {doc.customerName || doc.clientName || "-"}
-                          </td>
-                          <td className="p-3 text-left text-xs font-medium text-slate-800 leading-snug min-w-32.5">
-                            {doc.documentType || "-"}
-                          </td>
-                          <td className="p-3 text-left text-xs text-slate-600">
-                            {doc.deliveryLocation || "-"}
-                          </td>
-                          <td className="p-3 text-left text-xs font-bold text-blue-800 leading-snug min-w-40">
-                            {doc.processType || doc.mainProcess || "-"}
-                          </td>
-                          <td className="p-3 text-center text-xs font-bold text-amber-700 whitespace-nowrap">
-                            {calculateNumberOfDays(doc.receivedAt || doc.documentMovements?.[0]?.updatedAt || doc.createdAt)}
-                          </td>
-                          <td className="p-3 text-right text-xs font-bold text-slate-900 whitespace-nowrap">
-                            ₹{Number(doc.totalCharges || 0).toFixed(2)}
-                          </td>
-                          <td className="p-3 text-right text-xs font-bold text-emerald-700 whitespace-nowrap">
-                            ₹{Number(doc.advancePaid || 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {/* Section B: Registered Heading and Documents */}
+                {registeredDocs.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                          Registered ({registeredDocs.length})
+                        </h3>
+                      </div>
+                    </div>
+                    {renderDocumentTable(registeredDocs, receivedDocs.length)}
+                  </div>
+                )}
               </div>
             )}
           </div>

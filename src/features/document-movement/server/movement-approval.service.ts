@@ -7,26 +7,6 @@ export async function listPendingMovementApprovals(
   const targetOfficeId = typeof param === "string" ? undefined : param.officeId?.trim();
   const targetOfficeName = typeof param === "string" ? undefined : param.officeName?.trim();
 
-  // Ensure every registration requiring movement approval (advancePaid <= 0 & movementApproved = false)
-  // has a corresponding pending MovementApproval record so both Home and Pending Approval use the same source of truth.
-  const unapprovedZeroAdvanceRegs = await prisma.registration.findMany({
-    where: {
-      ownerAdminId,
-      advancePaid: { lte: 0 },
-      movementApproved: false,
-    },
-    select: { id: true, trackingNumber: true, createdBy: true },
-  });
-
-  for (const reg of unapprovedZeroAdvanceRegs) {
-    await createMovementApprovalRequest({
-      ownerAdminId,
-      registrationId: reg.id,
-      performedBy: "System User",
-      requestedByUserId: reg.createdBy ?? undefined,
-    }).catch((err) => console.error("[listPendingMovementApprovals] Reconcile error:", err));
-  }
-
   let resolvedTargetOfficeName = targetOfficeName;
   if (!resolvedTargetOfficeName && targetOfficeId) {
     const off = await prisma.officeLocation.findFirst({

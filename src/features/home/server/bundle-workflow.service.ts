@@ -69,7 +69,7 @@ export async function listDocumentInHand(params: {
     where: {
       ...whereClause,
       trackingStatus: {
-        notIn: ["In Transfer", "Transferred", "INBOUND_PENDING", "In Transit"],
+        notIn: ["In Transfer", "Transferred", "INBOUND_PENDING", "In Transit", "Ready for Delivery", "Delivered"],
       },
       ...(officeMatchConditions.length > 0 ? { OR: officeMatchConditions } : {}),
     },
@@ -83,11 +83,35 @@ export async function listDocumentInHand(params: {
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      movementApprovals: {
+        where: { status: "Pending" },
+        take: 1,
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return registrations;
+  return registrations.map((reg) => {
+    const mov = reg.documentMovements?.[0];
+    const hasPendingMovementApproval = (reg.movementApprovals?.length ?? 0) > 0;
+
+    // Classification based on actual movement state:
+    // A document is REGISTERED if it is at its initial registration state (no bundle receipt, no transfer from another office).
+    // If it arrived through an Inbound Bundle / transfer (has fromOfficeId, receivedAt, bundleId, or movementType not INITIAL),
+    // it belongs to the RECEIVED category.
+    const isReceivedFromInbound = Boolean(
+      mov && (mov.bundleId || mov.fromOfficeId || mov.receivedAt || (mov.movementType && mov.movementType !== "INITIAL"))
+    );
+
+    const inHandCategory: "REGISTERED" | "RECEIVED" = isReceivedFromInbound ? "RECEIVED" : "REGISTERED";
+
+    return {
+      ...reg,
+      inHandCategory,
+      hasMovementApprovalPending: hasPendingMovementApproval,
+      canTransfer: !hasPendingMovementApproval,
+    };
+  });
 }
 
 export async function createTransferBundle(params: {
@@ -103,20 +127,18 @@ export async function createTransferBundle(params: {
     throw new Error("At least one tracking number must be selected for transfer.");
   }
 
-  // Validate document movement eligibility before creating bundle or movement records
+  // Validate that none of the documents have an active pending movement approval request
   for (const trackingNumber of params.trackingNumbers) {
-    const reg = await prisma.registration.findUnique({
-      where: { trackingNumber },
-      select: { trackingNumber: true, advancePaid: true, movementApproved: true },
+    const pendingApproval = await prisma.movementApproval.findFirst({
+      where: {
+        trackingNumber,
+        ownerAdminId: params.ownerAdminId,
+        status: "Pending",
+      },
     });
 
-    if (reg) {
-      const advanceAmount = Number(reg.advancePaid ?? 0);
-      const isApproved = Boolean(reg.movementApproved);
-
-      if (advanceAmount <= 0 && !isApproved) {
-        throw new Error(`Movement approval required before transfer (${trackingNumber})`);
-      }
+    if (pendingApproval) {
+      throw new Error(`Movement approval is pending for document ${trackingNumber}. Please approve or reject before transferring.`);
     }
   }
 
@@ -428,6 +450,14 @@ export async function receiveBundle(params: {
   const receivedSet = new Set(params.receivedTrackingNumbers);
   const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
 
+  const mainProcessCheckMap = new Map<string, boolean>();
+  for (const item of (bundle.items as any[])) {
+    if (receivedSet.has(item.trackingNumber)) {
+      const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
+      mainProcessCheckMap.set(item.trackingNumber, mainProcessCheck.isCompleted);
+    }
+  }
+
   return prisma.$transaction(async (tx: any) => {
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
@@ -445,8 +475,7 @@ export async function receiveBundle(params: {
           include: { documentMovements: true },
         });
 
-        const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-        const hasCompletedMainProcess = mainProcessCheck.isCompleted;
+        const hasCompletedMainProcess = mainProcessCheckMap.get(item.trackingNumber) ?? false;
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const deliveryLocation = reg?.deliveryLocation || "";

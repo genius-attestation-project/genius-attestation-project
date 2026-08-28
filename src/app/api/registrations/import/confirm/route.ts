@@ -262,13 +262,6 @@ export async function POST(req: NextRequest) {
             collectedBy: payload.collectedPerson || null,
             performedByUserId: importedBy,
           }).catch((err) => console.error("[import] submitAdvancePaymentApproval error:", err));
-        } else {
-          await createMovementApprovalRequest({
-            ownerAdminId,
-            registrationId: createdReg.id,
-            performedBy: session.user.name || session.user.email || "System User",
-            requestedByUserId: importedBy,
-          }).catch((err) => console.error("[import] createMovementApprovalRequest error:", err));
         }
 
         successfulRows++;
