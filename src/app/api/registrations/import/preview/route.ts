@@ -8,6 +8,7 @@ import {
   findFieldDefinition,
   findClosestMatch,
   normalizeHeader,
+  parseDateValue,
 } from "@/features/registration/server/registration-fields";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -205,8 +206,13 @@ export async function POST(req: NextRequest) {
           if (def.type === "number") {
             const num = Number(String(rawVal).replace(/[^0-9.-]/g, ""));
             rowData[def.key] = isNaN(num) ? rawVal : num;
-          } else if (rawVal instanceof Date) {
-            rowData[def.key] = rawVal.toISOString().split("T")[0];
+          } else if (def.type === "date" || rawVal instanceof Date) {
+            const parsed = parseDateValue(rawVal);
+            if (parsed.isValid && parsed.date) {
+              rowData[def.key] = def.key === "createdDate" ? parsed.date.toISOString() : parsed.date.toISOString().split("T")[0];
+            } else {
+              rowData[def.key] = cleanStr(rawVal);
+            }
           } else {
             rowData[def.key] = cleanStr(rawVal);
           }
@@ -546,6 +552,70 @@ export async function POST(req: NextRequest) {
       rowData.totalCharges = isNaN(totalCharges) ? 0 : totalCharges;
       rowData.advancePaid = isNaN(advancePaid) ? 0 : advancePaid;
       rowData.balanceAmount = Math.max(0, rowData.totalCharges - rowData.advancePaid);
+
+      // 17. Created Date Validation (Optional)
+      const rawCreatedDate = cleanStr(rowData.createdDate);
+      if (rawCreatedDate) {
+        const parsedCreatedDate = parseDateValue(rawCreatedDate);
+        if (!parsedCreatedDate.isValid || !parsedCreatedDate.date) {
+          errors.push(`Invalid Created Date format: "${rawCreatedDate}".`);
+          mismatches.push({
+            field: "Created Date",
+            fieldKey: "createdDate",
+            value: rawCreatedDate,
+            status: "Error",
+            reason: `Invalid Created Date "${rawCreatedDate}". Expected format DD/MM/YYYY or DD/MM/YYYY HH:mm (e.g. 15/07/2025).`,
+          });
+        } else {
+          rowData.createdDate = parsedCreatedDate.date.toISOString();
+        }
+      } else {
+        rowData.createdDate = ""; // Blank is valid, falls back to import timestamp
+      }
+
+      // 18. Optional payment dates validation
+      if (rowData.transferDate) {
+        const p = parseDateValue(rowData.transferDate);
+        if (!p.isValid) {
+          mismatches.push({
+            field: "Transfer Date",
+            fieldKey: "transferDate",
+            value: String(rowData.transferDate),
+            status: "Mismatch",
+            reason: "Invalid Date format. Expected DD/MM/YYYY or YYYY-MM-DD.",
+          });
+        } else if (p.date) {
+          rowData.transferDate = p.date.toISOString().split("T")[0];
+        }
+      }
+      if (rowData.chequeDate) {
+        const p = parseDateValue(rowData.chequeDate);
+        if (!p.isValid) {
+          mismatches.push({
+            field: "Cheque Date",
+            fieldKey: "chequeDate",
+            value: String(rowData.chequeDate),
+            status: "Mismatch",
+            reason: "Invalid Date format. Expected DD/MM/YYYY or YYYY-MM-DD.",
+          });
+        } else if (p.date) {
+          rowData.chequeDate = p.date.toISOString().split("T")[0];
+        }
+      }
+      if (rowData.ddDate) {
+        const p = parseDateValue(rowData.ddDate);
+        if (!p.isValid) {
+          mismatches.push({
+            field: "DD Date",
+            fieldKey: "ddDate",
+            value: String(rowData.ddDate),
+            status: "Mismatch",
+            reason: "Invalid Date format. Expected DD/MM/YYYY or YYYY-MM-DD.",
+          });
+        } else if (p.date) {
+          rowData.ddDate = p.date.toISOString().split("T")[0];
+        }
+      }
 
       // Determine Row Status
       const hasBlockingMismatches = mismatches.some((m) => m.status === "Error" || m.status === "Mismatch");

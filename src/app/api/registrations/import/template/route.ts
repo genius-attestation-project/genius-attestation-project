@@ -140,6 +140,8 @@ export async function GET(req: NextRequest) {
           return "";
         case "trackingNumber":
           return ""; // Auto-generated if left blank
+        case "createdDate":
+          return ""; // Optional - defaults to current import date/time if left blank
         case "registeredPerson":
           return session.user.name || "";
         case "regionOfRegistration":

@@ -6,8 +6,8 @@ import crypto from "crypto";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
-import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
 import { Prisma } from "@prisma/client";
+import { parseDateValue } from "@/features/registration/server/registration-fields";
 
 function generateTrackingNumber(): string {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
@@ -119,6 +119,20 @@ export async function POST(req: NextRequest) {
         return isNaN(parsed.getTime()) ? null : parsed;
       };
 
+      const parseDateValue = (d: any) => {
+        const date = new Date(d);
+        return { isValid: !isNaN(date.getTime()), date };
+      };
+
+      const rawCreatedDate = data.createdDate;
+      let explicitCreatedAt: Date | undefined = undefined;
+      if (rawCreatedDate) {
+        const p = parseDateValue(rawCreatedDate);
+        if (p.isValid && p.date) {
+          explicitCreatedAt = p.date;
+        }
+      }
+
       const payload: any = {
         trackingNumber,
         customerName: String(data.customerName || "").trim(),
@@ -171,6 +185,7 @@ export async function POST(req: NextRequest) {
         welcomeCallStatus: data.welcomeCallStatus || "Pending",
         ownerAdminId,
         createdBy: importedBy,
+        createdAt: explicitCreatedAt || importedAt,
         importBatchId: batchId,
         importFileName: fileName || "Imported Spreadsheet",
         importedBy,

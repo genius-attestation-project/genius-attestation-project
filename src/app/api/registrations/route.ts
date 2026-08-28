@@ -3,8 +3,9 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
-import { createRegistration, listRegistrations } from "@/features/registration/server/registration.service";
+import { bulkDeleteRegistrations, createRegistration, listRegistrations } from "@/features/registration/server/registration.service";
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -135,6 +136,36 @@ export async function POST(request: NextRequest) {
       error,
       payload: body,
     });
+    return jsonError(message, 500);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId;
+    if (!ownerAdminId || !session?.user) {
+      return jsonError("No owner admin ID found.", 401);
+    }
+
+    if (!hasPermission(session.user, "revenue_registration.delete")) {
+      return jsonError("You do not have permission to delete revenue registrations.", 403);
+    }
+
+    const body = await request.json().catch(() => null);
+    const ids: string[] = Array.isArray(body?.ids) ? body.ids.filter((id: any) => typeof id === "string" && id.trim()) : [];
+
+    if (ids.length === 0) {
+      return jsonError("Please select at least one registration to delete.", 400);
+    }
+
+    const performedBy = session.user?.name ?? session.user?.email ?? undefined;
+    const result = await bulkDeleteRegistrations(ownerAdminId, ids, performedBy);
+
+    return jsonOk(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to bulk delete registrations.";
+    console.error("[DELETE /api/registrations] Bulk delete error:", error);
     return jsonError(message, 500);
   }
 }

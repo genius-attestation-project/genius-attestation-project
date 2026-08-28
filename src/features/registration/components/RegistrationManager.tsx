@@ -16,6 +16,9 @@ import {
   Filter,
   X,
   Route,
+  CheckSquare,
+  Square,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -53,6 +56,7 @@ type RegistrationManagerProps = {
   hasExportPermission?: boolean;
   hasTimelinePermission?: boolean;
   hasImportPermission?: boolean;
+  hasDeletePermission?: boolean;
 };
 
 const blankForm: RegistrationFormState = {
@@ -398,6 +402,7 @@ export function RegistrationManager({
   hasExportPermission = false,
   hasTimelinePermission = false,
   hasImportPermission = false,
+  hasDeletePermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
   const { user: currentUser } = useAuth();
@@ -413,6 +418,74 @@ export function RegistrationManager({
   const [success, setSuccess] = useState("");
   const [drawerMode, setDrawerMode] = useState<"form" | "view" | null>(null);
   const [selected, setSelected] = useState<Registration | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const isAllPageSelected = useMemo(() => {
+    if (registrations.length === 0) return false;
+    return registrations.every((r) => selectedIds.includes(r.id));
+  }, [registrations, selectedIds]);
+
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllOnPage = (checked: boolean) => {
+    if (checked) {
+      const pageIds = registrations.map((r) => r.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    } else {
+      const pageIdSet = new Set(registrations.map((r) => r.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIdSet.has(id)));
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds([]);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/registrations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.message || resData.error || "Failed to delete selected registrations.");
+      }
+
+      const deletedCount = resData.data?.deletedCount ?? selectedIds.length;
+      const skippedCount = resData.data?.skippedCount ?? 0;
+
+      if (skippedCount > 0) {
+        const skippedReasons = (resData.data?.skippedDetails || [])
+          .map((s: any) => `${s.trackingNumber || s.id}: ${s.reason}`)
+          .join("; ");
+        setSuccess(`${deletedCount} registration(s) deleted. (${skippedCount} skipped: ${skippedReasons})`);
+      } else {
+        setSuccess(`${deletedCount} Revenue Registration document(s) deleted successfully.`);
+      }
+
+      setSelectedIds([]);
+      setIsBulkDeleteModalOpen(false);
+      await fetchRegistrations(query, filters, page, pageSize);
+    } catch (err: any) {
+      setError(err.message || "An error occurred while deleting registrations.");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
   const [form, setForm] = useState<RegistrationFormState>({
     ...blankForm,
     trackingNumber: initialTrackingNumber,
@@ -1331,126 +1404,200 @@ export function RegistrationManager({
             Loading registrations...
           </div>
         ) : registrations.length ? (
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-300 text-left text-xs">
-                <thead className="bg-blue-50/90 text-xs font-bold tracking-wider text-slate-700 border-b border-slate-200/80 dark:bg-blue-500/10 dark:border-white/10 dark:text-slate-300">
-                  <tr>
-                    <th className="px-3.5 py-3 text-center w-12">SL No.</th>
-                    <th className="px-3.5 py-3">Tracking Number</th>
-                    <th className="px-3.5 py-3">Customer Name</th>
-                    <th className="px-3.5 py-3">Mobile</th>
-                    <th className="px-3.5 py-3">Registered By</th>
-                    <th className="px-3.5 py-3 min-w-40">Process Type</th>
-                    <th className="px-3.5 py-3 min-w-32.5">Document Type</th>
-                    <th className="px-3.5 py-3 text-center">Status</th>
-                    <th className="px-3.5 py-3 text-center">Payment Status</th>
-                    <th className="px-3.5 py-3 text-center">Approval Status</th>
-                    <th className="px-3.5 py-3 text-center">Created Date</th>
-                    <th className="px-3.5 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
-                  {registrations.map((registration, index) => (
-                    <tr key={registration.id} className="transition hover:bg-blue-50/70 dark:hover:bg-blue-500/5">
-                      <td className="px-3.5 py-3 text-center text-slate-500 font-medium">
-                        {((page - 1) * pageSize) + index + 1}
-                      </td>
-                      <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <PriorityDot priority={registration.priority} size={10} />
-                          <Link
-                            href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
-                            className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                          >
-                            {registration.trackingNumber}
-                          </Link>
-                        </div>
-                      </td>
-                      <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
-                        {registration.customerName}
-                      </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
-                        {registration.mobile}
-                      </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
-                        {registration.createdBy?.name || "Unknown"}
-                      </td>
-                      <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-40">
-                        {registration.processType || "-"}
-                      </td>
-                      <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-32.5">
-                        {registration.documentType || "-"}
-                      </td>
-                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                          registration.trackingStatus === "Delivered"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                            : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
-                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300"
-                            : registration.trackingStatus === "Document In Hand"
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
-                            : registration.trackingStatus === "In Transfer"
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
-                        }`}>
-                          {registration.trackingStatus || "Registered"}
-                        </span>
-                      </td>
-                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                          registration.paymentStatus === "Paid"
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                            : registration.paymentStatus === "Partially Paid"
-                            ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                            : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
-                        }`}>
-                          {registration.paymentStatus || "Unpaid"}
-                        </span>
-                      </td>
-                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                          registration.approvalStatus === "Approved"
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                            : registration.approvalStatus === "Pending"
-                            ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                            : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                        }`}>
-                          {registration.approvalStatus || "Pending"}
-                        </span>
-                      </td>
-                      <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
-                        {registration.createdDate}
-                      </td>
-                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          {hasTimelinePermission && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              title="View Branch Movement"
-                              onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
-                              className="h-8 w-8"
-                            >
-                              <Route size={15} className="text-blue-600" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" onClick={() => openView(registration)} className="h-8 w-8">
-                            <Eye size={15} />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(registration)} className="h-8 w-8">
-                            <Pencil size={15} />
-                          </Button>
-                          <Button variant="danger" size="icon" onClick={() => handleDelete(registration)} className="h-8 w-8">
-                            <Trash2 size={15} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="grid gap-3">
+            {/* Bulk Action Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-3 sm:px-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSelectAllOnPage(!isAllPageSelected)}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-400 cursor-pointer"
+                >
+                  {isAllPageSelected ? (
+                    <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
+                  ) : selectedIds.length > 0 ? (
+                    <CheckSquare size={16} className="text-blue-600/70 dark:text-blue-400/70" />
+                  ) : (
+                    <Square size={16} className="text-slate-400" />
+                  )}
+                  {isAllPageSelected ? "Deselect Page" : "Select All (Page)"}
+                </button>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Selected: <strong className="text-blue-600 dark:text-blue-400">{selectedIds.length}</strong> {selectedIds.length === 1 ? "document" : "documents"}
+                </span>
+                {selectedIds.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    className="h-7 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    Deselect All
+                  </Button>
+                )}
+              </div>
+              {selectedIds.length > 0 && hasDeletePermission && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteModalOpen(true)}
+                  className="flex items-center gap-1.5 h-8 px-3 text-xs font-bold"
+                >
+                  <Trash2 size={14} />
+                  Delete Selected ({selectedIds.length})
+                </Button>
+              )}
             </div>
+
+            <div className="min-w-0 overflow-hidden rounded-2xl border border-(--border) sm:rounded-[28px]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-300 text-left text-xs">
+                  <thead className="bg-blue-50/90 text-xs font-bold tracking-wider text-slate-700 border-b border-slate-200/80 dark:bg-blue-500/10 dark:border-white/10 dark:text-slate-300">
+                    <tr>
+                      <th className="px-3.5 py-3 w-10 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAllOnPage(!isAllPageSelected)}
+                          className="inline-flex items-center justify-center p-0.5 rounded text-slate-600 hover:text-blue-600 dark:text-slate-300 cursor-pointer"
+                          title={isAllPageSelected ? "Deselect all on this page" : "Select all on this page"}
+                        >
+                          {isAllPageSelected ? (
+                            <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
+                          ) : selectedIds.some((id) => registrations.some((r) => r.id === id)) ? (
+                            <CheckSquare size={16} className="text-blue-600/60 dark:text-blue-400/60" />
+                          ) : (
+                            <Square size={16} className="text-slate-400" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-3.5 py-3 text-center w-12">SL No.</th>
+                      <th className="px-3.5 py-3">Tracking Number</th>
+                      <th className="px-3.5 py-3">Customer Name</th>
+                      <th className="px-3.5 py-3">Mobile</th>
+                      <th className="px-3.5 py-3">Registered By</th>
+                      <th className="px-3.5 py-3 min-w-40">Process Type</th>
+                      <th className="px-3.5 py-3 min-w-32.5">Document Type</th>
+                      <th className="px-3.5 py-3 text-center">Status</th>
+                      <th className="px-3.5 py-3 text-center">Payment Status</th>
+                      <th className="px-3.5 py-3 text-center">Approval Status</th>
+                      <th className="px-3.5 py-3 text-center">Created Date</th>
+                      <th className="px-3.5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
+                    {registrations.map((registration, index) => (
+                      <tr key={registration.id} className="transition hover:bg-blue-50/70 dark:hover:bg-blue-500/5">
+                        <td className="px-3.5 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectRow(registration.id)}
+                            className="inline-flex items-center justify-center p-0.5 rounded text-slate-600 hover:text-blue-600 dark:text-slate-300 cursor-pointer"
+                          >
+                            {selectedIds.includes(registration.id) ? (
+                              <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <Square size={16} className="text-slate-400" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-3.5 py-3 text-center text-slate-500 font-medium">
+                          {((page - 1) * pageSize) + index + 1}
+                        </td>
+                        <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <PriorityDot priority={registration.priority} size={10} />
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
+                              className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                            >
+                              {registration.trackingNumber}
+                            </Link>
+                          </div>
+                        </td>
+                        <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
+                          {registration.customerName}
+                        </td>
+                        <td className="px-3.5 py-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                          {registration.mobile}
+                        </td>
+                        <td className="px-3.5 py-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
+                          {registration.createdBy?.name || "Unknown"}
+                        </td>
+                        <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-40">
+                          {registration.processType || "-"}
+                        </td>
+                        <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-32.5">
+                          {registration.documentType || "-"}
+                        </td>
+                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                            registration.trackingStatus === "Delivered"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
+                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300"
+                              : registration.trackingStatus === "Document In Hand"
+                              ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
+                              : registration.trackingStatus === "In Transfer"
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                          }`}>
+                            {registration.trackingStatus || "Registered"}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                            registration.paymentStatus === "Paid"
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              : registration.paymentStatus === "Partially Paid"
+                              ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                              : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+                          }`}>
+                            {registration.paymentStatus || "Unpaid"}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                            registration.approvalStatus === "Approved"
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              : registration.approvalStatus === "Pending"
+                              ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                              : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                          }`}>
+                            {registration.approvalStatus || "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                          {registration.createdDate}
+                        </td>
+                        <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {hasTimelinePermission && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                title="View Branch Movement"
+                                onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
+                                className="h-8 w-8"
+                              >
+                                <Route size={15} className="text-blue-600" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => openView(registration)} className="h-8 w-8">
+                              <Eye size={15} />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(registration)} className="h-8 w-8">
+                              <Pencil size={15} />
+                            </Button>
+                            <Button variant="danger" size="icon" onClick={() => handleDelete(registration)} className="h-8 w-8">
+                              <Trash2 size={15} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             
             <div className="flex items-center justify-end border-t border-(--border) bg-white/50 p-4 dark:bg-white/5">
               <div className="flex items-center gap-2">
@@ -1474,7 +1621,8 @@ export function RegistrationManager({
               </div>
             </div>
           </div>
-        ) : (
+        </div>
+      ) : (
           <EmptyState
             icon={FilePlus2}
             title="No registrations found"
@@ -2084,6 +2232,52 @@ export function RegistrationManager({
             fetchRegistrations(query, filters);
           }}
         />
+      )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400 mb-3">
+              <div className="rounded-full bg-rose-100 p-2.5 dark:bg-rose-950/60">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Delete {selectedIds.length} Selected {selectedIds.length === 1 ? "Document" : "Documents"}?
+              </h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              Are you sure you want to delete the <strong>{selectedIds.length}</strong> selected Revenue Registration {selectedIds.length === 1 ? "document" : "documents"}? This action may affect related document records, movement history, and cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="secondary"
+                disabled={isBulkDeleting}
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={isBulkDeleting}
+                onClick={handleBulkDeleteConfirm}
+                className="flex items-center gap-2"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    Delete {selectedIds.length} {selectedIds.length === 1 ? "Document" : "Documents"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

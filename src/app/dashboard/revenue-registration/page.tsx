@@ -24,6 +24,7 @@ export default async function RevenueRegistrationPage() {
   const hasExportPermission = hasPermission(session.user, "revenue_registration.export");
   const hasTimelinePermission = hasPermission(session.user, "document_movement.view");
   const hasImportPermission = hasPermission(session.user, "revenue_registration.import");
+  const hasDeletePermission = hasPermission(session.user, "revenue_registration.delete");
 
   return (
     <RegistrationManager 
@@ -31,6 +32,7 @@ export default async function RevenueRegistrationPage() {
       hasExportPermission={hasExportPermission} 
       hasTimelinePermission={hasTimelinePermission}
       hasImportPermission={hasImportPermission}
+      hasDeletePermission={hasDeletePermission}
     />
   );
 }

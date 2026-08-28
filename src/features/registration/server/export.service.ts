@@ -58,7 +58,7 @@ export type ExportRegistrationRecord = {
 };
 
 export const EXPORT_COLUMNS = [
-  "Date",
+  "Created Date",
   "Tracking Number",
   "Customer Name",
   "Mobile Number",

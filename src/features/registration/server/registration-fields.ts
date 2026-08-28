@@ -592,6 +592,29 @@ export const REGISTRATION_FIELD_DEFINITIONS: RegistrationFieldDefinition[] = [
     defaultVal: "Registered",
   },
   {
+    key: "createdDate",
+    label: "Created Date",
+    aliases: [
+      "Created Date",
+      "created_date",
+      "Registration Date",
+      "registration_date",
+      "Date",
+      "date",
+      "Created At",
+      "created_at",
+      "Reg Date",
+      "Reg. Date",
+    ],
+    category: "Registration & Workflow",
+    type: "date",
+    required: false,
+    description: "Original document registration date DD/MM/YYYY or DD/MM/YYYY HH:mm (Optional, defaults to current import date/time)",
+    example: "28/08/2026",
+    importable: true,
+    exportable: true,
+  },
+  {
     key: "welcomeCallStatus",
     label: "Welcome Call Status",
     aliases: ["Welcome Call Status", "welcome_call_status"],
@@ -605,6 +628,76 @@ export const REGISTRATION_FIELD_DEFINITIONS: RegistrationFieldDefinition[] = [
     defaultVal: "Pending",
   },
 ];
+
+/**
+ * Standardized Date Parser for Import & System Workflows.
+ * Supports DD/MM/YYYY, DD/MM/YYYY HH:mm, YYYY-MM-DD, ISO strings, and Date objects.
+ */
+export function parseDateValue(val: any): { date: Date | null; isValid: boolean; rawString: string } {
+  if (val === undefined || val === null || val === "") {
+    return { date: null, isValid: true, rawString: "" };
+  }
+
+  if (val instanceof Date) {
+    if (!isNaN(val.getTime())) {
+      return { date: val, isValid: true, rawString: val.toISOString() };
+    }
+    return { date: null, isValid: false, rawString: String(val) };
+  }
+
+  const str = String(val).trim();
+  if (!str) return { date: null, isValid: true, rawString: "" };
+
+  // 1. DD/MM/YYYY or DD-MM-YYYY or DD/MM/YYYY HH:mm or DD/MM/YYYY HH:mm:ss
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+    const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+    const seconds = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+
+    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || hours > 23 || minutes > 59 || seconds > 59) {
+      return { date: null, isValid: false, rawString: str };
+    }
+
+    const d = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    if (isNaN(d.getTime()) || d.getUTCDate() !== day || d.getUTCMonth() !== month) {
+      return { date: null, isValid: false, rawString: str };
+    }
+    return { date: d, isValid: true, rawString: str };
+  }
+
+  // 2. YYYY-MM-DD or YYYY/MM/DD or ISO
+  const ymdMatch = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const hours = ymdMatch[4] ? parseInt(ymdMatch[4], 10) : 0;
+    const minutes = ymdMatch[5] ? parseInt(ymdMatch[5], 10) : 0;
+    const seconds = ymdMatch[6] ? parseInt(ymdMatch[6], 10) : 0;
+
+    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || hours > 23 || minutes > 59 || seconds > 59) {
+      return { date: null, isValid: false, rawString: str };
+    }
+
+    const d = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    if (isNaN(d.getTime()) || d.getUTCDate() !== day || d.getUTCMonth() !== month) {
+      return { date: null, isValid: false, rawString: str };
+    }
+    return { date: d, isValid: true, rawString: str };
+  }
+
+  // Fallback check
+  const fallback = new Date(str);
+  if (!isNaN(fallback.getTime()) && fallback.getFullYear() >= 1900 && fallback.getFullYear() <= 2100) {
+    return { date: fallback, isValid: true, rawString: str };
+  }
+
+  return { date: null, isValid: false, rawString: str };
+}
 
 /**
  * Normalizes a header or string key for loose matching against field aliases.
