@@ -146,8 +146,8 @@ function buildRegistrationData(
 
   return {
     trackingNumber: input.trackingNumber,
-    customerName: input.customerName,
-    mobile: input.mobile,
+    customerName: input.customerName || null,
+    mobile: input.mobile || null,
     email: input.email || null,
     address: input.address || null,
     country: input.country || null,

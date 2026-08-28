@@ -16,8 +16,8 @@ type WelcomeCallQueryParams = {
 type WelcomeCallRegistrationRow = {
   id: string;
   trackingNumber: string;
-  customerName: string;
-  mobile: string;
+  customerName: string | null;
+  mobile: string | null;
   processType: string | null;
   documentType: string | null;
   externalProcess: string | null;
@@ -77,8 +77,8 @@ function toWelcomeCallItem(registration: WelcomeCallRegistrationRow): WelcomeCal
   return {
     id: registration.id,
     registrationNumber: registration.trackingNumber,
-    clientName: registration.customerName,
-    mobile: registration.mobile,
+    clientName: registration.customerName ?? "-",
+    mobile: registration.mobile ?? "-",
     processType: registration.processType ?? registration.documentType ?? "-",
     service: registration.documentType ?? registration.externalProcess ?? registration.processType ?? "-",
     totalCharges: Number(registration.totalCharges),

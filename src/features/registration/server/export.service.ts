@@ -6,8 +6,8 @@ export type ExportRegistrationRecord = {
   id?: string;
   createdDate: string;
   trackingNumber: string;
-  customerName: string;
-  mobile: string;
+  customerName: string | null;
+  mobile: string | null;
   email?: string | null;
   address?: string | null;
   country?: string | null;

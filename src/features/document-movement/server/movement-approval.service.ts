@@ -126,7 +126,7 @@ export async function createMovementApprovalRequest(params: {
       data: {
         registrationId: reg.id,
         trackingNumber: reg.trackingNumber,
-        customerName: reg.customerName,
+        customerName: reg.customerName || null,
         documentName: reg.documentName,
         registrationOffice: reg.regionOfRegistration,
         currentOffice: currentOfficeName,

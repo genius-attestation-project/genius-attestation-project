@@ -432,9 +432,34 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
   }
 
   return prisma.$transaction(async (tx: any) => {
-    const targetOffice = await tx.officeLocation.findFirst({
+    let targetOffice = await tx.officeLocation.findFirst({
       where: { id: params.targetAssignedOfficeId },
     });
+
+    if (!targetOffice) {
+      const ao = await tx.assignedOffice.findUnique({
+        where: { id: params.targetAssignedOfficeId },
+      });
+      if (ao) {
+        targetOffice = await tx.officeLocation.findFirst({
+          where: { officeName: ao.username, ownerAdminId: params.ownerAdminId },
+        });
+        if (!targetOffice) {
+          targetOffice = await tx.officeLocation.create({
+            data: {
+              id: params.targetAssignedOfficeId,
+              officeName: ao.username,
+              location: "External Processing Office",
+              timezone: "UTC",
+              isProcessOffice: true,
+              ownerAdminId: params.ownerAdminId,
+            },
+          });
+        }
+      }
+    }
+
+    const targetOfficeId = targetOffice?.id || params.targetAssignedOfficeId;
 
     const movements = await tx.documentMovement.findMany({
       where: { trackingNumber: { in: params.trackingNumbers } },
@@ -443,7 +468,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
     const movementMap = new Map<string, any>(movements.map((m: any) => [m.trackingNumber, m]));
 
     const firstMov = movements[0];
-    const defaultFromOfficeId = params.fromOfficeId || firstMov?.currentOfficeId || firstMov?.toOfficeId || params.targetAssignedOfficeId;
+    const defaultFromOfficeId = params.fromOfficeId || firstMov?.currentOfficeId || firstMov?.toOfficeId || targetOfficeId;
 
     let sourceOffice = await tx.officeLocation.findFirst({
       where: { id: defaultFromOfficeId },
@@ -468,12 +493,12 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
 
     // 2. Update existing bundle OR create a new bundle for this transfer
     if (bundle) {
-      // Preserve existing bundle! Route it to targetAssignedOfficeId with Pending Receive status
+      // Preserve existing bundle! Route it to targetOfficeId with Pending Receive status
       await tx.bundle.update({
         where: { id: bundle.id },
         data: {
           fromOfficeId: defaultFromOfficeId,
-          toOfficeId: params.targetAssignedOfficeId,
+          toOfficeId: targetOfficeId,
           status: "Pending Receive",
         },
       });
@@ -511,7 +536,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
         data: {
           bundleNumber,
           fromOfficeId: defaultFromOfficeId,
-          toOfficeId: params.targetAssignedOfficeId,
+          toOfficeId: targetOfficeId,
           status: "Pending Receive",
           createdBy: params.userName || params.userId,
           ownerAdminId: params.ownerAdminId,
@@ -540,8 +565,8 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           toModule: "ASSIGNED_OFFICE",
           currentModule: "ASSIGNED_OFFICE",
           fromOfficeId: docSenderOfficeId,
-          toOfficeId: params.targetAssignedOfficeId,
-          currentOfficeId: params.targetAssignedOfficeId,
+          toOfficeId: targetOfficeId,
+          currentOfficeId: targetOfficeId,
           originalProcessOfficeId: docSenderOfficeId,
           returnOfficeId: docSenderOfficeId,
           status: "INBOUND",
@@ -581,7 +606,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
     }
 
     return { success: true, count: params.trackingNumbers.length, bundleNumber: bundle.bundleNumber, bundleId: bundle.id };
-  });
+  }, { maxWait: 20000, timeout: 60000 });
 }
 
 export async function processBulkMove(params: {
@@ -693,7 +718,7 @@ export async function processBulkMove(params: {
     }
 
     return { success: true, count: params.trackingNumbers.length };
-  });
+  }, { maxWait: 20000, timeout: 60000 });
 }
 
 export async function moveProcessAssignment(params: {

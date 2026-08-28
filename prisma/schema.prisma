@@ -381,8 +381,8 @@ model LeadStatusApproval {
 model Registration {
   id                     String    @id @default(cuid())
   trackingNumber         String    @unique @map("tracking_number")
-  customerName           String    @map("customer_name")
-  mobile                 String
+  customerName           String?   @map("customer_name")
+  mobile                 String?
   email                  String?
   address                String?
   country                String?
@@ -513,7 +513,7 @@ model PaymentUpdate {
   registrationId    String                  @map("registration_id")
   registration      Registration            @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   trackingNumber    String                  @map("tracking_number")
-  customerName      String                  @map("customer_name")
+  customerName      String?                 @map("customer_name")
   processType       String?                 @map("process_type")
   totalCharges      Decimal                 @default(0) @map("total_charges") @db.Decimal(12, 2)
   advancePaid       Decimal                 @default(0) @map("advance_paid") @db.Decimal(12, 2)
@@ -1593,8 +1593,8 @@ model AdvancePaymentApproval {
   registration       Registration           @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   trackingNumber     String                 @map("tracking_number")
   leadId             String?                @map("lead_id")
-  customerName       String                 @map("customer_name")
-  mobile             String
+  customerName       String?                @map("customer_name")
+  mobile             String?
   office             String?
   registeredPerson   String?                @map("registered_person")
   registeredDate     DateTime               @map("registered_date")
@@ -1668,7 +1668,7 @@ model MovementApproval {
   registrationId     String       @map("registration_id")
   registration       Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   trackingNumber     String       @map("tracking_number")
-  customerName       String       @map("customer_name")
+  customerName       String?      @map("customer_name")
   documentName       String?      @map("document_name")
   registrationOffice String?      @map("registration_office")
   currentOffice      String?      @map("current_office")

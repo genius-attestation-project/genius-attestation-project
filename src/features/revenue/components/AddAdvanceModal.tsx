@@ -12,7 +12,7 @@ type AddAdvanceModalProps = {
   onClose: () => void;
   registrationId: string;
   trackingNumber: string;
-  customerName: string;
+  customerName?: string | null;
   totalCharges: number;
   currentApprovedAdvance: number;
   currentBalance: number;

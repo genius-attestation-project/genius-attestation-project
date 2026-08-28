@@ -16,13 +16,13 @@ const requiredText = (label: string, maxLen?: number) =>
     .refine((val) => val.length > 0, `${label} is required.`)
     .refine((val) => !maxLen || val.length <= maxLen, `${label} cannot exceed ${maxLen} characters.`);
 
-const requiredEmail = (label: string) =>
-  z
-    .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
-    .refine((val) => val.length > 0, `${label} is required.`)
-    .refine((val) => z.string().email().safeParse(val).success, "Enter a valid email address.");
+const optionalEmail = z
+  .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
+  .refine((val) => val === "" || z.string().email().safeParse(val).success, "Enter a valid email address.")
+  .optional()
+  .default("");
 
-const mobileNumber = z
+const optionalPhone = z
   .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
   .transform((value) => {
     const digits = value.replace(/\D/g, "");
@@ -32,9 +32,12 @@ const mobileNumber = z
     return `+${digits}`;
   })
   .refine((value) => {
+    if (!value) return true;
     const digits = value.replace(/\D/g, "");
     return digits.length >= 7 && digits.length <= 15;
-  }, "Enter a valid mobile number");
+  }, "Enter a valid mobile number")
+  .optional()
+  .default("");
 
 const numericField = (label: string, required = false) =>
   z.preprocess((val) => {
@@ -49,28 +52,28 @@ const numericField = (label: string, required = false) =>
 
 export const registrationInputSchema = z.object({
   trackingNumber: requiredText("Tracking number"),
-  customerName: requiredText("Customer name"),
-  mobile: mobileNumber,
-  email: requiredEmail("Email"),
-  address: requiredText("Address"),
-  country: requiredText("Country"),
+  customerName: optionalText,
+  mobile: optionalPhone,
+  email: optionalEmail,
+  address: optionalText,
+  country: optionalText,
   state: optionalText,
   city: optionalText,
-  customerType: requiredText("Customer type"),
+  customerType: optionalText,
   corporateDetailId: optionalText,
-  documentType: requiredText("Document type"),
-  documentName: requiredText("Document name", 255),
-  documentIssuedCountry: requiredText("Document issued country"),
-  processType: requiredText("Process type"),
+  documentType: optionalText,
+  documentName: optionalText,
+  documentIssuedCountry: optionalText,
+  processType: optionalText,
   subPackage: optionalText,
-  externalProcess: requiredText("Additional process"),
-  priority: requiredText("Special processing priority"),
-  committedDuration: requiredText("Committed duration / SLA"),
-  deliveryLocation: requiredText("Delivery location"),
+  externalProcess: optionalText,
+  priority: optionalText,
+  committedDuration: optionalText,
+  deliveryLocation: optionalText,
   totalCharges: numericField("Total charges", false),
   advancePaid: numericField("Advance paid", false),
   requestedAdvanceAmount: numericField("Requested advance amount", false),
-  paymentMode: requiredText("Payment mode"),
+  paymentMode: optionalText,
   upiTransactionId: optionalText,
   bankName: optionalText,
   transactionRefNo: optionalText,
@@ -100,7 +103,7 @@ export const registrationInputSchema = z.object({
   ).optional().default("Pending"),
   trackingStatus: optionalText,
   leadId: optionalText,
-}).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= data.totalCharges, {
+}).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
   message: "Advance payment cannot exceed Total Charges.",
   path: ["requestedAdvanceAmount"],
 });

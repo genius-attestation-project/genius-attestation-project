@@ -115,8 +115,8 @@ const blankForm: RegistrationFormState = {
 function formFromRegistration(registration: Registration): RegistrationFormState {
   return {
     trackingNumber: registration.trackingNumber,
-    customerName: registration.customerName,
-    mobile: registration.mobile,
+    customerName: registration.customerName ?? "",
+    mobile: registration.mobile ?? "",
     email: registration.email ?? "",
     address: registration.address ?? "",
     country: registration.country ?? "",
@@ -990,15 +990,6 @@ export function RegistrationManager({
       const hasInvoiceFile = invoiceFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL"));
       const hasSupportingFile = supportingFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "SUPPORTING_DOCUMENT"));
 
-      if (
-        (needsDocumentFile && !hasDocumentFile) ||
-        (needsInvoiceFile && !hasInvoiceFile) ||
-        (needsSupportingFile && !hasSupportingFile)
-      ) {
-        setError("Document, invoice, and supporting document uploads are required.");
-        return;
-      }
-
       const response = await fetch(selected ? `/api/registrations/${selected.id}` : "/api/registrations", {
         method: selected ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -1654,24 +1645,20 @@ export function RegistrationManager({
               label="Customer Name"
               value={form.customerName}
               onChange={(event) => updateField("customerName", event.target.value)}
-              required
             />
             <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} defaultCountry={defaultPhoneCountry} />
             <Input
               label="Email"
-              type="email"
               value={form.email}
               onChange={(event) => updateField("email", event.target.value)}
-              required
             />
             <Input
               label="Address"
               value={form.address}
               onChange={(event) => updateField("address", event.target.value)}
-              required
             />
             <label className="grid gap-2">
-              <span className="text-sm font-bold">Country *</span>
+              <span className="text-sm font-bold">Country</span>
               <SearchableSelect
                 value={form.country}
                 options={countrySelectOptions}
@@ -1681,7 +1668,7 @@ export function RegistrationManager({
               />
             </label>
             <label className="grid gap-2">
-              <span className="text-sm font-bold">Customer Type *</span>
+              <span className="text-sm font-bold">Customer Type</span>
               <SearchableSelect
                 value={form.customerType}
                 options={toSelectOptions(customerTypeOptions)}
@@ -1697,7 +1684,7 @@ export function RegistrationManager({
             {form.customerType === "Corporate" && (
               <div className="grid gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold">Company *</span>
+                  <span className="text-sm font-bold">Company</span>
                   <button
                     type="button"
                     onClick={() => setIsCompanyModalOpen(true)}
@@ -1754,12 +1741,11 @@ export function RegistrationManager({
               />
             </label>
             <Input
-              label="Document Name *"
+              label="Document Name"
               value={form.documentName}
               placeholder="Enter document name"
               onChange={(event) => updateField("documentName", event.target.value)}
               maxLength={255}
-              required
             />
             <label className="grid gap-2">
               <span className="text-sm font-bold">Process Type</span>
@@ -1775,10 +1761,9 @@ export function RegistrationManager({
               label="Additional Process"
               value={form.externalProcess}
               onChange={(event) => updateField("externalProcess", event.target.value)}
-              required
             />
             <label className="grid gap-2">
-              <span className="text-sm font-bold">Special Processing Priority *</span>
+              <span className="text-sm font-bold">Special Processing Priority</span>
               <SearchableSelect
                 value={form.priority}
                 options={prioritySelectOptions}
@@ -1791,7 +1776,6 @@ export function RegistrationManager({
               label="Committed Duration / SLA"
               value={form.committedDuration}
               onChange={(event) => updateField("committedDuration", event.target.value)}
-              required
             />
             <label className="grid gap-2">
               <span className="text-sm font-bold">Delivery Location</span>
@@ -1814,7 +1798,7 @@ export function RegistrationManager({
               onFilesChange={(ids) => setDocumentFileIds(ids)}
               onRemoveExistingFile={handleRemoveExistingFile}
               existingFiles={selected?.files.filter((f) => f.fileCategory === "DOCUMENT")}
-              required={needsDocumentFile && !selected?.files.some((f) => f.fileCategory === "DOCUMENT")}
+              required={false}
             />
           </Section>
 
@@ -1909,7 +1893,7 @@ export function RegistrationManager({
               required={false}
             />
             <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
-            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} required />
+            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} />
             {(() => {
               const mode = (form.paymentMode || "").trim().toLowerCase();
               if (!mode || mode === "cash") return null;
@@ -2117,7 +2101,7 @@ export function RegistrationManager({
               onFilesChange={(ids) => setInvoiceFileIds(ids)}
               onRemoveExistingFile={handleRemoveExistingFile}
               existingFiles={selected?.files.filter((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
-              required={needsInvoiceFile && !selected?.files.some((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
+              required={false}
             />
             <MultiFileUpload
               label="Supporting Documents Upload"
@@ -2126,7 +2110,7 @@ export function RegistrationManager({
               onFilesChange={(ids) => setSupportingFileIds(ids)}
               onRemoveExistingFile={handleRemoveExistingFile}
               existingFiles={selected?.files.filter((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
-              required={needsSupportingFile && !selected?.files.some((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
+              required={false}
             />
           </Section>
 
