@@ -464,6 +464,7 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                       <th className="px-3 py-2.5 w-28">Status</th>
                       <th className="px-3 py-2.5">Customer</th>
                       <th className="px-3 py-2.5">Tracking No.</th>
+                      <th className="px-3 py-2.5">Created Date</th>
                       <th className="px-3 py-2.5">Process & Document</th>
                       <th className="px-3 py-2.5 text-right">Action</th>
                     </tr>
@@ -471,7 +472,7 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                   <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                           No rows match the selected filter.
                         </td>
                       </tr>
@@ -480,6 +481,22 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                         const isExpanded = Boolean(expandedRows[originalIndex]);
                         const isMismatch = row.status === "Mismatch" || row.status === "Error";
                         const isDuplicate = row.status === "Duplicate";
+
+                        // Format created date display (e.g. 15/07/2025)
+                        let createdDateDisplay = "Use Import Date";
+                        if (row.data.createdDate) {
+                          try {
+                            const d = new Date(row.data.createdDate);
+                            if (!isNaN(d.getTime())) {
+                              const day = String(d.getUTCDate()).padStart(2, "0");
+                              const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+                              const year = d.getUTCFullYear();
+                              createdDateDisplay = `${day}/${month}/${year}`;
+                            }
+                          } catch {
+                            createdDateDisplay = row.data.createdDate;
+                          }
+                        }
 
                         return (
                           <React.Fragment key={originalIndex}>
@@ -539,6 +556,13 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                               <td className="px-3 py-2.5 font-mono text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">
                                 {row.data.trackingNumber || "(Auto Generated)"}
                               </td>
+                              <td className="px-3 py-2.5 whitespace-nowrap font-mono text-slate-700 dark:text-slate-300">
+                                {row.data.createdDate ? (
+                                  <span className="font-semibold text-slate-900 dark:text-white">{createdDateDisplay}</span>
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">Import Date</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2.5">
                                 <div className="font-medium text-slate-800 dark:text-slate-200">
                                   {row.data.processType || "General"}
@@ -549,15 +573,25 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                               </td>
                               <td className="px-3 py-2.5 text-right whitespace-nowrap">
                                 {isDuplicate ? (
-                                  <select
-                                    className="text-[11px] font-semibold border rounded-lg p-1 bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
-                                    value={row.resolutionAction}
-                                    onChange={(e) => handleActionChange(originalIndex, e.target.value)}
-                                  >
-                                    <option value="Skip">Skip</option>
-                                    <option value="Update">Update Existing</option>
-                                    <option value="Duplicate">Create Duplicate</option>
-                                  </select>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <select
+                                      className="text-[11px] font-semibold border rounded-lg p-1 bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
+                                      value={row.resolutionAction}
+                                      onChange={(e) => handleActionChange(originalIndex, e.target.value)}
+                                    >
+                                      <option value="Skip">Skip</option>
+                                      <option value="Update">Update Existing</option>
+                                      <option value="Duplicate">Create Duplicate</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleRowExpand(originalIndex)}
+                                      className="inline-flex items-center text-amber-600 hover:text-amber-700 p-1"
+                                      title="View duplicate details"
+                                    >
+                                      {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                                    </button>
+                                  </div>
                                 ) : isMismatch ? (
                                   <button
                                     type="button"
@@ -574,29 +608,37 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                             </tr>
 
                             {/* Mismatch & Validation Details Expandable Row */}
-                            {(isExpanded || (isMismatch && activeTab === "mismatches")) && row.mismatches?.length > 0 && (
-                              <tr className="bg-rose-50/60 dark:bg-rose-950/20 border-b border-rose-100 dark:border-rose-900/30">
-                                <td colSpan={7} className="px-4 py-3">
+                            {(isExpanded || (isMismatch && activeTab === "mismatches") || (isDuplicate && activeTab === "duplicates")) && row.mismatches?.length > 0 && (
+                              <tr className={isDuplicate ? "bg-amber-50/60 dark:bg-amber-950/20 border-b border-amber-100 dark:border-amber-900/30" : "bg-rose-50/60 dark:bg-rose-950/20 border-b border-rose-100 dark:border-rose-900/30"}>
+                                <td colSpan={8} className="px-4 py-3">
                                   <div className="space-y-2">
-                                    <p className="text-[11px] font-bold text-rose-800 dark:text-rose-300">
-                                      Issues identified in Row #{row.rowNumber}:
+                                    <p className={`text-[11px] font-bold ${isDuplicate ? "text-amber-800 dark:text-amber-300" : "text-rose-800 dark:text-rose-300"}`}>
+                                      {isDuplicate ? `Duplicate details for Row #${row.rowNumber}:` : `Issues identified in Row #${row.rowNumber}:`}
                                     </p>
                                     <div className="grid gap-2 sm:grid-cols-2">
                                       {row.mismatches.map((m: any, mIdx: number) => (
                                         <div
                                           key={mIdx}
-                                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800/60 shadow-xs space-y-1"
+                                          className={`p-2.5 rounded-xl bg-white dark:bg-slate-900 border shadow-xs space-y-1 ${
+                                            m.status === "Warning" && isDuplicate
+                                              ? "border-amber-200 dark:border-amber-800/60"
+                                              : "border-rose-200 dark:border-rose-800/60"
+                                          }`}
                                         >
                                           <div className="flex items-center justify-between">
                                             <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
                                               {m.field}
                                             </span>
-                                            <span className="rounded bg-rose-100 text-rose-700 px-1.5 py-0.5 text-[9px] font-extrabold uppercase dark:bg-rose-950 dark:text-rose-300">
+                                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase ${
+                                              m.status === "Warning"
+                                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                                                : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                            }`}>
                                               {m.status}
                                             </span>
                                           </div>
                                           <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                                            Supplied: <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">"{m.value || "(empty)"}"</span>
+                                            Supplied: <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">"{m.value || "(empty)"}"</span>
                                           </p>
                                           <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                                             Reason: {m.reason}

@@ -7,7 +7,12 @@ import { resolveOfficeLocationName } from "@/lib/office-location";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
 import { Prisma } from "@prisma/client";
-import { parseDateValue } from "@/features/registration/server/registration-fields";
+import { parseDateValue, normalizeTrackingNumber } from "@/features/registration/server/registration-fields";
+
+function cleanStr(val: any): string {
+  if (val === undefined || val === null) return "";
+  return String(val).trim();
+}
 
 function generateTrackingNumber(): string {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
@@ -68,7 +73,8 @@ export async function POST(req: NextRequest) {
       }
 
       const data = rowObj.data;
-      let trackingNumber = String(data.trackingNumber || "").trim();
+      let rawTrackingNumber = cleanStr(data.trackingNumber);
+      let trackingNumber = normalizeTrackingNumber(rawTrackingNumber);
       const resolutionAction = rowObj.resolutionAction || "Create";
 
       if (!trackingNumber) {
@@ -119,11 +125,6 @@ export async function POST(req: NextRequest) {
         return isNaN(parsed.getTime()) ? null : parsed;
       };
 
-      const parseDateValue = (d: any) => {
-        const date = new Date(d);
-        return { isValid: !isNaN(date.getTime()), date };
-      };
-
       const rawCreatedDate = data.createdDate;
       let explicitCreatedAt: Date | undefined = undefined;
       if (rawCreatedDate) {
@@ -135,8 +136,8 @@ export async function POST(req: NextRequest) {
 
       const payload: any = {
         trackingNumber,
-        customerName: String(data.customerName || "").trim(),
-        mobile: String(data.mobile || "").trim(),
+        customerName: data.customerName ? String(data.customerName).trim() : null,
+        mobile: data.mobile ? String(data.mobile).trim() : null,
         email: data.email ? String(data.email).trim() : null,
         address: data.address ? String(data.address).trim() : null,
         country: data.country ? String(data.country).trim() : "India",
@@ -206,6 +207,7 @@ export async function POST(req: NextRequest) {
                 data: {
                   ...payload,
                   createdBy: undefined, // Preserve original creator
+                  createdAt: explicitCreatedAt ? explicitCreatedAt : undefined,
                 },
               });
 
@@ -217,10 +219,25 @@ export async function POST(req: NextRequest) {
                   performedBy: session.user.name || session.user.email || importedBy,
                 },
               });
-            });
+            }, { maxWait: 20000, timeout: 60000 });
             successfulRows++;
             continue;
           }
+        }
+
+        // Server-side uniqueness check before creating new record
+        const existingConflict = await prisma.registration.findFirst({
+          where: { trackingNumber, ownerAdminId },
+          select: { id: true, trackingNumber: true },
+        });
+
+        if (existingConflict) {
+          failedRows++;
+          failedRowDetails.push({
+            rowNumber: rowObj.rowNumber,
+            reason: `Tracking Number "${trackingNumber}" already exists in the database.`,
+          });
+          continue;
         }
 
         // Create new registration with complete full workflow
@@ -263,7 +280,7 @@ export async function POST(req: NextRequest) {
           });
 
           return reg;
-        });
+        }, { maxWait: 20000, timeout: 60000 });
 
         // Trigger advance payment approval or movement approval workflow
         if (advancePaid > 0) {

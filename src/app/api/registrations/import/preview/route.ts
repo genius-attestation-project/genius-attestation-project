@@ -9,6 +9,7 @@ import {
   findClosestMatch,
   normalizeHeader,
   parseDateValue,
+  normalizeTrackingNumber,
 } from "@/features/registration/server/registration-fields";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -188,6 +189,22 @@ export async function POST(req: NextRequest) {
       existingRegistrations.map((r: { trackingNumber: string }) => r.trackingNumber.trim().toUpperCase())
     );
 
+    // Count occurrences of each tracking number in the uploaded file to detect duplicates within the file
+    const fileTrackingCounts = new Map<string, number>();
+    for (let r = 1; r < rawRows.length; r++) {
+      const rowValues = rawRows[r] || [];
+      let rawT = "";
+      columnIndexToField.forEach((def, colIdx) => {
+        if (def.key === "trackingNumber") {
+          rawT = cleanStr(rowValues[colIdx]);
+        }
+      });
+      const normT = normalizeTrackingNumber(rawT).toUpperCase();
+      if (normT) {
+        fileTrackingCounts.set(normT, (fileTrackingCounts.get(normT) || 0) + 1);
+      }
+    }
+
     // --- Process Rows ---
     const processedRows = [];
     let validCount = 0;
@@ -209,10 +226,12 @@ export async function POST(req: NextRequest) {
           } else if (def.type === "date" || rawVal instanceof Date) {
             const parsed = parseDateValue(rawVal);
             if (parsed.isValid && parsed.date) {
-              rowData[def.key] = def.key === "createdDate" ? parsed.date.toISOString() : parsed.date.toISOString().split("T")[0];
+              rowData[def.key] = parsed.date.toISOString();
             } else {
               rowData[def.key] = cleanStr(rawVal);
             }
+          } else if (def.key === "trackingNumber") {
+            rowData[def.key] = normalizeTrackingNumber(rawVal);
           } else {
             rowData[def.key] = cleanStr(rawVal);
           }
@@ -225,31 +244,12 @@ export async function POST(req: NextRequest) {
       const errors: string[] = [];
       const warnings: string[] = [];
 
-      // 1. Required: Customer Name
-      const customerName = cleanStr(rowData.customerName);
-      if (!customerName) {
-        errors.push("Customer Name is required.");
-        mismatches.push({
-          field: "Customer Name",
-          fieldKey: "customerName",
-          value: "",
-          status: "Error",
-          reason: "Customer Name is required.",
-        });
-      }
+      // 1. Customer Name (Optional)
+      rowData.customerName = cleanStr(rowData.customerName);
 
-      // 2. Required: Mobile Number
+      // 2. Mobile Number (Optional - validate digits if provided)
       const rawMobile = cleanStr(rowData.mobile);
-      if (!rawMobile) {
-        errors.push("Mobile Number is required.");
-        mismatches.push({
-          field: "Mobile Number",
-          fieldKey: "mobile",
-          value: "",
-          status: "Error",
-          reason: "Mobile Number is required.",
-        });
-      } else {
+      if (rawMobile) {
         const digits = rawMobile.replace(/\D/g, "");
         if (digits.length < 7 || digits.length > 15) {
           errors.push(`Invalid Mobile Number (${rawMobile}). Must be 7 to 15 digits.`);
@@ -264,6 +264,8 @@ export async function POST(req: NextRequest) {
           // Normalize mobile number
           rowData.mobile = rawMobile.startsWith("+") ? `+${digits}` : digits.length === 10 ? `+91${digits}` : `+${digits}`;
         }
+      } else {
+        rowData.mobile = "";
       }
 
       // 3. Email (optional format check)
@@ -282,22 +284,32 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 4. Duplicate Tracking Number Check
-      const trackingNumber = cleanStr(rowData.trackingNumber).toUpperCase();
+      // 4. Duplicate Tracking Number Check (ONLY by Tracking Number)
+      const rawTrackingNumber = cleanStr(rowData.trackingNumber);
+      const normTrackingNumber = normalizeTrackingNumber(rawTrackingNumber).toUpperCase();
       let isDuplicate = false;
-      if (trackingNumber) {
-        if (existingTrackingNumbers.has(trackingNumber)) {
+      let duplicateReason = "";
+
+      if (normTrackingNumber) {
+        if (existingTrackingNumbers.has(normTrackingNumber)) {
           isDuplicate = true;
-          duplicateCount++;
-          warnings.push(`Tracking Number "${trackingNumber}" already exists.`);
-          mismatches.push({
-            field: "Tracking Number",
-            fieldKey: "trackingNumber",
-            value: trackingNumber,
-            status: "Warning",
-            reason: "Tracking Number already exists in the system.",
-          });
+          duplicateReason = `Tracking Number ${rawTrackingNumber} already exists in the system.`;
+        } else if ((fileTrackingCounts.get(normTrackingNumber) || 0) > 1) {
+          isDuplicate = true;
+          duplicateReason = `Tracking Number ${rawTrackingNumber} appears multiple times in this import file.`;
         }
+      }
+
+      if (isDuplicate) {
+        duplicateCount++;
+        warnings.push(duplicateReason);
+        mismatches.push({
+          field: "Tracking Number",
+          fieldKey: "trackingNumber",
+          value: rawTrackingNumber,
+          status: "Warning",
+          reason: duplicateReason,
+        });
       }
 
       // 5. Customer Type Validation

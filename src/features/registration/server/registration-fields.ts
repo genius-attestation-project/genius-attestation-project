@@ -630,69 +630,144 @@ export const REGISTRATION_FIELD_DEFINITIONS: RegistrationFieldDefinition[] = [
 ];
 
 /**
+ * Normalizes a tracking number safely:
+ * - Trims whitespace
+ * - Preserves leading zeros (e.g. "001234")
+ * - Handles number or text equivalents
+ */
+export function normalizeTrackingNumber(val: any): string {
+  if (val === undefined || val === null) return "";
+  return String(val).trim();
+}
+
+/**
+ * Formats a Date object or ISO string into canonical display DD/MM/YYYY.
+ * Uses UTC methods to prevent any timezone shifts across environments.
+ */
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return "-";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/**
  * Standardized Date Parser for Import & System Workflows.
- * Supports DD/MM/YYYY, DD/MM/YYYY HH:mm, YYYY-MM-DD, ISO strings, and Date objects.
+ * Supports DD/MM/YYYY, DD/MM/YYYY HH:mm, YYYY-MM-DD, ISO strings, Excel serial numbers, and Date objects.
  */
 export function parseDateValue(val: any): { date: Date | null; isValid: boolean; rawString: string } {
   if (val === undefined || val === null || val === "") {
     return { date: null, isValid: true, rawString: "" };
   }
 
+  // 1. JS Date object (e.g. from XLSX cellDates: true)
   if (val instanceof Date) {
-    if (!isNaN(val.getTime())) {
-      return { date: val, isValid: true, rawString: val.toISOString() };
+    if (isNaN(val.getTime())) {
+      return { date: null, isValid: false, rawString: String(val) };
     }
-    return { date: null, isValid: false, rawString: String(val) };
+    // Extract calendar date components safely
+    const hours = val.getUTCHours();
+    const mins = val.getUTCMinutes();
+    const secs = val.getUTCSeconds();
+    const isMidnight = hours === 0 && mins === 0 && secs === 0;
+
+    // Use UTC noon for date-only to eliminate cross-timezone display drift
+    const year = val.getUTCFullYear();
+    const month = val.getUTCMonth();
+    const day = val.getUTCDate();
+    const d = new Date(Date.UTC(year, month, day, isMidnight ? 12 : hours, mins, secs));
+    return { date: d, isValid: true, rawString: val.toISOString() };
+  }
+
+  // 2. Excel serial number (e.g. 45853 for 15/07/2025)
+  if (typeof val === "number" || (/^\d+(\.\d+)?$/.test(String(val).trim()) && Number(val) > 1000 && Number(val) < 200000)) {
+    const num = Number(val);
+    if (!isNaN(num) && num > 0) {
+      const utc_days = Math.floor(num - 25569);
+      const fractional_day = num - Math.floor(num) + 0.0000001;
+      let total_seconds = Math.floor(86400 * fractional_day);
+      const seconds = total_seconds % 60;
+      total_seconds = Math.floor(total_seconds / 60);
+      const minutes = total_seconds % 60;
+      const hours = Math.floor(total_seconds / 60);
+
+      const dateInfo = new Date(utc_days * 86400 * 1000);
+      const year = dateInfo.getUTCFullYear();
+      const month = dateInfo.getUTCMonth();
+      const day = dateInfo.getUTCDate();
+
+      if (year >= 1900 && year <= 2100) {
+        const isDateOnly = hours === 0 && minutes === 0 && seconds === 0;
+        const d = new Date(Date.UTC(year, month, day, isDateOnly ? 12 : hours, minutes, seconds));
+        return { date: d, isValid: true, rawString: String(val) };
+      }
+    }
   }
 
   const str = String(val).trim();
   if (!str) return { date: null, isValid: true, rawString: "" };
 
-  // 1. DD/MM/YYYY or DD-MM-YYYY or DD/MM/YYYY HH:mm or DD/MM/YYYY HH:mm:ss
+  // 3. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY [HH:mm[:ss]]
   const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
     const month = parseInt(dmyMatch[2], 10) - 1;
     const year = parseInt(dmyMatch[3], 10);
-    const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+    const hasTime = Boolean(dmyMatch[4]);
+    const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 12; // Use UTC noon for date-only
     const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
     const seconds = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
 
-    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || hours > 23 || minutes > 59 || seconds > 59) {
+    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || (hasTime && (hours > 23 || minutes > 59 || seconds > 59))) {
+      return { date: null, isValid: false, rawString: str };
+    }
+
+    // Check calendar month day limits (e.g. 31/02/2025 or 32/07/2025)
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    if (day > daysInMonth) {
       return { date: null, isValid: false, rawString: str };
     }
 
     const d = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-    if (isNaN(d.getTime()) || d.getUTCDate() !== day || d.getUTCMonth() !== month) {
+    if (isNaN(d.getTime())) {
       return { date: null, isValid: false, rawString: str };
     }
     return { date: d, isValid: true, rawString: str };
   }
 
-  // 2. YYYY-MM-DD or YYYY/MM/DD or ISO
+  // 4. YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD [HH:mm[:ss]] or ISO
   const ymdMatch = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (ymdMatch) {
     const year = parseInt(ymdMatch[1], 10);
     const month = parseInt(ymdMatch[2], 10) - 1;
     const day = parseInt(ymdMatch[3], 10);
-    const hours = ymdMatch[4] ? parseInt(ymdMatch[4], 10) : 0;
+    const hasTime = Boolean(ymdMatch[4]);
+    const hours = ymdMatch[4] ? parseInt(ymdMatch[4], 10) : 12;
     const minutes = ymdMatch[5] ? parseInt(ymdMatch[5], 10) : 0;
     const seconds = ymdMatch[6] ? parseInt(ymdMatch[6], 10) : 0;
 
-    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || hours > 23 || minutes > 59 || seconds > 59) {
+    if (month < 0 || month > 11 || day < 1 || day > 31 || year < 1900 || year > 2100 || (hasTime && (hours > 23 || minutes > 59 || seconds > 59))) {
+      return { date: null, isValid: false, rawString: str };
+    }
+
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    if (day > daysInMonth) {
       return { date: null, isValid: false, rawString: str };
     }
 
     const d = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-    if (isNaN(d.getTime()) || d.getUTCDate() !== day || d.getUTCMonth() !== month) {
+    if (isNaN(d.getTime())) {
       return { date: null, isValid: false, rawString: str };
     }
     return { date: d, isValid: true, rawString: str };
   }
 
-  // Fallback check
+  // 5. Fallback ISO string
   const fallback = new Date(str);
-  if (!isNaN(fallback.getTime()) && fallback.getFullYear() >= 1900 && fallback.getFullYear() <= 2100) {
+  if (!isNaN(fallback.getTime()) && fallback.getUTCFullYear() >= 1900 && fallback.getUTCFullYear() <= 2100) {
     return { date: fallback, isValid: true, rawString: str };
   }
 
