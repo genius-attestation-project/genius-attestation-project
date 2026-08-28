@@ -3,20 +3,36 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { z } from "zod";
+import {
+  REGISTRATION_FIELD_DEFINITIONS,
+  findFieldDefinition,
+  findClosestMatch,
+  normalizeHeader,
+} from "@/features/registration/server/registration-fields";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
-const normalizeStr = (str: any) => (str ? String(str).trim().toLowerCase() : "");
-const capitalizeStr = (str: any) => (str ? String(str).trim() : "");
+const normalize = (str: any) => (str !== null && str !== undefined ? String(str).trim().toLowerCase() : "");
+const cleanStr = (str: any) => (str !== null && str !== undefined ? String(str).trim() : "");
+
+export interface RowMismatchDetail {
+  field: string;
+  fieldKey: string;
+  value: string;
+  status: "Mismatch" | "Error" | "Warning";
+  reason: string;
+  suggestion?: string | null;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const sessionResponse = await requireApiPermission("revenue_registration.import");
-    if (sessionResponse instanceof NextResponse) return sessionResponse; // Access denied
-
     const session = await auth();
-    if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
+    const permissionResponse = await requireApiPermission("revenue_registration.import");
+    if (permissionResponse instanceof NextResponse) return permissionResponse;
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
 
@@ -32,160 +48,549 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "buffer" });
+    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
     const wsName = wb.SheetNames[0];
     const ws = wb.Sheets[wsName];
 
-    // Read rows
-    const rawData = XLSX.utils.sheet_to_json(ws, { defval: "" }) as Record<string, any>[];
-
-    if (rawData.length === 0) {
-      return NextResponse.json({ error: "The uploaded file is empty" }, { status: 400 });
+    if (!ws) {
+      return NextResponse.json({ error: "The uploaded workbook has no sheets." }, { status: 400 });
     }
 
-    // --- Master Data Preparation ---
-    const [existingUsers, existingRegistrations, existingOffices, existingDocTypes] = await Promise.all([
-      prisma.user.findMany({ where: { ownerAdminId, isActive: true }, select: { id: true, name: true, email: true } }),
-      prisma.registration.findMany({ where: { ownerAdminId }, select: { trackingNumber: true } }),
-      prisma.officeLocation.findMany({ where: { ownerAdminId }, select: { id: true, officeName: true } }),
-      (prisma as any).masterData.findMany({ where: { ownerAdminId, type: "DOCUMENT_TYPES", isArchived: false }, select: { name: true, category: true } }),
+    // Convert to 2D array to inspect headers safely
+    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+
+    if (rawRows.length < 2) {
+      return NextResponse.json({ error: "The uploaded file has no data rows." }, { status: 400 });
+    }
+
+    const rawHeaders = (rawRows[0] || []).map((h) => String(h || "").trim());
+
+    // Map column index -> RegistrationFieldDefinition
+    const columnIndexToField = new Map<number, typeof REGISTRATION_FIELD_DEFINITIONS[0]>();
+    const unmappedHeaders: string[] = [];
+
+    rawHeaders.forEach((header, idx) => {
+      if (!header) return;
+      const def = findFieldDefinition(header);
+      if (def) {
+        columnIndexToField.set(idx, def);
+      } else {
+        unmappedHeaders.push(header);
+      }
+    });
+
+    // --- Fetch Live System & Master Data for validation ---
+    const [
+      existingUsers,
+      existingRegistrations,
+      existingOffices,
+      existingDocTypes,
+      existingProcessTypes,
+      existingSubPackages,
+      existingCustomerTypes,
+      existingCorporateDetails,
+      existingPaymentModes,
+    ] = await Promise.all([
+      prisma.user.findMany({
+        where: { ownerAdminId, isActive: true },
+        select: { id: true, name: true, email: true },
+      }),
+      prisma.registration.findMany({
+        where: { ownerAdminId },
+        select: { trackingNumber: true },
+      }),
+      prisma.officeLocation.findMany({
+        where: { ownerAdminId },
+        select: { id: true, officeName: true, location: true },
+      }),
+      (prisma as any).masterData.findMany({
+        where: { ownerAdminId, type: "DOCUMENT_TYPES", isArchived: false, isActive: true },
+        select: { id: true, name: true, category: true },
+      }),
+      (prisma as any).masterData.findMany({
+        where: { ownerAdminId, type: "PROCESS_TYPES", isArchived: false, isActive: true },
+        select: { id: true, name: true },
+      }),
+      (prisma as any).subPackage.findMany({
+        where: { ownerAdminId, isActive: true },
+        select: { id: true, name: true },
+      }).catch(() => []),
+      (prisma as any).masterData.findMany({
+        where: { ownerAdminId, type: "CUSTOMER_TYPES", isArchived: false, isActive: true },
+        select: { id: true, name: true },
+      }).catch(() => []),
+      (prisma as any).corporateDetail.findMany({
+        where: { ownerAdminId, isActive: true },
+        select: { id: true, companyName: true },
+      }).catch(() => []),
+      (prisma as any).paymentMode.findMany({
+        where: { ownerAdminId, status: "Active" },
+        select: { id: true, paymentModeName: true },
+      }).catch(() => []),
     ]);
 
-    const userMap = new Map<string, string>(); // normalized name -> user id
-    existingUsers.forEach((u: { id: string; name: string | null; email: string | null }) => {
-      if (u.name) userMap.set(normalizeStr(u.name), u.id);
-      if (u.email) userMap.set(normalizeStr(u.email), u.id);
+    // Build Master Data lookup maps and candidate lists for suggestions
+    const validOfficeNames = existingOffices.map((o: any) => o.officeName);
+    const officeMap = new Map<string, { id: string; name: string }>();
+    existingOffices.forEach((o: any) => {
+      officeMap.set(normalize(o.officeName), { id: o.id, name: o.officeName });
     });
 
-    const officeMap = new Map<string, string>(); // normalized office -> office name
-    existingOffices.forEach((o: { id: string; officeName: string }) => {
-      officeMap.set(normalizeStr(o.officeName), o.officeName);
+    const validDocTypeNames = existingDocTypes.map((dt: any) => dt.name);
+    const docTypeMap = new Map<string, string>();
+    existingDocTypes.forEach((dt: any) => {
+      docTypeMap.set(normalize(dt.name), dt.name);
     });
 
-    const docTypeSet = new Set<string>();
-    existingDocTypes.forEach((dt: { name: string; category: string }) => {
-      docTypeSet.add(dt.name.replace(/\s+/g, "").toLowerCase());
+    const validProcessTypeNames = existingProcessTypes.map((pt: any) => pt.name);
+    const processTypeMap = new Map<string, string>();
+    existingProcessTypes.forEach((pt: any) => {
+      processTypeMap.set(normalize(pt.name), pt.name);
     });
 
-    const existingTrackingNumbers = new Set(existingRegistrations.map((r: { trackingNumber: string }) => r.trackingNumber));
+    const validSubPackageNames = (existingSubPackages || []).map((sp: any) => sp.name);
+    const subPackageMap = new Map<string, string>();
+    existingSubPackages.forEach((sp: any) => {
+      subPackageMap.set(normalize(sp.name), sp.name);
+    });
 
-    // --- Processing Rows ---
+    const validCustomerTypes = ["Individual", "Corporate", ...existingCustomerTypes.map((ct: any) => ct.name)];
+    const customerTypeMap = new Map<string, string>();
+    validCustomerTypes.forEach((ct) => {
+      customerTypeMap.set(normalize(ct), ct);
+    });
+
+    const validCompanyNames = (existingCorporateDetails || []).map((cd: any) => cd.companyName);
+    const corporateMap = new Map<string, { id: string; name: string }>();
+    existingCorporateDetails.forEach((cd: any) => {
+      corporateMap.set(normalize(cd.companyName), { id: cd.id, name: cd.companyName });
+    });
+
+    const defaultPaymentModes = ["Cash", "Bank Transfer", "UPI", "Credit Card", "Debit Card", "Cheque", "Demand Draft", "Online Payment", "Wallet", "Other"];
+    const validPaymentModes = Array.from(
+      new Set([...defaultPaymentModes, ...existingPaymentModes.map((pm: any) => pm.paymentModeName)])
+    );
+    const paymentModeMap = new Map<string, string>();
+    validPaymentModes.forEach((pm) => {
+      paymentModeMap.set(normalize(pm), pm);
+    });
+
+    const validUserDisplayNames = existingUsers.map((u: any) => u.name || u.email).filter(Boolean);
+    const userMap = new Map<string, { id: string; name: string; email: string }>();
+    existingUsers.forEach((u: any) => {
+      if (u.name) userMap.set(normalize(u.name), { id: u.id, name: u.name, email: u.email || "" });
+      if (u.email) userMap.set(normalize(u.email), { id: u.id, name: u.name || u.email, email: u.email });
+      userMap.set(normalize(u.id), { id: u.id, name: u.name || u.email, email: u.email || "" });
+    });
+
+    const existingTrackingNumbers = new Set(
+      existingRegistrations.map((r: { trackingNumber: string }) => r.trackingNumber.trim().toUpperCase())
+    );
+
+    // --- Process Rows ---
     const processedRows = [];
     let validCount = 0;
-    let errorCount = 0;
+    let mismatchCount = 0;
     let duplicateCount = 0;
-    const newMasterData = {
-      offices: new Set<string>(),
-      processTypes: new Set<string>(),
-      documentTypes: new Set<string>(),
-      documentTypesMap: {} as Record<string, string>
-    };
+    let warningCount = 0;
 
-    for (let i = 0; i < rawData.length; i++) {
-      const row = rawData[i];
-      const errors = [];
-      const warnings = [];
+    for (let r = 1; r < rawRows.length; r++) {
+      const rowValues = rawRows[r] || [];
+      const rowData: Record<string, any> = {};
 
-      // Essential field mapping (based on template)
-      const customerName = capitalizeStr(row["Customer Name*"] || row["customer_name"] || row["Customer Name"]);
-      const mobileNumber = capitalizeStr(row["Mobile Number*"] || row["mobile_number"] || row["Mobile Number"] || row["mobile"]);
-      const serviceProcessType = capitalizeStr(row["Service/Process Type*"] || row["process_type"] || row["Service/Process Type"]);
-      const subPackage = capitalizeStr(row["Sub Package"] || row["sub_package"]);
-      const totalCharges = Number(row["Total Charges*"] || row["total_charges"] || row["Total Charges"] || 0);
-      const trackingNumber = capitalizeStr(row["Tracking Number"] || row["tracking_number"]);
-      const documentType = capitalizeStr(row["Document Type"]);
-      const documentCategory = capitalizeStr(row["Document Category"] || row["Category"] || row["Document Category*"] || "General");
-      const deliveryLocation = capitalizeStr(row["Delivery Location"]); // This can be Office Name
+      // Map raw row values into canonical keys
+      columnIndexToField.forEach((def, colIdx) => {
+        const rawVal = rowValues[colIdx];
+        if (rawVal !== undefined && rawVal !== null && rawVal !== "") {
+          if (def.type === "number") {
+            const num = Number(String(rawVal).replace(/[^0-9.-]/g, ""));
+            rowData[def.key] = isNaN(num) ? rawVal : num;
+          } else if (rawVal instanceof Date) {
+            rowData[def.key] = rawVal.toISOString().split("T")[0];
+          } else {
+            rowData[def.key] = cleanStr(rawVal);
+          }
+        } else {
+          rowData[def.key] = "";
+        }
+      });
 
-      if (!customerName) errors.push("Customer Name is required.");
-      if (!mobileNumber) errors.push("Mobile Number is required.");
-      if (!serviceProcessType) errors.push("Service/Process Type is required.");
-      if (isNaN(totalCharges)) errors.push("Total Charges must be a number.");
+      const mismatches: RowMismatchDetail[] = [];
+      const errors: string[] = [];
+      const warnings: string[] = [];
 
-      // Check Tracking Number
+      // 1. Required: Customer Name
+      const customerName = cleanStr(rowData.customerName);
+      if (!customerName) {
+        errors.push("Customer Name is required.");
+        mismatches.push({
+          field: "Customer Name",
+          fieldKey: "customerName",
+          value: "",
+          status: "Error",
+          reason: "Customer Name is required.",
+        });
+      }
+
+      // 2. Required: Mobile Number
+      const rawMobile = cleanStr(rowData.mobile);
+      if (!rawMobile) {
+        errors.push("Mobile Number is required.");
+        mismatches.push({
+          field: "Mobile Number",
+          fieldKey: "mobile",
+          value: "",
+          status: "Error",
+          reason: "Mobile Number is required.",
+        });
+      } else {
+        const digits = rawMobile.replace(/\D/g, "");
+        if (digits.length < 7 || digits.length > 15) {
+          errors.push(`Invalid Mobile Number (${rawMobile}). Must be 7 to 15 digits.`);
+          mismatches.push({
+            field: "Mobile Number",
+            fieldKey: "mobile",
+            value: rawMobile,
+            status: "Error",
+            reason: "Must be a valid mobile number between 7 and 15 digits.",
+          });
+        } else {
+          // Normalize mobile number
+          rowData.mobile = rawMobile.startsWith("+") ? `+${digits}` : digits.length === 10 ? `+91${digits}` : `+${digits}`;
+        }
+      }
+
+      // 3. Email (optional format check)
+      const rawEmail = cleanStr(rowData.email);
+      if (rawEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(rawEmail)) {
+          warnings.push(`Email format appears invalid: "${rawEmail}"`);
+          mismatches.push({
+            field: "Email",
+            fieldKey: "email",
+            value: rawEmail,
+            status: "Warning",
+            reason: "Email format appears unusual.",
+          });
+        }
+      }
+
+      // 4. Duplicate Tracking Number Check
+      const trackingNumber = cleanStr(rowData.trackingNumber).toUpperCase();
       let isDuplicate = false;
-      if (trackingNumber && existingTrackingNumbers.has(trackingNumber)) {
-        isDuplicate = true;
-        duplicateCount++;
-        warnings.push(`Tracking Number ${trackingNumber} already exists. You must select an action (Skip, Update, Duplicate).`);
-      }
-
-      // Master Data Matching
-      if (serviceProcessType) newMasterData.processTypes.add(serviceProcessType);
-      if (documentType) {
-        newMasterData.documentTypes.add(documentType);
-        const normDoc = documentType.replace(/\s+/g, "").toLowerCase();
-        if (!docTypeSet.has(normDoc)) {
-          newMasterData.documentTypesMap[documentType] = documentCategory || "General";
+      if (trackingNumber) {
+        if (existingTrackingNumbers.has(trackingNumber)) {
+          isDuplicate = true;
+          duplicateCount++;
+          warnings.push(`Tracking Number "${trackingNumber}" already exists.`);
+          mismatches.push({
+            field: "Tracking Number",
+            fieldKey: "trackingNumber",
+            value: trackingNumber,
+            status: "Warning",
+            reason: "Tracking Number already exists in the system.",
+          });
         }
       }
 
-      // Office Matching (Assuming Delivery Location is an Office)
-      let resolvedDeliveryLocation = deliveryLocation;
-      if (deliveryLocation && !["office delivery", "home delivery", "courier"].includes(normalizeStr(deliveryLocation))) {
-        const normOffice = normalizeStr(deliveryLocation);
-        if (officeMap.has(normOffice)) {
-          resolvedDeliveryLocation = officeMap.get(normOffice)!;
+      // 5. Customer Type Validation
+      const rawCustomerType = cleanStr(rowData.customerType);
+      if (rawCustomerType) {
+        const normCt = normalize(rawCustomerType);
+        if (customerTypeMap.has(normCt)) {
+          rowData.customerType = customerTypeMap.get(normCt)!;
         } else {
-          newMasterData.offices.add(deliveryLocation);
-          warnings.push(`New Office Location will be created: ${deliveryLocation}`);
+          const suggested = findClosestMatch(rawCustomerType, validCustomerTypes);
+          mismatches.push({
+            field: "Customer Type",
+            fieldKey: "customerType",
+            value: rawCustomerType,
+            status: "Mismatch",
+            reason: `Customer Type "${rawCustomerType}" does not exist.`,
+            suggestion: suggested,
+          });
         }
+      } else {
+        rowData.customerType = "Individual";
       }
 
-      // User Matching
-      const commissionToRaw = capitalizeStr(row["Commission To User Name"]);
-      let commissionToUserId = null;
-      let commissionToName = commissionToRaw;
-      if (commissionToRaw) {
-        const norm = normalizeStr(commissionToRaw);
-        if (userMap.has(norm)) {
-          commissionToUserId = userMap.get(norm);
+      // 6. Corporate Company Validation
+      const rawCompany = cleanStr(rowData.corporateDetailName);
+      if (rawCompany) {
+        const normCompany = normalize(rawCompany);
+        if (corporateMap.has(normCompany)) {
+          const matched = corporateMap.get(normCompany)!;
+          rowData.corporateDetailId = matched.id;
+          rowData.corporateDetailName = matched.name;
         } else {
-          warnings.push(`User not found: ${commissionToRaw}. Will be stored as text only.`);
+          const suggested = findClosestMatch(rawCompany, validCompanyNames);
+          mismatches.push({
+            field: "Company Name",
+            fieldKey: "corporateDetailName",
+            value: rawCompany,
+            status: "Mismatch",
+            reason: `Company "${rawCompany}" was not found in Corporate Details master configuration.`,
+            suggestion: suggested,
+          });
         }
       }
 
-      const status = errors.length > 0 ? "Error" : (isDuplicate ? "Duplicate" : "Valid");
-      if (status === "Error") errorCount++;
-      if (status === "Valid") validCount++;
+      // 7. Document Type Validation (Master Data)
+      const rawDocType = cleanStr(rowData.documentType);
+      if (rawDocType) {
+        const normDoc = normalize(rawDocType);
+        if (docTypeMap.has(normDoc)) {
+          rowData.documentType = docTypeMap.get(normDoc)!;
+        } else {
+          const suggested = findClosestMatch(rawDocType, validDocTypeNames);
+          mismatches.push({
+            field: "Document Type",
+            fieldKey: "documentType",
+            value: rawDocType,
+            status: "Mismatch",
+            reason: `Document Type "${rawDocType}" does not exist in Master Configuration.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 8. Process Type Validation (Master Data)
+      const rawProcType = cleanStr(rowData.processType);
+      if (rawProcType) {
+        const normProc = normalize(rawProcType);
+        if (processTypeMap.has(normProc)) {
+          rowData.processType = processTypeMap.get(normProc)!;
+        } else {
+          const suggested = findClosestMatch(rawProcType, validProcessTypeNames);
+          mismatches.push({
+            field: "Process Type",
+            fieldKey: "processType",
+            value: rawProcType,
+            status: "Mismatch",
+            reason: `Process Type "${rawProcType}" does not exist in Master Configuration.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 9. Sub Package Validation (if provided)
+      const rawSubPkg = cleanStr(rowData.subPackage);
+      if (rawSubPkg) {
+        const normSub = normalize(rawSubPkg);
+        if (subPackageMap.has(normSub)) {
+          rowData.subPackage = subPackageMap.get(normSub)!;
+        } else if (validSubPackageNames.length > 0) {
+          const suggested = findClosestMatch(rawSubPkg, validSubPackageNames);
+          mismatches.push({
+            field: "Sub Package",
+            fieldKey: "subPackage",
+            value: rawSubPkg,
+            status: "Mismatch",
+            reason: `Sub Package "${rawSubPkg}" is not configured in Master Configuration.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 10. Delivery Location Validation (OfficeLocation / Delivery Type)
+      const rawDeliveryLoc = cleanStr(rowData.deliveryLocation);
+      if (rawDeliveryLoc) {
+        const normDeliv = normalize(rawDeliveryLoc);
+        if (["home delivery", "courier", "office delivery", "client delivery", "customer delivery"].includes(normDeliv)) {
+          // Standard accepted non-office delivery mode
+          rowData.deliveryLocation = rawDeliveryLoc;
+        } else if (officeMap.has(normDeliv)) {
+          rowData.deliveryLocation = officeMap.get(normDeliv)!.name;
+        } else {
+          const suggested = findClosestMatch(rawDeliveryLoc, validOfficeNames);
+          mismatches.push({
+            field: "Delivery Location",
+            fieldKey: "deliveryLocation",
+            value: rawDeliveryLoc,
+            status: "Mismatch",
+            reason: `Delivery Location "${rawDeliveryLoc}" does not match any active Office Location.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 11. Registration Office Validation
+      const rawRegOffice = cleanStr(rowData.regionOfRegistration);
+      if (rawRegOffice) {
+        const normRegOff = normalize(rawRegOffice);
+        if (officeMap.has(normRegOff)) {
+          rowData.regionOfRegistration = officeMap.get(normRegOff)!.name;
+        } else {
+          const suggested = findClosestMatch(rawRegOffice, validOfficeNames);
+          mismatches.push({
+            field: "Registration Office",
+            fieldKey: "regionOfRegistration",
+            value: rawRegOffice,
+            status: "Mismatch",
+            reason: `Registration Office "${rawRegOffice}" is not an active Office Location in your organization.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 12. Commission To User Validation
+      const rawCommUser = cleanStr(rowData.commissionToUser);
+      if (rawCommUser) {
+        const normComm = normalize(rawCommUser);
+        if (userMap.has(normComm)) {
+          const matchedUser = userMap.get(normComm)!;
+          rowData.commissionToUserId = matchedUser.id;
+          rowData.commissionToName = matchedUser.name;
+          rowData.commissionToEmail = matchedUser.email;
+        } else {
+          const suggested = findClosestMatch(rawCommUser, validUserDisplayNames);
+          mismatches.push({
+            field: "Commission To User",
+            fieldKey: "commissionToUser",
+            value: rawCommUser,
+            status: "Mismatch",
+            reason: `No active user "${rawCommUser}" found in your organization scope.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 13. Registered Person / Created By Validation
+      const rawRegPerson = cleanStr(rowData.registeredPerson);
+      if (rawRegPerson) {
+        const normPerson = normalize(rawRegPerson);
+        if (userMap.has(normPerson)) {
+          rowData.registeredPerson = userMap.get(normPerson)!.name;
+        } else {
+          // Allowed as display text, but note if user not found
+          rowData.registeredPerson = rawRegPerson;
+        }
+      }
+
+      // 14. Priority Validation
+      const rawPriority = cleanStr(rowData.priority);
+      if (rawPriority) {
+        const validPriorities = ["Normal", "Express", "Super Fast"];
+        const match = validPriorities.find((p) => p.toLowerCase() === rawPriority.toLowerCase());
+        if (match) {
+          rowData.priority = match;
+        } else {
+          mismatches.push({
+            field: "Priority",
+            fieldKey: "priority",
+            value: rawPriority,
+            status: "Mismatch",
+            reason: `Invalid Priority "${rawPriority}". Must be Normal, Express, or Super Fast.`,
+            suggestion: "Normal",
+          });
+        }
+      } else {
+        rowData.priority = "Normal";
+      }
+
+      // 15. Payment Mode Validation
+      const rawPayMode = cleanStr(rowData.paymentMode);
+      if (rawPayMode) {
+        const normPay = normalize(rawPayMode);
+        if (paymentModeMap.has(normPay)) {
+          rowData.paymentMode = paymentModeMap.get(normPay)!;
+        } else {
+          const suggested = findClosestMatch(rawPayMode, validPaymentModes);
+          mismatches.push({
+            field: "Payment Mode",
+            fieldKey: "paymentMode",
+            value: rawPayMode,
+            status: "Mismatch",
+            reason: `Payment Mode "${rawPayMode}" is not recognized.`,
+            suggestion: suggested,
+          });
+        }
+      }
+
+      // 16. Total Charges & Advance Paid Validation
+      const totalCharges = Number(rowData.totalCharges || 0);
+      const advancePaid = Number(rowData.advancePaid || 0);
+
+      if (isNaN(totalCharges) || totalCharges < 0) {
+        errors.push("Total Charges must be a positive number.");
+        mismatches.push({
+          field: "Total Charges",
+          fieldKey: "totalCharges",
+          value: String(rowData.totalCharges),
+          status: "Error",
+          reason: "Total Charges must be a valid non-negative number.",
+        });
+      }
+
+      if (isNaN(advancePaid) || advancePaid < 0) {
+        errors.push("Advance Paid must be a positive number.");
+        mismatches.push({
+          field: "Advance Paid",
+          fieldKey: "advancePaid",
+          value: String(rowData.advancePaid),
+          status: "Error",
+          reason: "Advance Paid must be a valid non-negative number.",
+        });
+      } else if (totalCharges > 0 && advancePaid > totalCharges) {
+        errors.push(`Advance Paid (${advancePaid}) exceeds Total Charges (${totalCharges}).`);
+        mismatches.push({
+          field: "Advance Paid",
+          fieldKey: "advancePaid",
+          value: String(advancePaid),
+          status: "Error",
+          reason: `Advance Paid (${advancePaid}) cannot exceed Total Charges (${totalCharges}).`,
+        });
+      }
+
+      rowData.totalCharges = isNaN(totalCharges) ? 0 : totalCharges;
+      rowData.advancePaid = isNaN(advancePaid) ? 0 : advancePaid;
+      rowData.balanceAmount = Math.max(0, rowData.totalCharges - rowData.advancePaid);
+
+      // Determine Row Status
+      const hasBlockingMismatches = mismatches.some((m) => m.status === "Error" || m.status === "Mismatch");
+
+      let rowStatus: "Valid" | "Warning" | "Mismatch" | "Duplicate";
+      if (hasBlockingMismatches) {
+        rowStatus = "Mismatch";
+        mismatchCount++;
+      } else if (isDuplicate) {
+        rowStatus = "Duplicate";
+      } else if (warnings.length > 0) {
+        rowStatus = "Warning";
+        warningCount++;
+        validCount++;
+      } else {
+        rowStatus = "Valid";
+        validCount++;
+      }
 
       processedRows.push({
-        rowNumber: i + 2, // Excel is 1-indexed, +1 for header
-        data: {
-          ...row,
-          "Customer Name*": customerName,
-          "Mobile Number*": mobileNumber,
-          "Service/Process Type*": serviceProcessType,
-          "Sub Package": subPackage,
-          "Total Charges*": totalCharges,
-          "Delivery Location": resolvedDeliveryLocation,
-          "Tracking Number": trackingNumber,
-          commissionToUserId,
-          commissionToName
-        },
-        status,
+        rowNumber: r + 1, // 1-indexed Excel row
+        data: rowData,
+        status: rowStatus,
+        mismatches,
         errors,
         warnings,
-        resolutionAction: isDuplicate ? "Skip" : "Create" // Default action
+        isSelected: rowStatus === "Valid" || rowStatus === "Warning",
+        resolutionAction: isDuplicate ? "Skip" : "Create", // "Skip" | "Update" | "Duplicate"
       });
     }
 
     return NextResponse.json({
       success: true,
       summary: {
-        totalRows: rawData.length,
+        totalRows: rawRows.length - 1,
         validCount,
-        errorCount,
+        mismatchCount,
         duplicateCount,
-        newOffices: Array.from(newMasterData.offices),
-        newProcessTypes: Array.from(newMasterData.processTypes),
-        newDocumentTypes: Array.from(newMasterData.documentTypes),
-        newDocumentTypesMap: newMasterData.documentTypesMap
+        warningCount,
+        unmappedHeaders,
       },
-      rows: processedRows
+      rows: processedRows,
     });
   } catch (error: any) {
-    console.error("Preview API Error:", error);
+    console.error("[POST /api/registrations/import/preview] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to parse import file", details: error.message },
       { status: 500 }

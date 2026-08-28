@@ -3,258 +3,287 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { resolveOfficeLocationName } from "@/lib/office-location";
+import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
+import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
 import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
+import { Prisma } from "@prisma/client";
+
+function generateTrackingNumber(): string {
+  const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+  const randomHex = crypto.randomBytes(3).toString("hex").toUpperCase();
+  return `IMP-${dateStr}-${randomHex}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const sessionResponse = await requireApiPermission("revenue_registration.import");
-    if (sessionResponse instanceof NextResponse) return sessionResponse; // Access denied
-
     const session = await auth();
-    if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
+    const permissionResponse = await requireApiPermission("revenue_registration.import");
+    if (permissionResponse instanceof NextResponse) return permissionResponse;
 
     const ownerAdminId = session.user.ownerAdminId || session.user.id;
     const importedBy = session.user.id;
     const importedAt = new Date();
     const batchId = crypto.randomUUID();
 
-    const { fileName, summary, rows } = await req.json();
+    const { fileName, rows } = await req.json();
 
-    if (!rows || rows.length === 0) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: "No rows provided for import" }, { status: 400 });
     }
 
-    // 1. Create New Office Locations
-    const newOffices = summary?.newOffices || [];
-    for (const officeName of newOffices) {
-      await prisma.officeLocation.upsert({
-        where: { officeName_ownerAdminId: { officeName, ownerAdminId } },
-        update: {},
-        create: {
-          officeName,
-          location: "Imported via Registration Import",
-          timezone: "Asia/Kolkata",
-          employees: 1,
-          isProcessOffice: false,
-          ownerAdminId
-        }
-      });
-    }
-
-    // 1b. Create New Document Types
-    const newDocTypes = summary?.newDocumentTypes || [];
-    const newDocTypesMap = summary?.newDocumentTypesMap || {};
-    for (const docName of newDocTypes) {
-      const trimmedName = String(docName).trim();
-      if (!trimmedName) continue;
-
-      const categoryName = (newDocTypesMap[docName] || "General").trim().slice(0, 100) || "General";
-
-      let categoryRecord = await (prisma as any).documentTypeCategory.findFirst({
-        where: {
-          ownerAdminId,
-          name: { equals: categoryName },
-        },
-      });
-
-      if (!categoryRecord) {
-        categoryRecord = await (prisma as any).documentTypeCategory.create({
-          data: {
-            name: categoryName,
-            ownerAdminId,
-          },
-        });
-      }
-
-      const existingDoc = await (prisma as any).masterData.findFirst({
-        where: {
-          type: "DOCUMENT_TYPES",
-          ownerAdminId,
-          isArchived: false,
-          name: { equals: trimmedName },
-        },
-      });
-
-      if (!existingDoc) {
-        await (prisma as any).masterData.create({
-          data: {
-            type: "DOCUMENT_TYPES",
-            name: trimmedName,
-            category: categoryName,
-            categoryId: categoryRecord.id,
-            ownerAdminId,
-            createdBy: importedBy,
-          },
-        });
-      }
-    }
-
-    // 1c. Create & Link Sub Packages
-    for (const rowObj of rows) {
-      if (rowObj.status === "Error" || rowObj.resolutionAction === "Skip") continue;
-      const data = rowObj.data;
-      const subPkgName = String(data["Sub Package"] || data["sub_package"] || "").trim();
-      const procTypeName = String(data["Service/Process Type*"] || data["Service/Process Type"] || "").trim();
-
-      if (!subPkgName) continue;
-
-      let subPkg = await (prisma as any).subPackage.findFirst({
-        where: {
-          ownerAdminId,
-          name: { equals: subPkgName },
-        },
-      });
-
-      if (!subPkg) {
-        subPkg = await (prisma as any).subPackage.create({
-          data: {
-            name: subPkgName,
-            ownerAdminId,
-          },
-        });
-      }
-
-      if (procTypeName) {
-        const procType = await (prisma as any).masterData.findFirst({
-          where: {
-            type: "PROCESS_TYPES",
-            ownerAdminId,
-            isArchived: false,
-            name: { equals: procTypeName },
-          },
-          include: { subPackages: true },
-        });
-
-        if (procType) {
-          const alreadyLinked = (procType as any).subPackages.some((sp: any) => sp.id === subPkg!.id);
-          if (!alreadyLinked) {
-            await (prisma as any).masterData.update({
-              where: { id: procType.id },
-              data: {
-                subPackages: { connect: { id: subPkg.id } },
-              },
-            });
-          }
-        }
-      }
-    }
+    // Resolve user's default office location name in case a row doesn't specify one
+    const userDefaultOffice = await resolveOfficeLocationName({
+      ownerAdminId,
+      officeLocationId: session.user?.officeLocationId,
+      officeLocationName: session.user?.officeLocationName,
+      userId: session.user?.id,
+    });
 
     let successfulRows = 0;
     let failedRows = 0;
     let skippedRows = 0;
+    const failedRowDetails: Array<{ rowNumber: number; reason: string }> = [];
 
-    // 2. Process Rows
+    // Pre-fetch office locations for fast ID resolution
+    const officeLocations = await prisma.officeLocation.findMany({
+      where: { ownerAdminId },
+      select: { id: true, officeName: true },
+    });
+
+    const officeMap = new Map<string, { id: string; name: string }>();
+    officeLocations.forEach((o) => {
+      officeMap.set(o.officeName.toLowerCase().trim(), { id: o.id, name: o.officeName });
+    });
+
     for (const rowObj of rows) {
-      if (rowObj.status === "Error" || rowObj.resolutionAction === "Skip") {
+      // Skip if explicitly unchecked or status is Mismatch or action is Skip
+      if (!rowObj.isSelected || rowObj.status === "Mismatch" || rowObj.resolutionAction === "Skip") {
         skippedRows++;
         continue;
       }
 
       const data = rowObj.data;
-      let trackingNumber = data["Tracking Number"] || `IMP-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      let trackingNumber = String(data.trackingNumber || "").trim();
+      const resolutionAction = rowObj.resolutionAction || "Create";
+
+      if (!trackingNumber) {
+        trackingNumber = generateTrackingNumber();
+      }
+
+      if (resolutionAction === "Duplicate") {
+        const uniqueSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+        trackingNumber = `${trackingNumber}-DUP-${uniqueSuffix}`;
+      }
+
+      const totalCharges = Number(data.totalCharges || 0);
+      const advancePaid = Number(data.advancePaid || 0);
+      const balanceAmount = Math.max(0, totalCharges - advancePaid);
+
+      const targetOfficeName = String(data.regionOfRegistration || userDefaultOffice || "Main Office").trim();
+      const normOffice = targetOfficeName.toLowerCase();
+      let sourceOfficeId = officeMap.get(normOffice)?.id;
+
+      if (!sourceOfficeId) {
+        // Find or safely create office location for current tenant
+        const newOffice = await prisma.officeLocation.upsert({
+          where: { officeName_ownerAdminId: { officeName: targetOfficeName, ownerAdminId } },
+          update: {},
+          create: {
+            officeName: targetOfficeName,
+            location: "Office",
+            timezone: "UTC",
+            ownerAdminId,
+          },
+          select: { id: true, officeName: true },
+        });
+        sourceOfficeId = newOffice.id;
+        officeMap.set(normOffice, { id: newOffice.id, name: newOffice.officeName });
+      }
+
+      const computedPaymentStatus = calculatePaymentStatus({
+        approvalStatus: data.approvalStatus || "Pending",
+        advancePaymentStatus: advancePaid > 0 ? "Pending Approval" : "None",
+        totalCharges,
+        advancePaid,
+        balanceAmount,
+      });
+
+      const parseDate = (d?: any) => {
+        if (!d) return null;
+        const parsed = new Date(d);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
 
       const payload: any = {
         trackingNumber,
-        customerName: data["Customer Name*"] || data["Customer Name"],
-        mobile: data["Mobile Number*"] || data["Mobile Number"],
-        email: data["Email"] || null,
-        address: data["Address"] || null,
-        country: data["Country"] || null,
-        state: data["State"] || null,
-        city: data["City"] || null,
-        customerType: data["Customer Type"] || null,
-        documentType: data["Document Type"] || null,
-        documentIssuedCountry: data["Document Issued Country"] || null,
-        processType: data["Service/Process Type*"] || data["Service/Process Type"] || null,
-        subPackage: data["Sub Package"] || data["sub_package"] || null,
-        externalProcess: data["External Process"] || null,
-        priority: data["Priority"] || null,
-        committedDuration: data["Committed Duration"] || null,
-        deliveryLocation: data["Delivery Location"] || null,
-        totalCharges: parseFloat(data["Total Charges*"] || data["Total Charges"] || "0"),
-        advancePaid: parseFloat(data["Advance Paid"] || "0"),
-        paymentMode: data["Payment Mode"] || null,
-        paymentStatus: data["Payment Status"] || "Pending",
-        financeApprovalStatus: data["Finance Approval Status"] || "Pending",
-        commissionToName: data.commissionToName || null,
+        customerName: String(data.customerName || "").trim(),
+        mobile: String(data.mobile || "").trim(),
+        email: data.email ? String(data.email).trim() : null,
+        address: data.address ? String(data.address).trim() : null,
+        country: data.country ? String(data.country).trim() : "India",
+        state: data.state ? String(data.state).trim() : null,
+        city: data.city ? String(data.city).trim() : null,
+        customerType: data.customerType ? String(data.customerType).trim() : "Individual",
+        corporateDetailId: data.corporateDetailId || null,
+        documentType: data.documentType ? String(data.documentType).trim() : null,
+        documentName: data.documentName ? String(data.documentName).trim() : null,
+        documentIssuedCountry: data.documentIssuedCountry ? String(data.documentIssuedCountry).trim() : null,
+        processType: data.processType ? String(data.processType).trim() : null,
+        subPackage: data.subPackage ? String(data.subPackage).trim() : null,
+        externalProcess: data.externalProcess ? String(data.externalProcess).trim() : null,
+        priority: data.priority ? String(data.priority).trim() : "Normal",
+        committedDuration: data.committedDuration ? String(data.committedDuration).trim() : null,
+        deliveryLocation: data.deliveryLocation ? String(data.deliveryLocation).trim() : targetOfficeName,
+        totalCharges: new Prisma.Decimal(totalCharges),
+        advancePaid: new Prisma.Decimal(0), // Until approved via advance approval workflow
+        balanceAmount: new Prisma.Decimal(totalCharges),
+        paymentMode: data.paymentMode ? String(data.paymentMode).trim() : (totalCharges > 0 ? "Cash" : null),
+        upiTransactionId: data.upiTransactionId ? String(data.upiTransactionId).trim() : null,
+        bankName: data.bankName ? String(data.bankName).trim() : null,
+        transactionRefNo: data.transactionRefNo ? String(data.transactionRefNo).trim() : null,
+        transferDate: parseDate(data.transferDate),
+        chequeNumber: data.chequeNumber ? String(data.chequeNumber).trim() : null,
+        chequeDate: parseDate(data.chequeDate),
+        ddNumber: data.ddNumber ? String(data.ddNumber).trim() : null,
+        ddDate: parseDate(data.ddDate),
+        cardLast4: data.cardLast4 ? String(data.cardLast4).trim() : null,
+        approvalCode: data.approvalCode ? String(data.approvalCode).trim() : null,
+        paymentGateway: data.paymentGateway ? String(data.paymentGateway).trim() : null,
+        onlineTransactionId: data.onlineTransactionId ? String(data.onlineTransactionId).trim() : null,
+        walletName: data.walletName ? String(data.walletName).trim() : null,
+        walletTransactionId: data.walletTransactionId ? String(data.walletTransactionId).trim() : null,
+        paymentReferenceNo: data.paymentReferenceNo ? String(data.paymentReferenceNo).trim() : null,
+        paymentDescription: data.paymentDescription ? String(data.paymentDescription).trim() : null,
+        paymentStatus: computedPaymentStatus,
+        collectedPerson: data.collectedPerson ? String(data.collectedPerson).trim() : null,
         commissionToUserId: data.commissionToUserId || null,
-        collectedPerson: data["Collected Person Name"] || null,
-        registeredPerson: data["Registered Person Name"] || null,
-        regionOfRegistration: data["Region of Registration"] || null,
-        bmStatus: data["BM Status"] || "Pending",
-        approvalStatus: data["Approval Status"] || "Pending",
-        trackingStatus: data["Tracking Status"] || "Registered",
-        welcomeCallStatus: data["Welcome Call Status"] || "Pending",
+        commissionToName: data.commissionToName || null,
+        commissionToEmail: data.commissionToEmail || null,
+        registeredPerson: data.registeredPerson ? String(data.registeredPerson).trim() : (session.user.name || null),
+        regionOfRegistration: targetOfficeName,
+        approvalStatus: data.approvalStatus || "Pending",
+        trackingStatus: data.trackingStatus || "Registered",
+        welcomeCallStatus: data.welcomeCallStatus || "Pending",
         ownerAdminId,
         createdBy: importedBy,
         importBatchId: batchId,
-        importFileName: fileName,
-        importedBy: importedBy,
-        importedAt: importedAt,
+        importFileName: fileName || "Imported Spreadsheet",
+        importedBy,
+        importedAt,
         originalRowNumber: rowObj.rowNumber,
       };
 
-      payload.balanceAmount = payload.totalCharges - payload.advancePaid;
-
       try {
-        if (rowObj.resolutionAction === "Update") {
-          await prisma.registration.update({
-            where: { trackingNumber },
+        if (resolutionAction === "Update") {
+          const existingReg = await prisma.registration.findFirst({
+            where: { trackingNumber, ownerAdminId },
+          });
+
+          if (existingReg) {
+            await prisma.$transaction(async (tx) => {
+              await tx.registration.update({
+                where: { id: existingReg.id },
+                data: {
+                  ...payload,
+                  createdBy: undefined, // Preserve original creator
+                },
+              });
+
+              await tx.auditTrail.create({
+                data: {
+                  registrationId: existingReg.id,
+                  action: "Import Update",
+                  description: `Registration updated via bulk import (Batch ID: ${batchId})`,
+                  performedBy: session.user.name || session.user.email || importedBy,
+                },
+              });
+            });
+            successfulRows++;
+            continue;
+          }
+        }
+
+        // Create new registration with complete full workflow
+        const createdReg = await prisma.$transaction(async (tx) => {
+          const reg = await tx.registration.create({
             data: {
               ...payload,
-              // don't overwrite createdBy
-              createdBy: undefined
-            }
+              auditTrail: {
+                create: [
+                  {
+                    action: "Registration imported",
+                    description: `Registration ${trackingNumber} created via bulk import (Batch: ${batchId}).`,
+                    performedBy: session.user.name || session.user.email || importedBy,
+                  },
+                ],
+              },
+              documentMovements: {
+                create: {
+                  trackingNumber,
+                  currentOfficeId: sourceOfficeId,
+                  currentModule: "REGISTRATION",
+                  status: "HOME",
+                  movementType: "INITIAL",
+                  createdBy: session.user.name || session.user.email || importedBy,
+                  originOfficeId: sourceOfficeId,
+                  processChain: [],
+                },
+              },
+            },
           });
 
-          await prisma.auditTrail.create({
+          await tx.movementHistory.create({
             data: {
-              registrationId: (await prisma.registration.findUnique({ where: { trackingNumber } }))!.id,
-              action: "Import Update",
-              description: `Registration updated via bulk import (Batch ID: ${batchId})`,
-              performedBy: importedBy
-            }
+              trackingNumber,
+              action: "Created",
+              newStatus: "HOME",
+              newOffice: targetOfficeName,
+              performedBy: session.user.name || session.user.email || importedBy,
+            },
           });
 
-          successfulRows++;
+          return reg;
+        });
+
+        // Trigger advance payment approval or movement approval workflow
+        if (advancePaid > 0) {
+          await submitAdvancePaymentApproval({
+            ownerAdminId,
+            registrationId: createdReg.id,
+            advanceAmount: advancePaid,
+            paymentDate: new Date(),
+            paymentMode: payload.paymentMode || "Cash",
+            referenceNumber: payload.transactionRefNo || payload.upiTransactionId || null,
+            collectedBy: payload.collectedPerson || null,
+            performedByUserId: importedBy,
+          }).catch((err) => console.error("[import] submitAdvancePaymentApproval error:", err));
         } else {
-          // "Create" or "Duplicate"
-          if (rowObj.resolutionAction === "Duplicate") {
-            // Generate a new tracking number suffix to avoid unique constraint error
-            trackingNumber = `${trackingNumber}-DUP-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
-            payload.trackingNumber = trackingNumber;
-          }
-
-          const createdReg = await prisma.registration.create({ data: payload });
-
-          await prisma.auditTrail.create({
-            data: {
-              registrationId: createdReg.id,
-              action: "Import Created",
-              description: `Registration created via bulk import (Batch ID: ${batchId})`,
-              performedBy: importedBy
-            }
-          });
-
-          if ((payload.advancePaid ?? 0) <= 0) {
-            await createMovementApprovalRequest({
-              ownerAdminId,
-              registrationId: createdReg.id,
-              performedBy: importedBy,
-              requestedByUserId: importedBy,
-            }).catch((err) => console.error("[import] Movement approval creation error:", err));
-          }
-
-          successfulRows++;
+          await createMovementApprovalRequest({
+            ownerAdminId,
+            registrationId: createdReg.id,
+            performedBy: session.user.name || session.user.email || "System User",
+            requestedByUserId: importedBy,
+          }).catch((err) => console.error("[import] createMovementApprovalRequest error:", err));
         }
-      } catch (err: any) {
-        console.error(`Error processing row ${rowObj.rowNumber}:`, err);
+
+        successfulRows++;
+      } catch (rowError: any) {
+        console.error(`[import confirm] Error importing row ${rowObj.rowNumber}:`, rowError);
         failedRows++;
+        failedRowDetails.push({
+          rowNumber: rowObj.rowNumber,
+          reason: rowError?.message || "Database insertion failed",
+        });
       }
     }
 
-    // 3. Store Import History
-    const history = await (prisma as any).importHistory.create({
+    // Store Import History record
+    await (prisma as any).importHistory.create({
       data: {
         batchId,
         module: "Revenue Registration",
@@ -265,8 +294,8 @@ export async function POST(req: NextRequest) {
         skippedRows,
         importedBy,
         ownerAdminId,
-      }
-    });
+      },
+    }).catch((err: any) => console.error("[import confirm] Failed to save import history:", err));
 
     return NextResponse.json({
       success: true,
@@ -275,11 +304,12 @@ export async function POST(req: NextRequest) {
         totalRows: rows.length,
         successfulRows,
         failedRows,
-        skippedRows
-      }
+        skippedRows,
+        failedRowDetails,
+      },
     });
   } catch (error: any) {
-    console.error("Confirm API Error:", error);
+    console.error("[POST /api/registrations/import/confirm] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to confirm import", details: error.message },
       { status: 500 }
