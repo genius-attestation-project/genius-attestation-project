@@ -1798,6 +1798,9 @@ export async function transferBackToProcess(params: {
     }
 
     const createdBundles: string[] = [];
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+    const baseBundleCount = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
 
     // Step 3: For each destination office group, manage bundle and update movements
     for (const [, group] of officeGroups.entries()) {
@@ -1806,33 +1809,13 @@ export async function transferBackToProcess(params: {
 
       let groupBundle: any = null;
 
-      // Check if existing process bundle exists for this group
+      // Check if explicit bundleId passed in params and still matches
       if (params.bundleId) {
         const found = await tx.bundle.findUnique({
           where: { id: params.bundleId },
         });
-        if (found && found.bundleNumber.startsWith("BND-PROC-") && found.toOfficeId === destOffice.id) {
+        if (found && found.toOfficeId === destOffice.id && found.status === "Pending Receive") {
           groupBundle = found;
-        }
-      }
-
-      if (!groupBundle) {
-        const existingMovements = await tx.documentMovement.findMany({
-          where: {
-            trackingNumber: { in: groupTrackingNumbers },
-            bundleId: { not: null },
-          },
-          select: { bundleId: true },
-        });
-
-        for (const mov of existingMovements) {
-          if (mov.bundleId) {
-            const b = await tx.bundle.findUnique({ where: { id: mov.bundleId } });
-            if (b && b.bundleNumber.startsWith("BND-PROC-") && b.toOfficeId === destOffice.id) {
-              groupBundle = b;
-              break;
-            }
-          }
         }
       }
 
@@ -1843,6 +1826,7 @@ export async function transferBackToProcess(params: {
             fromOfficeId: sourceOffice.id,
             toOfficeId: destOffice.id,
             status: "Pending Receive",
+            updatedAt: now,
           },
         });
 
@@ -1866,9 +1850,8 @@ export async function transferBackToProcess(params: {
           }
         }
       } else {
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const randSuffix = Math.floor(1000 + Math.random() * 9000);
-        const bundleNumber = `BND-PROC-${dateStr}-${randSuffix}-${createdBundles.length + 1}`;
+        const bundleSeq = String(baseBundleCount + createdBundles.length + 1).padStart(4, "0");
+        const bundleNumber = `BND-PROC-${dateStr}-${bundleSeq}`;
 
         groupBundle = await tx.bundle.create({
           data: {

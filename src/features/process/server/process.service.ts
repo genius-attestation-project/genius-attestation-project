@@ -93,12 +93,13 @@ export function buildProcessWhereClause(
 }
 
 export async function getProcessStats(ownerAdminId: string, officeLocationName: string, processType?: string): Promise<ProcessStats> {
-  const [inHand, inbound, completed, rejected, outbound, total] = await Promise.all([
+  const [inHand, inboundMovements, completed, rejected, outboundMovements, total] = await Promise.all([
     prisma.documentMovement.count({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "inhand"),
     }),
-    prisma.documentMovement.count({
+    prisma.documentMovement.findMany({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "inbound"),
+      select: { id: true, bundleId: true },
     }),
     prisma.documentMovement.count({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "completed"),
@@ -106,13 +107,40 @@ export async function getProcessStats(ownerAdminId: string, officeLocationName: 
     prisma.documentMovement.count({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "rejected"),
     }),
-    prisma.documentMovement.count({
+    prisma.documentMovement.findMany({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "outbound"),
+      select: { id: true, bundleId: true },
     }),
     prisma.documentMovement.count({
       where: buildProcessWhereClause(ownerAdminId, officeLocationName, processType, "total"),
     }),
   ]);
+
+  const seenInbound = new Set<string>();
+  let inbound = 0;
+  for (const m of inboundMovements) {
+    if (m.bundleId) {
+      if (!seenInbound.has(m.bundleId)) {
+        seenInbound.add(m.bundleId);
+        inbound++;
+      }
+    } else {
+      inbound++;
+    }
+  }
+
+  const seenOutbound = new Set<string>();
+  let outbound = 0;
+  for (const m of outboundMovements) {
+    if (m.bundleId) {
+      if (!seenOutbound.has(m.bundleId)) {
+        seenOutbound.add(m.bundleId);
+        outbound++;
+      }
+    } else {
+      outbound++;
+    }
+  }
 
   return { inbound, inHand, completed, rejected, outbound, total };
 }
@@ -142,7 +170,13 @@ export async function listProcessAssignments(
       registration: true,
       fromOffice: true,
       toOffice: true,
-      bundle: { include: { items: true } },
+      bundle: {
+        include: {
+          items: true,
+          fromOffice: true,
+          toOffice: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -184,7 +218,12 @@ export async function listProcessAssignments(
     registeredDate: mov.registration?.createdAt ? formatDate(new Date(mov.registration.createdAt)) : "-",
     currentLocation: (mov.status === "HOME" ? "IN_HAND" : mov.status) as ProcessLocation,
     status: mov.status as any,
-    receivedDate: formatDate(new Date(mov.createdAt)),
+    sentAt: mov.sentAt ? mov.sentAt.toISOString() : (mov.bundle?.createdAt ? mov.bundle.createdAt.toISOString() : null),
+    sentDate: mov.sentAt ? mov.sentAt.toISOString() : (mov.bundle?.createdAt ? mov.bundle.createdAt.toISOString() : null),
+    receivedAt: mov.receivedAt ? mov.receivedAt.toISOString() : (latestReceivedAt.get(mov.trackingNumber)?.toISOString() || null),
+    receivedDate: mov.receivedAt ? mov.receivedAt.toISOString() : (latestReceivedAt.get(mov.trackingNumber)?.toISOString() || null),
+    createdAt: mov.createdAt ? mov.createdAt.toISOString() : undefined,
+    updatedAt: mov.updatedAt ? mov.updatedAt.toISOString() : undefined,
     currentStageEnteredAt: (
       mov.status === "INBOUND"
         ? mov.sentAt || mov.updatedAt
@@ -197,14 +236,14 @@ export async function listProcessAssignments(
     bundleId: mov.bundleId,
     bundleNumber: mov.bundle?.bundleNumber,
     bundleCode: mov.bundle?.bundleNumber,
-    fromOfficeName: mov.fromOffice?.officeName || null,
-    toOfficeName: mov.toOffice?.officeName || null,
+    fromOfficeName: mov.fromOffice?.officeName || mov.bundle?.fromOffice?.officeName || null,
+    toOfficeName: mov.toOffice?.officeName || mov.bundle?.toOffice?.officeName || null,
     priority: mov.registration?.priority || "Normal",
   }));
 
-  // Outbound is bundle-oriented: a transferred bundle must be represented by a
-  // single row, with its documents retained as child data for view/retrieve.
-  if (tab !== "outbound" && tab !== "bundle") return mappedMovements;
+  // Inbound, Outbound, and Bundle tabs are bundle-oriented: a transferred bundle must be represented by a
+  // single row, with its documents retained as child data for view/preview/receive/retrieve.
+  if (tab !== "outbound" && tab !== "bundle" && tab !== "inbound") return mappedMovements;
 
   // Gather all tracking numbers — both from bundle items and direct movements.
   // Select the full registration record so all popup fields (mobile, collectedPerson,
@@ -228,7 +267,8 @@ export async function listProcessAssignments(
     seenBundles.add(movement.bundleId);
 
     const sourceMovement = movements.find((candidate: any) => candidate.bundleId === movement.bundleId);
-    const documents = (sourceMovement?.bundle?.items || []).map((item: any) => {
+    const bundleRecord = sourceMovement?.bundle;
+    const documents = (bundleRecord?.items || []).map((item: any) => {
       const documentMovement = movementByTrackingNumber.get(item.trackingNumber);
       return {
         ...(documentMovement || { trackingNumber: item.trackingNumber }),
@@ -236,9 +276,22 @@ export async function listProcessAssignments(
       };
     });
 
+    const bundleSentAt = movement.sentAt || bundleRecord?.createdAt?.toISOString() || movement.createdAt;
+    const bundleReceivedAt = movement.receivedAt || null;
+
     return [{
       ...movement,
       id: `bundle-${movement.bundleId}`,
+      bundleId: movement.bundleId,
+      bundleNumber: bundleRecord?.bundleNumber || movement.bundleNumber,
+      bundleCode: bundleRecord?.bundleNumber || movement.bundleCode,
+      fromOfficeName: bundleRecord?.fromOffice?.officeName || movement.fromOfficeName,
+      toOfficeName: bundleRecord?.toOffice?.officeName || movement.toOfficeName,
+      sentAt: bundleSentAt,
+      sentDate: bundleSentAt,
+      receivedAt: bundleReceivedAt,
+      receivedDate: bundleReceivedAt,
+      createdAt: bundleRecord?.createdAt?.toISOString() || movement.createdAt,
       items: documents,
       documentCount: documents.length,
     }];

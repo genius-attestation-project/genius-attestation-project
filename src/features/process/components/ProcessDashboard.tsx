@@ -203,20 +203,34 @@ export function ProcessDashboard() {
   }, [activeTab, processType, selectedOfficeId]);
 
   // Multi-selection helpers
+  const allVisibleTrackingNumbers = displayedItems.flatMap((i: any) =>
+    i.items && i.items.length > 0 ? i.items.map((child: any) => child.trackingNumber) : [i.trackingNumber]
+  );
+
   const handleSelectAll = () => {
-    if (selectedTrackingNumbers.length === items.length) {
+    const isAllSelected =
+      allVisibleTrackingNumbers.length > 0 &&
+      allVisibleTrackingNumbers.every((t) => selectedTrackingNumbers.includes(t));
+
+    if (isAllSelected) {
       setSelectedTrackingNumbers([]);
     } else {
-      setSelectedTrackingNumbers(items.map((i) => i.trackingNumber));
+      setSelectedTrackingNumbers(allVisibleTrackingNumbers);
     }
   };
 
-  const handleToggleSelect = (trackingNumber: string) => {
-    setSelectedTrackingNumbers((prev) =>
-      prev.includes(trackingNumber)
-        ? prev.filter((t) => t !== trackingNumber)
-        : [...prev, trackingNumber]
-    );
+  const handleToggleItem = (item: any) => {
+    const itemTrackings = item.items && item.items.length > 0
+      ? item.items.map((child: any) => child.trackingNumber)
+      : [item.trackingNumber];
+
+    const isItemFullySelected = itemTrackings.every((t: string) => selectedTrackingNumbers.includes(t));
+
+    if (isItemFullySelected) {
+      setSelectedTrackingNumbers((prev) => prev.filter((t) => !itemTrackings.includes(t)));
+    } else {
+      setSelectedTrackingNumbers((prev) => Array.from(new Set([...prev, ...itemTrackings])));
+    }
   };
 
   // Open modal for selected bulk items or single item
@@ -239,11 +253,16 @@ export function ProcessDashboard() {
   function openReceiveSelection(item: ProcessItem) {
     // A bundle stays intact: the popup merely exposes its existing documents for
     // selection and submits their existing tracking identifiers to the receive API.
-    const bundleDocuments = item.bundleId
+    const bundleDocuments = item.items && item.items.length > 0
+      ? item.items
+      : item.bundleId
       ? items.filter((candidate) => candidate.bundleId === item.bundleId)
       : [item];
 
-    setReceiveSelectionItem({ items: bundleDocuments });
+    setReceiveSelectionItem({
+      ...item,
+      items: bundleDocuments,
+    });
   }
 
   async function receiveSelectedDocuments(selectedTrackingNumbers: string[]) {
@@ -545,7 +564,7 @@ export function ProcessDashboard() {
             <span>
               {activeTab === "in_hand"
                 ? `Selected: ${selectedTrackingNumbers.length} Documents`
-                : `Selected: ${selectedTrackingNumbers.length} Of ${items.length} Documents`}
+                : `Selected: ${selectedTrackingNumbers.length} Of ${allVisibleTrackingNumbers.length} Documents`}
             </span>
           </div>
 
@@ -624,7 +643,7 @@ export function ProcessDashboard() {
                   {(activeTab === "in_hand" || activeTab === "inbound") && (
                     <th className="px-4 py-4 w-10">
                       <button type="button" onClick={handleSelectAll} className="text-slate-600">
-                        {selectedTrackingNumbers.length === displayedItems.length && displayedItems.length > 0 ? (
+                        {selectedTrackingNumbers.length > 0 && allVisibleTrackingNumbers.length > 0 && allVisibleTrackingNumbers.every((t) => selectedTrackingNumbers.includes(t)) ? (
                           <CheckSquare className="h-5 w-5 text-blue-600" />
                         ) : (
                           <Square className="h-5 w-5 text-slate-400" />
@@ -674,12 +693,15 @@ export function ProcessDashboard() {
               </thead>
               <tbody className="divide-y divide-(--border) bg-white">
                 {displayedItems.map((item: any, index: number) => {
-                  const isSelected = selectedTrackingNumbers.includes(item.trackingNumber);
+                  const itemTrackings = item.items && item.items.length > 0
+                    ? item.items.map((child: any) => child.trackingNumber)
+                    : [item.trackingNumber];
+                  const isSelected = itemTrackings.length > 0 && itemTrackings.every((t: string) => selectedTrackingNumbers.includes(t));
                   return (
                     <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/70"}`}>
                       {(activeTab === "in_hand" || activeTab === "inbound") && (
                         <td className="px-4 py-4">
-                          <button type="button" onClick={() => handleToggleSelect(item.trackingNumber)} className="text-slate-600">
+                          <button type="button" onClick={() => handleToggleItem(item)} className="text-slate-600">
                             {isSelected ? (
                               <CheckSquare className="h-5 w-5 text-blue-600" />
                             ) : (
@@ -754,13 +776,13 @@ export function ProcessDashboard() {
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
                           <td className="px-5 py-4 font-semibold text-slate-800">
-                            {item.registeredOffice ? formatTitleCase(item.registeredOffice) : item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Origin Office"}
+                            {item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : item.registeredOffice ? formatTitleCase(item.registeredOffice) : "Origin Office"}
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
-                            {formatDate(item.receivedDate || item.createdAt)}
+                            {formatDate(item.receivedDate || item.receivedAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
-                            {calculateFinishedDays(item.receivedDate || item.createdAt)}
+                            {calculateFinishedDays(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -799,10 +821,10 @@ export function ProcessDashboard() {
                             {item.toOfficeName ? formatTitleCase(item.toOfficeName) : "Destination"}
                           </td>
                           <td className="px-5 py-4 text-xs font-medium text-slate-700">
-                            {formatDate(item.sentDate || item.createdAt)}
+                            {formatDate(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-700">
-                            {calculateFinishedDays(item.sentDate || item.createdAt)}
+                            {calculateFinishedDays(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">

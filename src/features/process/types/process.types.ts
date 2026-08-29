@@ -31,12 +31,18 @@ export type ProcessItem = {
   daysHeld: number;
   assignedUserId: string | null;
   assignedToName: string | null;
-  remarks: string | null;
   bundleId?: string | null;
+  bundleNumber?: string;
   bundleCode?: string;
   fromOfficeName?: string | null;
   toOfficeName?: string | null;
   priority?: string;
+  sentDate?: string;
+  sentAt?: string | null;
+  receivedAt?: string | null;
+  createdAt?: string;
+  items?: any[];
+  documentCount?: number;
 };
 
 export type ProcessStats = {

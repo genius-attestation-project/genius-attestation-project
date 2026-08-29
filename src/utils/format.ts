@@ -35,6 +35,13 @@ export function shouldCapitalizeUserInput(name?: string, type?: string): boolean
  */
 export function formatDate(dateInput?: Date | string | number | null): string {
   if (!dateInput) return "-";
+  if (typeof dateInput === "string") {
+    const trimmed = dateInput.trim();
+    if (!trimmed || trimmed === "-") return "-";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return "-";
 
