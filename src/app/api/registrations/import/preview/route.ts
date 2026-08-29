@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+    const wb = XLSX.read(buffer, { type: "buffer", cellDates: false, raw: true });
     const wsName = wb.SheetNames[0];
     const ws = wb.Sheets[wsName];
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Convert to 2D array to inspect headers safely
-    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true }) as any[][];
 
     if (rawRows.length < 2) {
       return NextResponse.json({ error: "The uploaded file has no data rows." }, { status: 400 });
