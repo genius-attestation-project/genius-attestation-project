@@ -1111,6 +1111,8 @@ export async function receiveBundleDocuments(params: {
               currentOfficeId: resolvedOfficeId,
               status: "Received",
               currentStatus: "Document In Hand",
+              returnOfficeId: bundle.fromOfficeId || undefined,
+              fromOfficeId: bundle.fromOfficeId || undefined,
               receivedBy: params.userName || params.userId,
               receivedAt: new Date(),
             },
@@ -1649,31 +1651,88 @@ export async function transferBackToProcess(params: {
 
       let returnOffice: any = null;
 
-      // 1. Priority: returnOfficeId (saved during transfer to assigned office)
-      if (docMov?.returnOfficeId) {
-        returnOffice = docMov.returnOffice || (await tx.officeLocation.findFirst({ where: { id: docMov.returnOfficeId } }));
+      // 1. Most Authoritative: Find the latest Inbound Bundle that brought this document into this Assigned Office
+      const latestInboundBundleItem = await tx.bundleItem.findFirst({
+        where: {
+          trackingNumber: tNum,
+          bundle: {
+            OR: [
+              { toOfficeId: params.officeId },
+              { toOfficeId: sourceOffice.id },
+              { toOffice: { officeName: officeName } },
+              { toOffice: { officeName: sourceOffice.officeName } },
+            ],
+          },
+        },
+        include: {
+          bundle: {
+            include: { fromOffice: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (latestInboundBundleItem?.bundle?.fromOffice) {
+        const candidate = latestInboundBundleItem.bundle.fromOffice;
+        if (
+          candidate.id !== sourceOffice.id &&
+          candidate.id !== params.officeId &&
+          candidate.officeName !== officeName &&
+          candidate.officeName !== sourceOffice.officeName
+        ) {
+          returnOffice = candidate;
+        }
       }
 
-      // 2. Priority: originalProcessOfficeId
-      if (!returnOffice && docMov?.originalProcessOfficeId) {
-        returnOffice = docMov.originalProcessOffice || (await tx.officeLocation.findFirst({ where: { id: docMov.originalProcessOfficeId } }));
+      // 2. Check returnOfficeId on documentMovement if valid and different from this Assigned Office
+      if (
+        !returnOffice &&
+        docMov?.returnOfficeId &&
+        docMov.returnOfficeId !== sourceOffice.id &&
+        docMov.returnOfficeId !== params.officeId
+      ) {
+        const found = await tx.officeLocation.findFirst({ where: { id: docMov.returnOfficeId } });
+        if (
+          found &&
+          found.officeName !== officeName &&
+          found.officeName !== sourceOffice.officeName
+        ) {
+          returnOffice = found;
+        }
       }
 
-      // 3. Priority: fromOfficeId if it differs from sourceOffice
-      if (!returnOffice && docMov?.fromOfficeId && docMov.fromOfficeId !== sourceOffice.id) {
-        returnOffice = docMov.fromOffice || (await tx.officeLocation.findFirst({ where: { id: docMov.fromOfficeId } }));
+      // 3. Check fromOfficeId on documentMovement if valid and different from this Assigned Office
+      if (
+        !returnOffice &&
+        docMov?.fromOfficeId &&
+        docMov.fromOfficeId !== sourceOffice.id &&
+        docMov.fromOfficeId !== params.officeId
+      ) {
+        const found = await tx.officeLocation.findFirst({ where: { id: docMov.fromOfficeId } });
+        if (
+          found &&
+          found.officeName !== officeName &&
+          found.officeName !== sourceOffice.officeName
+        ) {
+          returnOffice = found;
+        }
       }
 
-      // 4. Priority: Movement history trace for transfer to assigned office
+      // 4. Trace Movement History for the transfer that routed this document to this Assigned Office
       if (!returnOffice) {
         const historyEntries = await tx.movementHistory.findMany({
           where: { trackingNumber: tNum },
-          orderBy: { createdAt: "desc" },
+          orderBy: { performedAt: "desc" },
         });
 
         for (const h of historyEntries) {
+          const isTargetAssigned =
+            h.newOffice === sourceOffice.officeName ||
+            h.newOffice === officeName ||
+            (h.action && (h.action.includes("Assigned Office") || h.action.includes("Transfer to Assigned Office")));
+
           if (
-            (h.action?.includes("Assigned Office") || h.newOffice === sourceOffice.officeName || h.newOffice === officeName) &&
+            isTargetAssigned &&
             h.oldOffice &&
             h.oldOffice !== sourceOffice.officeName &&
             h.oldOffice !== officeName
@@ -1689,22 +1748,34 @@ export async function transferBackToProcess(params: {
         }
       }
 
-      // 5. Fallback: originOfficeId
-      if (!returnOffice && docMov?.originOfficeId) {
-        returnOffice = await tx.officeLocation.findFirst({ where: { id: docMov.originOfficeId } });
-      }
-
-      // 6. Fallback: regionOfRegistration
-      if (!returnOffice && reg?.regionOfRegistration) {
+      // 5. Fallback: primary process office for tenant (never Assigned Office itself)
+      if (!returnOffice) {
         returnOffice = await tx.officeLocation.findFirst({
-          where: { officeName: reg.regionOfRegistration, ownerAdminId: params.ownerAdminId },
+          where: {
+            ownerAdminId: params.ownerAdminId,
+            isProcessOffice: true,
+            NOT: [
+              { id: sourceOffice.id },
+              { id: params.officeId },
+              { officeName },
+              { officeName: sourceOffice.officeName },
+            ],
+          },
         });
       }
 
-      // 7. Last resort: primary process office or source office
+      // 6. Last resort: any office in tenant that is not the assigned office
       if (!returnOffice) {
         returnOffice = await tx.officeLocation.findFirst({
-          where: { ownerAdminId: params.ownerAdminId, isProcessOffice: true },
+          where: {
+            ownerAdminId: params.ownerAdminId,
+            NOT: [
+              { id: sourceOffice.id },
+              { id: params.officeId },
+              { officeName },
+              { officeName: sourceOffice.officeName },
+            ],
+          },
         });
       }
 
@@ -1795,8 +1866,9 @@ export async function transferBackToProcess(params: {
           }
         }
       } else {
-        const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
-        const bundleNumber = `BND-PROC-${String(count + 1 + createdBundles.length).padStart(5, "0")}`;
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const randSuffix = Math.floor(1000 + Math.random() * 9000);
+        const bundleNumber = `BND-PROC-${dateStr}-${randSuffix}-${createdBundles.length + 1}`;
 
         groupBundle = await tx.bundle.create({
           data: {

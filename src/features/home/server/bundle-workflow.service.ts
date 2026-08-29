@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
+import crypto from "crypto";
+
 export function generateBundleNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `HOME-${dateStr}-${randomSuffix}`;
+  const randomHex = crypto.randomBytes(2).toString("hex").toUpperCase();
+  return `HOME-${dateStr}-${randomSuffix}-${randomHex}`;
 }
 
 export async function listDocumentInHand(params: {
@@ -215,6 +218,8 @@ export async function createTransferBundle(params: {
           toModule: destinationModule,
           currentModule: destinationModule,
           currentOfficeId: fromLocation.id,
+          returnOfficeId: fromLocation.id,
+          originalProcessOfficeId: fromLocation.id,
           status: "INBOUND_PENDING",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -229,6 +234,8 @@ export async function createTransferBundle(params: {
           toModule: destinationModule,
           currentModule: destinationModule,
           currentOfficeId: fromLocation.id,
+          returnOfficeId: fromLocation.id,
+          originalProcessOfficeId: fromLocation.id,
           status: "INBOUND_PENDING",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
