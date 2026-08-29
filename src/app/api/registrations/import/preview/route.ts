@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: false, raw: true });
+    const wb = XLSX.read(buffer, { type: "buffer", cellDates: false, cellNF: true, cellText: true });
 
     if (!wb.SheetNames || wb.SheetNames.length === 0) {
       return NextResponse.json({ error: "The uploaded workbook has no sheets." }, { status: 400 });
@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const selectedWs = wb.Sheets[selectedSheetName];
     const columnIndexToField = bestColumnIndexToField;
     const rawRows = bestRawRows;
     const headerRowIdx = bestHeaderRowIdx;
@@ -254,22 +255,28 @@ export async function POST(req: NextRequest) {
 
       // Map raw row values into canonical keys
       columnIndexToField.forEach((def, colIdx) => {
+        const cell = selectedWs ? selectedWs[XLSX.utils.encode_cell({ r, c: colIdx })] : null;
+        const cellText = cell?.w ? String(cell.w).trim() : "";
         const rawVal = rowValues[colIdx];
-        if (rawVal !== undefined && rawVal !== null && rawVal !== "") {
+
+        if (cellText !== "" || (rawVal !== undefined && rawVal !== null && rawVal !== "")) {
           if (def.type === "number") {
-            const num = Number(String(rawVal).replace(/[^0-9.-]/g, ""));
-            rowData[def.key] = isNaN(num) ? rawVal : num;
+            const numVal = cell?.v !== undefined && typeof cell.v === "number" ? cell.v : Number(String(cellText || rawVal).replace(/[^0-9.-]/g, ""));
+            rowData[def.key] = isNaN(numVal) ? (cellText || rawVal) : numVal;
           } else if (def.type === "date" || rawVal instanceof Date) {
-            const parsed = parseDateValue(rawVal);
+            // Prioritize formatted cell text (e.g. "01/05/26") for explicit DD/MM/YY parsing
+            const dateInput = cellText || rawVal;
+            const parsed = parseDateValue(dateInput);
             if (parsed.isValid && parsed.date) {
               rowData[def.key] = parsed.date.toISOString();
             } else {
-              rowData[def.key] = cleanStr(rawVal);
+              rowData[def.key] = cleanStr(cellText || rawVal);
             }
           } else if (def.key === "trackingNumber") {
-            rowData[def.key] = normalizeTrackingNumber(rawVal);
+            const trackingInput = cellText || String(rawVal);
+            rowData[def.key] = normalizeTrackingNumber(trackingInput);
           } else {
-            rowData[def.key] = cleanStr(rawVal);
+            rowData[def.key] = cleanStr(cellText || rawVal);
           }
         } else {
           rowData[def.key] = "";
