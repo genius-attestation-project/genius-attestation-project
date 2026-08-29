@@ -530,7 +530,27 @@ export const REGISTRATION_FIELD_DEFINITIONS: RegistrationFieldDefinition[] = [
   {
     key: "trackingNumber",
     label: "Tracking Number",
-    aliases: ["Tracking Number", "tracking_number", "Tracking No", "Tracking No.", "TR Number"],
+    aliases: [
+      "Tracking Number",
+      "tracking_number",
+      "Tracking No",
+      "Tracking No.",
+      "TR Number",
+      "Tracking #",
+      "Tracking ID",
+      "AWB Number",
+      "AWB No",
+      "Waybill",
+      "Consignment Number",
+      "Consignment No",
+      "TrackingNumber",
+      "track_number",
+      "track_no",
+      "Tracking",
+      "TrackingNo",
+      "Docket Number",
+      "Docket No",
+    ],
     category: "Registration & Workflow",
     type: "string",
     required: false,
@@ -605,6 +625,12 @@ export const REGISTRATION_FIELD_DEFINITIONS: RegistrationFieldDefinition[] = [
       "created_at",
       "Reg Date",
       "Reg. Date",
+      "Created Date (DD/MM/YY)",
+      "Created Date (DD/MM/YYYY)",
+      "Registration Date (DD/MM/YY)",
+      "Registration Date (DD/MM/YYYY)",
+      "Created On",
+      "Registered Date",
     ],
     category: "Registration & Workflow",
     type: "date",
@@ -710,12 +736,16 @@ export function parseDateValue(val: any): { date: Date | null; isValid: boolean;
   const str = String(val).trim();
   if (!str) return { date: null, isValid: true, rawString: "" };
 
-  // 3. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY [HH:mm[:ss]]
-  const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  // 3. DD/MM/YYYY or DD/MM/YY or DD-MM-YY or DD.MM.YY [HH:mm[:ss]]
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
     const month = parseInt(dmyMatch[2], 10) - 1;
-    const year = parseInt(dmyMatch[3], 10);
+    let rawYear = parseInt(dmyMatch[3], 10);
+    let year = rawYear;
+    if (dmyMatch[3].length === 2) {
+      year = rawYear < 70 ? 2000 + rawYear : 1900 + rawYear;
+    }
     const hasTime = Boolean(dmyMatch[4]);
     const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 12; // Use UTC noon for date-only
     const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
@@ -725,7 +755,7 @@ export function parseDateValue(val: any): { date: Date | null; isValid: boolean;
       return { date: null, isValid: false, rawString: str };
     }
 
-    // Check calendar month day limits (e.g. 31/02/2025 or 32/07/2025)
+    // Check calendar month day limits (e.g. 31/02/2026 or 29/02/2026 non-leap year)
     const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
     if (day > daysInMonth) {
       return { date: null, isValid: false, rawString: str };
@@ -779,6 +809,10 @@ export function parseDateValue(val: any): { date: Date | null; isValid: boolean;
  */
 export function normalizeHeader(header: string): string {
   return (header || "")
+    .replace(/^\uFEFF/, "") // Remove UTF-8 BOM
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, " ") // Clean special unicode spaces
+    .replace(/\s*\([^)]*\)/g, "") // Strip parenthetical suffixes e.g. (DD/MM/YY), (Optional)
+    .replace(/\*/g, "") // Strip asterisks
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
     .trim();
@@ -797,8 +831,20 @@ for (const def of REGISTRATION_FIELD_DEFINITIONS) {
 }
 
 export function findFieldDefinition(headerOrKey: string): RegistrationFieldDefinition | undefined {
-  const norm = normalizeHeader(headerOrKey);
-  return aliasMap.get(norm);
+  if (!headerOrKey) return undefined;
+  const rawClean = String(headerOrKey).trim();
+  const norm = normalizeHeader(rawClean);
+  if (aliasMap.has(norm)) {
+    return aliasMap.get(norm);
+  }
+
+  // Try direct lowercase alphanumeric
+  const plainNorm = rawClean.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (aliasMap.has(plainNorm)) {
+    return aliasMap.get(plainNorm);
+  }
+
+  return undefined;
 }
 
 /**

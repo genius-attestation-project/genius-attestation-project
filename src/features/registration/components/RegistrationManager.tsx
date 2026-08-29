@@ -465,14 +465,21 @@ export function RegistrationManager({
         throw new Error(resData.message || resData.error || "Failed to delete selected registrations.");
       }
 
-      const deletedCount = resData.data?.deletedCount ?? selectedIds.length;
-      const skippedCount = resData.data?.skippedCount ?? 0;
+      const deletedCount = resData.deletedCount ?? resData.data?.deletedCount ?? 0;
+      const skippedCount = resData.skippedCount ?? resData.data?.skippedCount ?? 0;
+      const failedCount = resData.failedCount ?? resData.data?.failedCount ?? 0;
+      const skippedDetails = resData.skippedDetails ?? resData.data?.skippedDetails ?? [];
 
-      if (skippedCount > 0) {
-        const skippedReasons = (resData.data?.skippedDetails || [])
+      if (deletedCount === 0 && (skippedCount > 0 || failedCount > 0)) {
+        const reasons = skippedDetails
           .map((s: any) => `${s.trackingNumber || s.id}: ${s.reason}`)
           .join("; ");
-        setSuccess(`${deletedCount} registration(s) deleted. (${skippedCount} skipped: ${skippedReasons})`);
+        setError(`Failed to delete selected registration(s). ${reasons ? `Reason: ${reasons}` : ""}`);
+      } else if (skippedCount > 0 || failedCount > 0) {
+        const reasons = skippedDetails
+          .map((s: any) => `${s.trackingNumber || s.id}: ${s.reason}`)
+          .join("; ");
+        setSuccess(`${deletedCount} registration(s) deleted. (${skippedCount + failedCount} skipped: ${reasons})`);
       } else {
         setSuccess(`${deletedCount} Revenue Registration document(s) deleted successfully.`);
       }

@@ -674,34 +674,37 @@ export async function deleteRegistration(ownerAdminId: string, id: string, perfo
     throw new Error("This registration is locked for BM Report processing and cannot be deleted.");
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.auditTrail.create({
-      data: {
-        registrationId: existing.id,
-        action: "Deleted",
-        description: `Registration ${existing.trackingNumber} was deleted.`,
-        performedBy: performedBy ?? null,
-      },
-    }).catch(() => {});
+  await prisma.$transaction(
+    async (tx) => {
+      await Promise.all([
+        tx.auditTrail.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.documentMovement.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.registrationFile.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.paymentUpdate.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.accountStatementEntry.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.processAssignment.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.documentCommunication.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.advancePaymentAuditLog.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.advancePaymentApproval.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        tx.movementApproval.deleteMany({ where: { registrationId: existing.id } }).catch(() => {}),
+        (tx as any).movementHistory?.deleteMany({
+          where: { trackingNumber: existing.trackingNumber },
+        }).catch(() => {}),
+        tx.bundleItem.deleteMany({
+          where: { trackingNumber: existing.trackingNumber },
+        }).catch(() => {}),
+        (tx as any).branchMovementRecord?.deleteMany({
+          where: { trackingNumber: existing.trackingNumber, ownerAdminId },
+        }).catch(() => {}),
+        (tx as any).documentWorkflowHistory?.deleteMany({
+          where: { trackingNumber: existing.trackingNumber },
+        }).catch(() => {}),
+      ]);
 
-    await (tx as any).movementHistory.deleteMany({
-      where: { trackingNumber: existing.trackingNumber },
-    }).catch(() => {});
-
-    if ((tx as any).branchMovementRecord) {
-      await (tx as any).branchMovementRecord.deleteMany({
-        where: { trackingNumber: existing.trackingNumber, ownerAdminId },
-      }).catch(() => {});
-    }
-
-    if ((tx as any).documentWorkflowHistory) {
-      await (tx as any).documentWorkflowHistory.deleteMany({
-        where: { trackingNumber: existing.trackingNumber },
-      }).catch(() => {});
-    }
-
-    await tx.registration.delete({ where: { id: existing.id } });
-  });
+      await tx.registration.delete({ where: { id: existing.id } });
+    },
+    { timeout: 30000, maxWait: 10000 }
+  );
 
   return true;
 }
@@ -766,42 +769,43 @@ export async function bulkDeleteRegistrations(
   const deletableIds = deletableRegs.map((r) => r.id);
   const deletableTrackingNumbers = deletableRegs.map((r) => r.trackingNumber);
 
-  // 2. Perform atomic deletion in transaction
-  await prisma.$transaction(async (tx) => {
-    for (const reg of deletableRegs) {
-      await tx.auditTrail.create({
-        data: {
-          registrationId: reg.id,
-          action: "Bulk Deleted",
-          description: `Registration ${reg.trackingNumber} was deleted via bulk action.`,
-          performedBy: performedBy ?? null,
+  // 2. Perform atomic deletion in transaction with concurrent batch child cleanup
+  await prisma.$transaction(
+    async (tx) => {
+      await Promise.all([
+        tx.auditTrail.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.documentMovement.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.registrationFile.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.paymentUpdate.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.accountStatementEntry.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.processAssignment.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.documentCommunication.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.advancePaymentAuditLog.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.advancePaymentApproval.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        tx.movementApproval.deleteMany({ where: { registrationId: { in: deletableIds } } }).catch(() => {}),
+        (tx as any).movementHistory?.deleteMany({
+          where: { trackingNumber: { in: deletableTrackingNumbers } },
+        }).catch(() => {}),
+        tx.bundleItem.deleteMany({
+          where: { trackingNumber: { in: deletableTrackingNumbers } },
+        }).catch(() => {}),
+        (tx as any).branchMovementRecord?.deleteMany({
+          where: { trackingNumber: { in: deletableTrackingNumbers }, ownerAdminId },
+        }).catch(() => {}),
+        (tx as any).documentWorkflowHistory?.deleteMany({
+          where: { trackingNumber: { in: deletableTrackingNumbers } },
+        }).catch(() => {}),
+      ]);
+
+      await tx.registration.deleteMany({
+        where: {
+          ownerAdminId,
+          id: { in: deletableIds },
         },
-      }).catch(() => {});
-    }
-
-    await (tx as any).movementHistory.deleteMany({
-      where: { trackingNumber: { in: deletableTrackingNumbers } },
-    }).catch(() => {});
-
-    if ((tx as any).branchMovementRecord) {
-      await (tx as any).branchMovementRecord.deleteMany({
-        where: { trackingNumber: { in: deletableTrackingNumbers }, ownerAdminId },
-      }).catch(() => {});
-    }
-
-    if ((tx as any).documentWorkflowHistory) {
-      await (tx as any).documentWorkflowHistory.deleteMany({
-        where: { trackingNumber: { in: deletableTrackingNumbers } },
-      }).catch(() => {});
-    }
-
-    await tx.registration.deleteMany({
-      where: {
-        ownerAdminId,
-        id: { in: deletableIds },
-      },
-    });
-  }, { timeout: 30000 });
+      });
+    },
+    { timeout: 30000, maxWait: 10000 }
+  );
 
   return {
     deletedCount: deletableIds.length,

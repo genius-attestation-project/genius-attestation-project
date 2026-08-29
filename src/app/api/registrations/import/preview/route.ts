@@ -51,32 +51,60 @@ export async function POST(req: NextRequest) {
 
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: "buffer", cellDates: false, raw: true });
-    const wsName = wb.SheetNames[0];
-    const ws = wb.Sheets[wsName];
 
-    if (!ws) {
+    if (!wb.SheetNames || wb.SheetNames.length === 0) {
       return NextResponse.json({ error: "The uploaded workbook has no sheets." }, { status: 400 });
     }
 
-    // Convert to 2D array to inspect headers safely
-    const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true }) as any[][];
+    // Intelligently find the sheet and row with the most registration headers
+    let selectedSheetName = wb.SheetNames[0];
+    let bestHeaderRowIdx = 0;
+    let bestMappedCount = 0;
+    let bestColumnIndexToField = new Map<number, typeof REGISTRATION_FIELD_DEFINITIONS[0]>();
+    let bestRawRows: any[][] = [];
 
-    if (rawRows.length < 2) {
-      return NextResponse.json({ error: "The uploaded file has no data rows." }, { status: 400 });
+    for (const sName of wb.SheetNames) {
+      const candidateWs = wb.Sheets[sName];
+      if (!candidateWs) continue;
+      const sheetRows = XLSX.utils.sheet_to_json(candidateWs, { header: 1, defval: "", raw: true }) as any[][];
+      if (sheetRows.length < 2) continue;
+
+      // Scan first 15 rows to find the true header row
+      const maxScan = Math.min(sheetRows.length, 15);
+      for (let r = 0; r < maxScan; r++) {
+        const candidateHeaders = (sheetRows[r] || []).map((h) => String(h || "").trim());
+        const candidateMap = new Map<number, typeof REGISTRATION_FIELD_DEFINITIONS[0]>();
+        candidateHeaders.forEach((h, idx) => {
+          if (!h) return;
+          const def = findFieldDefinition(h);
+          if (def) candidateMap.set(idx, def);
+        });
+
+        if (candidateMap.size > bestMappedCount) {
+          bestMappedCount = candidateMap.size;
+          bestHeaderRowIdx = r;
+          bestColumnIndexToField = candidateMap;
+          selectedSheetName = sName;
+          bestRawRows = sheetRows;
+        }
+      }
     }
 
-    const rawHeaders = (rawRows[0] || []).map((h) => String(h || "").trim());
+    if (bestMappedCount === 0 || !bestRawRows || bestRawRows.length <= bestHeaderRowIdx + 1) {
+      return NextResponse.json(
+        { error: "Could not recognize any valid column headers in the uploaded file. Please ensure the file contains valid headers like 'Tracking Number', 'Customer Name', 'Created Date', etc." },
+        { status: 400 }
+      );
+    }
 
-    // Map column index -> RegistrationFieldDefinition
-    const columnIndexToField = new Map<number, typeof REGISTRATION_FIELD_DEFINITIONS[0]>();
+    const columnIndexToField = bestColumnIndexToField;
+    const rawRows = bestRawRows;
+    const headerRowIdx = bestHeaderRowIdx;
+    const rawHeaders = (rawRows[headerRowIdx] || []).map((h) => String(h || "").trim());
     const unmappedHeaders: string[] = [];
 
     rawHeaders.forEach((header, idx) => {
-      if (!header) return;
-      const def = findFieldDefinition(header);
-      if (def) {
-        columnIndexToField.set(idx, def);
-      } else {
+      if (header && !columnIndexToField.has(idx)) {
         unmappedHeaders.push(header);
       }
     });
@@ -191,8 +219,11 @@ export async function POST(req: NextRequest) {
 
     // Count occurrences of each tracking number in the uploaded file to detect duplicates within the file
     const fileTrackingCounts = new Map<string, number>();
-    for (let r = 1; r < rawRows.length; r++) {
+    for (let r = headerRowIdx + 1; r < rawRows.length; r++) {
       const rowValues = rawRows[r] || [];
+      const hasAnyValue = rowValues.some((cell) => cell !== undefined && cell !== null && String(cell).trim() !== "");
+      if (!hasAnyValue) continue;
+
       let rawT = "";
       columnIndexToField.forEach((def, colIdx) => {
         if (def.key === "trackingNumber") {
@@ -212,8 +243,13 @@ export async function POST(req: NextRequest) {
     let duplicateCount = 0;
     let warningCount = 0;
 
-    for (let r = 1; r < rawRows.length; r++) {
+    for (let r = headerRowIdx + 1; r < rawRows.length; r++) {
       const rowValues = rawRows[r] || [];
+      const hasAnyValue = rowValues.some((cell) => cell !== undefined && cell !== null && String(cell).trim() !== "");
+      if (!hasAnyValue) {
+        continue;
+      }
+
       const rowData: Record<string, any> = {};
 
       // Map raw row values into canonical keys
