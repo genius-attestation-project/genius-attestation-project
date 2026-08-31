@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, Copy, ClipboardPaste, Search, ShieldCheck, UserCheck, Building2, CheckSquare, Square, Save, RefreshCw } from "lucide-react";
+import { Check, Copy, ClipboardPaste, Search, ShieldCheck, UserCheck, Building2, CheckSquare, Square, Save, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
@@ -383,6 +384,34 @@ export function UserAccessManagement() {
   } | null>(null);
 
   const [pasteConfirmModalOpen, setPasteConfirmModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock background scrolling when modal is open
+  useEffect(() => {
+    if (pasteConfirmModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [pasteConfirmModalOpen]);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && pasteConfirmModalOpen) {
+        setPasteConfirmModalOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pasteConfirmModalOpen]);
 
   useEffect(() => {
     void loadData();
@@ -1029,29 +1058,65 @@ export function UserAccessManagement() {
       )}
 
       {/* Paste Confirmation Modal */}
-      {pasteConfirmModalOpen && copiedPermissionsState && selectedUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-2xl border border-(--border)">
-            <h3 className="text-lg font-extrabold text-foreground">Confirm Paste Permissions</h3>
-            <p className="mt-2 text-sm text-soft leading-relaxed">
-              Replace <strong className="text-foreground">{selectedUser.name}</strong>&apos;s current module/action permissions with the copied permission set from{" "}
-              <strong className="text-foreground">{copiedPermissionsState.sourceUserName}</strong>?
-            </p>
-            <p className="mt-2 text-xs font-bold text-blue-600 dark:text-blue-400">
-              Note: Office Visibility for {selectedUser.name} will remain unchanged.
-            </p>
+      {mounted && pasteConfirmModalOpen && copiedPermissionsState && selectedUser
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setPasteConfirmModalOpen(false);
+                }
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="paste-confirm-modal-title"
+                className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-4 text-slate-900 dark:text-white"
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+                  <h3 id="paste-confirm-modal-title" className="text-lg font-extrabold text-slate-900 dark:text-white">
+                    Confirm Paste Permissions
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setPasteConfirmModalOpen(false)}
+                    className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
 
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <Button variant="ghost" onClick={() => setPasteConfirmModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" onClick={handleConfirmPaste}>
-                Apply Copied Permissions
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  Replace <strong className="font-bold text-slate-900 dark:text-white">{selectedUser.name}</strong>&apos;s current module/action permissions with the copied permission set from{" "}
+                  <strong className="font-bold text-slate-900 dark:text-white">{copiedPermissionsState.sourceUserName}</strong>?
+                </p>
+
+                <div className="rounded-2xl border border-blue-500/20 bg-blue-50/80 p-3.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                  Note: Office Visibility for {selectedUser.name} will remain unchanged.
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 dark:border-white/10 pt-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setPasteConfirmModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleConfirmPaste}
+                  >
+                    Apply Copied Permissions
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
