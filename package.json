@@ -10,7 +10,8 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:reset-dev": "npx --yes tsx scripts/reset-development-data.ts"
+    "db:reset-dev": "npx --yes tsx scripts/reset-development-data.ts",
+    "db:migrate-assigned-office-names": "npx --yes tsx scripts/migrate-assigned-office-names.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "latest",

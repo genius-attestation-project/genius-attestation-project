@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 import type { CreateOfficeInput, UpdateOfficeInput } from "../validations/office.schema";
+import { normalizeOfficeName } from "@/utils/format";
 
 /**
  * Fetch Process Types and Sub Packages options for Create / Edit Form dropdowns & cards
@@ -336,12 +337,14 @@ export async function createAssignedOffice(
   performedByName: string,
   ownerAdminId: string
 ) {
+  const normalizedUsername = normalizeOfficeName(input.username);
+
   // Check unique username & email
   const [existingOfficeUser, existingOfficeEmail, existingUserUser, existingUserEmail] =
     await Promise.all([
-      (prisma as any).assignedOffice.findUnique({ where: { username: input.username } }),
+      (prisma as any).assignedOffice.findUnique({ where: { username: normalizedUsername } }),
       (prisma as any).assignedOffice.findUnique({ where: { email: input.email } }),
-      prisma.user.findUnique({ where: { email: input.username } }),
+      prisma.user.findUnique({ where: { email: normalizedUsername } }),
       prisma.user.findUnique({ where: { email: input.email } }),
     ]);
 
@@ -393,7 +396,7 @@ export async function createAssignedOffice(
   return prisma.$transaction(async (tx: any) => {
     const office = await tx.assignedOffice.create({
       data: {
-        username: input.username,
+        username: normalizedUsername,
         email: input.email,
         passwordHash,
         status: input.status !== undefined ? input.status : true,
@@ -490,11 +493,15 @@ export async function updateAssignedOffice(
     throw new Error("Assigned Office not found.");
   }
 
-  if (input.username && input.username !== existingOffice.username) {
-    const takenUser = await (prisma as any).assignedOffice.findUnique({
-      where: { username: input.username },
-    });
-    if (takenUser) throw new Error("Username is already taken.");
+  let normalizedUsername: string | undefined = undefined;
+  if (input.username) {
+    normalizedUsername = normalizeOfficeName(input.username);
+    if (normalizedUsername !== existingOffice.username) {
+      const takenUser = await (prisma as any).assignedOffice.findUnique({
+        where: { username: normalizedUsername },
+      });
+      if (takenUser) throw new Error("Username is already taken.");
+    }
   }
 
   if (input.email && input.email !== existingOffice.email) {
@@ -507,8 +514,10 @@ export async function updateAssignedOffice(
   return prisma.$transaction(async (tx: any) => {
     const auditLogs: Array<{ action: string; description: string }> = [];
 
+    const finalUsername = normalizedUsername ?? existingOffice.username;
+
     const updateData: any = {
-      username: input.username ?? existingOffice.username,
+      username: finalUsername,
       email: input.email ?? existingOffice.email,
       status: input.status !== undefined ? input.status : existingOffice.status,
       updatedBy: performedByName || currentUserId,

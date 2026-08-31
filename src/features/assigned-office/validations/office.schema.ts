@@ -19,7 +19,7 @@ export const createOfficeSchema = z
         .string()
         .min(3, "Username must be at least 3 characters")
         .max(50, "Username is too long")
-        .regex(/^[a-zA-Z0-9._-]+$/, "Username can only contain letters, numbers, dots, underscores, and hyphens"),
+        .regex(/^[a-zA-Z0-9._\s-]+$/, "Username can only contain letters, numbers, dots, underscores, hyphens, and spaces"),
       email: z.string().email("Invalid email address"),
       password: z
         .string()
@@ -57,7 +57,7 @@ export const updateOfficeSchema = z
         .string()
         .min(3, "Username must be at least 3 characters")
         .max(50, "Username is too long")
-        .regex(/^[a-zA-Z0-9._-]+$/, "Username can only contain letters, numbers, dots, underscores, and hyphens")
+        .regex(/^[a-zA-Z0-9._\s-]+$/, "Username can only contain letters, numbers, dots, underscores, hyphens, and spaces")
         .optional(),
       email: z.string().email("Invalid email address").optional(),
       password: z

@@ -31,22 +31,40 @@ export async function GET(req: NextRequest) {
       }) : Promise.resolve([]),
     ]);
 
-    const officeMap = new Map<string, { id: string; officeName: string; type: string }>();
+    const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
+    const assignedOfficeNames = new Set((assignedOffices as any[]).map((ao: any) => ao.username.toLowerCase()));
+
+    const officeMap = new Map<
+      string,
+      {
+        id: string;
+        officeName: string;
+        type: string;
+        category: "ASSIGNED_OFFICE" | "GLOBAL_OFFICE";
+        isAssignedOffice: boolean;
+      }
+    >();
 
     for (const loc of officeLocations) {
+      const isAssigned = assignedOfficeIds.has(loc.id) || assignedOfficeNames.has(loc.officeName.toLowerCase());
       officeMap.set(loc.officeName.toLowerCase(), {
         id: loc.id,
         officeName: loc.officeName,
-        type: loc.isProcessOffice ? "Process Office" : "Office Location",
+        type: isAssigned ? "Assigned Office" : loc.isProcessOffice ? "Process Office" : "Office Location",
+        category: isAssigned ? "ASSIGNED_OFFICE" : "GLOBAL_OFFICE",
+        isAssignedOffice: isAssigned,
       });
     }
 
     for (const ao of (assignedOffices as any[])) {
-      if (!officeMap.has(ao.username.toLowerCase())) {
-        officeMap.set(ao.username.toLowerCase(), {
+      const key = ao.username.toLowerCase();
+      if (!officeMap.has(key)) {
+        officeMap.set(key, {
           id: ao.id,
           officeName: ao.username,
           type: "Assigned Office",
+          category: "ASSIGNED_OFFICE",
+          isAssignedOffice: true,
         });
       }
     }

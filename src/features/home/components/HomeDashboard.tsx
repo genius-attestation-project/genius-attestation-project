@@ -40,6 +40,8 @@ type HomeDashboardProps = {
 type OfficeOption = {
   id: string;
   officeName: string;
+  category?: string;
+  isAssignedOffice?: boolean;
 };
 
 type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
@@ -537,13 +539,46 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500"
                 >
                   <option value="">Select Office</option>
-                  {offices
-                    .filter((o) => o.id !== selectedOfficeId)
-                    .map((off) => (
-                      <option key={off.id} value={off.id}>
-                        {off.officeName}
-                      </option>
-                    ))}
+                  {(() => {
+                    const available = offices.filter((o) => o.id !== selectedOfficeId);
+                    const assignedOffices = available
+                      .filter((o: any) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
+                      .sort((a, b) => a.officeName.localeCompare(b.officeName));
+                    const globalOffices = available
+                      .filter((o: any) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice))
+                      .sort((a, b) => a.officeName.localeCompare(b.officeName));
+
+                    return (
+                      <>
+                        <optgroup label="ASSIGNED OFFICES">
+                          {assignedOffices.length > 0 ? (
+                            assignedOffices.map((off) => (
+                              <option key={off.id} value={off.id}>
+                                {off.officeName}
+                              </option>
+                            ))
+                          ) : (
+                            <option disabled value="">
+                              No assigned offices available
+                            </option>
+                          )}
+                        </optgroup>
+                        <optgroup label="GLOBAL OFFICES">
+                          {globalOffices.length > 0 ? (
+                            globalOffices.map((off) => (
+                              <option key={off.id} value={off.id}>
+                                {off.officeName}
+                              </option>
+                            ))
+                          ) : (
+                            <option disabled value="">
+                              No global offices available
+                            </option>
+                          )}
+                        </optgroup>
+                      </>
+                    );
+                  })()}
                 </select>
 
                 <Button

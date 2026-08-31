@@ -23,6 +23,31 @@ export function capitalizeFirstCharacter(value: string): string {
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
+/**
+ * Normalizes an office name into Pascal Case-style word capitalization.
+ * Trims leading/trailing whitespace, collapses multiple spaces, and capitalizes
+ * the first character of each word while preserving internal casing (e.g., AmGenius).
+ *
+ * Examples:
+ * - "notaryhome" -> "Notaryhome"
+ * - "malappuram office" -> "Malappuram Office"
+ * - "process delhi" -> "Process Delhi"
+ * - "AmGenius" -> "AmGenius"
+ */
+export function normalizeOfficeName(input?: string | null): string {
+  if (!input || typeof input !== "string") return "";
+  const cleaned = input.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "";
+
+  return cleaned
+    .split(" ")
+    .map((word) => {
+      if (!word) return "";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
 /** Identifiers and case-sensitive fields must retain the exact user input. */
 export function shouldCapitalizeUserInput(name?: string, type?: string): boolean {
   if (type && ["email", "password", "url", "number", "date", "datetime-local", "time", "file", "hidden"].includes(type)) return false;

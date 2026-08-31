@@ -578,9 +578,45 @@ export function ProcessDashboard() {
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">Select Office</option>
-                  {destinationOffices.map((office) => (
-                    <option key={office.id} value={office.id}>{office.officeName}</option>
-                  ))}
+                  {(() => {
+                    const assignedOffices = destinationOffices
+                      .filter((o: any) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
+                      .sort((a: any, b: any) => a.officeName.localeCompare(b.officeName));
+                    const globalOffices = destinationOffices
+                      .filter((o: any) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice))
+                      .sort((a: any, b: any) => a.officeName.localeCompare(b.officeName));
+
+                    return (
+                      <>
+                        <optgroup label="ASSIGNED OFFICES">
+                          {assignedOffices.length > 0 ? (
+                            assignedOffices.map((office: any) => (
+                              <option key={office.id} value={office.id}>
+                                {office.officeName}
+                              </option>
+                            ))
+                          ) : (
+                            <option disabled value="">
+                              No assigned offices available
+                            </option>
+                          )}
+                        </optgroup>
+                        <optgroup label="GLOBAL OFFICES">
+                          {globalOffices.length > 0 ? (
+                            globalOffices.map((office: any) => (
+                              <option key={office.id} value={office.id}>
+                                {office.officeName}
+                              </option>
+                            ))
+                          ) : (
+                            <option disabled value="">
+                              No global offices available
+                            </option>
+                          )}
+                        </optgroup>
+                      </>
+                    );
+                  })()}
                 </select>
                 <Button
                   size="sm"

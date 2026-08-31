@@ -65,8 +65,11 @@ export function MovementModal({
           const rawList = isAssignedOfficeTransfer ? data.items : (data.offices || data.data);
           const list = rawList || [];
           const formatted = list.map((o: any) => ({
-            label: o.officeName || o.username || o.name || "Assigned Office",
+            label: o.officeName || o.username || o.name || "Office",
             value: o.id,
+            category: (o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice || isAssignedOfficeTransfer)
+              ? "ASSIGNED OFFICES"
+              : "GLOBAL OFFICES",
           }));
           setOffices(formatted);
           if (formatted.length > 0) {
