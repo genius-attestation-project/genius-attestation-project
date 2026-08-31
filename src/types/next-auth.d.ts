@@ -18,6 +18,8 @@ declare module "next-auth" {
       isAgency?: boolean;
       isAssignedOffice?: boolean;
       officeId?: string;
+      allowedOfficeIds?: string[] | null;
+      allowedOfficeNames?: string[] | null;
     } & DefaultSession["user"];
   }
 }

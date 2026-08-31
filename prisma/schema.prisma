@@ -127,6 +127,8 @@ model User {
   notifications            Notification[]
   sentCommunications       DocumentCommunication[]  @relation("MessageSender")
   documentReadStates       DocumentReadState[]
+  officeVisibilities       UserOfficeVisibility[]
+  userPermissions          UserPermission[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -173,6 +175,7 @@ model OfficeLocation {
   bundlesTo                        Bundle[]           @relation("BundleToOffice")
   subPackageMovements              SubPackageMovement[] @relation("AssignedOfficeSubPackage")
   accountAssignments               AccountOfficeAssignment[]
+  userOfficeVisibilities           UserOfficeVisibility[]
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -786,6 +789,35 @@ model UserRole {
   @@index([roleId])
   @@map("user_roles")
 }
+
+model UserOfficeVisibility {
+  id               String         @id @default(cuid())
+  userId           String         @map("user_id")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  officeLocationId String         @map("office_location_id")
+  officeLocation   OfficeLocation @relation(fields: [officeLocationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, officeLocationId])
+  @@index([userId])
+  @@index([officeLocationId])
+  @@map("user_office_visibility")
+}
+
+model UserPermission {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String   @map("permission_key")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, permissionKey])
+  @@index([userId])
+  @@map("user_permissions")
+}
+
 
 model AttendanceRecord {
   id              String                   @id @default(cuid())

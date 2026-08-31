@@ -208,6 +208,8 @@ function logRegistrationWorkflow(
   console.info(`[registration] ${message}`, payload);
 }
 
+import { buildOfficeVisibilityWhereInput } from "@/lib/data-scope";
+
 export async function listRegistrations(
   ownerAdminId: string,
   params: {
@@ -242,6 +244,9 @@ export async function listRegistrations(
     maxTotalCharge?: string;
     minAdvancePaid?: string;
     maxAdvancePaid?: string;
+    isSuperAdmin?: boolean;
+    allowedOfficeIds?: string[] | null;
+    allowedOfficeNames?: string[] | null;
   },
 ) {
   const page = Math.max(1, params.page ?? 1);
@@ -273,6 +278,23 @@ export async function listRegistrations(
     ...(params.approvalStatus ? { approvalStatus: params.approvalStatus } : {}),
     ...(statusFilter ? { trackingStatus: { contains: statusFilter } } : {}),
   };
+
+  if (params.allowedOfficeNames !== undefined || params.isSuperAdmin !== undefined) {
+    const officeCondition = buildOfficeVisibilityWhereInput(
+      {
+        isSuperAdmin: params.isSuperAdmin,
+        allowedOfficeIds: params.allowedOfficeIds,
+        allowedOfficeNames: params.allowedOfficeNames,
+      },
+      { officeNameField: "regionOfRegistration" }
+    );
+    if (params.officeLocation && !params.isSuperAdmin && params.allowedOfficeNames) {
+      if (!params.allowedOfficeNames.includes(params.officeLocation)) {
+        where.id = "none";
+      }
+    }
+    Object.assign(where, officeCondition);
+  }
 
   if (params.fromDate || params.toDate) {
     where.createdAt = {};

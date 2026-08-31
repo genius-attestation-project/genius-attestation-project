@@ -47,6 +47,8 @@ function buildSafeSessionAccess(params: {
   permissions?: string[];
   permissionScopes?: Record<string, string>;
   isSuperAdmin?: boolean;
+  allowedOfficeIds?: string[] | null;
+  allowedOfficeNames?: string[] | null;
 }): SessionAccess {
   const role = params.role ?? (params.legacyRole === "ADMIN" ? "Super Admin" : "User");
   const roles = params.roles ?? (role ? [role] : []);
@@ -64,6 +66,8 @@ function buildSafeSessionAccess(params: {
     permissions,
     permissionScopes,
     isSuperAdmin,
+    allowedOfficeIds: params.allowedOfficeIds ?? null,
+    allowedOfficeNames: params.allowedOfficeNames ?? null,
   };
 }
 
@@ -899,18 +903,30 @@ export async function deleteOfficeLocation(ownerAdminId: string, officeLocationI
 }
 
 export async function getSessionAccess(userId: string): Promise<SessionAccess | null> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      role: {
-        include: {
-          rolePermissions: {
-            include: { permission: { select: { code: true } } },
+  const [user, userPermRows, officeVisRows] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: { permission: { select: { code: true } } },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.userPermission.findMany({
+      where: { userId },
+      select: { permissionKey: true },
+    }),
+    prisma.userOfficeVisibility.findMany({
+      where: { userId },
+      include: {
+        officeLocation: { select: { id: true, officeName: true } },
+      },
+    }),
+  ]);
 
   if (!user) return null;
 
@@ -924,21 +940,33 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     }
   }
 
-  const isOwner = user.ownerAdminId === user.id;
-
-  // Super Admin always has access to everything
+  const isOwner = user.ownerAdminId === user.id || !user.ownerAdminId;
   const isSuperAdmin = isOwner || user.role?.name === "Super Admin";
   const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "User");
   
   const permissions: string[] = [];
   const permissionScopes: Record<string, string> = {};
 
-  if (!isSuperAdmin && user.role?.rolePermissions) {
-    for (const rp of user.role.rolePermissions) {
-      permissions.push(rp.permission.code);
-      permissionScopes[rp.permission.code] = (rp as any).scope ?? "All";
+  if (isSuperAdmin) {
+    permissions.push("*");
+  } else {
+    if (userPermRows.length > 0) {
+      // User has explicitly configured individual permissions
+      for (const up of userPermRows) {
+        permissions.push(up.permissionKey);
+        permissionScopes[up.permissionKey] = "All";
+      }
+    } else if (user.role?.rolePermissions) {
+      // Fallback to role permissions for un-configured legacy users
+      for (const rp of user.role.rolePermissions) {
+        permissions.push(rp.permission.code);
+        permissionScopes[rp.permission.code] = (rp as any).scope ?? "All";
+      }
     }
   }
+
+  const allowedOfficeIds = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocationId);
+  const allowedOfficeNames = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocation.officeName);
 
   const access = buildSafeSessionAccess({
     userId: user.id,
@@ -950,9 +978,24 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     permissions,
     permissionScopes,
     isSuperAdmin,
+    allowedOfficeIds,
+    allowedOfficeNames,
   });
 
   return access;
+}
+
+export function hasOfficeAccess(
+  access: SessionAccess | { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null },
+  officeIdOrName?: string | null,
+): boolean {
+  if (!access) return false;
+  if (access.isSuperAdmin || access.allowedOfficeIds === null) return true;
+  if (!officeIdOrName) return false;
+  return (
+    (access.allowedOfficeIds ?? []).includes(officeIdOrName) ||
+    (access.allowedOfficeNames ?? []).includes(officeIdOrName)
+  );
 }
 
 export function hasPermission(access: SessionAccess | { permissions: string[]; isSuperAdmin?: boolean }, code: string) {

@@ -63,6 +63,8 @@ export type SessionAccess = {
   permissions: string[];
   permissionScopes: Record<string, string>;
   isSuperAdmin: boolean;
+  allowedOfficeIds?: string[] | null;
+  allowedOfficeNames?: string[] | null;
 };
 
 export type RolePayload = {

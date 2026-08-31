@@ -9,17 +9,17 @@ import { hasPermission } from "@/features/admin/server/rbac.service";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
-  console.log("[GET /api/registrations] Request received:", request.url);
   try {
     const session = await auth();
-    console.log("[GET /api/registrations] Session retrieved for user:", session?.user?.email);
-    
+
     const ownerAdminId = session?.user?.ownerAdminId;
-    console.log("[GET /api/registrations] ownerAdminId lookup:", ownerAdminId);
     
-    if (!ownerAdminId) {
-      console.warn("[GET /api/registrations] Unauthorized: No owner admin ID found.");
+    if (!ownerAdminId || !session?.user) {
       return jsonError("No owner admin ID found.", 401);
+    }
+
+    if (!hasPermission(session.user, "revenue_registration.view")) {
+      return jsonError("You do not have permission to view revenue registrations.", 403);
     }
 
     const { searchParams } = new URL(request.url);
@@ -27,20 +27,19 @@ export async function GET(request: NextRequest) {
     const rawPageSize = searchParams.get("pageSize");
     const query = searchParams.get("query") ?? undefined;
     
-    console.log("[GET /api/registrations] Search Params - rawPage:", rawPage, "rawPageSize:", rawPageSize, "query:", query);
-    
     const parsedPage = parseInt(rawPage ?? "1", 10);
     const parsedPageSize = parseInt(rawPageSize ?? "10", 10);
     
     const page = isNaN(parsedPage) ? 1 : parsedPage;
     const pageSize = isNaN(parsedPageSize) ? 10 : parsedPageSize;
-    
-    console.log("[GET /api/registrations] Parsed Pagination - page:", page, "pageSize:", pageSize);
 
     const data = await listRegistrations(ownerAdminId, {
       page,
       pageSize,
       query,
+      isSuperAdmin: session.user.isSuperAdmin,
+      allowedOfficeIds: session.user.allowedOfficeIds,
+      allowedOfficeNames: session.user.allowedOfficeNames,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
       trackingNumber: searchParams.get("trackingNumber") ?? undefined,
@@ -87,7 +86,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) return jsonError("No owner admin ID found.", 401);
+
+    if (!hasPermission(session.user, "revenue_registration.create")) {
+      return jsonError("You do not have permission to create revenue registrations.", 403);
+    }
 
     const parsed = registrationInputSchema.safeParse(body);
 

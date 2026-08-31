@@ -438,13 +438,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               session.user.permissions = access.permissions;
               session.user.roles = access.roles;
               session.user.isSuperAdmin = access.isSuperAdmin;
+              session.user.allowedOfficeIds = access.allowedOfficeIds;
+              session.user.allowedOfficeNames = access.allowedOfficeNames;
             } else {
               session.user.permissions = [];
+              session.user.allowedOfficeIds = [];
+              session.user.allowedOfficeNames = [];
             }
           } else if (token.accountType === "ASSIGNED_OFFICE") {
             session.user.permissions = ["menu.assigned-office", "assigned_office.view"];
+            session.user.allowedOfficeIds = null;
+            session.user.allowedOfficeNames = null;
           } else {
             session.user.permissions = [];
+            session.user.allowedOfficeIds = [];
+            session.user.allowedOfficeNames = [];
           }
 
           console.info("[auth] Session Payload:", {

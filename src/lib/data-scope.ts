@@ -97,3 +97,46 @@ export function buildDataScopeFilter(user: SessionAccess | any, permissionCode: 
       return { id: "none" };
   }
 }
+
+/**
+ * Builds Prisma where condition to enforce user's allowed Office Visibility.
+ * Returns empty object {} if user is Super Admin or has full access (allowedOfficeIds === null).
+ * Returns { id: "none" } if user has 0 allowed offices assigned.
+ */
+export function buildOfficeVisibilityWhereInput(
+  user: { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null } | any,
+  options: {
+    officeIdField?: string;
+    officeNameField?: string;
+    relationOfficeField?: string;
+  } = {}
+) {
+  if (!user) return { id: "none" };
+  if (user.isSuperAdmin || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
+    return {};
+  }
+
+  const allowedIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
+  const allowedNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
+
+  if (allowedIds.length === 0 && allowedNames.length === 0) {
+    return { id: "none" };
+  }
+
+  const conditions: any[] = [];
+  if (options.officeIdField && allowedIds.length > 0) {
+    conditions.push({ [options.officeIdField]: { in: allowedIds } });
+  }
+  if (options.officeNameField && allowedNames.length > 0) {
+    conditions.push({ [options.officeNameField]: { in: allowedNames } });
+  }
+  if (options.relationOfficeField && allowedIds.length > 0) {
+    conditions.push({ [options.relationOfficeField]: { officeLocationId: { in: allowedIds } } });
+  }
+
+  if (conditions.length === 0) {
+    return { id: "none" };
+  }
+
+  return conditions.length === 1 ? conditions[0] : { OR: conditions };
+}
