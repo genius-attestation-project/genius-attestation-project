@@ -1,0 +1,57 @@
+import { getClosedCharts } from "@/features/closed/server/closed.service";
+import type { ClosedFilters } from "@/features/closed/server/closed.service";
+import { auth } from "@/lib/auth";
+import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
+
+function parseFilters(url: string): ClosedFilters {
+  const { searchParams } = new URL(url);
+  const filters: ClosedFilters = {};
+
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
+  if (dateFrom) filters.dateFrom = new Date(dateFrom);
+  if (dateTo) filters.dateTo = new Date(dateTo);
+
+  const service = searchParams.get("service");
+  const assignedUser = searchParams.get("assignedUser");
+  const previousStatus = searchParams.get("previousStatus");
+  const country = searchParams.get("country");
+  const officeLocationId = searchParams.get("officeLocationId");
+  const query = searchParams.get("query");
+
+  if (service) filters.service = service;
+  if (assignedUser) filters.assignedUser = assignedUser;
+  if (previousStatus) filters.previousStatus = previousStatus;
+  if (country) filters.country = country;
+  if (officeLocationId) filters.officeLocationId = officeLocationId;
+  if (query) filters.query = query;
+
+  return filters;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
+    if (!ownerAdminId) return jsonError("Authentication required.", 401);
+
+    const filters = parseFilters(request.url);
+    const data = await getClosedCharts(ownerAdminId, filters);
+    return jsonOk(data);
+  } catch (error) {
+    const filters = parseFilters(request.url);
+    console.error(`[GET /api/closed/charts] Database operation failed:`, {
+      endpoint: "/api/closed/charts",
+      filters,
+      prismaError: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Unable to fetch closed charts.";
+    return jsonError(message, 500);
+  }
+}

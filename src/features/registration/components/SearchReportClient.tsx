@@ -1,0 +1,159 @@
+"use client";
+
+import { FileSearch, Plus, Search, Eye } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import type { FormEvent } from "react";
+
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
+import { Route } from "lucide-react";
+import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
+import type { Registration } from "@/features/registration/types/registration.types";
+
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Request failed.");
+  }
+
+  return data;
+}
+
+export function SearchReportClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryTrackingNumber = searchParams.get("trackingNumber");
+  
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [searchedValue, setSearchedValue] = useState("");
+  const [registration, setRegistration] = useState<Registration | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
+
+  const performSearch = useCallback(async (value: string) => {
+    if (!value) {
+      setError("Tracking number is required.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSearched(true);
+    setSearchedValue(value);
+    setRegistration(null);
+
+    try {
+      const data = await parseResponse(
+        await fetch(`/api/registrations/tracking/${encodeURIComponent(value)}`),
+      );
+      setRegistration(data.registration);
+    } catch (requestError) {
+      if (requestError instanceof Error && requestError.message === "Registration not found.") {
+        setRegistration(null);
+      } else {
+        setError(requestError instanceof Error ? requestError.message : "Unable to search registration.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await performSearch(trackingNumber.trim());
+  }
+
+  useEffect(() => {
+    if (queryTrackingNumber) {
+      setTrackingNumber(queryTrackingNumber);
+      performSearch(queryTrackingNumber.trim());
+    }
+  }, [queryTrackingNumber, performSearch]);
+
+  function createNewRegistration() {
+    router.push(
+      `/dashboard/revenue-registration/new?trackingNumber=${encodeURIComponent(searchedValue)}`,
+    );
+  }
+
+  return (
+    <div className="grid min-w-0 gap-4 sm:gap-6">
+      <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Search / Report</p>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Tracking number search</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
+            Search a manual tracking, bill, receipt, or external reference number.
+          </p>
+        </div>
+        <form onSubmit={handleSearch} className="mt-6 flex flex-col gap-3 md:flex-row">
+          <div className="min-w-0 flex-1">
+            <Input
+              label="Tracking Number"
+              value={trackingNumber}
+              onChange={(event) => setTrackingNumber(event.target.value)}
+              placeholder="Enter tracking number"
+              required
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" className="w-full md:w-auto" disabled={loading}>
+              <Search size={18} /> {loading ? "Searching..." : "Search"}
+            </Button>
+          </div>
+        </form>
+        {error ? (
+          <p className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-200">
+            {error}
+          </p>
+        ) : null}
+      </section>
+
+      {registration ? (
+        <RegistrationDetail 
+          registration={registration} 
+          actionButton={
+            <div className="flex items-center gap-2">
+              <Link href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}>
+                <Button variant="primary" size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Eye size={16} /> View 360° Details
+                </Button>
+              </Link>
+              <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}>
+                <Route size={16} /> Timeline
+              </Button>
+            </div>
+          }
+        />
+      ) : null}
+
+      {timelineTrackingNumber && (
+        <LiveTimelineModal
+          isOpen={!!timelineTrackingNumber}
+          onClose={() => setTimelineTrackingNumber(null)}
+          trackingNumber={timelineTrackingNumber}
+        />
+      )}
+
+      {searched && !loading && !registration && !error ? (
+        <EmptyState
+          icon={FileSearch}
+          title="No registration found"
+          description={`No registration exists for ${searchedValue}. Create one using this tracking number.`}
+          action={
+            <Button onClick={createNewRegistration}>
+              <Plus size={18} /> Create New Registration
+            </Button>
+          }
+        />
+      ) : null}
+    </div>
+  );
+}

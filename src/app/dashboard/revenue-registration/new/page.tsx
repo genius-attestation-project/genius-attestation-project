@@ -1,0 +1,41 @@
+import { AccessDenied } from "@/components/shared/AccessDenied";
+import { RegistrationManager } from "@/features/registration/components/RegistrationManager";
+import { resolveOfficeLocationName } from "@/lib/office-location";
+import { requirePermission } from "@/middleware/auth.middleware";
+
+type RevenueRegistrationNewPageProps = {
+  searchParams?: Promise<{
+    trackingNumber?: string;
+    leadId?: string;
+  }>;
+};
+
+export default async function RevenueRegistrationNewPage({
+  searchParams,
+}: RevenueRegistrationNewPageProps) {
+  const session = await requirePermission(
+    "revenue_registration.view",
+    "/dashboard/revenue-registration/new",
+  );
+
+  if (!session) {
+    return <AccessDenied description="Your role cannot access revenue registration." />;
+  }
+
+  const params = searchParams ? await searchParams : {};
+  const currentOfficeLocationName = await resolveOfficeLocationName({
+    ownerAdminId: session.user.ownerAdminId ?? "",
+    officeLocationId: session.user.officeLocationId,
+    officeLocationName: session.user.officeLocationName,
+    userId: session.user.id,
+  });
+
+  return (
+    <RegistrationManager
+      currentOfficeLocationName={currentOfficeLocationName ?? ""}
+      initialOpen
+      initialTrackingNumber={params.trackingNumber ? decodeURIComponent(params.trackingNumber) : ""}
+      initialLeadId={params.leadId ? decodeURIComponent(params.leadId) : ""}
+    />
+  );
+}

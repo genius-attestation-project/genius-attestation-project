@@ -1,0 +1,1788 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum LeadStatus {
+  New
+  Followup
+  Assigned
+  Pending_Approval
+  Closed
+  Qualified
+  Potential_Qualified
+  LOB
+}
+
+enum FollowupStatus {
+  Pending
+  Completed
+  Rescheduled
+}
+
+enum FollowupActionType {
+  Created
+  Snoozed
+  Completed
+  Rescheduled
+}
+
+enum AttendanceStatus {
+  Present
+  Late
+  Absent
+  HalfDay
+  Leave
+}
+
+enum AttendanceApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum LeaveRequestStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum SalaryPayrollStatus {
+  Draft
+  Generated
+  Approved
+  Paid
+}
+
+enum ApprovalRequestType {
+  INACTIVE_LEAD
+  LOB_REQUEST
+  OVERDUE_FOLLOWUP
+}
+
+enum WorkflowApprovalStatus {
+  Pending
+  Approved
+  Rejected
+  Returned
+}
+
+model User {
+  id                   String          @id @default(cuid())
+  name                 String?
+  email                String          @unique
+  emailVerified        DateTime?
+  image                String?
+  phone                String?
+  passwordHash         String?         @map("password_hash")
+  legacyPasswordHash   String?         @map("password")
+  provider             String?         @default("credentials")
+  roleId               String?         @map("role_id")
+  role                 AccessRole?     @relation(fields: [roleId], references: [id])
+  ownerAdminId         String?         @map("owner_admin_id")
+  ownerAdmin           User?           @relation("UserOwner", fields: [ownerAdminId], references: [id])
+  ownedUsers           User[]          @relation("UserOwner")
+  supervisorUserId     String?         @map("supervisor_user_id")
+  supervisorRef        User?           @relation("UserSupervisor", fields: [supervisorUserId], references: [id])
+  supervisedUsers      User[]          @relation("UserSupervisor")
+  createdBy            String?         @map("created_by")
+  departmentId         String?         @map("department_id")
+  departmentRef        Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentName       String?         @map("department")
+  officeLocationId     String?         @map("office_location_id")
+  officeLocationRef    OfficeLocation? @relation(fields: [officeLocationId], references: [id], onDelete: SetNull)
+  officeLocationName   String?         @map("officeLocation")
+  monthlySalary        Decimal         @default(0) @map("monthly_salary") @db.Decimal(12, 2)
+  isActive             Boolean         @default(true) @map("is_active")
+  isLocked             Boolean         @default(false) @map("is_locked")
+  lockReason           String?         @map("lock_reason")
+  lockedAt             DateTime?       @map("locked_at")
+  lockedFollowupLeadId String?         @map("locked_followup_lead_id")
+  lockedFollowupAt     DateTime?       @map("locked_followup_at")
+  unlockedBy           String?         @map("unlocked_by")
+  unlockReason         String?         @map("unlock_reason")
+  unlockedAt           DateTime?       @map("unlocked_at")
+  lastLoginAt          DateTime?
+
+  accounts                 Account[]
+  sessions                 Session[]
+  userRoles                UserRole[]
+  createdLeads             Lead[]                   @relation("LeadCreator")
+  createdRegistrations     Registration[]           @relation("RegistrationCreator")
+  attendanceRecords        AttendanceRecord[]       @relation("UserAttendance")
+  attendanceSetting        AttendanceSetting?       @relation("UserAttendanceSetting")
+  attendanceDailySummaries AttendanceDailySummary[] @relation("UserAttendanceDailySummary")
+  leaveRequests            LeaveRequest[]           @relation("UserLeaveRequests")
+  salaryPayrolls           SalaryPayroll[]          @relation("UserSalaryPayroll")
+  notifications            Notification[]
+  sentCommunications       DocumentCommunication[]  @relation("MessageSender")
+  documentReadStates       DocumentReadState[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([departmentId])
+  @@index([officeLocationId])
+  @@index([supervisorUserId])
+  @@index([ownerAdminId])
+  @@index([isLocked])
+  @@map("users")
+}
+
+model Department {
+  id           String   @id @default(cuid())
+  name         String
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  users        User[]
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("departments")
+}
+
+model OfficeLocation {
+  id              String   @id @default(cuid())
+  officeName      String   @map("office_name")
+  location        String
+  timezone        String
+  employees       Int      @default(0)
+  isProcessOffice Boolean  @default(false) @map("is_process_office")
+  ownerAdminId    String   @map("owner_admin_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  users           User[]
+
+  documentMovementsFrom            DocumentMovement[] @relation("FromOfficeRelation")
+  documentMovementsTo              DocumentMovement[] @relation("ToOfficeRelation")
+  documentMovementsCurrent         DocumentMovement[] @relation("CurrentOfficeRelation")
+  documentMovementsOriginalProcess DocumentMovement[] @relation("OriginalProcessOfficeRelation")
+  documentMovementsReturn          DocumentMovement[] @relation("ReturnOfficeRelation")
+  bundlesFrom                      Bundle[]           @relation("BundleFromOffice")
+  bundlesTo                        Bundle[]           @relation("BundleToOffice")
+  subPackageMovements              SubPackageMovement[] @relation("AssignedOfficeSubPackage")
+  accountAssignments               AccountOfficeAssignment[]
+
+  @@unique([officeName, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("office_locations")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @map("token_hash") @db.VarChar(255)
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  revokedAt  DateTime? @map("revoked_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  userAgent  String?   @map("user_agent") @db.Text
+  ipAddress  String?   @map("ip_address")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Lead {
+  id                     String         @id @default(cuid())
+  leadCode               String         @unique
+  firstName              String
+  lastName               String?
+  countryCode            String         @default("+91")
+  mobileNumber           String
+  email                  String
+  docType                String?
+  documentName           String?        @map("document_name")
+  noOfDocuments          Int?
+  country                String
+  state                  String?
+  documentIssuedCountry  String?
+  service                String
+  source                 String?
+  leadStatus             LeadStatus     @default(New)
+  clientType             String?
+  corporateDetailId      String?        @map("corporate_detail_id")
+  corporateDetail        CorporateDetail? @relation("LeadCorporateDetail", fields: [corporateDetailId], references: [id], onDelete: SetNull)
+  amount                 Decimal        @default(0) @db.Decimal(12, 2)
+  workingDays            Int?
+  remark                 String?
+  assignedUser           String?
+  assignedUserId         String?        @map("assigned_user_id")
+  ownerAdminId           String?        @map("owner_admin_id")
+  createdById            String?        @map("created_by_id")
+  creator                User?          @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  nextFollowupAt         DateTime?
+  followupNotified       Boolean        @default(false) @map("followup_notified")
+  followupCompleted      Boolean        @default(false) @map("followup_completed")
+  followupStatus         FollowupStatus @default(Pending) @map("followup_status")
+  completionDescription  String?        @map("completion_description")
+  followupCompletionNote String?        @map("followup_completion_note")
+  followupCompletedAt    DateTime?      @map("followup_completed_at")
+  snoozeNote             String?        @map("snooze_note")
+  completedAt            DateTime?      @map("completed_at")
+  completedBy            String?        @map("completed_by")
+  snoozedAt              DateTime?      @map("snoozed_at")
+  snoozedBy              String?        @map("snoozed_by")
+  closedAt               DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  registrations Registration[]
+
+  statusHistory     LeadStatusHistory[]
+  assignmentHistory LeadAssignmentHistory[]
+  approvalRequests  LeadStatusApproval[]
+  followupHistory   LeadFollowupHistory[]
+  workflowApprovals LeadWorkflowApproval[]
+
+  @@index([leadStatus])
+  @@index([createdAt])
+  @@index([service])
+  @@index([email])
+  @@index([ownerAdminId])
+  @@index([createdById])
+  @@index([assignedUserId])
+  @@index([followupStatus])
+  @@index([ownerAdminId, leadStatus])
+  @@index([ownerAdminId, createdAt])
+  @@index([ownerAdminId, nextFollowupAt])
+}
+
+model LeadFollowupHistory {
+  id           String             @id @default(cuid())
+  leadId       String             @map("lead_id")
+  lead         Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actionType   FollowupActionType @map("action_type")
+  oldDate      DateTime?          @map("old_date")
+  newDate      DateTime?          @map("new_date")
+  description  String?
+  userId       String?            @map("user_id")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  ownerAdminId String?            @map("owner_admin_id")
+
+  @@index([leadId])
+  @@index([actionType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([ownerAdminId])
+  @@map("lead_followup_history")
+}
+
+model LeadStatusHistory {
+  id             String     @id @default(cuid())
+  leadId         String     @map("lead_id")
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  previousStatus LeadStatus @map("previous_status")
+  newStatus      LeadStatus @map("new_status")
+  changedBy      String?    @map("changed_by")
+  ownerAdminId   String?    @map("owner_admin_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([newStatus])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("lead_status_history")
+}
+
+model LeadAssignmentHistory {
+  id           String   @id @default(cuid())
+  leadId       String   @map("lead_id")
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  oldUserId    String?  @map("old_user_id")
+  newUserId    String?  @map("new_user_id")
+  changedBy    String?  @map("changed_by")
+  ownerAdminId String?  @map("owner_admin_id")
+  changedAt    DateTime @default(now()) @map("changed_at")
+
+  @@index([leadId])
+  @@index([oldUserId])
+  @@index([newUserId])
+  @@index([ownerAdminId])
+  @@index([changedAt])
+  @@map("lead_assignment_history")
+}
+
+model LeadStatusApproval {
+  id              String     @id @default(cuid())
+  leadId          String     @map("lead_id")
+  lead            Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  currentStatus   LeadStatus @map("current_status")
+  requestedStatus LeadStatus @map("requested_status")
+  requestedBy     String     @map("requested_by")
+  supervisorId    String     @map("supervisor_id")
+  approvalStatus  String     @default("Pending") @map("approval_status")
+  approvalReason  String?    @map("approval_reason")
+  rejectionReason String?    @map("rejection_reason")
+  approvedBy      String?    @map("approved_by")
+  approvedAt      DateTime?  @map("approved_at")
+  ownerAdminId    String?    @map("owner_admin_id")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([supervisorId])
+  @@index([requestedBy])
+  @@index([approvalStatus])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("lead_status_approvals")
+}
+
+model Registration {
+  id                     String    @id @default(cuid())
+  trackingNumber         String    @unique @map("tracking_number")
+  customerName           String?   @map("customer_name")
+  mobile                 String?
+  email                  String?
+  address                String?
+  country                String?
+  state                  String?
+  city                   String?
+  customerType           String?   @map("customer_type")
+  documentType           String?   @map("document_type")
+  documentName           String?   @map("document_name")
+  documentIssuedCountry  String?   @map("document_issued_country")
+  processType            String?   @map("process_type")
+  subPackage             String?   @map("sub_package")
+  externalProcess        String?   @map("external_process")
+  priority               String?
+  committedDuration      String?   @map("committed_duration")
+  deliveryLocation       String?   @map("delivery_location")
+  totalCharges           Decimal   @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid            Decimal   @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount          Decimal   @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  balanceReceivedAmount  Decimal   @default(0) @map("balance_received_amount") @db.Decimal(12, 2)
+  paymentMode            String?   @map("payment_mode")
+  upiTransactionId       String?   @map("upi_transaction_id")
+  bankName               String?   @map("bank_name")
+  transactionRefNo       String?   @map("transaction_ref_no")
+  transferDate           DateTime? @map("transfer_date")
+  chequeNumber           String?   @map("cheque_number")
+  chequeDate             DateTime? @map("cheque_date")
+  ddNumber               String?   @map("dd_number")
+  ddDate                 DateTime? @map("dd_date")
+  cardLast4              String?   @map("card_last4")
+  approvalCode           String?   @map("approval_code")
+  paymentGateway         String?   @map("payment_gateway")
+  onlineTransactionId    String?   @map("online_transaction_id")
+  walletName             String?   @map("wallet_name")
+  walletTransactionId    String?   @map("wallet_transaction_id")
+  paymentReferenceNo     String?   @map("payment_reference_no")
+  paymentDescription     String?   @map("payment_description")
+  paymentStatus          String    @default("Pending") @map("payment_status")
+  paymentUpdateStatus    String    @default("Pending") @map("payment_update_status")
+  submittedBy            String?   @map("submitted_by")
+  submittedAt            DateTime? @map("submitted_at")
+  financeApprovalStatus  String    @default("Pending") @map("finance_approval_status")
+  approvedBy             String?   @map("approved_by")
+  approvedAt             DateTime? @map("approved_at")
+  rejectionReason        String?   @map("rejection_reason")
+  collectedPerson        String?   @map("collected_person")
+  commissionToUserId     String?   @map("commission_to_user_id")
+  commissionToName       String?   @map("commission_to_name")
+  commissionToEmail      String?   @map("commission_to_email")
+  registeredPerson       String?   @map("registered_person")
+  regionOfRegistration   String?   @map("region_of_registration")
+  bmStatus               String    @default("Pending") @map("bm_status")
+  acceptedBy             String?   @map("accepted_by")
+  acceptedAt             DateTime? @map("accepted_at")
+  approvalStatus         String    @default("Pending") @map("approval_status")
+  trackingStatus         String    @default("Registered") @map("tracking_status")
+  welcomeCallStatus      String    @default("Pending") @map("welcome_call_status")
+  welcomeCalledBy        String?   @map("welcome_called_by")
+  welcomeCalledAt        DateTime? @map("welcome_called_at")
+  isBmLocked             Boolean   @default(false) @map("is_bm_locked")
+  bmLockReason           String?   @map("bm_lock_reason")
+  bmExtensionStatus      String    @default("None") @map("bm_extension_status")
+  bmExtensionRequestedBy String?   @map("bm_extension_requested_by")
+  bmExtensionRequestedAt DateTime? @map("bm_extension_requested_at")
+  bmExtensionReason      String?   @map("bm_extension_reason")
+  bmExtensionApprovedBy  String?   @map("bm_extension_approved_by")
+  bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
+  leadId                 String?   @map("lead_id")
+  lead                   Lead?     @relation(fields: [leadId], references: [id])
+  corporateDetailId      String?   @map("corporate_detail_id")
+  corporateDetail        CorporateDetail? @relation(fields: [corporateDetailId], references: [id], onDelete: SetNull)
+  ownerAdminId           String?   @map("owner_admin_id")
+  createdBy              String?   @map("created_by")
+  creator                User?     @relation("RegistrationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  importBatchId          String?   @map("import_batch_id")
+  importFileName         String?   @map("import_file_name")
+  importedBy             String?   @map("imported_by")
+  importedAt             DateTime? @map("imported_at")
+  originalRowNumber      Int?      @map("original_row_number")
+  advancePaymentStatus          String    @default("None") @map("advance_payment_status")
+  advancePaymentRejectionReason String?   @map("advance_payment_rejection_reason")
+  advancePaymentApprovedBy      String?   @map("advance_payment_approved_by")
+  advancePaymentApprovedAt      DateTime? @map("advance_payment_approved_at")
+  advancePaymentRejectedBy      String?   @map("advance_payment_rejected_by")
+  advancePaymentRejectedAt      DateTime? @map("advance_payment_rejected_at")
+  deliveryType                  String?   @map("delivery_type")
+  deliveryUserId                String?   @map("delivery_user_id")
+  deliveryUserName              String?   @map("delivery_user_name")
+  courierCompanyId              String?   @map("courier_company_id")
+  courierCompanyName            String?   @map("courier_company_name")
+  courierTrackingNumber         String?   @map("courier_tracking_number")
+  deliveryProofFileUrl          String?   @map("delivery_proof_file_url")
+  deliveryProofFileName         String?   @map("delivery_proof_file_name")
+  deliveryStatus                String?   @map("delivery_status")
+  advancePaymentSubmitted       Boolean   @default(false) @map("advance_payment_submitted")
+  movementApproved              Boolean   @default(false) @map("movement_approved")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  files                   RegistrationFile[]
+  auditTrail              AuditTrail[]
+  paymentUpdates          PaymentUpdate[]
+  accountStatementEntries AccountStatementEntry[]
+  processAssignments      ProcessAssignment[]
+  documentMovements       DocumentMovement[]
+  communications          DocumentCommunication[]
+  advancePaymentApprovals AdvancePaymentApproval[]
+  movementApprovals       MovementApproval[]
+
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@index([paymentStatus])
+  @@index([paymentUpdateStatus])
+  @@index([advancePaymentStatus])
+  @@index([approvalStatus])
+  @@index([financeApprovalStatus])
+  @@index([bmStatus])
+  @@index([welcomeCallStatus])
+  @@index([isBmLocked])
+  @@index([ownerAdminId, paymentStatus])
+  @@index([ownerAdminId, trackingStatus])
+  @@map("registrations")
+}
+
+model PaymentUpdate {
+  id                String                  @id @default(cuid())
+  invoiceGroupId    String?                 @map("invoice_group_id")
+  invoiceGroup      PaymentInvoice?         @relation(fields: [invoiceGroupId], references: [id], onDelete: SetNull)
+  registrationId    String                  @map("registration_id")
+  registration      Registration            @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber    String                  @map("tracking_number")
+  customerName      String?                 @map("customer_name")
+  processType       String?                 @map("process_type")
+  totalCharges      Decimal                 @default(0) @map("total_charges") @db.Decimal(12, 2)
+  advancePaid       Decimal                 @default(0) @map("advance_paid") @db.Decimal(12, 2)
+  balanceAmount     Decimal                 @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  paymentMode       String                  @map("payment_mode")
+  amountPaid        Decimal                 @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  invoiceNumber     String                  @map("invoice_number")
+  paymentDate       DateTime                @map("payment_date")
+  receiptFileUrl    String?                 @map("receipt_file_url")
+  receiptFileName   String?                 @map("receipt_file_name")
+  receiptMimeType   String?                 @map("receipt_mime_type")
+  receiptFileSize   Int?                    @map("receipt_file_size")
+  receiptFileData   Bytes?                  @map("receipt_file_data")
+  receiptUploadedAt DateTime?               @map("receipt_uploaded_at")
+  receiptUploadedBy String?                 @map("receipt_uploaded_by")
+  submittedBy       String?                 @map("submitted_by")
+  submittedAt       DateTime                @default(now()) @map("submitted_at")
+  approvalStatus    String                  @default("Pending") @map("approval_status")
+  approvedBy        String?                 @map("approved_by")
+  approvedAt        DateTime?               @map("approved_at")
+  resetBy           String?                 @map("reset_by")
+  resetAt           DateTime?               @map("reset_at")
+  resetReason       String?                 @map("reset_reason")
+  ownerAdminId      String                  @map("owner_admin_id")
+  statementEntries  AccountStatementEntry[]
+
+  @@index([ownerAdminId])
+  @@index([invoiceGroupId])
+  @@index([trackingNumber])
+  @@index([invoiceNumber])
+  @@index([approvalStatus])
+  @@index([submittedAt])
+  @@index([ownerAdminId, approvalStatus])
+  @@map("payment_update")
+}
+
+model PaymentInvoice {
+  id                String          @id @default(cuid())
+  invoiceNumber     String          @map("invoice_number")
+  paymentMode       String          @map("payment_mode")
+  amountPaid        Decimal         @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  paymentDate       DateTime        @map("payment_date")
+  receiptFileUrl    String?         @map("receipt_file_url")
+  receiptFileName   String?         @map("receipt_file_name")
+  receiptMimeType   String?         @map("receipt_mime_type")
+  receiptFileSize   Int?            @map("receipt_file_size")
+  receiptFileData   Bytes?          @map("receipt_file_data")
+  receiptUploadedAt DateTime?       @map("receipt_uploaded_at")
+  receiptUploadedBy String?         @map("receipt_uploaded_by")
+  submittedBy       String?         @map("submitted_by")
+  submittedAt       DateTime        @default(now()) @map("submitted_at")
+  approvalStatus    String          @default("Pending") @map("approval_status")
+  approvedBy        String?         @map("approved_by")
+  approvedAt        DateTime?       @map("approved_at")
+  resetBy           String?         @map("reset_by")
+  resetAt           DateTime?       @map("reset_at")
+  resetReason       String?         @map("reset_reason")
+  ownerAdminId      String          @map("owner_admin_id")
+  paymentUpdates    PaymentUpdate[]
+
+  @@unique([ownerAdminId, invoiceNumber])
+  @@index([ownerAdminId])
+  @@index([invoiceNumber])
+  @@index([approvalStatus])
+  @@index([submittedAt])
+  @@map("payment_invoices")
+}
+
+model AccountTransaction {
+  id               String                  @id @default(cuid())
+  transactionType  String                  @map("transaction_type")
+  category         String
+  amount           Decimal                 @default(0) @db.Decimal(12, 2)
+  creditOrDebit    String                  @map("credit_or_debit")
+  date             DateTime
+  description      String?                 @map("description")
+  voucherNumber    String                  @unique @map("voucher_number")
+  billFileName     String?                 @map("bill_file_name")
+  billMimeType     String?                 @map("bill_mime_type")
+  billFileSize     Int?                    @map("bill_file_size")
+  billFileData     Bytes?                  @map("bill_file_data")
+  createdBy        String?                 @map("created_by")
+  ownerAdminId     String                  @map("owner_admin_id")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  statementEntries AccountStatementEntry[]
+
+  @@index([ownerAdminId])
+  @@index([creditOrDebit])
+  @@index([category])
+  @@index([date])
+  @@map("account_transactions")
+}
+
+model AccountStatementEntry {
+  id                   String              @id @default(cuid())
+  date                 DateTime
+  trackingNumber       String?             @map("tracking_number")
+  invoiceNumber        String?             @map("invoice_number")
+  voucherNumber        String?             @map("voucher_number")
+  particulars          String
+  entryType            String              @map("entry_type")
+  credit               Decimal             @default(0) @db.Decimal(12, 2)
+  debit                Decimal             @default(0) @db.Decimal(12, 2)
+  runningBalance       Decimal             @default(0) @map("running_balance") @db.Decimal(12, 2)
+  sourceType           String              @map("source_type")
+  sourceId             String?             @map("source_id")
+  paymentUpdateId      String?             @map("payment_update_id")
+  paymentUpdate        PaymentUpdate?      @relation(fields: [paymentUpdateId], references: [id], onDelete: SetNull)
+  accountTransactionId String?             @map("account_transaction_id")
+  accountTransaction   AccountTransaction? @relation(fields: [accountTransactionId], references: [id], onDelete: SetNull)
+  registrationId       String?             @map("registration_id")
+  registration         Registration?       @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  ownerAdminId         String              @map("owner_admin_id")
+  createdBy            String?             @map("created_by")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  reversedAt           DateTime?           @map("reversed_at")
+  reversedBy           String?             @map("reversed_by")
+  reversalReason       String?             @map("reversal_reason")
+
+  @@index([ownerAdminId])
+  @@index([date])
+  @@index([trackingNumber])
+  @@index([invoiceNumber])
+  @@index([voucherNumber])
+  @@index([sourceType, sourceId])
+  @@map("account_statement_entries")
+}
+
+model FileStorage {
+  id              String   @id @default(cuid())
+  module          String
+  recordId        String?  @map("record_id")
+  folder          String
+  originalName    String   @map("original_name")
+  storedName      String   @map("stored_name")
+  bucketKey       String   @map("bucket_key")
+  bucketName      String?  @default("genius-attestation") @map("bucket_name")
+  storageProvider String?  @default("WASABI") @map("storage_provider")
+  url             String   @db.Text
+  mimeType        String   @map("mime_type")
+  extension       String
+  size            Int
+  uploadedBy      String?  @map("uploaded_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  registrationFiles RegistrationFile[]
+  corporateDetails  CorporateDetail[]
+
+  @@index([module])
+  @@index([recordId])
+  @@index([folder])
+  @@index([uploadedBy])
+  @@map("file_storage")
+}
+
+model CorporateDetail {
+  id                  String       @id @default(cuid())
+  companyName         String       @map("company_name")
+  contactPersonName   String       @map("contact_person_name")
+  contactPersonMobile String       @map("contact_person_mobile")
+  email               String?
+  address             String?      @db.Text
+  agreementFileId     String?      @map("agreement_file_id")
+  agreementFile       FileStorage? @relation(fields: [agreementFileId], references: [id], onDelete: SetNull)
+  approvalStatus      String       @default("Pending Approval") @map("approval_status")
+  rejectionReason     String?      @map("rejection_reason")
+  approvedBy          String?      @map("approved_by")
+  approvedAt          DateTime?    @map("approved_at")
+  rejectedBy          String?      @map("rejected_by")
+  rejectedAt          DateTime?    @map("rejected_at")
+  isActive            Boolean      @default(true) @map("is_active")
+  isArchived          Boolean      @default(false) @map("is_archived")
+  createdBy           String?      @map("created_by")
+  updatedBy           String?      @map("updated_by")
+  ownerAdminId        String       @map("owner_admin_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  registrations Registration[]
+  leads         Lead[]         @relation("LeadCorporateDetail")
+
+  @@index([ownerAdminId])
+  @@index([companyName])
+  @@index([approvalStatus])
+  @@index([isActive])
+  @@map("corporate_details")
+}
+
+model RegistrationFile {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fileStorageId  String?      @map("file_storage_id")
+  fileStorage    FileStorage? @relation(fields: [fileStorageId], references: [id], onDelete: Restrict)
+  fileCategory   String       @map("file_category")
+  uploadedAt     DateTime     @default(now()) @map("uploaded_at")
+
+  @@index([registrationId])
+  @@index([fileCategory])
+  @@index([fileStorageId])
+  @@map("registration_files")
+}
+
+model AuditTrail {
+  id             String       @id @default(cuid())
+  registrationId String       @map("registration_id")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  action         String
+  description    String
+  performedBy    String?      @map("performed_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([createdAt])
+  @@map("audit_trails")
+}
+
+model AccessRole {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  isActive        Boolean          @default(true)
+  ownerAdminId    String?          @map("owner_admin_id")
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  users           User[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([name, ownerAdminId])
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  module          String
+  description     String?
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  scope        String?    @default("All")
+  role         AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model AttendanceRecord {
+  id              String                   @id @default(cuid())
+  userId          String                   @map("user_id")
+  leaveRequestId  String?                  @map("leave_request_id")
+  attendanceDate  DateTime                 @map("attendance_date") @db.Date
+  checkinTime     DateTime?                @map("checkin_time")
+  checkoutTime    DateTime?                @map("checkout_time")
+  workingHours    Decimal?                 @map("working_hours") @db.Decimal(5, 2)
+  status          AttendanceStatus         @default(Present)
+  dailySummary    String?                  @map("daily_summary")
+  checkinRemarks  String?                  @map("checkin_remarks")
+  approvalStatus  AttendanceApprovalStatus @default(Pending) @map("approval_status")
+  approvedBy      String?                  @map("approved_by")
+  approvedAt      DateTime?                @map("approved_at")
+  rejectionReason String?                  @map("rejection_reason")
+  ownerAdminId    String?                  @map("owner_admin_id")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  user               User                    @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  leaveRequest       LeaveRequest?           @relation("LeaveAttendanceRecords", fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  dailySummaryRecord AttendanceDailySummary? @relation("AttendanceRecordSummary")
+
+  @@unique([userId, attendanceDate])
+  @@index([userId])
+  @@index([leaveRequestId])
+  @@index([attendanceDate])
+  @@index([ownerAdminId])
+  @@index([approvalStatus])
+  @@map("attendance_records")
+}
+
+model AttendanceSetting {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  expectedCheckinTime  String   @map("expected_checkin_time")
+  expectedCheckoutTime String   @map("expected_checkout_time")
+  ownerAdminId         String?  @map("owner_admin_id")
+  createdBy            String?  @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation("UserAttendanceSetting", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ownerAdminId])
+  @@map("attendance_settings")
+}
+
+model SalaryHoliday {
+  id           String   @id @default(cuid())
+  holidayDate  DateTime @map("holiday_date") @db.Date
+  title        String
+  status       String   @default("Approved")
+  ownerAdminId String?  @map("owner_admin_id")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([holidayDate, ownerAdminId])
+  @@index([ownerAdminId])
+  @@index([holidayDate])
+  @@index([status])
+  @@map("salary_holidays")
+}
+
+model SalaryPayroll {
+  id                     String              @id @default(cuid())
+  userId                 String              @map("user_id")
+  user                   User                @relation("UserSalaryPayroll", fields: [userId], references: [id], onDelete: Cascade)
+  payrollMonth           Int                 @map("payroll_month")
+  payrollYear            Int                 @map("payroll_year")
+  periodStart            DateTime            @map("period_start") @db.Date
+  periodEnd              DateTime            @map("period_end") @db.Date
+  userNameSnapshot       String              @map("user_name_snapshot")
+  userEmailSnapshot      String              @map("user_email_snapshot")
+  departmentSnapshot     String              @map("department_snapshot")
+  officeLocationSnapshot String              @map("office_location_snapshot")
+  monthlySalarySnapshot  Decimal             @map("monthly_salary_snapshot") @db.Decimal(12, 2)
+  workingDays            Decimal             @map("working_days") @db.Decimal(5, 2)
+  presentDays            Decimal             @map("present_days") @db.Decimal(5, 2)
+  paidLeaveDays          Decimal             @map("paid_leave_days") @db.Decimal(5, 2)
+  unpaidLeaveDays        Decimal             @map("unpaid_leave_days") @db.Decimal(5, 2)
+  leaveDays              Decimal             @map("leave_days") @db.Decimal(5, 2)
+  lopDays                Decimal             @map("lop_days") @db.Decimal(5, 2)
+  grossSalary            Decimal             @map("gross_salary") @db.Decimal(12, 2)
+  perDayRate             Decimal             @map("per_day_rate") @db.Decimal(12, 2)
+  earnedSalary           Decimal             @map("earned_salary") @db.Decimal(12, 2)
+  lopDeduction           Decimal             @map("lop_deduction") @db.Decimal(12, 2)
+  netPayable             Decimal             @map("net_payable") @db.Decimal(12, 2)
+  payrollStatus          SalaryPayrollStatus @default(Draft) @map("payroll_status")
+  generatedBy            String?             @map("generated_by")
+  generatedAt            DateTime?           @map("generated_at")
+  approvedBy             String?             @map("approved_by")
+  approvedAt             DateTime?           @map("approved_at")
+  paidBy                 String?             @map("paid_by")
+  paidAt                 DateTime?           @map("paid_at")
+  notes                  String?
+  ownerAdminId           String?             @map("owner_admin_id")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+
+  @@unique([userId, payrollMonth, payrollYear, ownerAdminId])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([payrollMonth, payrollYear])
+  @@index([payrollStatus])
+  @@map("salary_payrolls")
+}
+
+model LeaveRequest {
+  id              String             @id @default(cuid())
+  userId          String             @map("user_id")
+  leaveType       String             @map("leave_type")
+  fromDate        DateTime           @map("from_date") @db.Date
+  toDate          DateTime           @map("to_date") @db.Date
+  totalDays       Decimal            @map("total_days") @db.Decimal(5, 2)
+  reason          String
+  attachmentUrl   String?            @map("attachment_url")
+  status          LeaveRequestStatus @default(Pending)
+  approvalNote    String?            @map("approval_note")
+  rejectionReason String?            @map("rejection_reason")
+  approvedBy      String?            @map("approved_by")
+  approvedAt      DateTime?          @map("approved_at")
+  rejectedBy      String?            @map("rejected_by")
+  rejectedAt      DateTime?          @map("rejected_at")
+  cancelledBy     String?            @map("cancelled_by")
+  cancelledAt     DateTime?          @map("cancelled_at")
+  appliedBy       String?            @map("applied_by")
+  appliedAt       DateTime           @default(now()) @map("applied_at")
+  modifiedBy      String?            @map("modified_by")
+  modifiedAt      DateTime           @updatedAt @map("modified_at")
+  ownerAdminId    String?            @map("owner_admin_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  user              User               @relation("UserLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
+  attendanceRecords AttendanceRecord[] @relation("LeaveAttendanceRecords")
+
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([status])
+  @@index([fromDate])
+  @@index([toDate])
+  @@index([appliedAt])
+  @@map("leave_requests")
+}
+
+model ProcessType {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  assignedAgencyPackages AssignedAgencyPackage[]
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("process_types")
+}
+
+model ProcessAssignment {
+  id              String       @id @default(cuid())
+  registrationId  String       @map("registration_id")
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber  String       @map("tracking_number")
+  processType     String       @map("process_type")
+  currentLocation String       @map("current_location")
+  status          String       @map("status")
+  assignedUserId  String?      @map("assigned_user_id")
+  receivedDate    DateTime     @default(now()) @map("received_date")
+  sentDate        DateTime?    @map("sent_date")
+  completedDate   DateTime?    @map("completed_date")
+  rejectedDate    DateTime?    @map("rejected_date")
+  daysHeld        Int          @default(0) @map("days_held")
+  remarks         String?
+  ownerAdminId    String       @map("owner_admin_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  movements ProcessMovement[]
+  history   ProcessHistory[]
+
+  @@unique([registrationId, processType])
+  @@index([trackingNumber])
+  @@index([ownerAdminId])
+  @@index([currentLocation])
+  @@index([status])
+  @@map("process_assignments")
+}
+
+model ProcessMovement {
+  id                  String            @id @default(cuid())
+  processAssignmentId String            @map("process_assignment_id")
+  processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
+  fromLocation        String            @map("from_location")
+  toLocation          String            @map("to_location")
+  action              String
+  userId              String            @map("user_id")
+  remarks             String?
+  ownerAdminId        String            @map("owner_admin_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  @@index([processAssignmentId])
+  @@index([ownerAdminId])
+  @@map("process_movements")
+}
+
+model ProcessHistory {
+  id                  String            @id @default(cuid())
+  processAssignmentId String            @map("process_assignment_id")
+  processAssignment   ProcessAssignment @relation(fields: [processAssignmentId], references: [id], onDelete: Cascade)
+  fromModule          String            @map("from_module")
+  toModule            String            @map("to_module")
+  action              String
+  userId              String            @map("user_id")
+  remarks             String?
+  ownerAdminId        String            @map("owner_admin_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  @@index([processAssignmentId])
+  @@index([ownerAdminId])
+  @@map("process_history")
+}
+
+model DocumentMovement {
+  id              String          @id @default(cuid())
+  trackingNumber  String          @unique @map("tracking_number")
+  registrationId  String          @map("registration_id")
+  registration    Registration    @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fromOfficeId    String?         @map("from_office_id")
+  fromOffice      OfficeLocation? @relation("FromOfficeRelation", fields: [fromOfficeId], references: [id], onDelete: SetNull)
+  toOfficeId      String?         @map("to_office_id")
+  toOffice        OfficeLocation? @relation("ToOfficeRelation", fields: [toOfficeId], references: [id], onDelete: SetNull)
+  fromModule      String?         @map("from_module")
+  toModule        String?         @map("to_module")
+  movementType    String?         @map("movement_type")
+  status          String          @default("Pending")
+  processModuleId String?         @map("process_module_id")
+  currentOfficeId String?         @map("current_office_id")
+  currentOffice   OfficeLocation? @relation("CurrentOfficeRelation", fields: [currentOfficeId], references: [id], onDelete: SetNull)
+  currentModule   String?         @map("current_module")
+  currentStatus   String?         @map("current_status")
+  createdBy       String?         @map("created_by")
+  receivedBy      String?         @map("received_by")
+  acceptedBy      String?         @map("accepted_by")
+  sentAt          DateTime?       @map("sent_at")
+  receivedAt      DateTime?       @map("received_at")
+  acceptedAt      DateTime?       @map("accepted_at")
+  remarks         String?
+  originOfficeId          String?         @map("origin_office_id")
+  originalProcessOfficeId String?         @map("original_process_office_id")
+  originalProcessOffice   OfficeLocation? @relation("OriginalProcessOfficeRelation", fields: [originalProcessOfficeId], references: [id], onDelete: SetNull)
+  returnOfficeId          String?         @map("return_office_id")
+  returnOffice            OfficeLocation? @relation("ReturnOfficeRelation", fields: [returnOfficeId], references: [id], onDelete: SetNull)
+  processChain            Json?           @map("process_chain")
+  bundleId                String?         @map("bundle_id")
+  bundle                  Bundle?         @relation(fields: [bundleId], references: [id], onDelete: SetNull)
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([currentOfficeId])
+  @@index([originalProcessOfficeId])
+  @@index([returnOfficeId])
+  @@index([currentModule])
+  @@index([status])
+  @@index([bundleId])
+  @@map("document_movements")
+}
+
+model MovementHistory {
+  id             String   @id @default(cuid())
+  trackingNumber String   @map("tracking_number")
+  action         String
+  oldStatus      String?  @map("old_status")
+  newStatus      String?  @map("new_status")
+  oldOffice      String?  @map("old_office")
+  newOffice      String?  @map("new_office")
+  performedBy    String?  @map("performed_by")
+  performedAt    DateTime @default(now()) @map("performed_at")
+  remarks        String?
+
+  @@index([trackingNumber])
+  @@index([performedAt])
+  @@map("movement_history")
+}
+
+model Bundle {
+  id           String          @id @default(cuid())
+  bundleNumber String          @unique @map("bundle_number")
+  fromOfficeId String          @map("from_office_id")
+  fromOffice   OfficeLocation  @relation("BundleFromOffice", fields: [fromOfficeId], references: [id], onDelete: Cascade)
+  toOfficeId   String          @map("to_office_id")
+  toOffice     OfficeLocation  @relation("BundleToOffice", fields: [toOfficeId], references: [id], onDelete: Cascade)
+  status       String          @default("Pending Receive")
+  createdBy    String?         @map("created_by")
+  ownerAdminId String?         @map("owner_admin_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  items        BundleItem[]
+  movements    DocumentMovement[]
+
+  @@index([fromOfficeId])
+  @@index([toOfficeId])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@map("bundles")
+}
+
+model BundleItem {
+  id             String    @id @default(cuid())
+  bundleId       String    @map("bundle_id")
+  bundle         Bundle    @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  registrationId String?   @map("registration_id")
+  trackingNumber String    @map("tracking_number")
+  status         String    @default("Pending Receive")
+  receivedAt     DateTime? @map("received_at")
+  receivedBy     String?   @map("received_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([bundleId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@map("bundle_items")
+}
+
+model SubPackageMovement {
+  id               String          @id @default(cuid())
+  documentId       String          @map("document_id")
+  trackingNumber   String          @map("tracking_number")
+  subPackageId     String          @map("sub_package_id")
+  assignedOfficeId String?         @map("assigned_office_id")
+  assignedOffice   OfficeLocation? @relation("AssignedOfficeSubPackage", fields: [assignedOfficeId], references: [id], onDelete: SetNull)
+  status           String          @default("In Progress")
+  startedAt        DateTime        @default(now()) @map("started_at")
+  completedAt      DateTime?       @map("completed_at")
+  returnedAt       DateTime?       @map("returned_at")
+  rejectedAt       DateTime?       @map("rejected_at")
+  rejectedBy       String?         @map("rejected_by")
+  rejectionReason String?         @db.Text @map("rejection_reason")
+  createdBy        String?         @map("created_by")
+  ownerAdminId     String?         @map("owner_admin_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([subPackageId])
+  @@index([assignedOfficeId])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@map("sub_package_movements")
+}
+
+model DocumentWorkflowHistory {
+  id             String   @id @default(cuid())
+  documentId     String   @map("document_id")
+  trackingNumber String   @map("tracking_number")
+  workflowStep   String   @map("workflow_step")
+  status         String   @map("status")
+  performedBy    String?  @map("performed_by")
+  performedAt    DateTime @default(now()) @map("performed_at")
+  remarks        String?  @db.Text
+  ownerAdminId   String?  @map("owner_admin_id")
+
+  @@index([trackingNumber])
+  @@index([workflowStep])
+  @@index([performedAt])
+  @@index([ownerAdminId])
+  @@map("document_workflow_history")
+}
+
+model AttendanceDailySummary {
+  id           String   @id @default(cuid())
+  ownerAdminId String   @map("owner_admin_id")
+  userId       String   @map("user_id")
+  attendanceId String   @unique @map("attendance_id")
+  summary      String   @db.Text
+  summaryDate  DateTime @map("summary_date") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user       User             @relation("UserAttendanceDailySummary", fields: [userId], references: [id], onDelete: Cascade)
+  attendance AttendanceRecord @relation("AttendanceRecordSummary", fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, summaryDate])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@index([summaryDate])
+  @@map("attendance_daily_summaries")
+}
+
+model LeadWorkflowApproval {
+  id              String                 @id @default(cuid())
+  leadId          String                 @map("lead_id")
+  lead            Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  requestType     ApprovalRequestType    @map("request_type")
+  requestedBy     String?                @map("requested_by")
+  supervisorId    String                 @map("supervisor_id")
+  status          WorkflowApprovalStatus @default(Pending)
+  requestedAt     DateTime               @default(now()) @map("requested_at")
+  approvedBy      String?                @map("approved_by")
+  approvedAt      DateTime?              @map("approved_at")
+  approvalRemarks String?                @map("approval_remarks")
+  returnRemarks   String?                @map("return_remarks")
+  rejectRemarks   String?                @map("reject_remarks")
+  metadata        Json? // to store days inactive, overdue days, etc.
+  ownerAdminId    String?                @map("owner_admin_id")
+
+  auditLogs ApprovalAuditLog[]
+
+  @@index([leadId])
+  @@index([supervisorId])
+  @@index([status])
+  @@index([requestType])
+  @@index([ownerAdminId])
+  @@map("lead_workflow_approvals")
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+  type          String // "APPROVAL", "REMINDER", "SYSTEM"
+  isRead        Boolean  @default(false) @map("is_read")
+  referenceId   String?  @map("reference_id") // ID of the approval or lead
+  referenceType String?  @map("reference_type") // "LEAD", "APPROVAL"
+  ownerAdminId  String?  @map("owner_admin_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([ownerAdminId])
+  @@map("notifications")
+}
+
+model ApprovalAuditLog {
+  id               String               @id @default(cuid())
+  approvalId       String               @map("approval_id")
+  workflowApproval LeadWorkflowApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  leadId           String               @map("lead_id")
+  action           String // "Created", "Approved", "Rejected", "Returned"
+  performedBy      String               @map("performed_by")
+  remarks          String?
+  ipAddress        String?              @map("ip_address")
+  ownerAdminId     String?              @map("owner_admin_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+
+  @@index([approvalId])
+  @@index([leadId])
+  @@index([performedBy])
+  @@index([ownerAdminId])
+  @@map("approval_audit_logs")
+}
+
+model BranchMovementRecord {
+  id                String    @id @default(cuid())
+  trackingNumber    String    @map("tracking_number")
+  sourceOffice      String?   @map("source_office")
+  destinationOffice String?   @map("destination_office")
+  transferredBy     String?   @map("transferred_by")
+  receivedBy        String?   @map("received_by")
+  transferDateTime  DateTime  @default(now()) @map("transfer_date_time")
+  receiveDateTime   DateTime? @map("receive_date_time")
+  movementStatus    String    @map("movement_status") // Completed, In Transit, Pending Receive, Returned, Cancelled
+  courierNumber     String?   @map("courier_number")
+  remarks           String?
+  ownerAdminId      String    @map("owner_admin_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([ownerAdminId])
+  @@index([transferDateTime])
+  @@map("branch_movement_records")
+}
+
+model ImportHistory {
+  id             String   @id @default(cuid())
+  batchId        String   @unique @map("batch_id")
+  module         String
+  fileName       String   @map("file_name")
+  totalRows      Int      @map("total_rows")
+  successfulRows Int      @map("successful_rows")
+  failedRows     Int      @map("failed_rows")
+  skippedRows    Int      @map("skipped_rows")
+  reportFileUrl  String?  @map("report_file_url")
+  importedBy     String   @map("imported_by")
+  ownerAdminId   String   @map("owner_admin_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([ownerAdminId])
+  @@index([importedBy])
+  @@map("import_history")
+}
+
+model DocumentCommunication {
+  id               String   @id @default(cuid())
+  trackingNumber   String   @map("tracking_number")
+  registrationId   String?  @map("registration_id")
+  registration     Registration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  message          String   @db.Text
+  type             String   @default("Comment") // Comment, Reply, Forward
+  parentId         String?  @map("parent_id")
+  parent           DocumentCommunication? @relation("ThreadReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          DocumentCommunication[] @relation("ThreadReplies")
+  senderUserId     String   @map("sender_user_id")
+  senderUser       User     @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  ownerAdminId     String   @map("owner_admin_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@index([ownerAdminId])
+  @@map("document_communication")
+}
+
+model DocumentReadState {
+  id             String   @id @default(cuid())
+  trackingNumber String   @map("tracking_number")
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime @default(now()) @map("last_read_at")
+  ownerAdminId   String   @map("owner_admin_id")
+
+  @@unique([trackingNumber, userId])
+  @@index([userId])
+  @@index([ownerAdminId])
+  @@map("document_read_state")
+}
+
+model MasterData {
+  id           String   @id @default(cuid())
+  type         String
+  name         String
+  category     String   @default("General")
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdBy    String?  @map("created_by")
+  updatedBy    String?  @map("updated_by")
+  deletedBy    String?  @map("deleted_by")
+  deletedAt    DateTime? @map("deleted_at")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subPackages  SubPackage[] @relation("ProcessTypeSubPackages")
+  categoryId   String?               @map("category_id")
+  categoryRel  DocumentTypeCategory? @relation("CategoryDocumentTypes", fields: [categoryId], references: [id], onDelete: SetNull)
+
+  coreSubPackageId String?     @map("core_sub_package_id")
+  coreSubPackage   SubPackage? @relation("ProcessTypeCoreSubPackage", fields: [coreSubPackageId], references: [id], onDelete: SetNull)
+
+  @@unique([type, name, ownerAdminId])
+  @@index([type])
+  @@index([isActive])
+  @@index([ownerAdminId])
+  @@index([coreSubPackageId])
+  @@map("master_data")
+}
+
+model SubPackage {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean      @default(true) @map("is_active")
+  ownerAdminId String       @map("owner_admin_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  processTypes     MasterData[] @relation("ProcessTypeSubPackages")
+  coreProcessTypes MasterData[] @relation("ProcessTypeCoreSubPackage")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("sub_packages")
+}
+
+model DocumentTypeCategory {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean      @default(true) @map("is_active")
+  ownerAdminId String       @map("owner_admin_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  documentTypes MasterData[] @relation("CategoryDocumentTypes")
+
+  @@unique([name, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("document_type_categories")
+}
+
+model SlaConfiguration {
+  id           String   @id @default(cuid())
+  processType  String   @map("process_type")
+  days         Int      @default(0)
+  hours        Int      @default(0)
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([processType, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("sla_configurations")
+}
+
+model HolidayCalendar {
+  id           String   @id @default(cuid())
+  holidayDate  DateTime @map("holiday_date") @db.Date
+  title        String
+  isWeekend    Boolean  @default(false) @map("is_weekend")
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([holidayDate, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("holiday_calendar")
+}
+
+model CommunicationTemplate {
+  id           String   @id @default(cuid())
+  type         String   // Email, SMS, WhatsApp
+  name         String
+  subject      String?
+  body         String   @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([type, name, ownerAdminId])
+  @@index([type])
+  @@index([ownerAdminId])
+  @@map("communication_templates")
+}
+
+model GeneralSetting {
+  id           String   @id @default(cuid())
+  settingKey   String   @map("setting_key")
+  settingValue String   @db.Text @map("setting_value")
+  description  String?
+  ownerAdminId String   @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([settingKey, ownerAdminId])
+  @@index([ownerAdminId])
+  @@map("general_settings")
+}
+
+model AssignedAgency {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  ownerAdminId String    @map("owner_admin_id")
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  assignedPackages AssignedAgencyPackage[]
+
+  @@index([ownerAdminId])
+  @@index([isActive])
+  @@map("assigned_agencies")
+}
+
+model AssignedAgencyPackage {
+  id               String         @id @default(cuid())
+  assignedAgencyId String         @map("assigned_agency_id")
+  assignedAgency   AssignedAgency @relation(fields: [assignedAgencyId], references: [id], onDelete: Cascade)
+  processTypeId    String         @map("process_type_id")
+  processType      ProcessType    @relation(fields: [processTypeId], references: [id])
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedAgencyId, processTypeId])
+  @@index([assignedAgencyId])
+  @@index([processTypeId])
+  @@map("assigned_agency_packages")
+}
+
+model AssignedOffice {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  status       Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  ownerAdminId String    @map("owner_admin_id")
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  processTypes AssignedOfficeProcessType[]
+  subPackages  AssignedOfficeSubPackage[]
+  auditLogs    AssignedOfficeAuditLog[]
+
+  @@index([ownerAdminId])
+  @@index([status])
+  @@map("assigned_offices")
+}
+
+model AssignedOfficeProcessType {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  processTypeId    String         @map("process_type_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedOfficeId, processTypeId])
+  @@index([assignedOfficeId])
+  @@index([processTypeId])
+  @@map("assigned_office_process_types")
+}
+
+model AssignedOfficeSubPackage {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  subPackageId     String         @map("sub_package_id")
+  isCorePackage    Boolean        @default(false) @map("is_core_package")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([assignedOfficeId, subPackageId])
+  @@index([assignedOfficeId])
+  @@index([subPackageId])
+  @@map("assigned_office_sub_packages")
+}
+
+model AssignedOfficeAuditLog {
+  id               String         @id @default(cuid())
+  assignedOfficeId String         @map("assigned_office_id")
+  assignedOffice   AssignedOffice @relation(fields: [assignedOfficeId], references: [id], onDelete: Cascade)
+  action           String         @map("action")
+  description      String         @db.Text @map("description")
+  performedBy      String         @map("performed_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([assignedOfficeId])
+  @@index([createdAt])
+  @@map("assigned_office_audit_logs")
+}
+
+model PaymentMode {
+  id              String                @id @default(cuid())
+  paymentModeName String                @map("payment_mode_name")
+  description     String?               @db.Text
+  status          String                @default("Active")
+  displayOrder    Int                   @default(0) @map("display_order")
+  createdBy       String?               @map("created_by")
+  updatedBy       String?               @map("updated_by")
+  deletedBy       String?               @map("deleted_by")
+  deletedAt       DateTime?             @map("deleted_at")
+  ownerAdminId    String                @map("owner_admin_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  auditLogs       PaymentModeAuditLog[]
+
+  @@unique([paymentModeName, ownerAdminId])
+  @@index([ownerAdminId])
+  @@index([status])
+  @@map("payment_modes")
+}
+
+model PaymentModeAuditLog {
+  id              String      @id @default(cuid())
+  paymentModeId   String      @map("payment_mode_id")
+  action          String
+  performedBy     String      @map("performed_by")
+  performedByName String?     @map("performed_by_name")
+  details         String?     @db.Text
+  timestamp       DateTime    @default(now())
+  ownerAdminId    String      @map("owner_admin_id")
+  paymentMode     PaymentMode @relation(fields: [paymentModeId], references: [id], onDelete: Cascade)
+
+  @@index([ownerAdminId])
+  @@index([paymentModeId])
+  @@index([timestamp])
+  @@map("payment_mode_audit_logs")
+}
+
+model AdvancePaymentApproval {
+  id                 String                 @id @default(cuid())
+  registrationId     String                 @map("registration_id")
+  registration       Registration           @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber     String                 @map("tracking_number")
+  leadId             String?                @map("lead_id")
+  customerName       String?                @map("customer_name")
+  mobile             String?
+  office             String?
+  registeredPerson   String?                @map("registered_person")
+  registeredDate     DateTime               @map("registered_date")
+  documentName       String?                @map("document_name")
+  totalAmount        Decimal                @default(0) @map("total_amount") @db.Decimal(12, 2)
+  advanceAmount      Decimal                @default(0) @map("advance_amount") @db.Decimal(12, 2)
+  remainingBalance   Decimal                @default(0) @map("remaining_balance") @db.Decimal(12, 2)
+  currentAdvancePaid Decimal?               @map("current_advance_paid") @db.Decimal(12, 2)
+  currentBalance     Decimal?               @map("current_balance") @db.Decimal(12, 2)
+  paymentDate        DateTime?              @map("payment_date")
+  paymentMode        String?                @map("payment_mode")
+  referenceNumber    String?                @map("reference_number")
+  collectedBy        String?                @map("collected_by")
+  remarks            String?                @db.Text
+  proofFileType      String?                @map("proof_file_type")
+  receiptFileId      String?                @map("receipt_file_id")
+  receiptFileUrl     String?                @map("receipt_file_url")
+  receiptFileName    String?                @map("receipt_file_name")
+  status             String                 @default("Pending Approval")
+  requestedById      String?                @map("requested_by_id")
+  requestedByName    String?                @map("requested_by_name")
+  requestedAt        DateTime               @default(now()) @map("requested_at")
+  approvedById       String?                @map("approved_by_id")
+  approvedByName     String?                @map("approved_by_name")
+  approvedAt         DateTime?              @map("approved_at")
+  rejectedById       String?                @map("rejected_by_id")
+  rejectedByName     String?                @map("rejected_by_name")
+  rejectedAt         DateTime?              @map("rejected_at")
+  rejectionReason    String?                @map("rejection_reason")
+  bankProofFileId    String?                @map("bank_proof_file_id")
+  bankProofFileUrl   String?                @map("bank_proof_file_url")
+  bankProofFileName  String?                @map("bank_proof_file_name")
+  approvalRemarks    String?                @db.Text @map("approval_remarks")
+  ownerAdminId       String                 @map("owner_admin_id")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  auditLogs AdvancePaymentAuditLog[]
+
+  @@index([registrationId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([requestedAt])
+  @@map("advance_payment_approvals")
+}
+
+model AdvancePaymentAuditLog {
+  id              String                 @id @default(cuid())
+  approvalId      String                 @map("approval_id")
+  approval        AdvancePaymentApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  registrationId  String                 @map("registration_id")
+  action          String
+  performedBy     String                 @map("performed_by")
+  performedByName String?                @map("performed_by_name")
+  remarks         String?                @db.Text
+  ipAddress       String?                @map("ip_address")
+  ownerAdminId    String?                @map("owner_admin_id")
+  createdAt       DateTime               @default(now()) @map("created_at")
+
+  @@index([approvalId])
+  @@index([registrationId])
+  @@index([performedBy])
+  @@index([createdAt])
+  @@index([ownerAdminId])
+  @@map("advance_payment_audit_logs")
+}
+
+model MovementApproval {
+  id                 String       @id @default(cuid())
+  registrationId     String       @map("registration_id")
+  registration       Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber     String       @map("tracking_number")
+  customerName       String?      @map("customer_name")
+  documentName       String?      @map("document_name")
+  registrationOffice String?      @map("registration_office")
+  currentOffice      String?      @map("current_office")
+  advanceAmount      Decimal      @default(0) @map("advance_amount") @db.Decimal(12, 2)
+  status             String       @default("Pending")
+  requestedById      String?      @map("requested_by_id")
+  requestedByName    String?      @map("requested_by_name")
+  requestedDate      DateTime     @default(now()) @map("requested_date")
+  approvedById       String?      @map("approved_by_id")
+  approvedByName     String?      @map("approved_by_name")
+  approvedAt         DateTime?    @map("approved_at")
+  rejectedById       String?      @map("rejected_by_id")
+  rejectedByName     String?      @map("rejected_by_name")
+  rejectedAt         DateTime?    @map("rejected_at")
+  rejectionReason    String?      @map("rejection_reason")
+  remarks            String?      @db.Text
+  ownerAdminId       String       @map("owner_admin_id")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@index([registrationId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([requestedDate])
+  @@map("movement_approvals")
+}
+
+model AccountMenu {
+  id             String                @id @default(cuid())
+  name           String
+  type           String?               // "CREDIT" | "DEBIT" | "GENERAL"
+  parentId       String?               @map("parent_id")
+  category       String?               // "Root" | "Main Title" | "Sub Title" | "Leaf"
+  code           String?               // Account Code
+  ledgerMapping  String?               @map("ledger_mapping")
+  description    String?               @db.Text
+  status         Boolean               @default(true)
+  settings       Json?                 // Dynamic extra settings for accounting expansion
+  ownerAdminId   String                @map("owner_admin_id")
+  createdBy      String?               @map("created_by")
+  createdByName  String?               @map("created_by_name")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  parent         AccountMenu?          @relation("AccountMenuHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children       AccountMenu[]         @relation("AccountMenuHierarchy")
+  auditLogs      AccountMenuAuditLog[]
+  officeAssignments AccountOfficeAssignment[]
+  panelTransactions AccountPanelTransaction[]
+
+  @@unique([name, parentId, ownerAdminId])
+  @@index([ownerAdminId])
+  @@index([parentId])
+  @@map("account_menus")
+}
+
+model AccountMenuAuditLog {
+  id              String       @id @default(cuid())
+  accountMenuId   String?      @map("account_menu_id")
+  accountMenu     AccountMenu? @relation(fields: [accountMenuId], references: [id], onDelete: SetNull)
+  nodeName        String       @map("node_name")
+  action          String       // "CREATE" | "UPDATE" | "DELETE" | "SETTINGS_UPDATE" | "OFFICE_ASSIGNMENT_UPDATE"
+  oldValue        Json?        @map("old_value")
+  newValue        Json?        @map("new_value")
+  performedBy     String?      @map("performed_by")
+  performedByName String?      @map("performed_by_name")
+  ownerAdminId    String       @map("owner_admin_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  @@index([accountMenuId])
+  @@index([ownerAdminId])
+  @@index([createdAt])
+  @@map("account_menu_audit_logs")
+}
+
+model AccountOfficeAssignment {
+  id            String         @id @default(cuid())
+  accountNodeId String         @map("account_node_id")
+  officeId      String         @map("office_id")
+  ownerAdminId  String         @map("owner_admin_id")
+  createdBy     String?        @map("created_by")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  accountNode   AccountMenu    @relation(fields: [accountNodeId], references: [id], onDelete: Cascade)
+  office        OfficeLocation @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@unique([accountNodeId, officeId])
+  @@index([accountNodeId])
+  @@index([officeId])
+  @@index([ownerAdminId])
+  @@map("account_office_assignments")
+}
+
+model AccountPanelTransaction {
+  id              String      @id @default(cuid())
+  accountId       String      @map("account_id")
+  account         AccountMenu @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  invoiceNumber   String?     @map("invoice_number")
+  billAttachment  String?     @map("bill_attachment")
+  transactionDate DateTime    @map("transaction_date")
+  amount          Decimal     @db.Decimal(12, 2)
+  narration       String?     @db.Text
+  officeId        String?     @map("office_id")
+  createdBy       String?     @map("created_by")
+  createdByName   String?     @map("created_by_name")
+  ownerAdminId    String      @map("owner_admin_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([accountId])
+  @@index([ownerAdminId])
+  @@index([officeId])
+  @@index([transactionDate])
+  @@map("account_panel_transactions")
+}
+

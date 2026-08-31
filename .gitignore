@@ -1,0 +1,11 @@
+.next
+node_modules
+.env
+.env.local
+dist
+coverage
+*.tsbuildinfo
+dev-server*.log
+/storage
+!src/services/storage/
+scratch/next-dev*.log

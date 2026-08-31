@@ -1,0 +1,718 @@
+"use client";
+
+import type { FormEvent, ReactNode } from "react";
+import { Plus, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Country, State } from "country-state-city";
+import Select from "react-select";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { PhoneInput, validatePhoneNumber } from "@/components/ui/PhoneInput";
+import { Loader } from "@/components/ui/Loader";
+import { Textarea } from "@/components/ui/Textarea";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
+import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
+import {
+  countryCodes,
+  defaultLeadValues,
+  leadFormStatuses,
+  type LeadFormValues,
+} from "@/features/lead/data/lead.data";
+import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
+import type { LeadAssignableUser } from "@/features/lead/types/lead.types";
+
+type LeadFormProps = {
+  initialValues?: LeadFormValues;
+  submitLabel?: string;
+  onCancel?: () => void;
+  leadId?: string;
+  onSuccess?: () => void;
+};
+
+type FormErrors = Partial<Record<keyof LeadFormValues, string>>;
+
+const mapToOptions = (arr: readonly string[]) =>
+  arr.map((item) => ({ label: item, value: item }));
+
+function toIsoFromLocalDateTime(value: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function isPastDateTime(value: string) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < Date.now();
+}
+
+export function LeadForm({
+  initialValues = defaultLeadValues,
+  submitLabel = "Save Lead",
+  onCancel,
+  leadId,
+  onSuccess,
+}: LeadFormProps) {
+  const [values, setValues] = useState<LeadFormValues>(initialValues);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [assignableUsers, setAssignableUsers] = useState<LeadAssignableUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
+  const [docTypes, setDocTypes] = useState<string[]>([]);
+  const [services, setServices] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+  const [clientTypes, setClientTypes] = useState<string[]>([]);
+  const [corporateOptions, setCorporateOptions] = useState<{ label: string; value: string }[]>([]);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+
+  const allCountries = useMemo(() => 
+    Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
+  []);
+  
+  const countryOptions = useMemo(
+    () => allCountries.map((c) => ({ label: c.name, value: c.name })),
+    [allCountries]
+  );
+  
+  const issuedCountryOptions = countryOptions;
+
+  const [stateOptions, setStateOptions] = useState<{ label: string; value: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<{ name: string; isoCode: string } | null>(null);
+
+  useEffect(() => {
+    setValues(initialValues);
+    setErrors({});
+    setMessage("");
+  }, [initialValues]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAssignableUsers() {
+      setUsersLoading(true);
+      setUsersError("");
+
+      try {
+        const response = await fetch("/api/leads/assignable-users", { cache: "no-store" });
+        const payload = (await response.json().catch(() => ({}))) as {
+          users?: LeadAssignableUser[];
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.message ?? "Unable to load assignable users.");
+        }
+
+        if (!ignore) {
+          setAssignableUsers(payload.users ?? []);
+        }
+      } catch (fetchError) {
+        if (!ignore) {
+          setAssignableUsers([]);
+          setUsersError(
+            fetchError instanceof Error ? fetchError.message : "Unable to load assignable users.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setUsersLoading(false);
+        }
+      }
+    }
+
+    async function loadMasterData() {
+      async function fetchMaster(slug: string, setter: (val: string[]) => void) {
+        try {
+          const res = await fetch(`/api/master-data/${slug}?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            setter(data.items.map((i: any) => i.name));
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ${slug}`, e);
+        }
+      }
+      
+      async function fetchCorporateDetails() {
+        try {
+          const res = await fetch(`/api/master-data/corporate-details?active=true`);
+          if (res.ok) {
+            const data = await res.json();
+            const opts = (data.items || []).map((i: any) => ({
+              label: i.companyName,
+              value: i.id,
+            }));
+            setCorporateOptions(opts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch corporate-details", e);
+        }
+      }
+
+      if (!ignore) {
+        fetchMaster("document-types", setDocTypes);
+        fetchMaster("process-types", setServices);
+        fetchMaster("lead-sources", setSources);
+        fetchMaster("customer-types", setClientTypes);
+        fetchCorporateDetails();
+      }
+    }
+
+    void loadAssignableUsers();
+    void loadMasterData();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Handle edit mode: Sync selectedCountry when values.country changes externally
+  useEffect(() => {
+    if (values.country && (!selectedCountry || selectedCountry.name !== values.country)) {
+      const c = allCountries.find((x) => x.name === values.country);
+      if (c) {
+        setSelectedCountry({ name: c.name, isoCode: c.isoCode });
+      }
+    } else if (!values.country) {
+      setSelectedCountry(null);
+    }
+  }, [values.country, allCountries]);
+
+  // Fetch dynamic states based on selectedCountry ISO code
+  useEffect(() => {
+    if (selectedCountry?.isoCode) {
+      const fetchedStates = State.getStatesOfCountry(selectedCountry.isoCode);
+      setStateOptions(fetchedStates.map((s) => ({ label: s.name, value: s.name })));
+    } else {
+      setStateOptions([]);
+    }
+  }, [selectedCountry]);
+
+  function updateField<Key extends keyof LeadFormValues>(key: Key, value: LeadFormValues[Key]) {
+    setValues((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "country" && current.country !== value) {
+        next.state = ""; // clear state when country changes
+      }
+      return next;
+    });
+    
+    if (key === "country") {
+      const c = allCountries.find((x) => x.name === value);
+      setSelectedCountry(c ? { name: c.name, isoCode: c.isoCode } : null);
+    }
+    
+    setErrors((current) => ({ ...current, [key]: undefined }));
+    setMessage("");
+  }
+
+  function updateAssignedUser(userId: string) {
+    const selectedUser = assignableUsers.find((user) => user.id === userId);
+
+    setValues((current) => ({
+      ...current,
+      assignedUserId: userId,
+      assignedUser: selectedUser?.name ?? "",
+    }));
+    setErrors((current) => ({ ...current, assignedUserId: undefined, assignedUser: undefined }));
+    setMessage("");
+  }
+
+  function validateForm() {
+    const nextErrors: FormErrors = {};
+
+    if (!values.firstName.trim()) {
+      nextErrors.firstName = "First name is required.";
+    }
+
+    if (!values.mobileNumber.trim()) {
+      nextErrors.mobileNumber = "Mobile number is required.";
+    } else {
+      const phoneValidation = validatePhoneNumber(values.countryCode || "+91", values.mobileNumber);
+      if (!phoneValidation.isValid) {
+        nextErrors.mobileNumber = phoneValidation.error ?? "Invalid mobile number for selected country.";
+      }
+    }
+
+    if (!values.email.trim()) {
+      nextErrors.email = "Email is required.";
+    }
+
+    if (!values.service.trim()) {
+      nextErrors.service = "Service is required.";
+    }
+
+    if (!values.leadStatus.trim()) {
+      nextErrors.leadStatus = "Lead status is required.";
+    }
+
+    if (!values.country.trim()) {
+      nextErrors.country = "Country is required.";
+    }
+
+    if (isPastDateTime(values.nextFollowupAt)) {
+      nextErrors.nextFollowupAt = FOLLOWUP_PAST_VALIDATION_MESSAGE;
+    }
+
+    return nextErrors;
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextErrors = validateForm();
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(leadId ? `/api/leads/${leadId}` : "/api/leads", {
+        method: leadId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...values,
+          nextFollowupAt: toIsoFromLocalDateTime(values.nextFollowupAt),
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; approvalRequested?: boolean }
+        | null;
+
+      if (!response.ok) {
+        setMessage(payload?.message ?? "Unable to save lead.");
+        return;
+      }
+
+      setMessage(
+        payload?.message ?? (leadId ? "Lead updated successfully." : "Lead created successfully."),
+      );
+      setValues(leadId ? values : defaultLeadValues);
+      await onSuccess?.();
+    } catch (error) {
+      console.error("Failed to save lead", error);
+      setMessage("Unable to save lead right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function resetForm() {
+    setValues(initialValues);
+    setErrors({});
+    setMessage("");
+  }
+
+  const assignableUserOptions = useMemo(
+    () =>
+      assignableUsers.map((user) => ({
+        label: user.name,
+        value: user.id,
+        description: user.email,
+      })),
+    [assignableUsers],
+  );
+
+  return (
+    <form className="grid min-w-0 gap-4 sm:gap-6" onSubmit={onSubmit}>
+      <LeadSection title="Personal Information">
+        <FieldWrapper error={errors.firstName}>
+          <Input
+            label="First Name"
+            name="firstName"
+            value={values.firstName}
+            onChange={(event) => updateField("firstName", event.target.value)}
+            placeholder="Enter first name"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <Input
+            label="Last Name"
+            name="lastName"
+            value={values.lastName}
+            onChange={(event) => updateField("lastName", event.target.value)}
+            placeholder="Enter last name"
+          />
+        </FieldWrapper>
+        <FieldWrapper error={errors.mobileNumber} className="md:col-span-2">
+          <PhoneInput
+            label="Mobile Number"
+            name="mobileNumber"
+            value={values.mobileNumber}
+            countryCode={values.countryCode || "+91"}
+            error={errors.mobileNumber}
+            onChange={(data) => {
+              setValues((current) => ({
+                ...current,
+                countryCode: data.countryCode,
+                mobileNumber: data.mobileNumber,
+              }));
+              setErrors((current) => ({ ...current, mobileNumber: undefined }));
+              setMessage("");
+            }}
+          />
+        </FieldWrapper>
+        <FieldWrapper error={errors.email} className="md:col-span-2">
+          <Input
+            label="Email"
+            name="email"
+            type="email"
+            value={values.email}
+            onChange={(event) => updateField("email", event.target.value)}
+            placeholder="Enter email address"
+          />
+        </FieldWrapper>
+        <FieldWrapper error={errors.country}>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Country
+          </label>
+          <CountryStateSelect
+            value={values.country}
+            onChange={(value) => updateField("country", value)}
+            options={countryOptions}
+            placeholder="Select country"
+          />
+          <input type="hidden" name="country" value={values.country} />
+        </FieldWrapper>
+        <FieldWrapper>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            State
+          </label>
+          <CountryStateSelect
+            value={values.state}
+            onChange={(value) => updateField("state", value)}
+            options={stateOptions}
+            placeholder={values.country ? "Select state" : "Select country first"}
+            disabled={!values.country}
+          />
+          <input type="hidden" name="state" value={values.state} />
+        </FieldWrapper>
+      </LeadSection>
+
+      <LeadSection title="Document Information">
+        <FieldWrapper>
+          <SearchableSelect
+            label="Doc Type"
+            name="docType"
+            value={values.docType}
+            onChange={(value) => updateField("docType", value)}
+            options={mapToOptions(docTypes)}
+            placeholder="Select document type"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <Input
+            label="No Of Documents"
+            name="noOfDocuments"
+            value={values.noOfDocuments}
+            onChange={(event) => updateField("noOfDocuments", event.target.value)}
+            placeholder="Enter document count"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <Input
+            label="Document Name"
+            name="documentName"
+            value={values.documentName}
+            onChange={(event) => updateField("documentName", event.target.value)}
+            placeholder="Enter document name"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Document Issued Country
+          </label>
+          <CountryStateSelect
+            value={values.documentIssuedCountry}
+            onChange={(value) => updateField("documentIssuedCountry", value)}
+            options={issuedCountryOptions}
+            placeholder="Select issued country"
+          />
+          <input type="hidden" name="documentIssuedCountry" value={values.documentIssuedCountry} />
+        </FieldWrapper>
+      </LeadSection>
+
+      <LeadSection title="Service Information">
+        <FieldWrapper error={errors.service}>
+          <SearchableSelect
+            label="Service Type"
+            name="service"
+            value={values.service}
+            onChange={(value) => updateField("service", value)}
+            options={mapToOptions(services)}
+            placeholder="Select service type"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <SearchableSelect
+            label="Source"
+            name="source"
+            value={values.source}
+            onChange={(value) => updateField("source", value)}
+            options={mapToOptions(sources)}
+            placeholder="Select source"
+          />
+        </FieldWrapper>
+        <FieldWrapper error={errors.leadStatus}>
+          <SearchableSelect
+            label="Lead Status"
+            name="leadStatus"
+            value={values.leadStatus}
+            onChange={(value) => updateField("leadStatus", value)}
+            options={mapToOptions(leadFormStatuses)}
+            placeholder="Select lead status"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <SearchableSelect
+            label="Assigned User"
+            name="assignedUserId"
+            value={values.assignedUserId}
+            onChange={updateAssignedUser}
+            options={assignableUserOptions}
+            placeholder={usersLoading ? "Loading users..." : "Select assigned user"}
+            loading={usersLoading}
+            errorMessage={usersError}
+            emptyMessage="No active users found"
+            groupByCategory={false}
+            showDescription={false}
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <SearchableSelect
+            label="Customer Type"
+            name="clientType"
+            value={values.clientType}
+            onChange={(value) => {
+              updateField("clientType", value);
+              if (value !== "Corporate") {
+                updateField("corporateDetailId", "");
+              }
+            }}
+            options={mapToOptions(clientTypes)}
+            placeholder="Select customer type"
+          />
+        </FieldWrapper>
+
+        {values.clientType === "Corporate" && (
+          <FieldWrapper className="md:col-span-2">
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Company *</span>
+                <button
+                  type="button"
+                  onClick={() => setIsCompanyModalOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Add New Company"
+                >
+                  <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    value={values.corporateDetailId || ""}
+                    options={corporateOptions}
+                    onChange={(val) => updateField("corporateDetailId", val)}
+                    placeholder="Select corporate company"
+                    name="corporateDetailId"
+                    groupByCategory={false}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsCompanyModalOpen(true)}
+                  className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                  title="Add New Company"
+                >
+                  <Plus size={18} />
+                </Button>
+              </div>
+            </div>
+          </FieldWrapper>
+        )}
+      </LeadSection>
+
+      <LeadSection title="Business Information">
+        <FieldWrapper>
+          <Input
+            label="Amount"
+            name="amount"
+            value={values.amount}
+            onChange={(event) => updateField("amount", event.target.value)}
+            placeholder="Enter amount"
+          />
+        </FieldWrapper>
+        <FieldWrapper>
+          <Input
+            label="Working Days"
+            name="workingDays"
+            value={values.workingDays}
+            onChange={(event) => updateField("workingDays", event.target.value)}
+            placeholder="Enter working days"
+          />
+        </FieldWrapper>
+        <FieldWrapper className="md:col-span-2" error={errors.nextFollowupAt}>
+          <FollowupDateTimePicker
+            label="Next Followup"
+            value={values.nextFollowupAt}
+            onChange={(nextValue) => updateField("nextFollowupAt", nextValue)}
+            description="Pick the next followup date and time with quick Today/Tomorrow shortcuts."
+          />
+        </FieldWrapper>
+      </LeadSection>
+
+      <LeadSection title="Additional Remarks">
+        <FieldWrapper className="md:col-span-2">
+          <Textarea
+            label="Remark"
+            name="remark"
+            value={values.remark}
+            onChange={(event) => updateField("remark", event.target.value)}
+            placeholder="Add lead remarks, notes, or approval context"
+          />
+        </FieldWrapper>
+      </LeadSection>
+
+      {message ? (
+        <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10">
+          {message}
+        </p>
+      ) : null}
+
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-slate-100 bg-white/95 px-3 py-3 shadow-lg backdrop-blur sm:gap-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/90">
+        <Button variant="ghost" type="button" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="secondary" type="button" onClick={resetForm}>
+          <RotateCcw size={16} />
+          Reset
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <Loader /> : null}
+          {isSubmitting ? "Saving..." : submitLabel}
+        </Button>
+      </div>
+
+      <CorporateDetailFormModal
+        open={isCompanyModalOpen}
+        onClose={() => setIsCompanyModalOpen(false)}
+        onSuccess={(newCompany) => {
+          const newOpt = {
+            label: newCompany.companyName,
+            value: newCompany.id,
+          };
+          setCorporateOptions((prev) => [newOpt, ...prev.filter((o) => o.value !== newCompany.id)]);
+          updateField("corporateDetailId", newCompany.id);
+        }}
+        title="Add New Corporate Company"
+        description="Fill company details to save and select immediately in lead."
+      />
+    </form>
+  );
+}
+
+function LeadSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid min-w-0 gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5 dark:border-white/10 dark:bg-white/5">
+      <div>
+        <h3 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+          {title}
+        </h3>
+      </div>
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function FieldWrapper({
+  error,
+  className,
+  children,
+}: {
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`min-w-0 ${className ?? ""}`}>
+      {children}
+      {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
+    </div>
+  );
+}
+
+function CountryStateSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const selectedOption = options.find((opt) => opt.value === value) || null;
+  return (
+    <Select
+      options={options}
+      value={selectedOption}
+      onChange={(opt) => onChange(opt?.value || "")}
+      placeholder={placeholder}
+      isDisabled={disabled}
+      isClearable
+      unstyled
+      classNames={{
+        control: (state) =>
+          `flex min-h-[42px] w-full min-w-0 items-center justify-between rounded-xl border bg-white px-3 py-1.5 text-sm transition-all dark:bg-slate-900 ${
+            state.isFocused
+              ? "border-blue-500 ring-1 ring-blue-500"
+              : "border-slate-200 dark:border-slate-800"
+          } ${disabled ? "cursor-not-allowed opacity-60 bg-slate-50 dark:bg-slate-900/50" : "cursor-pointer"} hover:border-slate-300 dark:hover:border-slate-700`,
+        menu: () =>
+          "mt-1 rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900 absolute z-50 w-full",
+        option: (state) =>
+          `px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+            state.isSelected
+              ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+              : "text-slate-700 dark:text-slate-300"
+          }`,
+        input: () => "text-slate-900 dark:text-white outline-none",
+        singleValue: () => "text-slate-900 dark:text-slate-100",
+        placeholder: () => "text-slate-500",
+        menuList: () => "max-h-60 overflow-y-auto py-1",
+        dropdownIndicator: (state) =>
+          `text-slate-400 transition-transform ${state.selectProps.menuIsOpen ? "rotate-180" : ""}`,
+        clearIndicator: () =>
+          "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1",
+        indicatorSeparator: () => "hidden",
+      }}
+    />
+  );
+}

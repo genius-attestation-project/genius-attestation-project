@@ -1,0 +1,860 @@
+import {
+  BadgeCheck,
+  BadgeDollarSign,
+  BriefcaseBusiness,
+  CalendarDays,
+  ChartNoAxesColumn,
+  ClipboardList,
+  Clock3,
+  CreditCard,
+  FileSearch,
+  Handshake,
+  Home,
+  LayoutDashboard,
+  Layers3,
+  PencilLine,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Truck,
+  UserCheck,
+  UserRoundPlus,
+  Users,
+  PlaneTakeoff,
+  FileClock,
+  ListChecks,
+  BarChart3,
+  Globe,
+  FolderTree,
+  Building2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+export const permissionActions = [
+  "view", "create", "edit", "update", "delete", "settings", "manage", "export",
+  "approve", "reject", "return", "request",
+  "bulkApprove", "bulkReject", "bulkReturn",
+  "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
+  "pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "viewTimeline",
+  "import", "downloadTemplate", "viewImportHistory",
+  "comment", "reply", "forward", "inbox",
+  "activate", "deactivate", "reset_password",
+  "complete", "transfer", "move", "login", "receive", "view_receipt", "retrieve",
+  "deliver", "undo", "view_details"
+] as const;
+
+export type PermissionAction = (typeof permissionActions)[number];
+
+export type NavigationItemDefinition = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  menuPermission: string;
+  pagePermission: string;
+  children?: NavigationItemDefinition[];
+};
+
+export type PermissionModuleDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  actions?: readonly PermissionAction[];
+};
+
+export const sidebarNavigation: NavigationItemDefinition[] = [
+  {
+    label: "Home",
+    href: "/dashboard/home",
+    icon: Home,
+    menuPermission: "menu.home",
+    pagePermission: "home.view",
+  },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    menuPermission: "menu.dashboard",
+    pagePermission: "dashboard.view",
+  },
+  {
+    label: "Admin Management",
+    href: "/dashboard/admin-management",
+    icon: ShieldCheck,
+    menuPermission: "menu.admin-management",
+    pagePermission: "admin_management.view",
+    children: [
+      {
+        label: "Users",
+        href: "/dashboard/admin-management/users",
+        icon: Users,
+        menuPermission: "menu.admin-management.users",
+        pagePermission: "users.view",
+      },
+      {
+        label: "Roles",
+        href: "/dashboard/admin-management/roles",
+        icon: ShieldCheck,
+        menuPermission: "menu.admin-management.roles",
+        pagePermission: "roles.view",
+      },
+      {
+        label: "Department",
+        href: "/dashboard/admin-management/department",
+        icon: BriefcaseBusiness,
+        menuPermission: "menu.admin-management.department",
+        pagePermission: "departments.view",
+      },
+      {
+        label: "Office Location",
+        href: "/dashboard/admin-management/office-location",
+        icon: UserCheck,
+        menuPermission: "menu.admin-management.office-location",
+        pagePermission: "office_locations.view",
+      },
+    ],
+  },
+  {
+    label: "Master Configuration",
+    href: "/dashboard/master-configuration",
+    icon: Settings2,
+    menuPermission: "menu.master-configuration",
+    pagePermission: "master_configuration.view",
+    children: [
+      {
+        label: "Document Types",
+        href: "/dashboard/master-configuration/document-types",
+        icon: ClipboardList,
+        menuPermission: "menu.master-configuration.document-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Document Type Categories",
+        href: "/dashboard/master-configuration/document-type-categories",
+        icon: FolderTree,
+        menuPermission: "menu.master-configuration.document-type-categories",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Process Type",
+        href: "/dashboard/master-configuration/process-types",
+        icon: Layers3,
+        menuPermission: "menu.master-configuration.attestation-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Sub Process",
+        href: "/dashboard/master-configuration/sub-process",
+        icon: Layers3,
+        menuPermission: "menu.master-configuration.sub-process",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Customer Type",
+        href: "/dashboard/master-configuration/customer-types",
+        icon: UserCheck,
+        menuPermission: "menu.master-configuration.customer-types",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Corporate Details",
+        href: "/dashboard/master-configuration/corporate-details",
+        icon: Building2,
+        menuPermission: "menu.master-configuration.corporate-details",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Payment Mode",
+        href: "/dashboard/master-configuration/payment-mode",
+        icon: CreditCard,
+        menuPermission: "menu.master-configuration.payment-mode",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Courier Companies",
+        href: "/dashboard/master-configuration/courier-companies",
+        icon: Truck,
+        menuPermission: "menu.master-configuration.courier-companies",
+        pagePermission: "master_configuration.view",
+      },
+      {
+        label: "Account Menu",
+        href: "/dashboard/master-configuration/account-menu",
+        icon: FolderTree,
+        menuPermission: "menu.master-configuration.account-menu",
+        pagePermission: "account_menu.view",
+      },
+    ],
+  },
+  {
+    label: "Assigned Office",
+    href: "/dashboard/assigned-office",
+    icon: Users,
+    menuPermission: "menu.assigned-office",
+    pagePermission: "assigned_office.view",
+  },
+  {
+    label: "Account Panel",
+    href: "/dashboard/account-panel",
+    icon: FolderTree,
+    menuPermission: "menu.account-panel",
+    pagePermission: "account_panel.view",
+  },
+  {
+    label: "Account Statements",
+    href: "/dashboard/account-statements",
+    icon: BadgeDollarSign,
+    menuPermission: "menu.account-statements",
+    pagePermission: "account_statements.view",
+  },
+  {
+    label: "Lead Management",
+    href: "/dashboard/lead-management",
+    icon: Users,
+    menuPermission: "menu.lead-management",
+    pagePermission: "lead_management.view",
+    children: [
+      {
+        label: "All Leads",
+        href: "/dashboard/lead-management/all-leads",
+        icon: Users,
+        menuPermission: "menu.lead-management.all-leads",
+        pagePermission: "leads.view",
+      },
+      {
+        label: "Followups",
+        href: "/dashboard/lead-management/followups",
+        icon: Clock3,
+        menuPermission: "menu.lead-management.followups",
+        pagePermission: "followups.view",
+      },
+      {
+        label: "Assign Leads",
+        href: "/dashboard/lead-management/assign-leads",
+        icon: UserRoundPlus,
+        menuPermission: "menu.lead-management.assign-leads",
+        pagePermission: "assigned_leads.view",
+      },
+      {
+        label: "LOB",
+        href: "/dashboard/lead-management/lob",
+        icon: Layers3,
+        menuPermission: "menu.lead-management.lob",
+        pagePermission: "lob.view",
+      },
+      {
+        label: "Closed",
+        href: "/dashboard/lead-management/closed",
+        icon: PencilLine,
+        menuPermission: "menu.lead-management.closed",
+        pagePermission: "closed_leads.view",
+      },
+    ],
+  },
+  {
+    label: "Pending Approval",
+    href: "/dashboard/pending-approval",
+    icon: BadgeCheck,
+    menuPermission: "menu.lead-management.pending-approval",
+    pagePermission: "pending_approval.view",
+  },
+  {
+    label: "Revenue Registration",
+    href: "/dashboard/revenue-registration",
+    icon: BadgeDollarSign,
+    menuPermission: "menu.revenue-registration",
+    pagePermission: "revenue_registration.view",
+  },
+  {
+    label: "Search / Report",
+    href: "/dashboard/search-report",
+    icon: FileSearch,
+    menuPermission: "menu.search-report",
+    pagePermission: "search_report.view",
+    children: [
+      {
+        label: "General Search",
+        href: "/dashboard/search-report",
+        icon: FileSearch,
+        menuPermission: "menu.search-report.general",
+        pagePermission: "search_report.view",
+      },
+    ],
+  },
+  {
+    label: "Reports & Analytics",
+    href: "/dashboard/reports",
+    icon: BarChart3,
+    menuPermission: "menu.reports",
+    pagePermission: "reports.view",
+  },
+  {
+    label: "BM Report",
+    href: "/dashboard/bm-report",
+    icon: ChartNoAxesColumn,
+    menuPermission: "menu.bm-report",
+    pagePermission: "bm_report.view",
+  },
+  {
+    label: "Process Module",
+    href: "/dashboard/process",
+    icon: ListChecks,
+    menuPermission: "menu.process",
+    pagePermission: "process.view",
+  },
+
+  {
+    label: "Ready For Delivery",
+    href: "/dashboard/ready-for-delivery",
+    icon: Truck,
+    menuPermission: "menu.ready-for-delivery",
+    pagePermission: "ready_for_delivery.view",
+  },
+  {
+    label: "Welcome Call",
+    href: "/dashboard/welcome-call",
+    icon: Handshake,
+    menuPermission: "menu.welcome-call",
+    pagePermission: "welcome_call.view",
+  },
+  {
+    label: "Attendance",
+    href: "/dashboard/attendance",
+    icon: ClipboardList,
+    menuPermission: "menu.attendance",
+    pagePermission: "attendance.view",
+    children: [
+      {
+        label: "Dashboard",
+        href: "/dashboard/attendance/dashboard",
+        icon: LayoutDashboard,
+        menuPermission: "menu.attendance.dashboard",
+        pagePermission: "attendance.view",
+      },
+      {
+        label: "My Records",
+        href: "/dashboard/attendance/records",
+        icon: CalendarDays,
+        menuPermission: "menu.attendance.records",
+        pagePermission: "attendance.view",
+      },
+      {
+        label: "Daily Summary",
+        href: "/dashboard/attendance/daily-summary",
+        icon: ClipboardList,
+        menuPermission: "menu.attendance.daily-summary",
+        pagePermission: "attendance.summary.create",
+      },
+      {
+        label: "Daily Summary Approval",
+        href: "/dashboard/attendance/daily-summary-approval",
+        icon: BadgeCheck,
+        menuPermission: "menu.attendance.daily-summary-approval",
+        pagePermission: "attendance.summary.view",
+      },
+      {
+        label: "Approval",
+        href: "/dashboard/attendance/approval",
+        icon: BadgeCheck,
+        menuPermission: "menu.attendance.approval",
+        pagePermission: "attendance_approval.view",
+      },
+      {
+        label: "Check Out",
+        href: "/dashboard/attendance/check-out",
+        icon: Clock3,
+        menuPermission: "menu.attendance.checkout",
+        pagePermission: "attendance.checkout.create",
+      },
+      {
+        label: "Settings",
+        href: "/dashboard/attendance/settings",
+        icon: Settings2,
+        menuPermission: "menu.attendance.settings",
+        pagePermission: "attendance_settings.manage",
+      },
+    ],
+  },
+  {
+    label: "Leave Management",
+    href: "/dashboard/leave-management",
+    icon: PlaneTakeoff,
+    menuPermission: "menu.leave-management",
+    pagePermission: "leave.view",
+    children: [
+      {
+        label: "Apply Leave",
+        href: "/dashboard/leave-management/apply",
+        icon: PlaneTakeoff,
+        menuPermission: "menu.leave-management.apply",
+        pagePermission: "leave.create",
+      },
+      {
+        label: "Requests",
+        href: "/dashboard/leave-management/requests",
+        icon: CalendarDays,
+        menuPermission: "menu.leave-management.requests",
+        pagePermission: "leave.view",
+      },
+      {
+        label: "Approval",
+        href: "/dashboard/leave-management/approval",
+        icon: BadgeCheck,
+        menuPermission: "menu.leave-management.approval",
+        pagePermission: "leave.approve",
+      },
+      {
+        label: "Reports",
+        href: "/dashboard/leave-management/reports",
+        icon: FileClock,
+        menuPermission: "menu.leave-management.reports",
+        pagePermission: "leave.report",
+      },
+    ],
+  },
+  {
+    label: "Salary Management",
+    href: "/dashboard/salary-management",
+    icon: BadgeDollarSign,
+    menuPermission: "menu.salary-management",
+    pagePermission: "salary.view",
+    children: [
+      {
+        label: "Dashboard",
+        href: "/dashboard/salary-management/dashboard",
+        icon: LayoutDashboard,
+        menuPermission: "menu.salary-management.dashboard",
+        pagePermission: "salary.view",
+      },
+      {
+        label: "Calculator",
+        href: "/dashboard/salary-management/calculator",
+        icon: BadgeDollarSign,
+        menuPermission: "menu.salary-management.calculator",
+        pagePermission: "salary.calculate",
+      },
+      {
+        label: "Monthly Payroll",
+        href: "/dashboard/salary-management/monthly-payroll",
+        icon: ClipboardList,
+        menuPermission: "menu.salary-management.monthly-payroll",
+        pagePermission: "salary.generate",
+      },
+      {
+        label: "Reports",
+        href: "/dashboard/salary-management/reports",
+        icon: FileClock,
+        menuPermission: "menu.salary-management.reports",
+        pagePermission: "salary.report",
+      },
+    ],
+  },
+];
+
+export const permissionModules: PermissionModuleDefinition[] = [
+  { key: "dashboard", label: "Dashboard", description: "Dashboard module access." },
+  { key: "admin_management", label: "Admin Management", description: "Admin workspace access." },
+  { key: "users", label: "Users", description: "User management access." },
+  {
+    key: "assigned_office",
+    label: "Assigned Office",
+    description: "Manage assigned office login accounts.",
+    actions: ["view", "create", "edit", "delete", "manage", "export", "activate", "deactivate", "reset_password", "login", "receive", "transfer", "complete", "return", "reject"]
+  },
+  { key: "master_configuration", label: "Master Configuration", description: "Central Master Data Management." },
+  {
+    key: "payment_mode",
+    label: "Payment Mode",
+    description: "Payment Mode master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "courier_companies",
+    label: "Courier Companies",
+    description: "Courier Companies master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "account_menu",
+    label: "Account Menu",
+    description: "Manage financial account hierarchy and settings.",
+    actions: ["view", "create", "update", "delete", "settings"]
+  },
+  {
+    key: "account_panel",
+    label: "Account Panel",
+    description: "Office-based account panel access.",
+    actions: ["view", "create"]
+  },
+  {
+    key: "customer_type",
+    label: "Customer Type",
+    description: "Customer Type master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "corporate_details",
+    label: "Corporate Details",
+    description: "Corporate Details master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "corporate_details_approval",
+    label: "Corporate Details Approval",
+    description: "Corporate Details approval workflow access.",
+    actions: ["view", "edit", "approve", "reject"]
+  },
+  {
+    key: "movement_approval",
+    label: "Movement Approval",
+    description: "Document movement approval workflow access.",
+    actions: ["view", "approve"]
+  },
+  { key: "sub_package", label: "Sub Packages", description: "Sub Packages master data management.", actions: ["view", "create", "edit", "delete", "import", "export", "transfer", "complete", "return", "reject"] },
+  { key: "subpackage", label: "Sub Package Workflow", description: "Sub Package workflow access.", actions: ["view", "transfer", "complete", "return", "reject"] },
+  { key: "document_type_category", label: "Document Type Categories", description: "Document Type Categories master data management.", actions: ["view", "create", "edit", "delete", "import", "export"] },
+  { key: "roles", label: "Roles", description: "Role and RBAC access." },
+  { key: "departments", label: "Department", description: "Department administration." },
+  { key: "office_locations", label: "Office Location", description: "Office location administration." },
+  { key: "lead_management", label: "Lead Management", description: "Lead workspace access." },
+  { key: "leads", label: "All Leads", description: "Lead CRUD access." },
+  { key: "followups", label: "Followups", description: "Followup lead access." },
+  { key: "assigned_leads", label: "Assign Leads", description: "Assigned lead access." },
+  { key: "pending_approval", label: "Pending Approval", description: "Pending approval access." },
+  { key: "lob", label: "LOB", description: "Line of business access." },
+  { key: "closed_leads", label: "Closed Leads", description: "Closed lead access." },
+  { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access.", actions: ["view", "create", "edit", "delete", "manage", "export", "import", "downloadTemplate", "viewImportHistory"] },
+  { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
+  { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
+  { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export"] },
+  { key: "bm_report", label: "BM Report", description: "Real-time document movement tracking center access.", actions: ["view", "export"] },
+  {
+    key: "document_movement",
+    label: "Document Movement",
+    description: "Unified document movement history access.",
+    actions: ["view", "retrieve"]
+  },
+  {
+    key: "process",
+    label: "Process Module",
+    description: "Process Module tracking access.",
+    actions: ["view", "create", "edit", "delete", "complete", "reject", "transfer", "move", "manage", "export"]
+  },
+
+  {
+    key: "ready_for_delivery",
+    label: "Ready For Delivery",
+    description: "Delivery queue access.",
+    actions: ["view", "deliver", "undo", "view_details", "export"]
+  },
+  { key: "welcome_call", label: "Welcome Call", description: "Welcome call access." },
+  { key: "attendance", label: "Attendance", description: "View own attendance records." },
+  { key: "attendance_approval", label: "Attendance Approval", description: "Approve or reject attendance records." },
+  { key: "attendance_settings", label: "Attendance Settings", description: "Configure per-user attendance timings." },
+  { key: "attendance.summary", label: "Daily Summary", description: "Attendance daily summary access." },
+  { key: "attendance.checkout", label: "Check Out", description: "Attendance checkout access.", actions: ["create"] },
+  { key: "leave", label: "Leave", description: "Apply for and review leave requests." },
+  { key: "salary", label: "Salary", description: "Payroll calculation, approval, and reporting access." },
+  {
+    key: "pendingApproval",
+    label: "Pending Approval Workflow",
+    description: "General Pending Approval access.",
+    actions: ["view", "approve", "reject", "return", "bulkApprove", "bulkReject", "bulkReturn"]
+  },
+  {
+    key: "inactiveLead",
+    label: "Inactive Lead Workflow",
+    description: "Inactive Lead Approval access.",
+    actions: ["view", "approve", "reject", "return"]
+  },
+  {
+    key: "lobApproval",
+    label: "LOB Approval Workflow",
+    description: "LOB Approval access.",
+    actions: ["view", "request", "approve", "reject", "return"]
+  },
+  {
+    key: "overdueFollowup",
+    label: "Overdue Followup Workflow",
+    description: "Overdue Followup Approval access.",
+    actions: ["view", "approve", "reject", "return"]
+  },
+  {
+    key: "calendar",
+    label: "Calendar Enhancements",
+    description: "Calendar advanced viewing and management.",
+    actions: ["viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups"]
+  },
+  {
+    key: "reports",
+    label: "Extended Reports",
+    description: "Extended Reports for Pending Approvals.",
+    actions: ["pendingApproval", "inactiveLeads", "lobApprovals", "overdueFollowups", "view", "export"]
+  },
+  {
+    key: "communication",
+    label: "Document Communication",
+    description: "Office to office document communication access.",
+    actions: ["view", "comment", "reply", "forward", "inbox"]
+  },
+  {
+    key: "advance_payment_approval",
+    label: "Advance Payment Approval",
+    description: "Advance Payment Approval workflow permissions.",
+    actions: ["view", "approve", "reject", "view_receipt"]
+  },
+  {
+    key: "account_statements",
+    label: "Account Statements",
+    description: "Account Statements and financial ledger reporting access.",
+    actions: ["view", "edit", "delete", "export"]
+  },
+];
+
+export const defaultRoleDefinitions = [
+  {
+    name: "Super Admin",
+    description: "Full access to every module, API, and menu.",
+    isActive: true,
+    permissions: "*" as const,
+  },
+  {
+    name: "Admin",
+    description: "Administrative access across all operational modules.",
+    isActive: true,
+    permissions: "*" as const,
+  },
+  {
+    name: "Manager",
+    description: "Cross-functional team management access.",
+    isActive: true,
+    permissions: [
+      "dashboard.view",
+      "home.view",
+      "bm_report.view",
+      "lead_management.view",
+      "leads.view",
+      "leads.create",
+      "leads.edit",
+      "followups.view",
+      "pending_approval.view",
+      "pending_approval.edit",
+      "lob.view",
+      "closed_leads.view",
+      "reports.view",
+      "search_report.view",
+      "search_report.export",
+      "revenue_registration.view",
+      "revenue_registration.import",
+      "revenue_registration.downloadTemplate",
+      "revenue_registration.viewImportHistory",
+
+      "ready_for_delivery.view",
+      "welcome_call.view",
+      "leave.view",
+      "leave.create",
+      "leave.approve",
+      "leave.report",
+      "salary.view",
+      "menu.dashboard",
+      "menu.home",
+      "menu.bm-report",
+      "menu.lead-management",
+      "menu.lead-management.all-leads",
+      "menu.lead-management.followups",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.lead-management.pending-approval",
+      "menu.lead-management.lob",
+      "menu.lead-management.closed",
+      "menu.reports",
+      "menu.search-report",
+      "menu.search-report.general",
+
+      "menu.master-configuration.account-menu",
+      "account_menu.view",
+      "account_menu.create",
+      "account_menu.update",
+      "account_menu.delete",
+      "account_menu.settings",
+      "menu.account-panel",
+      "account_panel.view",
+      "account_panel.create",
+      "menu.account-statements",
+      "account_statements.view",
+      "account_statements.edit",
+      "account_statements.delete",
+      "account_statements.export",
+      "menu.ready-for-delivery",
+      "menu.welcome-call",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.leave-management.approval",
+      "menu.leave-management.reports",
+      "menu.salary-management",
+      "menu.attendance",
+      "menu.attendance.dashboard",
+      "menu.attendance.records",
+      "menu.attendance.approval",
+      "menu.attendance.daily-summary",
+      "menu.attendance.daily-summary-approval",
+      "menu.attendance.checkout",
+      "attendance.summary.view",
+      "attendance.summary.create",
+      "attendance.summary.edit",
+      "attendance.checkout.create",
+      "document_movement.view",
+      "document_movement.retrieve",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
+    ],
+  },
+  {
+    name: "Staff",
+    description: "Basic operational access to assigned lead workflows.",
+    isActive: true,
+    permissions: [
+      "dashboard.view",
+      "lead_management.view",
+      "leads.view",
+      "followups.view",
+      "leave.view",
+      "leave.create",
+      "menu.dashboard",
+      "menu.lead-management",
+      "menu.lead-management.all-leads",
+      "menu.lead-management.followups",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.attendance",
+      "menu.attendance.daily-summary",
+      "menu.attendance.checkout",
+      "attendance.summary.create",
+      "attendance.summary.edit",
+      "attendance.checkout.create",
+      "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+    ],
+  },
+  {
+    name: "Sales",
+    description: "Sales-focused access to lead creation, editing, and reporting.",
+    isActive: true,
+    permissions: [
+      "dashboard.view",
+      "lead_management.view",
+      "leads.view",
+      "leads.create",
+      "leads.edit",
+      "followups.view",
+      "revenue_registration.view",
+      "search_report.view",
+      "search_report.export",
+      "revenue_registration.import",
+      "revenue_registration.downloadTemplate",
+      "revenue_registration.viewImportHistory",
+      "leave.view",
+      "leave.create",
+      "menu.dashboard",
+      "menu.lead-management",
+      "menu.lead-management.all-leads",
+      "menu.lead-management.followups",
+      "menu.revenue-registration",
+      "menu.search-report",
+      "menu.search-report.general",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.attendance",
+      "menu.attendance.daily-summary",
+      "menu.attendance.checkout",
+      "attendance.summary.create",
+      "attendance.summary.edit",
+      "attendance.checkout.create",
+      "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
+    ],
+  },
+  {
+    name: "Operations",
+    description: "Operational access to delivery and approvals.",
+    isActive: true,
+    permissions: [
+      "dashboard.view",
+      "lead_management.view",
+      "leads.view",
+      "followups.view",
+      "pending_approval.view",
+      "pending_approval.edit",
+
+      "ready_for_delivery.view",
+      "welcome_call.view",
+      "leave.view",
+      "leave.create",
+      "salary.view",
+      "menu.dashboard",
+      "menu.lead-management",
+      "menu.lead-management.all-leads",
+      "menu.lead-management.followups",
+      "menu.lead-management.pending-approval",
+
+      "menu.ready-for-delivery",
+      "menu.welcome-call",
+      "menu.leave-management",
+      "menu.leave-management.apply",
+      "menu.leave-management.requests",
+      "menu.salary-management",
+      "menu.attendance",
+      "menu.attendance.daily-summary",
+      "menu.attendance.checkout",
+      "attendance.summary.create",
+      "attendance.summary.edit",
+      "attendance.checkout.create",
+      "document_movement.view",
+      "communication.view",
+      "communication.comment",
+      "communication.reply",
+      "communication.forward",
+      "communication.inbox",
+    ],
+  },
+] as const;
+
+export function buildPermissionCatalog() {
+  const permissionEntries = permissionModules.flatMap((moduleDefinition) =>
+    (moduleDefinition.actions || ["view", "create", "edit", "delete", "manage", "export"]).map((action) => ({
+      code: `${moduleDefinition.key}.${action}`,
+      name: `${moduleDefinition.label} ${action[0].toUpperCase()}${action.slice(1)}`,
+      module: moduleDefinition.label,
+      description: `${action[0].toUpperCase()}${action.slice(1)} permission for ${moduleDefinition.label}.`,
+    })),
+  );
+
+  const menuEntries = flattenNavigation(sidebarNavigation).map((item) => ({
+    code: item.menuPermission,
+    name: `${item.label} Menu`,
+    module: "Menu Visibility",
+    description: `Controls visibility for the ${item.label} navigation item.`,
+  }));
+
+  return [...permissionEntries, ...menuEntries];
+}
+
+export function flattenNavigation(items: NavigationItemDefinition[]): NavigationItemDefinition[] {
+  return items.flatMap((item) => [item, ...(item.children ? flattenNavigation(item.children) : [])]);
+}
+
+
+
+

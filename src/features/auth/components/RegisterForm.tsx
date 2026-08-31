@@ -1,0 +1,96 @@
+"use client";
+
+import { signIn } from "next-auth/react";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Loader } from "@/components/ui/Loader";
+import { GoogleButton } from "@/features/auth/components/GoogleButton";
+import { getAuthErrorMessage } from "@/features/auth/utils/auth.helper";
+import { readJsonResponse } from "@/utils/fetch";
+
+export function RegisterForm() {
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(formData: FormData) {
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const email = String(formData.get("email") ?? "");
+      const password = String(formData.get("password") ?? "");
+
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(formData.get("name") ?? ""),
+          email,
+          password,
+        }),
+      });
+
+      const payload = await readJsonResponse<{ message?: string }>(response);
+      if (!response.ok) {
+        setMessage(payload.message ?? "Registration failed.");
+        return;
+      }
+
+      const result = await signIn("credentials", {
+        email,
+        password,
+        callbackUrl: "/dashboard",
+        redirect: false,
+      });
+
+      if (result?.error) {
+        console.warn("[auth] Auto-login after registration was rejected.", {
+          error: result.error,
+        });
+        setMessage(getAuthErrorMessage(result.error));
+        window.location.assign("/login");
+        return;
+      }
+
+      window.location.assign(result?.url ?? "/dashboard");
+    } catch (error) {
+      console.warn("[auth] Registration request failed.", error);
+      setMessage("We could not create your account right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="grid w-full min-w-0 max-w-[440px] gap-5 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_50px_rgba(22,32,29,0.09)] sm:gap-6 sm:p-7">
+      <div className="grid gap-2">
+        <h1 className="text-2xl font-black leading-tight sm:text-3xl">Create account</h1>
+        <p className="text-neutral-600">Register with email and password.</p>
+      </div>
+
+      <form className="grid gap-4" action={onSubmit}>
+        <Input label="Name" name="name" type="text" autoComplete="name" required />
+        <Input label="Email" name="email" type="email" autoComplete="email" required />
+        <Input
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
+        {message ? <p className="text-sm text-red-700">{message}</p> : null}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <Loader /> : "Create account"}
+        </Button>
+      </form>
+
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-neutral-500 before:h-px before:bg-stone-200 before:content-[''] after:h-px after:bg-stone-200 after:content-['']">
+        or
+      </div>
+      <GoogleButton />
+    </div>
+  );
+}

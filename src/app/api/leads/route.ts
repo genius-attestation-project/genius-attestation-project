@@ -1,0 +1,62 @@
+import { createLead, listLeads } from "@/features/lead/server/lead.service";
+import { leadInputSchema } from "@/features/lead/validations/lead.schema";
+import { auth } from "@/lib/auth";
+import { jsonError, jsonOk } from "@/utils/response";
+import { NextRequest } from "next/server";
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
+    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+
+    const { searchParams } = new URL(request.url);
+    const data = await listLeads(session?.user, ownerAdminId, {
+      page: Number(searchParams.get("page") ?? "1"),
+      pageSize: Number(searchParams.get("pageSize") ?? "10"),
+      query: searchParams.get("query") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+      service: searchParams.get("service") ?? undefined,
+      assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+      createdById: searchParams.get("createdById") ?? undefined,
+      country: searchParams.get("country") ?? undefined,
+      state: searchParams.get("state") ?? undefined,
+      source: searchParams.get("source") ?? undefined,
+      followupDate: searchParams.get("followupDate") ?? undefined,
+      officeLocationId: searchParams.get("officeLocationId") ?? undefined,
+      fromDate: searchParams.get("fromDate") ?? undefined,
+      toDate: searchParams.get("toDate") ?? undefined,
+    });
+
+    return jsonOk(data);
+  } catch (error) {
+    console.error("Failed to fetch leads", error);
+    return jsonError("Unable to fetch leads.", 500);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
+    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+
+    const body = await request.json().catch(() => null);
+    const parsed = leadInputSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return jsonError(parsed.error.issues[0]?.message ?? "Invalid lead payload.");
+    }
+
+    const lead = await createLead(ownerAdminId, parsed.data, session?.user?.id);
+    return jsonOk({ lead }, 201);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Assigned user not found.") {
+      return jsonError(error.message, 400);
+    }
+
+    console.error("Failed to create lead", error);
+    return jsonError("Unable to create lead.", 500);
+  }
+}
+

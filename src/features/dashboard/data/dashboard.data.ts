@@ -1,0 +1,131 @@
+import {
+  BadgeCheck,
+  ArrowDownCircle,
+  BadgeDollarSign,
+  BriefcaseBusiness,
+  ChartNoAxesColumn,
+  ClipboardList,
+  Clock3,
+  FileSearch,
+  Handshake,
+  Home,
+  LayoutDashboard,
+  Layers3,
+  PencilLine,
+  RefreshCw,
+  ShieldCheck,
+  Truck,
+  UserCheck,
+  Users,
+  UserRoundPlus,
+  ListChecks,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+export type SidebarItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+};
+
+export type DashboardStat = {
+  label: string;
+  value: string;
+  delta: string;
+  description: string;
+  icon: LucideIcon;
+  tone?: "blue" | "slate" | "amber" | "emerald" | "rose";
+  href?: string;
+};
+
+export const sidebarItems: SidebarItem[] = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  {
+    label: "Admin Management",
+    href: "/dashboard/admin-management",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Lead Management",
+    href: "/dashboard/lead-management",
+    icon: Users,
+  },
+  {
+    label: "Revenue Registration",
+    href: "/dashboard/revenue-registration",
+    icon: BadgeDollarSign,
+  },
+  {
+    label: "Search / Report",
+    href: "/dashboard/search-report",
+    icon: FileSearch,
+  },
+  {
+    label: "Status Checking",
+    href: "/dashboard/status-checking",
+    icon: ClipboardList,
+  },
+  {
+    label: "Home",
+    href: "/dashboard/home",
+    icon: Home,
+  },
+  {
+    label: "BM Report",
+    href: "/dashboard/bm-report",
+    icon: ChartNoAxesColumn,
+  },
+
+  {
+    label: "Process Module",
+    href: "/dashboard/process",
+    icon: ListChecks,
+  },
+  {
+    label: "Ready For Delivery",
+    href: "/dashboard/ready-for-delivery",
+    icon: Truck,
+  },
+  {
+    label: "Welcome Call",
+    href: "/dashboard/welcome-call",
+    icon: Handshake,
+  },
+];
+
+export const adminManagementLinks: SidebarItem[] = [
+  { label: "Users", href: "/dashboard/admin-management/users", icon: Users },
+  { label: "Roles", href: "/dashboard/admin-management/roles", icon: ShieldCheck },
+  {
+    label: "Department",
+    href: "/dashboard/admin-management/department",
+    icon: BriefcaseBusiness,
+  },
+  {
+    label: "Office Location",
+    href: "/dashboard/admin-management/office-location",
+    icon: UserCheck,
+  },
+];
+
+export const leadManagementLinks: SidebarItem[] = [
+  { label: "All Leads", href: "/dashboard/lead-management/all-leads", icon: Users },
+  { label: "Followups", href: "/dashboard/lead-management/followups", icon: Clock3 },
+  { label: "Assign Leads", href: "/dashboard/lead-management/assign-leads", icon: UserRoundPlus },
+  { label: "LOB", href: "/dashboard/lead-management/lob", icon: Layers3 },
+  { label: "Closed", href: "/dashboard/lead-management/closed", icon: PencilLine },
+];
+
+export function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 18) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
+}
