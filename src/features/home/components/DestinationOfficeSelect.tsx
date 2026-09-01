@@ -173,7 +173,7 @@ export function DestinationOfficeSelect({
         aria-haspopup="listbox"
         aria-controls="destination-office-listbox"
         aria-label="Select Destination Office"
-        className={`flex items-center justify-between gap-3 min-w-[200px] sm:min-w-[230px] rounded-xl border bg-white px-3.5 py-2 text-sm font-semibold shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-slate-900 ${
+        className={`flex items-center justify-between gap-3 min-w-50 sm:min-w-57.5 rounded-xl border bg-white px-3.5 py-2 text-sm font-semibold shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-slate-900 ${
           disabled
             ? "cursor-not-allowed opacity-60 border-slate-200 dark:border-slate-800"
             : "cursor-pointer border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600"

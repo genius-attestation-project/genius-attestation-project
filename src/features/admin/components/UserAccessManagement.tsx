@@ -735,7 +735,7 @@ export function UserAccessManagement() {
         >
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             {/* Search Box */}
-            <div className="relative min-w-[260px] max-w-md">
+            <div className="relative min-w-65 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
               <input
                 type="text"
@@ -883,7 +883,7 @@ export function UserAccessManagement() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 max-h-[600px] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-1 max-h-150 overflow-y-auto pr-1">
               {filteredUsers.map((u) => {
                 const isSelected = u.id === selectedUserId;
                 return (
