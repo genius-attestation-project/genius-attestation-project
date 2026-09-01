@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { resolveOfficeLocationName } from "@/lib/office-location";
+import { getSessionAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { getReadyForDeliveryById } from "@/features/ready-for-delivery/server/ready-for-delivery.service";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -12,26 +12,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const userId = session?.user?.id;
+    if (!ownerAdminId || !userId) return jsonError("Unauthorized.", 401);
 
-    const isSuperAdmin = session.user?.isSuperAdmin === true;
-
-    const officeLocationName = await resolveOfficeLocationName({
-      ownerAdminId,
-      officeLocationId: session.user?.officeLocationId,
-      officeLocationName: session.user?.officeLocationName,
-      userId: session.user?.id,
-    });
-
-    if (!officeLocationName && !isSuperAdmin) {
-      return jsonError("Office location is required for ready for delivery access.", 400);
-    }
+    const userAccess = await getSessionAccess(userId);
+    if (!userAccess) return jsonError("User session access not found.", 401);
 
     const { id } = await context.params;
-    const registration = await getReadyForDeliveryById(ownerAdminId, officeLocationName, id);
+    const registration = await getReadyForDeliveryById(ownerAdminId, userAccess, id);
 
     if (!registration) {
-      return jsonError("Ready for delivery document not found.", 404);
+      return jsonError("Ready for delivery document not found or access is forbidden.", 404);
     }
 
     return jsonOk({ registration });
