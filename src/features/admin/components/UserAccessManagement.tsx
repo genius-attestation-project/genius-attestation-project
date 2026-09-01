@@ -973,13 +973,13 @@ export function UserAccessManagement() {
                                     key={office.id}
                                     type="button"
                                     onClick={() => toggleOfficeForUser(selectedUser.id, office.id)}
-                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
+                                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
                                       isChecked
                                         ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-sm"
                                         : "border-(--border) bg-white/60 dark:bg-white/5 hover:border-blue-400/60 hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
                                     }`}
                                   >
-                                    <div className="mt-0.5 shrink-0">
+                                    <div className="shrink-0">
                                       {isChecked ? (
                                         <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                       ) : (
@@ -988,9 +988,6 @@ export function UserAccessManagement() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p className="truncate text-xs font-bold">{office.officeName}</p>
-                                      <p className="truncate text-[11px] font-medium text-soft mt-0.5">
-                                        Assigned Office {office.location ? `• ${office.location}` : ""}
-                                      </p>
                                     </div>
                                   </button>
                                 );
@@ -1054,13 +1051,13 @@ export function UserAccessManagement() {
                                     key={office.id}
                                     type="button"
                                     onClick={() => toggleOfficeForUser(selectedUser.id, office.id)}
-                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
+                                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
                                       isChecked
                                         ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-sm"
                                         : "border-(--border) bg-white/60 dark:bg-white/5 hover:border-blue-400/60 hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
                                     }`}
                                   >
-                                    <div className="mt-0.5 shrink-0">
+                                    <div className="shrink-0">
                                       {isChecked ? (
                                         <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                       ) : (
@@ -1069,9 +1066,6 @@ export function UserAccessManagement() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p className="truncate text-xs font-bold">{office.officeName}</p>
-                                      <p className="truncate text-[11px] font-medium text-soft mt-0.5">
-                                        {office.location || "Office Location"}
-                                      </p>
                                     </div>
                                   </button>
                                 );
