@@ -158,6 +158,41 @@ export async function copyUserPermissions(
   return { success: true, copiedCount: permissionKeys.length };
 }
 
+function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): string[] {
+  const catalogKeys = new Set<string>();
+
+  for (const code of rolePermissionCodes) {
+    catalogKeys.add(code);
+
+    if (code === "home.view") {
+      catalogKeys.add("home.document_in_hand.view");
+      catalogKeys.add("home.inbound.view");
+      catalogKeys.add("home.outbound.view");
+      catalogKeys.add("home.movement_history.view");
+    }
+    if (code === "home.transfer") catalogKeys.add("home.document_in_hand.transfer");
+    if (code === "home.receive") catalogKeys.add("home.inbound.receive");
+    if (code === "home.return") catalogKeys.add("home.inbound.return");
+    if (code === "home.retrieve") catalogKeys.add("home.outbound.retrieve");
+
+    if (code === "process.view") {
+      catalogKeys.add("process.document_in_hand.view");
+      catalogKeys.add("process.inbound.view");
+      catalogKeys.add("process.outbound.view");
+      catalogKeys.add("process.bundle_movement.view");
+    }
+    if (code === "process.transfer") catalogKeys.add("process.document_in_hand.transfer");
+    if (code === "process.create" || code === "process.edit" || code === "process.complete") {
+      catalogKeys.add("process.document_in_hand.actions");
+    }
+    if (code === "process.receive") catalogKeys.add("process.inbound.receive");
+    if (code === "process.return") catalogKeys.add("process.inbound.return");
+    if (code === "process.retrieve") catalogKeys.add("process.outbound.retrieve");
+  }
+
+  return Array.from(catalogKeys);
+}
+
 /**
  * Lists all users for ownerAdminId with complete office visibility and module permissions data.
  */
@@ -181,7 +216,19 @@ export async function listUserAccessData(ownerAdminId: string) {
         ownerAdminId: true,
         officeLocationId: true,
         officeLocationName: true,
-        role: { select: { id: true, name: true } },
+        role: {
+          select: {
+            id: true,
+            name: true,
+            rolePermissions: {
+              select: {
+                permission: {
+                  select: { code: true },
+                },
+              },
+            },
+          },
+        },
       },
     }),
     prisma.officeLocation.findMany({
@@ -236,6 +283,15 @@ export async function listUserAccessData(ownerAdminId: string) {
   const mappedUsers = users.map((u) => {
     const isOwner = u.ownerAdminId === u.id || !u.ownerAdminId;
     const isSuperAdmin = isOwner || u.role?.name === "Super Admin";
+    const hasExplicitUserPermissions = userPermMap.has(u.id);
+
+    let effectivePermissionKeys: string[] = [];
+    if (hasExplicitUserPermissions) {
+      effectivePermissionKeys = userPermMap.get(u.id) ?? [];
+    } else if (u.role?.rolePermissions) {
+      const roleCodes = u.role.rolePermissions.map((rp) => rp.permission.code);
+      effectivePermissionKeys = mapRolePermissionsToMatrixCatalog(roleCodes);
+    }
 
     return {
       id: u.id,
@@ -245,10 +301,9 @@ export async function listUserAccessData(ownerAdminId: string) {
       roleName: isOwner ? "Super Admin" : (u.role?.name ?? "User"),
       isActive: u.isActive,
       isSuperAdmin,
-      // If user permissions row doesn't exist yet, we signal hasUserPermissions = false
-      hasUserPermissions: userPermMap.has(u.id),
+      hasUserPermissions: hasExplicitUserPermissions,
       officeLocationIds: officeVisMap.get(u.id) ?? [],
-      permissionKeys: userPermMap.get(u.id) ?? [],
+      permissionKeys: effectivePermissionKeys,
     };
   });
 

@@ -1,4 +1,5 @@
 import { getProcessStats, listProcessAssignments } from "@/features/process/server/process.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
     const officeParam = searchParams.get("officeId") || searchParams.get("officeName") || searchParams.get("office");
 
     if (officeParam) {
+      if (!hasOfficeAccess(session.user, officeParam)) {
+        return jsonError("You do not have access to the specified office location.", 403);
+      }
+
       const foundOffice = await prisma.officeLocation.findFirst({
         where: {
           ownerAdminId,

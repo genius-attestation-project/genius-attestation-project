@@ -31,6 +31,10 @@ function filterNavigation(
   const query = searchQuery.toLowerCase().trim();
   
   return items.flatMap((item) => {
+    if (item.superAdminOnly && !isSuperAdmin) {
+      return [];
+    }
+
     const hasMatch = item.label.toLowerCase().includes(query);
     
     // If parent matches the search query, we show all its children without filtering them further.

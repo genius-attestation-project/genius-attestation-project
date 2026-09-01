@@ -14,6 +14,9 @@ export async function listDocumentInHand(params: {
   ownerAdminId: string;
   officeId?: string;
   search?: string;
+  isSuperAdmin?: boolean;
+  allowedOfficeIds?: string[] | null;
+  allowedOfficeNames?: string[] | null;
 }) {
   const whereClause: any = {
     ownerAdminId: params.ownerAdminId,
@@ -47,15 +50,29 @@ export async function listDocumentInHand(params: {
     officeNamesToMatch.push(officeName);
   }
 
+  // Enforce Office Visibility Scope for non-Super-Admins
+  if (!params.isSuperAdmin && params.allowedOfficeNames !== null && params.allowedOfficeNames !== undefined) {
+    const allowed = params.allowedOfficeNames;
+    if (allowed.length === 0) {
+      return [];
+    }
+    if (params.officeId && !allowed.includes(params.officeId) && (!officeName || !allowed.includes(officeName))) {
+      return [];
+    }
+    if (officeNamesToMatch.length === 0) {
+      officeNamesToMatch.push(...allowed);
+    }
+  }
+
   const officeMatchConditions: any[] = [];
-  if (params.officeId) {
+  if (officeNamesToMatch.length > 0) {
     officeMatchConditions.push(
       {
         documentMovements: {
           some: {
             OR: [
-              { currentOfficeId: params.officeId },
-              ...(officeName ? [{ currentOffice: { officeName } }] : []),
+              ...(params.officeId ? [{ currentOfficeId: params.officeId }] : []),
+              { currentOffice: { officeName: { in: officeNamesToMatch } } },
             ],
             status: { in: ["Received", "Document In Hand", "HOME", "Completed"] },
           },

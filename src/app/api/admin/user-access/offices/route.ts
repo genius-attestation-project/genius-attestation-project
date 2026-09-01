@@ -14,9 +14,8 @@ export async function POST(request: NextRequest) {
       return jsonError("Authentication required.", 401);
     }
 
-    const authError = await requireApiPermission("roles.view");
-    if (authError && !session.user.isSuperAdmin) {
-      return authError;
+    if (!session?.user?.isSuperAdmin) {
+      return jsonError("Super Admin access required to modify office visibility.", 403);
     }
 
     const body = await request.json().catch(() => null);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import {
   listDocumentInHand,
   createTransferBundle,
@@ -16,16 +17,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!hasPermission(currentUser, "home.view")) {
+      return NextResponse.json({ error: "You do not have permission to access Home module." }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const section = searchParams.get("section") || "document_in_hand";
-    const officeId = searchParams.get("officeId") || currentUser.officeLocationId || undefined;
+    let officeId = searchParams.get("officeId") || currentUser.officeLocationId || undefined;
     const search = searchParams.get("search") || undefined;
+
+    if (officeId && !hasOfficeAccess(currentUser, officeId)) {
+      if (!currentUser.isSuperAdmin && currentUser.allowedOfficeIds?.length) {
+        officeId = currentUser.allowedOfficeIds[0];
+      }
+    }
 
     if (section === "document_in_hand") {
       const data = await listDocumentInHand({
         ownerAdminId: currentUser.ownerAdminId,
         officeId,
         search,
+        isSuperAdmin: currentUser.isSuperAdmin,
+        allowedOfficeIds: currentUser.allowedOfficeIds,
+        allowedOfficeNames: currentUser.allowedOfficeNames,
       });
       return NextResponse.json({ data });
     }
@@ -82,6 +96,9 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "transfer") {
+      if (!hasPermission(currentUser, "home.transfer")) {
+        return NextResponse.json({ error: "You do not have permission to transfer bundles." }, { status: 403 });
+      }
       const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
       const result = await createTransferBundle({
         trackingNumbers,
@@ -96,6 +113,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "receive") {
+      if (!hasPermission(currentUser, "home.receive")) {
+        return NextResponse.json({ error: "You do not have permission to receive bundles." }, { status: 403 });
+      }
       const { bundleId, receivedTrackingNumbers, remarks } = body;
       const result = await receiveBundle({
         bundleId,

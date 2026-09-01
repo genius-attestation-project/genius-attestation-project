@@ -14,9 +14,8 @@ export async function GET(request: NextRequest) {
       return jsonError("Authentication required.", 401);
     }
 
-    const authError = await requireApiPermission("roles.view");
-    if (authError && !session.user.isSuperAdmin) {
-      return authError;
+    if (!session?.user?.isSuperAdmin) {
+      return jsonError("Super Admin access required to manage user access.", 403);
     }
 
     const data = await listUserAccessData(ownerAdminId);
