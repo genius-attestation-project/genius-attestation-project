@@ -193,7 +193,8 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
  * Lists all users for ownerAdminId with complete office visibility and module permissions data.
  */
 export async function listUserAccessData(ownerAdminId: string) {
-  const [users, officeLocations, visibilities, permissions] = await Promise.all([
+  const db = prisma as any;
+  const [users, officeLocations, assignedOffices, visibilities, permissions] = await Promise.all([
     prisma.user.findMany({
       where: {
         OR: [
@@ -237,6 +238,17 @@ export async function listUserAccessData(ownerAdminId: string) {
         isProcessOffice: true,
       },
     }),
+    db.assignedOffice
+      ? db.assignedOffice.findMany({
+          where: { ownerAdminId, status: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+          orderBy: { username: "asc" },
+        })
+      : Promise.resolve([]),
     prisma.userOfficeVisibility.findMany({
       where: {
         user: {
@@ -307,14 +319,53 @@ export async function listUserAccessData(ownerAdminId: string) {
     };
   });
 
-  const formattedOffices = officeLocations.map((loc) => ({
-    id: loc.id,
-    officeName: loc.officeName,
-    location: loc.location,
-    isProcessOffice: loc.isProcessOffice,
-    isAssignedOffice: Boolean(loc.isProcessOffice),
-    category: loc.isProcessOffice ? "ASSIGNED_OFFICE" : "GLOBAL_OFFICE",
-  }));
+  const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
+  const assignedOfficeNames = new Set((assignedOffices as any[]).map((ao: any) => ao.username.toLowerCase()));
+
+  const officeMap = new Map<
+    string,
+    {
+      id: string;
+      officeName: string;
+      location: string;
+      isProcessOffice?: boolean;
+      isAssignedOffice: boolean;
+      category: "ASSIGNED_OFFICE" | "GLOBAL_OFFICE";
+    }
+  >();
+
+  for (const loc of officeLocations) {
+    const isAssigned = assignedOfficeIds.has(loc.id) || assignedOfficeNames.has(loc.officeName.toLowerCase());
+    const key = loc.officeName.toLowerCase();
+    if (!officeMap.has(key) || isAssigned) {
+      officeMap.set(key, {
+        id: loc.id,
+        officeName: loc.officeName,
+        location: isAssigned ? (loc.location || "External Processing Office") : (loc.location || "Office Location"),
+        isProcessOffice: loc.isProcessOffice,
+        isAssignedOffice: isAssigned,
+        category: isAssigned ? "ASSIGNED_OFFICE" : "GLOBAL_OFFICE",
+      });
+    }
+  }
+
+  for (const ao of (assignedOffices as any[])) {
+    const key = ao.username.toLowerCase();
+    if (!officeMap.has(key)) {
+      officeMap.set(key, {
+        id: ao.id,
+        officeName: ao.username,
+        location: "External Processing Office",
+        isProcessOffice: true,
+        isAssignedOffice: true,
+        category: "ASSIGNED_OFFICE",
+      });
+    }
+  }
+
+  const formattedOffices = Array.from(officeMap.values()).sort((a, b) =>
+    a.officeName.localeCompare(b.officeName)
+  );
 
   return {
     users: mappedUsers,
