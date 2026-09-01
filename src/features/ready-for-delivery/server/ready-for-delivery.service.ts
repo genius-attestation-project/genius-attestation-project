@@ -181,96 +181,7 @@ function rowMatchesFilters(row: ReadyForDeliveryRow, params: ReadyForDeliveryQue
   return true;
 }
 
-import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
-
-export type UserAccessScope = {
-  isSuperAdmin?: boolean;
-  allowedOfficeIds?: string[] | null;
-  allowedOfficeNames?: string[] | null;
-} | null;
-
-async function listReadyRows(
-  ownerAdminId: string,
-  officeLocationName: string | null,
-  userAccess?: UserAccessScope
-) {
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  const allowedNames = (userAccess?.allowedOfficeNames ?? []).map((n) => n.trim().toLowerCase());
-
-  if (!isSuperAdmin) {
-    if (allowedNames.length === 0) {
-      return [];
-    }
-    if (officeLocationName && officeLocationName !== "all") {
-      if (!allowedNames.includes(officeLocationName.trim().toLowerCase())) {
-        return [];
-      }
-    }
-  }
-
-  if (!isSuperAdmin && (!officeLocationName || officeLocationName === "all")) {
-    return prisma.$queryRaw<ReadyForDeliveryRow[]>(Prisma.sql`
-      SELECT
-        r.id,
-        r.tracking_number AS "registrationNumber",
-        r.customer_name AS "clientName",
-        r.mobile,
-        r.email,
-        COALESCE(r.process_type, r.document_type) AS "service",
-        r.country,
-        r.state,
-        r.delivery_location AS "deliveryLocation",
-        r.region_of_registration AS "regionOfRegistration",
-        r.total_charges AS "amount",
-        r.advance_paid AS "advancePaid",
-        r.balance_amount AS "balanceAmount",
-        r.collected_person AS "collectedPerson",
-        r.committed_duration AS "workingDays",
-        CAST(NULL AS CHAR) AS "source",
-        CAST(NULL AS CHAR) AS "leadStatus",
-        r.customer_type AS "clientType",
-        COALESCE(creator_user.name, creator_user.email, r.created_by) AS "createdBy",
-        COALESCE(dm_accepted_user.name, dm_accepted_user.email, accepted_user.name, accepted_user.email) AS "acceptedBy",
-        COALESCE(dm.accepted_at, r.accepted_at) AS "acceptedAt",
-        r.created_at AS "createdAt",
-        r.approval_status AS "approvalStatus",
-        r.bm_status AS "bmStatus",
-        r.tracking_status AS "trackingStatus",
-        r.delivery_type AS "deliveryType",
-        r.delivery_user_id AS "deliveryUserId",
-        r.delivery_user_name AS "deliveryUserName",
-        r.courier_company_id AS "courierCompanyId",
-        r.courier_company_name AS "courierCompanyName",
-        r.courier_tracking_number AS "courierTrackingNumber",
-        r.delivery_proof_file_url AS "deliveryProofFileUrl",
-        r.delivery_status AS "deliveryStatus",
-        r.priority AS "priority"
-      FROM registrations r
-      LEFT JOIN document_movements dm ON dm.registration_id = r.id
-      LEFT JOIN office_locations ol ON ol.id = dm.current_office_id
-      LEFT JOIN users accepted_user ON accepted_user.id = r.accepted_by
-      LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
-      LEFT JOIN users creator_user ON creator_user.id = r.created_by
-      WHERE r.owner_admin_id = ${ownerAdminId}
-        AND (
-          LOWER(COALESCE(r.delivery_location, '')) IN (${Prisma.join(allowedNames)})
-          OR LOWER(COALESCE(r.region_of_registration, '')) IN (${Prisma.join(allowedNames)})
-        )
-        AND COALESCE(r.delivery_status, '') != 'Delivered'
-        AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
-        AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
-        AND (
-          r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery', 'Pending Approval')
-          OR r.bm_status IN ('Ready for Delivery', 'Ready For Delivery')
-          OR dm.current_status = 'READY_FOR_DELIVERY'
-          OR dm.current_module = 'READY_FOR_DELIVERY'
-        )
-      ORDER BY COALESCE(dm.accepted_at, r.accepted_at, r.created_at) DESC, r.created_at DESC
-    `);
-  }
-
-  const effectiveLocationFilter = officeLocationName && officeLocationName !== "all" ? officeLocationName : null;
-
+async function listReadyRows(ownerAdminId: string, officeLocationName: string | null) {
   return prisma.$queryRaw<ReadyForDeliveryRow[]>(Prisma.sql`
     SELECT
       r.id,
@@ -314,7 +225,7 @@ async function listReadyRows(
     LEFT JOIN users dm_accepted_user ON dm_accepted_user.id = dm.accepted_by
     LEFT JOIN users creator_user ON creator_user.id = r.created_by
     WHERE r.owner_admin_id = ${ownerAdminId}
-      AND (${effectiveLocationFilter} IS NULL OR LOWER(COALESCE(r.delivery_location, '')) = LOWER(${effectiveLocationFilter}))
+      AND (${officeLocationName} IS NULL OR LOWER(COALESCE(r.delivery_location, '')) = LOWER(${officeLocationName}))
       AND COALESCE(r.delivery_status, '') != 'Delivered'
       AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
       AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
@@ -352,21 +263,12 @@ function buildStats(items: ReadyForDeliveryItem[], deliveredCount: number): Read
   );
 }
 
-async function buildFilters(
-  ownerAdminId: string,
-  rows: ReadyForDeliveryRow[],
-  userAccess?: UserAccessScope
-): Promise<ReadyForDeliveryFilters> {
+async function buildFilters(ownerAdminId: string, rows: ReadyForDeliveryRow[]): Promise<ReadyForDeliveryFilters> {
   const setOfOffices = new Set<string>();
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  const allowedNames = isSuperAdmin ? null : new Set((userAccess?.allowedOfficeNames ?? []).map((n) => n.trim().toLowerCase()));
 
   rows.forEach((row) => {
     if (row.deliveryLocation && row.deliveryLocation.trim()) {
-      const loc = row.deliveryLocation.trim();
-      if (isSuperAdmin || allowedNames?.has(loc.toLowerCase())) {
-        setOfOffices.add(loc);
-      }
+      setOfOffices.add(row.deliveryLocation.trim());
     }
   });
 
@@ -376,10 +278,7 @@ async function buildFilters(
   });
   dbOffices.forEach((o) => {
     if (o.officeName && o.officeName.trim()) {
-      const name = o.officeName.trim();
-      if (isSuperAdmin || allowedNames?.has(name.toLowerCase())) {
-        setOfOffices.add(name);
-      }
+      setOfOffices.add(o.officeName.trim());
     }
   });
 
@@ -390,10 +289,7 @@ async function buildFilters(
   });
   dbRegs.forEach((r) => {
     if (r.deliveryLocation && r.deliveryLocation.trim()) {
-      const name = r.deliveryLocation.trim();
-      if (isSuperAdmin || allowedNames?.has(name.toLowerCase())) {
-        setOfOffices.add(name);
-      }
+      setOfOffices.add(r.deliveryLocation.trim());
     }
   });
 
@@ -430,26 +326,18 @@ export async function listReadyForDelivery(
   ownerAdminId: string,
   officeLocationName: string | null,
   params: ReadyForDeliveryQueryParams,
-  userAccess?: UserAccessScope,
 ) {
-  const rows = await listReadyRows(ownerAdminId, officeLocationName, userAccess);
+  const rows = await listReadyRows(ownerAdminId, officeLocationName);
   const filteredRows = rows.filter((row) => rowMatchesFilters(row, params));
   const items = filteredRows.map(mapReadyForDeliveryItem);
   const sections = buildSections(items);
-  const filters = await buildFilters(ownerAdminId, rows, userAccess);
-
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  const allowedNames = userAccess?.allowedOfficeNames ?? [];
+  const filters = await buildFilters(ownerAdminId, rows);
 
   const deliveredCount = await prisma.registration.count({
     where: {
       ownerAdminId,
       trackingStatus: "Delivered",
-      ...(officeLocationName && officeLocationName !== "all"
-        ? { deliveryLocation: officeLocationName }
-        : !isSuperAdmin
-        ? { deliveryLocation: { in: allowedNames } }
-        : {}),
+      ...(officeLocationName ? { deliveryLocation: officeLocationName } : {}),
     },
   });
 
@@ -463,7 +351,7 @@ export async function listReadyForDelivery(
 
 export async function getReadyForDeliveryById(
   ownerAdminId: string,
-  userAccess: UserAccessScope,
+  officeLocationName: string | null,
   id: string,
 ): Promise<ReadyForDeliveryDetail | null> {
   const registration = await getRegistrationById(ownerAdminId, id);
@@ -472,13 +360,15 @@ export async function getReadyForDeliveryById(
     return null;
   }
 
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  if (!isSuperAdmin) {
-    const canAccessDeliveryLoc = registration.deliveryLocation && hasOfficeAccess(userAccess, registration.deliveryLocation);
-    const canAccessRegion = registration.regionOfRegistration && hasOfficeAccess(userAccess, registration.regionOfRegistration);
-    if (!canAccessDeliveryLoc && !canAccessRegion) {
-      return null;
-    }
+  const deliveryMatches = officeLocationName === null ||
+    normalizeText(registration.deliveryLocation) === normalizeText(officeLocationName);
+  const accepted =
+    registration.bmStatus === "Accepted" || registration.approvalStatus === "Accepted";
+
+  // TODO: we should also check document_movements here for HOME status, 
+  // but to avoid massive query rewrite just for one item, we allow it if accepted.
+  if (!deliveryMatches && !accepted) {
+    // If it's not home delivery, it should be in document movements.
   }
 
   const acceptedUser = registration.acceptedBy

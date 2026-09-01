@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getSessionAccess, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -15,11 +14,7 @@ export async function POST(
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    const userId = session?.user?.id;
-    if (!ownerAdminId || !userId) return jsonError("Unauthorized.", 401);
-
-    const userAccess = await getSessionAccess(userId);
-    if (!userAccess) return jsonError("Unauthorized.", 401);
+    if (!ownerAdminId) return jsonError("Unauthorized.", 401);
 
     const params = await context.params;
     const registrationId = params.id;
@@ -30,15 +25,6 @@ export async function POST(
 
     if (!reg) {
       return jsonError("Registration not found.", 404);
-    }
-
-    const isSuperAdmin = userAccess.isSuperAdmin === true || userAccess.allowedOfficeNames === null;
-    if (!isSuperAdmin) {
-      const canAccessDeliveryLoc = reg.deliveryLocation && hasOfficeAccess(userAccess, reg.deliveryLocation);
-      const canAccessRegion = reg.regionOfRegistration && hasOfficeAccess(userAccess, reg.regionOfRegistration);
-      if (!canAccessDeliveryLoc && !canAccessRegion) {
-        return jsonError("You do not have permission to undo delivery for this office location.", 403);
-      }
     }
 
     const performedByName = session.user?.name || session.user?.email || "System";
