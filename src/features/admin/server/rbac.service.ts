@@ -1118,6 +1118,16 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         result.add("account_menu.view");
         result.add("menu.master-configuration.account-menu");
       }
+      if (key.startsWith("master_configuration.")) {
+        result.add("menu.master-configuration.document-types");
+        result.add("menu.master-configuration.document-type-categories");
+        result.add("menu.master-configuration.attestation-types");
+        result.add("menu.master-configuration.sub-process");
+        result.add("menu.master-configuration.customer-types");
+        result.add("menu.master-configuration.corporate-details");
+        result.add("menu.master-configuration.payment-mode");
+        result.add("menu.master-configuration.courier-companies");
+      }
     }
 
     // 17. Admin Management
