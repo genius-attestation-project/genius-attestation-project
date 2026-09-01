@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { PERMISSION_CONFIGURED_SENTINEL } from "./rbac.service";
 
 /**
  * Asserts that a target user is manageable under the given ownerAdminId workspace.
@@ -96,7 +97,9 @@ export async function getUserPermissions(ownerAdminId: string, userId: string): 
     select: { permissionKey: true },
   });
 
-  return permissions.map((p) => p.permissionKey);
+  return permissions
+    .map((p) => p.permissionKey)
+    .filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
 }
 
 /**
@@ -110,21 +113,20 @@ export async function setUserPermissions(
   await assertUserInOwnerScope(ownerAdminId, targetUserId);
 
   const sanitizedKeys = Array.from(new Set(permissionKeys.map((k) => k.trim()).filter(Boolean)));
+  const keysToSave = Array.from(new Set([...sanitizedKeys, PERMISSION_CONFIGURED_SENTINEL]));
 
   await prisma.$transaction(async (tx) => {
     await tx.userPermission.deleteMany({
       where: { userId: targetUserId },
     });
 
-    if (sanitizedKeys.length > 0) {
-      await tx.userPermission.createMany({
-        data: sanitizedKeys.map((permissionKey) => ({
-          userId: targetUserId,
-          permissionKey,
-        })),
-        skipDuplicates: true,
-      });
-    }
+    await tx.userPermission.createMany({
+      data: keysToSave.map((permissionKey) => ({
+        userId: targetUserId,
+        permissionKey,
+      })),
+      skipDuplicates: true,
+    });
   });
 
   return { success: true, permissionKeys: sanitizedKeys };
@@ -146,16 +148,10 @@ export async function copyUserPermissions(
     throw new Error("Source and target user cannot be the same.");
   }
 
-  const sourcePermissions = await prisma.userPermission.findMany({
-    where: { userId: sourceUserId },
-    select: { permissionKey: true },
-  });
+  const sourcePermissions = await getUserPermissions(ownerAdminId, sourceUserId);
+  await setUserPermissions(ownerAdminId, targetUserId, sourcePermissions);
 
-  const permissionKeys = sourcePermissions.map((p) => p.permissionKey);
-
-  await setUserPermissions(ownerAdminId, targetUserId, permissionKeys);
-
-  return { success: true, copiedCount: permissionKeys.length };
+  return { success: true, copiedCount: sourcePermissions.length };
 }
 
 function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): string[] {
@@ -285,9 +281,12 @@ export async function listUserAccessData(ownerAdminId: string) {
     const isSuperAdmin = isOwner || u.role?.name === "Super Admin";
     const hasExplicitUserPermissions = userPermMap.has(u.id);
 
+    const rawUserPerms = userPermMap.get(u.id) ?? [];
+    const cleanUserPerms = rawUserPerms.filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
+
     let effectivePermissionKeys: string[] = [];
     if (hasExplicitUserPermissions) {
-      effectivePermissionKeys = userPermMap.get(u.id) ?? [];
+      effectivePermissionKeys = cleanUserPerms;
     } else if (u.role?.rolePermissions) {
       const roleCodes = u.role.rolePermissions.map((rp) => rp.permission.code);
       effectivePermissionKeys = mapRolePermissionsToMatrixCatalog(roleCodes);

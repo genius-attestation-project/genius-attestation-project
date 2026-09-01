@@ -252,6 +252,13 @@ const MODULE_PERMISSIONS_CATALOG: ModuleDefinition[] = [
         actions: [{ key: "attendance.view", label: "View" }],
       },
       {
+        label: "Check Out",
+        actions: [
+          { key: "attendance.check_out.view", label: "View" },
+          { key: "attendance.check_out.manage", label: "Manage" },
+        ],
+      },
+      {
         label: "Daily Summary",
         actions: [
           { key: "attendance.summary.create", label: "Create" },
@@ -311,9 +318,23 @@ const MODULE_PERMISSIONS_CATALOG: ModuleDefinition[] = [
   {
     key: "master_configuration",
     label: "MASTER CONFIGURATION",
-    actions: [
-      { key: "master_configuration.view", label: "View" },
-      { key: "master_configuration.manage", label: "Manage" },
+    subModules: [
+      {
+        label: "General Configurations",
+        actions: [
+          { key: "master_configuration.view", label: "View" },
+          { key: "master_configuration.manage", label: "Manage" },
+        ],
+      },
+      {
+        label: "Account Menu",
+        actions: [
+          { key: "account_menu.view", label: "View" },
+          { key: "account_menu.create", label: "Create" },
+          { key: "account_menu.update", label: "Update" },
+          { key: "account_menu.delete", label: "Delete" },
+        ],
+      },
     ],
   },
   {

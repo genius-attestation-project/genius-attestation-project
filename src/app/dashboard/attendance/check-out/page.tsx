@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/ui/PageHeader";
-import { requireAuth } from "@/middleware/auth.middleware";
+import { requirePermission } from "@/middleware/auth.middleware";
 import { AttendanceCheckoutForm } from "../../../../features/attendance/components/AttendanceCheckoutForm";
 
 export const metadata = {
@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default async function AttendanceCheckOutPage() {
-  await requireAuth("/dashboard/attendance/check-out");
+  await requirePermission("attendance.check_out.view", "/dashboard/attendance/check-out");
 
   // Get current server time
   const serverTime = new Date().toISOString();

@@ -97,7 +97,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         icon: ShieldCheck,
         menuPermission: "menu.admin-management.roles",
         pagePermission: "roles.view",
-        superAdminOnly: true,
       },
       {
         label: "Department",

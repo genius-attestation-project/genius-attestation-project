@@ -1064,6 +1064,9 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       if (key === "attendance.view") {
         result.add("menu.attendance.dashboard");
         result.add("menu.attendance.records");
+      } else if (key.startsWith("attendance.check_out.") || key.startsWith("attendance.checkout.")) {
+        result.add("attendance.check_out.view");
+        result.add("menu.attendance.checkout");
       } else if (key === "attendance.summary.create") {
         result.add("menu.attendance.daily-summary");
       } else if (key === "attendance.summary.view") {
@@ -1147,6 +1150,8 @@ export function expandEffectivePermissions(keys: string[]): string[] {
   return Array.from(result);
 }
 
+export const PERMISSION_CONFIGURED_SENTINEL = "__user_permissions_configured__";
+
 export async function getSessionAccess(userId: string): Promise<SessionAccess | null> {
   const [user, userPermRows, officeVisRows] = await Promise.all([
     prisma.user.findUnique({
@@ -1196,11 +1201,16 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     permissions.push("*");
   } else {
     let rawKeys: string[] = [];
-    if (userPermRows.length > 0) {
-      // User has explicitly configured individual permissions
-      rawKeys = userPermRows.map((up) => up.permissionKey);
+    const isExplicitlyConfigured = userPermRows.length > 0;
+
+    if (isExplicitlyConfigured) {
+      // User permissions have been explicitly configured by Super Admin.
+      // Use ONLY explicit permissions (excluding sentinel). Do NOT fall back to role defaults!
+      rawKeys = userPermRows
+        .map((up) => up.permissionKey)
+        .filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
     } else if (user.role?.rolePermissions) {
-      // Fallback to role permissions for un-configured users
+      // Fallback to role permissions ONLY for unconfigured users
       rawKeys = user.role.rolePermissions.map((rp) => rp.permission.code);
     }
 
