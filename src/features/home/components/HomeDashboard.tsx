@@ -32,6 +32,7 @@ import { PriorityDot } from "@/components/ui/PriorityDot";
 import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
 import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
+import { DestinationOfficeSelect } from "./DestinationOfficeSelect";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -533,53 +534,13 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 <span className="text-xs font-semibold text-slate-600 tracking-wider">
                   Select Destination Office:
                 </span>
-                <select
+                <DestinationOfficeSelect
+                  offices={offices}
+                  currentOfficeId={selectedOfficeId}
                   value={destinationOfficeId}
-                  onChange={(e) => setDestinationOfficeId(e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500"
-                >
-                  <option value="">Select Office</option>
-                  {(() => {
-                    const available = offices.filter((o) => o.id !== selectedOfficeId);
-                    const assignedOffices = available
-                      .filter((o: any) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
-                      .sort((a, b) => a.officeName.localeCompare(b.officeName));
-                    const globalOffices = available
-                      .filter((o: any) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice))
-                      .sort((a, b) => a.officeName.localeCompare(b.officeName));
-
-                    return (
-                      <>
-                        <optgroup label="ASSIGNED OFFICES">
-                          {assignedOffices.length > 0 ? (
-                            assignedOffices.map((off) => (
-                              <option key={off.id} value={off.id}>
-                                {off.officeName}
-                              </option>
-                            ))
-                          ) : (
-                            <option disabled value="">
-                              No assigned offices available
-                            </option>
-                          )}
-                        </optgroup>
-                        <optgroup label="GLOBAL OFFICES">
-                          {globalOffices.length > 0 ? (
-                            globalOffices.map((off) => (
-                              <option key={off.id} value={off.id}>
-                                {off.officeName}
-                              </option>
-                            ))
-                          ) : (
-                            <option disabled value="">
-                              No global offices available
-                            </option>
-                          )}
-                        </optgroup>
-                      </>
-                    );
-                  })()}
-                </select>
+                  onChange={(id) => setDestinationOfficeId(id)}
+                  disabled={isLoading}
+                />
 
                 <Button
                   onClick={handleTransfer}
