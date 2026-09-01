@@ -902,6 +902,161 @@ export async function deleteOfficeLocation(ownerAdminId: string, officeLocationI
   return true;
 }
 
+export function expandPermissions(rawPermissions: string[]): string[] {
+  if (rawPermissions.includes("*")) {
+    return ["*"];
+  }
+
+  const set = new Set<string>(rawPermissions);
+  if (set.size === 0) {
+    return [];
+  }
+
+  // Any user with permissions can view the dashboard
+  set.add("dashboard.view");
+  set.add("menu.dashboard");
+
+  for (const key of rawPermissions) {
+    if (key.startsWith("home.") || key === "home.view") {
+      set.add("home.view");
+      set.add("menu.home");
+    }
+
+    if (key.startsWith("process.") || key === "process.view") {
+      set.add("process.view");
+      set.add("menu.process");
+    }
+
+    if (key.startsWith("revenue_registration.") || key === "revenue_registration.view") {
+      set.add("revenue_registration.view");
+      set.add("menu.revenue-registration");
+    }
+
+    if (key.startsWith("ready_for_delivery.") || key === "ready_for_delivery.view") {
+      set.add("ready_for_delivery.view");
+      set.add("menu.ready-for-delivery");
+    }
+
+    if (key.startsWith("welcome_call.") || key === "welcome_call.view") {
+      set.add("welcome_call.view");
+      set.add("menu.welcome-call");
+    }
+
+    if (
+      key.startsWith("leads.") ||
+      key.startsWith("followups.") ||
+      key.startsWith("assigned_leads.") ||
+      key.startsWith("lob.") ||
+      key.startsWith("closed_leads.") ||
+      key === "lead_management.view"
+    ) {
+      set.add("lead_management.view");
+      set.add("menu.lead-management");
+
+      if (key.startsWith("leads.")) set.add("menu.lead-management.all-leads");
+      if (key.startsWith("followups.")) set.add("menu.lead-management.followups");
+      if (key.startsWith("assigned_leads.")) set.add("menu.lead-management.assign-leads");
+      if (key.startsWith("lob.")) set.add("menu.lead-management.lob");
+      if (key.startsWith("closed_leads.")) set.add("menu.lead-management.closed");
+    }
+
+    if (
+      key.startsWith("users.") ||
+      key.startsWith("roles.") ||
+      key.startsWith("access_management.") ||
+      key.startsWith("departments.") ||
+      key.startsWith("office_locations.") ||
+      key === "admin_management.view"
+    ) {
+      set.add("admin_management.view");
+      set.add("menu.admin-management");
+
+      if (key.startsWith("users.")) set.add("menu.admin-management.users");
+      if (key.startsWith("roles.") || key.startsWith("access_management.")) set.add("menu.admin-management.roles");
+      if (key.startsWith("departments.")) set.add("menu.admin-management.department");
+      if (key.startsWith("office_locations.")) set.add("menu.admin-management.office-location");
+    }
+
+    if (key.startsWith("pending_approval.") || key === "pending_approval.view") {
+      set.add("pending_approval.view");
+      set.add("menu.lead-management.pending-approval");
+    }
+
+    if (key.startsWith("search_report.") || key === "search_report.view") {
+      set.add("search_report.view");
+      set.add("menu.search-report");
+      set.add("menu.search-report.general");
+    }
+
+    if (key.startsWith("reports.") || key === "reports.view") {
+      set.add("reports.view");
+      set.add("menu.reports");
+    }
+
+    if (key.startsWith("bm_report.") || key === "bm_report.view") {
+      set.add("bm_report.view");
+      set.add("menu.bm-report");
+    }
+
+    if (key.startsWith("assigned_office.") || key === "assigned_office.view") {
+      set.add("assigned_office.view");
+      set.add("menu.assigned-office");
+    }
+
+    if (key.startsWith("account_panel.") || key === "account_panel.view") {
+      set.add("account_panel.view");
+      set.add("menu.account-panel");
+    }
+
+    if (key.startsWith("account_statements.") || key === "account_statements.view") {
+      set.add("account_statements.view");
+      set.add("menu.account-statements");
+    }
+
+    if (key.startsWith("attendance.") || key.startsWith("attendance_") || key === "attendance.view") {
+      set.add("attendance.view");
+      set.add("menu.attendance");
+
+      if (key === "attendance.view") {
+        set.add("menu.attendance.dashboard");
+        set.add("menu.attendance.records");
+      }
+      if (key === "attendance.summary.create") set.add("menu.attendance.daily-summary");
+      if (key === "attendance.summary.view") set.add("menu.attendance.daily-summary-approval");
+      if (key === "attendance_approval.view") set.add("menu.attendance.approval");
+      if (key === "attendance.checkout.create") set.add("menu.attendance.checkout");
+      if (key === "attendance_settings.manage") set.add("menu.attendance.settings");
+    }
+
+    if (key.startsWith("leave.") || key === "leave.view") {
+      set.add("leave.view");
+      set.add("menu.leave-management");
+
+      if (key === "leave.create") set.add("menu.leave-management.apply");
+      if (key === "leave.view") set.add("menu.leave-management.requests");
+      if (key === "leave.approve") set.add("menu.leave-management.approval");
+      if (key === "leave.report") set.add("menu.leave-management.reports");
+    }
+
+    if (key.startsWith("salary.") || key === "salary.view") {
+      set.add("salary.view");
+      set.add("menu.salary-management");
+
+      if (key === "salary.view") set.add("menu.salary-management.dashboard");
+      if (key === "salary.calculate") set.add("menu.salary-management.calculator");
+      if (key === "salary.generate") set.add("menu.salary-management.monthly-payroll");
+      if (key === "salary.report") set.add("menu.salary-management.reports");
+    }
+
+    if (key.startsWith("master_configuration.") || key === "master_configuration.view") {
+      set.add("master_configuration.view");
+      set.add("menu.master-configuration");
+    }
+  }
+
+  return Array.from(set);
+}
+
 export async function getSessionAccess(userId: string): Promise<SessionAccess | null> {
   const [user, userPermRows, officeVisRows] = await Promise.all([
     prisma.user.findUnique({
@@ -943,27 +1098,33 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   const isOwner = user.ownerAdminId === user.id || !user.ownerAdminId;
   const isSuperAdmin = isOwner || user.role?.name === "Super Admin";
   const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "User");
-  
-  const permissions: string[] = [];
+
+  const rawPermissions: string[] = [];
   const permissionScopes: Record<string, string> = {};
 
   if (isSuperAdmin) {
-    permissions.push("*");
+    rawPermissions.push("*");
   } else {
-    if (userPermRows.length > 0) {
-      // User has explicitly configured individual permissions
-      for (const up of userPermRows) {
-        permissions.push(up.permissionKey);
-        permissionScopes[up.permissionKey] = "All";
-      }
-    } else if (user.role?.rolePermissions) {
-      // Fallback to role permissions for un-configured legacy users
+    // 1. Explicit user permissions
+    for (const up of userPermRows) {
+      rawPermissions.push(up.permissionKey);
+      permissionScopes[up.permissionKey] = "All";
+    }
+
+    // 2. Role permissions (combined so role defaults are preserved)
+    if (user.role?.rolePermissions) {
       for (const rp of user.role.rolePermissions) {
-        permissions.push(rp.permission.code);
-        permissionScopes[rp.permission.code] = (rp as any).scope ?? "All";
+        if (!rawPermissions.includes(rp.permission.code)) {
+          rawPermissions.push(rp.permission.code);
+        }
+        if (!permissionScopes[rp.permission.code]) {
+          permissionScopes[rp.permission.code] = (rp as any).scope ?? "All";
+        }
       }
     }
   }
+
+  const permissions = isSuperAdmin ? ["*"] : expandPermissions(rawPermissions);
 
   const allowedOfficeIds = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocationId);
   const allowedOfficeNames = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocation.officeName);
@@ -999,10 +1160,18 @@ export function hasOfficeAccess(
 }
 
 export function hasPermission(access: SessionAccess | { permissions: string[]; isSuperAdmin?: boolean }, code: string) {
-  if (access.isSuperAdmin) {
+  if (!access) return false;
+  if (access.isSuperAdmin || (access.permissions && access.permissions.includes("*"))) {
     return true;
   }
-  return access.permissions.includes(code);
+  if (!access.permissions || !Array.isArray(access.permissions)) {
+    return false;
+  }
+  if (access.permissions.includes(code)) {
+    return true;
+  }
+  const expanded = expandPermissions(access.permissions);
+  return expanded.includes(code);
 }
 
 export function getPermissionScope(access: SessionAccess | { isSuperAdmin?: boolean; permissionScopes?: Record<string, string> }, code: string): string {

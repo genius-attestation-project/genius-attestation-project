@@ -50,6 +50,13 @@ type ModuleDefinition = {
 
 const MODULE_PERMISSIONS_CATALOG: ModuleDefinition[] = [
   {
+    key: "dashboard",
+    label: "DASHBOARD OVERVIEW",
+    actions: [
+      { key: "dashboard.view", label: "View Dashboard Overview" },
+    ],
+  },
+  {
     key: "revenue_registration",
     label: "REVENUE REGISTRATION",
     actions: [
