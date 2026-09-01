@@ -43,8 +43,6 @@ export const permissionActions = [
   "deliver", "undo", "view_details"
 ] as const;
 
-export { PERMISSION_CATALOG, expandPermissionsFromCatalog } from "./permission-catalog.data";
-
 export type PermissionAction = (typeof permissionActions)[number];
 
 export type NavigationItemDefinition = {
@@ -99,6 +97,7 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         icon: ShieldCheck,
         menuPermission: "menu.admin-management.roles",
         pagePermission: "roles.view",
+        superAdminOnly: true,
       },
       {
         label: "Department",
