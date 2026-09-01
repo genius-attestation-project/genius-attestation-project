@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
     if (officeId && !hasOfficeAccess(currentUser, officeId)) {
       if (!currentUser.isSuperAdmin && currentUser.allowedOfficeIds?.length) {
         officeId = currentUser.allowedOfficeIds[0];
+      } else if (!currentUser.isSuperAdmin) {
+        return NextResponse.json(
+          { error: "Access to the requested office location is forbidden." },
+          { status: 403 }
+        );
       }
     }
 
@@ -100,9 +105,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "You do not have permission to transfer bundles." }, { status: 403 });
       }
       const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
+      const effectiveFromOfficeId = fromOfficeId || currentUser.officeLocationId;
+
+      if (effectiveFromOfficeId && !hasOfficeAccess(currentUser, effectiveFromOfficeId)) {
+        return NextResponse.json(
+          { error: "Access to the source office location is forbidden." },
+          { status: 403 }
+        );
+      }
+
+      if (toOfficeId && !hasOfficeAccess(currentUser, toOfficeId)) {
+        return NextResponse.json(
+          { error: "Access to the destination office location is forbidden." },
+          { status: 403 }
+        );
+      }
+
       const result = await createTransferBundle({
         trackingNumbers,
-        fromOfficeId: fromOfficeId || currentUser.officeLocationId,
+        fromOfficeId: effectiveFromOfficeId,
         toOfficeId,
         userId: currentUser.id,
         userName: currentUser.name || undefined,

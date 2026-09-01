@@ -11,7 +11,9 @@ export type OfficeOption = {
 };
 
 interface DestinationOfficeSelectProps {
-  offices: OfficeOption[];
+  offices?: OfficeOption[];
+  assignedOfficesInput?: OfficeOption[];
+  globalOfficesInput?: OfficeOption[];
   currentOfficeId?: string;
   value: string;
   onChange: (value: string) => void;
@@ -20,7 +22,9 @@ interface DestinationOfficeSelectProps {
 }
 
 export function DestinationOfficeSelect({
-  offices,
+  offices = [],
+  assignedOfficesInput,
+  globalOfficesInput,
   currentOfficeId,
   value,
   onChange,
@@ -37,32 +41,50 @@ export function DestinationOfficeSelect({
   const listboxRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // All available offices combined
+  const allAvailableOffices = useMemo(() => {
+    if (assignedOfficesInput || globalOfficesInput) {
+      return [...(assignedOfficesInput || []), ...(globalOfficesInput || [])];
+    }
+    return offices;
+  }, [offices, assignedOfficesInput, globalOfficesInput]);
+
   // Filter out the current active location (cannot transfer to self)
   const availableOffices = useMemo(() => {
-    if (!currentOfficeId) return offices;
-    return offices.filter((o) => o.id !== currentOfficeId);
-  }, [offices, currentOfficeId]);
+    if (!currentOfficeId) return allAvailableOffices;
+    return allAvailableOffices.filter((o) => o.id !== currentOfficeId);
+  }, [allAvailableOffices, currentOfficeId]);
 
   // Selected office object
   const selectedOffice = useMemo(() => {
-    return availableOffices.find((o) => o.id === value) || offices.find((o) => o.id === value);
-  }, [availableOffices, offices, value]);
+    return availableOffices.find((o) => o.id === value) || allAvailableOffices.find((o) => o.id === value);
+  }, [availableOffices, allAvailableOffices, value]);
 
   // Categorized & filtered options
   const { assignedOffices, globalOffices, flatList } = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    const filtered = availableOffices.filter((o) =>
-      o.officeName.toLowerCase().includes(term)
+    const sourceAssigned = assignedOfficesInput
+      ? assignedOfficesInput
+      : offices.filter((o) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice);
+
+    const sourceGlobal = globalOfficesInput
+      ? globalOfficesInput
+      : offices.filter((o) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice));
+
+    const filterSelf = (list: OfficeOption[]) =>
+      currentOfficeId ? list.filter((o) => o.id !== currentOfficeId) : list;
+
+    const filterSearch = (list: OfficeOption[]) =>
+      term ? list.filter((o) => o.officeName.toLowerCase().includes(term)) : list;
+
+    const assigned = filterSearch(filterSelf(sourceAssigned)).sort((a, b) =>
+      a.officeName.localeCompare(b.officeName)
     );
 
-    const assigned = filtered
-      .filter((o) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
-      .sort((a, b) => a.officeName.localeCompare(b.officeName));
-
-    const global = filtered
-      .filter((o) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice))
-      .sort((a, b) => a.officeName.localeCompare(b.officeName));
+    const global = filterSearch(filterSelf(sourceGlobal)).sort((a, b) =>
+      a.officeName.localeCompare(b.officeName)
+    );
 
     const flat = [...assigned, ...global];
 
@@ -71,7 +93,7 @@ export function DestinationOfficeSelect({
       globalOffices: global,
       flatList: flat,
     };
-  }, [availableOffices, searchTerm]);
+  }, [offices, assignedOfficesInput, globalOfficesInput, currentOfficeId, searchTerm]);
 
   // Close when clicking outside
   useEffect(() => {

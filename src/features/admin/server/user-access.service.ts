@@ -354,3 +354,103 @@ export async function listUserAccessData(ownerAdminId: string) {
     officeLocations: formattedOffices,
   };
 }
+
+/**
+ * Canonical helper for resolving office visibility options for a user.
+ * Returns strictly separated assignedOffices and globalOffices.
+ * For Super Admin: returns all workspace assigned and global offices.
+ * For non-Super Admin: returns ONLY offices permitted in UserOfficeVisibility table.
+ */
+export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: string) {
+  const db = prisma as any;
+  const [user, officeLocations, assignedOffices, visibilities] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        ownerAdminId: true,
+        role: { select: { name: true } },
+      },
+    }),
+    prisma.officeLocation.findMany({
+      where: { ownerAdminId },
+      select: {
+        id: true,
+        officeName: true,
+        location: true,
+        isProcessOffice: true,
+      },
+      orderBy: { officeName: "asc" },
+    }),
+    db.assignedOffice
+      ? db.assignedOffice.findMany({
+          where: { ownerAdminId, status: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+          orderBy: { username: "asc" },
+        })
+      : Promise.resolve([]),
+    prisma.userOfficeVisibility.findMany({
+      where: { userId },
+      select: { officeLocationId: true },
+    }),
+  ]);
+
+  const isOwner = !user?.ownerAdminId || user.ownerAdminId === user.id;
+  const isSuperAdmin = isOwner || user?.role?.name === "Super Admin";
+
+  const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
+  const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
+
+  // Build Assigned Offices list (Source 2: assigned_offices table)
+  const allAssigned = (assignedOffices as any[]).map((ao: any) => ({
+    id: ao.id,
+    officeName: ao.username,
+    location: "External Processing Office",
+    isProcessOffice: true,
+    isAssignedOffice: true,
+    category: "ASSIGNED_OFFICE" as const,
+    sourceType: "ASSIGNED_OFFICE" as const,
+  }));
+
+  // Build Global Offices list (Source 1: office_locations table, excluding assigned office shadow records)
+  const allGlobal = officeLocations
+    .filter((loc) => !assignedOfficeIds.has(loc.id))
+    .map((loc) => ({
+      id: loc.id,
+      officeName: loc.officeName,
+      location: loc.location || "Office Location",
+      isProcessOffice: loc.isProcessOffice,
+      isAssignedOffice: false,
+      category: "GLOBAL_OFFICE" as const,
+      sourceType: "GLOBAL_OFFICE" as const,
+    }));
+
+  if (isSuperAdmin) {
+    const assigned = allAssigned.sort((a, b) => a.officeName.localeCompare(b.officeName));
+    const global = allGlobal.sort((a, b) => a.officeName.localeCompare(b.officeName));
+    return {
+      assignedOffices: assigned,
+      globalOffices: global,
+      offices: [...assigned, ...global],
+    };
+  }
+
+  // Non-Super Admin: filter strictly by permittedOfficeIds
+  const permittedAssigned = allAssigned
+    .filter((ao) => permittedOfficeIds.has(ao.id))
+    .sort((a, b) => a.officeName.localeCompare(b.officeName));
+
+  const permittedGlobal = allGlobal
+    .filter((go) => permittedOfficeIds.has(go.id))
+    .sort((a, b) => a.officeName.localeCompare(b.officeName));
+
+  return {
+    assignedOffices: permittedAssigned,
+    globalOffices: permittedGlobal,
+    offices: [...permittedAssigned, ...permittedGlobal],
+  };
+}

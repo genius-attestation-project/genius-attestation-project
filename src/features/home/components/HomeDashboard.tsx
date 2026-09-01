@@ -50,6 +50,8 @@ type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
 export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("document_in_hand");
   const [offices, setOffices] = useState<OfficeOption[]>([]);
+  const [assignedOffices, setAssignedOffices] = useState<OfficeOption[]>([]);
+  const [globalOffices, setGlobalOffices] = useState<OfficeOption[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
   const [destinationOfficeId, setDestinationOfficeId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +89,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
           const body = await res.json();
           const list = body.offices || body.data || [];
           setOffices(list);
+          setAssignedOffices(body.assignedOffices || []);
+          setGlobalOffices(body.globalOffices || []);
           if (list.length > 0) {
             const current = list.find(
               (o: any) => o.officeName.toLowerCase() === currentOfficeLocationName.toLowerCase()
@@ -536,6 +540,8 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
                 </span>
                 <DestinationOfficeSelect
                   offices={offices}
+                  assignedOfficesInput={assignedOffices}
+                  globalOfficesInput={globalOffices}
                   currentOfficeId={selectedOfficeId}
                   value={destinationOfficeId}
                   onChange={(id) => setDestinationOfficeId(id)}
