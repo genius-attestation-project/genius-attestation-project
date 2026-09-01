@@ -31,6 +31,7 @@ type OfficeLocationItem = {
   isProcessOffice?: boolean;
   isAssignedOffice?: boolean;
   category?: string;
+  sourceType?: string;
 };
 
 // Explicit Module Definition catalog for User Access Matrix (maps to real system features)
@@ -504,9 +505,9 @@ export function UserAccessManagement() {
 
     for (const office of officeLocations) {
       const isAssigned = Boolean(
-        office.isProcessOffice ||
-        office.isAssignedOffice ||
-        office.category === "ASSIGNED_OFFICE"
+        office.sourceType === "ASSIGNED_OFFICE" ||
+        office.category === "ASSIGNED_OFFICE" ||
+        office.isAssignedOffice
       );
       if (isAssigned) {
         assigned.push(office);

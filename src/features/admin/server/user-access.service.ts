@@ -320,50 +320,32 @@ export async function listUserAccessData(ownerAdminId: string) {
   });
 
   const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
-  const assignedOfficeNames = new Set((assignedOffices as any[]).map((ao: any) => ao.username.toLowerCase()));
 
-  const officeMap = new Map<
-    string,
-    {
-      id: string;
-      officeName: string;
-      location: string;
-      isProcessOffice?: boolean;
-      isAssignedOffice: boolean;
-      category: "ASSIGNED_OFFICE" | "GLOBAL_OFFICE";
-    }
-  >();
+  // Source 2: Dashboard -> Assigned Office (assigned_offices table)
+  const assignedList = (assignedOffices as any[]).map((ao: any) => ({
+    id: ao.id,
+    officeName: ao.username,
+    location: "External Processing Office",
+    isProcessOffice: true,
+    isAssignedOffice: true,
+    category: "ASSIGNED_OFFICE" as const,
+    sourceType: "ASSIGNED_OFFICE" as const,
+  }));
 
-  for (const loc of officeLocations) {
-    const isAssigned = assignedOfficeIds.has(loc.id) || assignedOfficeNames.has(loc.officeName.toLowerCase());
-    const key = loc.officeName.toLowerCase();
-    if (!officeMap.has(key) || isAssigned) {
-      officeMap.set(key, {
-        id: loc.id,
-        officeName: loc.officeName,
-        location: isAssigned ? (loc.location || "External Processing Office") : (loc.location || "Office Location"),
-        isProcessOffice: loc.isProcessOffice,
-        isAssignedOffice: isAssigned,
-        category: isAssigned ? "ASSIGNED_OFFICE" : "GLOBAL_OFFICE",
-      });
-    }
-  }
+  // Source 1: Admin Management -> Office Location (office_locations table)
+  const globalList = officeLocations
+    .filter((loc) => !assignedOfficeIds.has(loc.id))
+    .map((loc) => ({
+      id: loc.id,
+      officeName: loc.officeName,
+      location: loc.location || "Office Location",
+      isProcessOffice: loc.isProcessOffice,
+      isAssignedOffice: false,
+      category: "GLOBAL_OFFICE" as const,
+      sourceType: "GLOBAL_OFFICE" as const,
+    }));
 
-  for (const ao of (assignedOffices as any[])) {
-    const key = ao.username.toLowerCase();
-    if (!officeMap.has(key)) {
-      officeMap.set(key, {
-        id: ao.id,
-        officeName: ao.username,
-        location: "External Processing Office",
-        isProcessOffice: true,
-        isAssignedOffice: true,
-        category: "ASSIGNED_OFFICE",
-      });
-    }
-  }
-
-  const formattedOffices = Array.from(officeMap.values()).sort((a, b) =>
+  const formattedOffices = [...assignedList, ...globalList].sort((a, b) =>
     a.officeName.localeCompare(b.officeName)
   );
 
