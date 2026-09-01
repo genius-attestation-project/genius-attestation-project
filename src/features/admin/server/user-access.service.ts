@@ -234,6 +234,7 @@ export async function listUserAccessData(ownerAdminId: string) {
         id: true,
         officeName: true,
         location: true,
+        isProcessOffice: true,
       },
     }),
     prisma.userOfficeVisibility.findMany({
@@ -306,8 +307,17 @@ export async function listUserAccessData(ownerAdminId: string) {
     };
   });
 
+  const formattedOffices = officeLocations.map((loc) => ({
+    id: loc.id,
+    officeName: loc.officeName,
+    location: loc.location,
+    isProcessOffice: loc.isProcessOffice,
+    isAssignedOffice: Boolean(loc.isProcessOffice),
+    category: loc.isProcessOffice ? "ASSIGNED_OFFICE" : "GLOBAL_OFFICE",
+  }));
+
   return {
     users: mappedUsers,
-    officeLocations,
+    officeLocations: formattedOffices,
   };
 }

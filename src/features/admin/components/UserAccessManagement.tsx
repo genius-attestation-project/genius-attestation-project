@@ -28,6 +28,9 @@ type OfficeLocationItem = {
   id: string;
   officeName: string;
   location: string;
+  isProcessOffice?: boolean;
+  isAssignedOffice?: boolean;
+  category?: string;
 };
 
 // Explicit Module Definition catalog for User Access Matrix (maps to real system features)
@@ -494,14 +497,44 @@ export function UserAccessManagement() {
     );
   }, [users, userSearchQuery]);
 
-  // Filtered office locations for multi-select office dropdown search
-  const filteredOfficeLocations = useMemo(() => {
-    if (!officeSearchQuery.trim()) return officeLocations;
-    const q = officeSearchQuery.toLowerCase();
-    return officeLocations.filter(
-      (o) => o.officeName.toLowerCase().includes(q) || o.location.toLowerCase().includes(q)
+  // Categorize officeLocations into Assigned Offices & Global Offices
+  const { assignedOffices, globalOffices } = useMemo(() => {
+    const assigned: OfficeLocationItem[] = [];
+    const global: OfficeLocationItem[] = [];
+
+    for (const office of officeLocations) {
+      const isAssigned = Boolean(
+        office.isProcessOffice ||
+        office.isAssignedOffice ||
+        office.category === "ASSIGNED_OFFICE"
+      );
+      if (isAssigned) {
+        assigned.push(office);
+      } else {
+        global.push(office);
+      }
+    }
+
+    return { assignedOffices: assigned, globalOffices: global };
+  }, [officeLocations]);
+
+  // Filtered assigned offices for search
+  const filteredAssignedOffices = useMemo(() => {
+    if (!officeSearchQuery.trim()) return assignedOffices;
+    const q = officeSearchQuery.toLowerCase().trim();
+    return assignedOffices.filter(
+      (o) => o.officeName.toLowerCase().includes(q) || (o.location && o.location.toLowerCase().includes(q))
     );
-  }, [officeLocations, officeSearchQuery]);
+  }, [assignedOffices, officeSearchQuery]);
+
+  // Filtered global offices for search
+  const filteredGlobalOffices = useMemo(() => {
+    if (!officeSearchQuery.trim()) return globalOffices;
+    const q = officeSearchQuery.toLowerCase().trim();
+    return globalOffices.filter(
+      (o) => o.officeName.toLowerCase().includes(q) || (o.location && o.location.toLowerCase().includes(q))
+    );
+  }, [globalOffices, officeSearchQuery]);
 
   const selectedUser = useMemo(
     () => users.find((u) => u.id === selectedUserId) ?? null,
@@ -519,18 +552,50 @@ export function UserAccessManagement() {
     });
   }
 
-  function selectAllOfficesForUser(userId: string) {
-    setOfficeVisMap((prev) => ({
-      ...prev,
-      [userId]: officeLocations.map((o) => o.id),
-    }));
+  function selectAllAssignedOfficesForUser(userId: string) {
+    const assignedIds = new Set(assignedOffices.map((o) => o.id));
+    setOfficeVisMap((prev) => {
+      const current = prev[userId] ?? [];
+      const nonAssignedCurrent = current.filter((id) => !assignedIds.has(id));
+      return {
+        ...prev,
+        [userId]: Array.from(new Set([...nonAssignedCurrent, ...assignedOffices.map((o) => o.id)])),
+      };
+    });
   }
 
-  function clearAllOfficesForUser(userId: string) {
-    setOfficeVisMap((prev) => ({
-      ...prev,
-      [userId]: [],
-    }));
+  function clearAllAssignedOfficesForUser(userId: string) {
+    const assignedIds = new Set(assignedOffices.map((o) => o.id));
+    setOfficeVisMap((prev) => {
+      const current = prev[userId] ?? [];
+      return {
+        ...prev,
+        [userId]: current.filter((id) => !assignedIds.has(id)),
+      };
+    });
+  }
+
+  function selectAllGlobalOfficesForUser(userId: string) {
+    const globalIds = new Set(globalOffices.map((o) => o.id));
+    setOfficeVisMap((prev) => {
+      const current = prev[userId] ?? [];
+      const nonGlobalCurrent = current.filter((id) => !globalIds.has(id));
+      return {
+        ...prev,
+        [userId]: Array.from(new Set([...nonGlobalCurrent, ...globalOffices.map((o) => o.id)])),
+      };
+    });
+  }
+
+  function clearAllGlobalOfficesForUser(userId: string) {
+    const globalIds = new Set(globalOffices.map((o) => o.id));
+    setOfficeVisMap((prev) => {
+      const current = prev[userId] ?? [];
+      return {
+        ...prev,
+        [userId]: current.filter((id) => !globalIds.has(id)),
+      };
+    });
   }
 
   // Save Office Visibility for a specific user
@@ -729,140 +794,298 @@ export function UserAccessManagement() {
         /* =================================================== */
         /* SECTION 1: OFFICE VISIBILITY ACCESS                */
         /* =================================================== */
-        <DashboardCard
-          title="Office Visibility Access"
-          description="Control which office locations each individual user is allowed to view data from. System queries enforce this server-side."
-        >
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            {/* Search Box */}
-            <div className="relative min-w-65 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
-              <input
-                type="text"
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-                placeholder="Search user by name, email or role..."
-                className="w-full rounded-xl border border-(--border) bg-white/60 pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-white/5"
-              />
+        /* =================================================== */
+        /* SECTION 1: OFFICE VISIBILITY ACCESS                */
+        /* =================================================== */
+        <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+          {/* Left Column: User Selector List */}
+          <DashboardCard
+            title="Users"
+            description="Select a user to configure office visibility permissions."
+          >
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
+                <input
+                  type="text"
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  placeholder="Search user..."
+                  className="w-full rounded-xl border border-(--border) bg-white/60 pl-9 pr-3 py-1.5 text-xs outline-none focus:border-blue-500 dark:bg-white/5"
+                />
+              </div>
             </div>
 
-            <div className="text-xs font-bold text-soft">
-              Total Authorized Users: {filteredUsers.length}
+            <div className="flex flex-col gap-1 max-h-150 overflow-y-auto pr-1">
+              {filteredUsers.map((u) => {
+                const isSelected = u.id === selectedUserId;
+                const userOffices = officeVisMap[u.id] ?? [];
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedUserId(u.id);
+                      setOfficeSearchQuery("");
+                    }}
+                    className={`flex items-center gap-3 rounded-xl p-2.5 text-left text-xs transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-500/10 font-bold text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                        : "hover:bg-black/5 dark:hover:bg-white/5 text-foreground border border-transparent"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold ${
+                        isSelected
+                          ? "bg-blue-600 text-white"
+                          : "bg-black/5 dark:bg-white/10 text-soft"
+                      }`}
+                    >
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{u.name}</p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-soft">
+                        <span className="truncate">{u.roleName}</span>
+                        <span>•</span>
+                        <span>{u.isSuperAdmin ? "All Offices" : `${userOffices.length} offices`}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </DashboardCard>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-(--border) text-xs font-extrabold uppercase tracking-wider text-soft">
-                <tr>
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Permitted Office Locations</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border)">
-                {filteredUsers.map((user) => {
-                  const assignedOfficeIds = officeVisMap[user.id] ?? [];
-                  const isSaving = savingOfficesUser === user.id;
+          {/* Right Column: Permitted Office Locations Configuration */}
+          {selectedUser ? (
+            <DashboardCard
+              title={`Office Visibility — ${selectedUser.name}`}
+              description="Control which office locations this user can access. System queries enforce this server-side."
+              action={
+                !selectedUser.isSuperAdmin && (
+                  <Button
+                    size="sm"
+                    disabled={savingOfficesUser === selectedUser.id}
+                    onClick={() => void handleSaveOfficeVisibility(selectedUser.id)}
+                  >
+                    <Save size={14} />
+                    {savingOfficesUser === selectedUser.id ? "Saving..." : "Save Visibility"}
+                  </Button>
+                )
+              }
+            >
+              {selectedUser.isSuperAdmin ? (
+                <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-xs font-semibold text-purple-900 dark:border-purple-900/30 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-3">
+                  <ShieldCheck className="h-6 w-6 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-sm">Root Scoped — Full Office Access</p>
+                    <p className="text-purple-700 dark:text-purple-300/80 font-normal mt-0.5">
+                      Super Admin users automatically have full unrestricted access to all assigned and global office locations across the workspace.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                (() => {
+                  const userPermittedIds = officeVisMap[selectedUser.id] ?? [];
+                  const selectedAssignedCount = assignedOffices.filter((o) =>
+                    userPermittedIds.includes(o.id)
+                  ).length;
+                  const selectedGlobalCount = globalOffices.filter((o) =>
+                    userPermittedIds.includes(o.id)
+                  ).length;
 
                   return (
-                    <tr key={user.id} className="hover:bg-black/5 dark:hover:bg-white/5">
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
+                    <div className="flex flex-col gap-6">
+                      {/* Search Filter Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
+                        <input
+                          type="text"
+                          value={officeSearchQuery}
+                          onChange={(e) => setOfficeSearchQuery(e.target.value)}
+                          placeholder="Search offices by name or location..."
+                          className="w-full rounded-xl border border-(--border) bg-white/60 pl-9 pr-8 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-white/5"
+                        />
+                        {officeSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setOfficeSearchQuery("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-soft hover:text-foreground cursor-pointer"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* SECTION A — ASSIGNED OFFICES */}
+                      <div className="rounded-2xl border border-(--border) bg-black/5 dark:bg-white/5 p-4 sm:p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-(--border) pb-3">
                           <div>
-                            <p className="font-extrabold text-foreground">{user.name}</p>
-                            <p className="text-xs text-soft">{user.email}</p>
+                            <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                              <Building2 size={15} />
+                              ASSIGNED OFFICES
+                            </h4>
+                            <p className="text-xs text-soft mt-0.5 font-semibold">
+                              {selectedAssignedCount} selected ({assignedOffices.length} total)
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => selectAllAssignedOfficesForUser(selectedUser.id)}
+                              disabled={assignedOffices.length === 0}
+                            >
+                              Select All
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => clearAllAssignedOfficesForUser(selectedUser.id)}
+                              disabled={assignedOffices.length === 0}
+                            >
+                              Clear All
+                            </Button>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            user.isSuperAdmin
-                              ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                              : "bg-blue-50 text-blue-600 dark:bg-blue-900/30"
-                          }`}
-                        >
-                          {user.roleName}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        {user.isSuperAdmin ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-extrabold text-purple-600 dark:text-purple-400">
-                            <ShieldCheck size={14} /> Full Access (All Offices)
-                          </span>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap gap-2">
-                              {officeLocations.map((office) => {
-                                const checked = assignedOfficeIds.includes(office.id);
+
+                        {/* Assigned Offices Grid */}
+                        <div className="max-h-72 overflow-y-auto pr-1">
+                          {assignedOffices.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-soft font-medium">
+                              No assigned offices are available.
+                            </div>
+                          ) : filteredAssignedOffices.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-soft font-medium">
+                              No assigned offices match your search "{officeSearchQuery}".
+                            </div>
+                          ) : (
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                              {filteredAssignedOffices.map((office) => {
+                                const isChecked = userPermittedIds.includes(office.id);
                                 return (
-                                  <label
+                                  <button
                                     key={office.id}
-                                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold cursor-pointer transition-colors ${
-                                      checked
-                                        ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                                        : "border-(--border) bg-white/40 text-soft hover:border-slate-400 dark:bg-white/5"
+                                    type="button"
+                                    onClick={() => toggleOfficeForUser(selectedUser.id, office.id)}
+                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
+                                      isChecked
+                                        ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-sm"
+                                        : "border-(--border) bg-white/60 dark:bg-white/5 hover:border-blue-400/60 hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
                                     }`}
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => toggleOfficeForUser(user.id, office.id)}
-                                      className="h-3.5 w-3.5 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                    />
-                                    {office.officeName}
-                                  </label>
+                                    <div className="mt-0.5 shrink-0">
+                                      {isChecked ? (
+                                        <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-soft" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-xs font-bold">{office.officeName}</p>
+                                      <p className="truncate text-[11px] font-medium text-soft mt-0.5">
+                                        Assigned Office {office.location ? `• ${office.location}` : ""}
+                                      </p>
+                                    </div>
+                                  </button>
                                 );
                               })}
                             </div>
-                            <div className="flex items-center gap-3 text-xs">
-                              <button
-                                type="button"
-                                onClick={() => selectAllOfficesForUser(user.id)}
-                                className="font-bold text-blue-600 hover:underline dark:text-blue-400"
-                              >
-                                Select All
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => clearAllOfficesForUser(user.id)}
-                                className="font-bold text-rose-600 hover:underline dark:text-rose-400"
-                              >
-                                Clear All
-                              </button>
-                              <span className="text-soft">
-                                ({assignedOfficeIds.length} of {officeLocations.length} assigned)
-                              </span>
-                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SECTION B — GLOBAL OFFICES */}
+                      <div className="rounded-2xl border border-(--border) bg-black/5 dark:bg-white/5 p-4 sm:p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-(--border) pb-3">
+                          <div>
+                            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                              <Building2 size={15} />
+                              GLOBAL OFFICES
+                            </h4>
+                            <p className="text-xs text-soft mt-0.5 font-semibold">
+                              {selectedGlobalCount} selected ({globalOffices.length} total)
+                            </p>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        {!user.isSuperAdmin ? (
-                          <Button
-                            size="sm"
-                            disabled={isSaving}
-                            onClick={() => void handleSaveOfficeVisibility(user.id)}
-                          >
-                            <Save size={14} />
-                            {isSaving ? "Saving..." : "Save Visibility"}
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-soft">Root Scoped</span>
-                        )}
-                      </td>
-                    </tr>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => selectAllGlobalOfficesForUser(selectedUser.id)}
+                              disabled={globalOffices.length === 0}
+                            >
+                              Select All
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => clearAllGlobalOfficesForUser(selectedUser.id)}
+                              disabled={globalOffices.length === 0}
+                            >
+                              Clear All
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Global Offices Grid */}
+                        <div className="max-h-72 overflow-y-auto pr-1">
+                          {globalOffices.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-soft font-medium">
+                              No global office locations are available.
+                            </div>
+                          ) : filteredGlobalOffices.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-soft font-medium">
+                              No global offices match your search "{officeSearchQuery}".
+                            </div>
+                          ) : (
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                              {filteredGlobalOffices.map((office) => {
+                                const isChecked = userPermittedIds.includes(office.id);
+                                return (
+                                  <button
+                                    key={office.id}
+                                    type="button"
+                                    onClick={() => toggleOfficeForUser(selectedUser.id, office.id)}
+                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-150 cursor-pointer ${
+                                      isChecked
+                                        ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-sm"
+                                        : "border-(--border) bg-white/60 dark:bg-white/5 hover:border-blue-400/60 hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
+                                    }`}
+                                  >
+                                    <div className="mt-0.5 shrink-0">
+                                      {isChecked ? (
+                                        <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-soft" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-xs font-bold">{office.officeName}</p>
+                                      <p className="truncate text-[11px] font-medium text-soft mt-0.5">
+                                        {office.location || "Office Location"}
+                                      </p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </DashboardCard>
+                })()
+              )}
+            </DashboardCard>
+          ) : null}
+        </section>
       ) : (
         /* =================================================== */
         /* SECTION 2: MODULE & ACTION PERMISSIONS              */
