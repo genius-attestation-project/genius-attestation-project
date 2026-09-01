@@ -194,7 +194,7 @@ export function DestinationOfficeSelect({
           onKeyDown={handleKeyDown}
         >
           {/* Search Header */}
-          <div className="sticky top-0 z-20 border-b border-slate-100 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
             <div className="relative flex items-center">
               <Search className="absolute left-2.5 h-4 w-4 text-slate-400" />
               <input
@@ -203,7 +203,7 @@ export function DestinationOfficeSelect({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search offices..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none transition-colors focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50/80 pl-8 pr-3 py-1.5 text-xs font-medium text-[#1F2937] placeholder:text-slate-400 outline-none transition-colors focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
               />
             </div>
           </div>
@@ -218,15 +218,15 @@ export function DestinationOfficeSelect({
           >
             {flatList.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs">
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No offices found</p>
-                <p className="mt-1 text-slate-400">Try a different search term.</p>
+                <p className="font-bold text-[#1F2937] dark:text-slate-200">No offices found</p>
+                <p className="mt-1 text-slate-500 dark:text-slate-400">Try a different search term.</p>
               </div>
             ) : (
               <>
                 {/* ASSIGNED OFFICES SECTION */}
                 {assignedOffices.length > 0 && (
                   <div role="group" aria-label="Assigned Offices">
-                    <div className="sticky top-0 z-10 border-y border-slate-100 bg-slate-50/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/90 dark:text-slate-400">
+                    <div className="sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       ASSIGNED OFFICES
                     </div>
                     {assignedOffices.map((office) => {
@@ -245,16 +245,16 @@ export function DestinationOfficeSelect({
                           aria-selected={isSelected}
                           onClick={() => handleSelect(office.id)}
                           onMouseEnter={() => setActiveIndex(itemIndex)}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors ${
+                          className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs transition-colors cursor-pointer ${
                             isSelected
-                              ? "font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/30"
+                              ? "font-bold text-blue-700 bg-blue-50 dark:text-blue-300 dark:bg-blue-950/60"
                               : isActive
-                              ? "bg-slate-100 dark:bg-slate-800/70 text-slate-900 dark:text-slate-100"
-                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                              ? "bg-blue-50/80 text-[#1F2937] dark:bg-blue-950/40 dark:text-slate-100 font-medium"
+                              : "text-[#1F2937] dark:text-slate-200 hover:bg-blue-50/70 hover:text-[#1F2937] dark:hover:bg-blue-950/30 font-medium"
                           }`}
                         >
                           <span className="truncate">{office.officeName}</span>
-                          {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />}
+                          {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 stroke-[2.5]" />}
                         </button>
                       );
                     })}
@@ -264,7 +264,7 @@ export function DestinationOfficeSelect({
                 {/* GLOBAL OFFICES SECTION */}
                 {globalOffices.length > 0 && (
                   <div role="group" aria-label="Global Offices">
-                    <div className="sticky top-0 z-10 border-y border-slate-100 bg-slate-50/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/90 dark:text-slate-400">
+                    <div className="sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       GLOBAL OFFICES
                     </div>
                     {globalOffices.map((office) => {
@@ -283,16 +283,16 @@ export function DestinationOfficeSelect({
                           aria-selected={isSelected}
                           onClick={() => handleSelect(office.id)}
                           onMouseEnter={() => setActiveIndex(itemIndex)}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors ${
+                          className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs transition-colors cursor-pointer ${
                             isSelected
-                              ? "font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/30"
+                              ? "font-bold text-blue-700 bg-blue-50 dark:text-blue-300 dark:bg-blue-950/60"
                               : isActive
-                              ? "bg-slate-100 dark:bg-slate-800/70 text-slate-900 dark:text-slate-100"
-                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                              ? "bg-blue-50/80 text-[#1F2937] dark:bg-blue-950/40 dark:text-slate-100 font-medium"
+                              : "text-[#1F2937] dark:text-slate-200 hover:bg-blue-50/70 hover:text-[#1F2937] dark:hover:bg-blue-950/30 font-medium"
                           }`}
                         >
                           <span className="truncate">{office.officeName}</span>
-                          {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />}
+                          {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 stroke-[2.5]" />}
                         </button>
                       );
                     })}
