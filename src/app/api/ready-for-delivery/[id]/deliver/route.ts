@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSessionAccess, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
@@ -48,6 +49,9 @@ export async function POST(
       return jsonError("Please complete all mandatory delivery information before continuing.", 400);
     }
 
+    const userAccess = await getSessionAccess(session.user.id);
+    if (!userAccess) return jsonError("Unauthorized.", 401);
+
     const reg = await prisma.registration.findFirst({
       where: { id: registrationId, ownerAdminId },
       include: {
@@ -57,6 +61,15 @@ export async function POST(
 
     if (!reg) {
       return jsonError("Registration not found.", 404);
+    }
+
+    const isSuperAdmin = userAccess.isSuperAdmin === true || userAccess.allowedOfficeNames === null;
+    if (!isSuperAdmin) {
+      const canAccessDeliveryLoc = reg.deliveryLocation && hasOfficeAccess(userAccess, reg.deliveryLocation);
+      const canAccessRegion = reg.regionOfRegistration && hasOfficeAccess(userAccess, reg.regionOfRegistration);
+      if (!canAccessDeliveryLoc && !canAccessRegion) {
+        return jsonError("You do not have permission to deliver documents for this office location.", 403);
+      }
     }
 
     // 1. CORE SUBPROCESS VALIDATION BEFORE READY FOR DELIVERY / DELIVERY

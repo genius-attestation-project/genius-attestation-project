@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { getSessionAccess, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { listReadyForDelivery } from "@/features/ready-for-delivery/server/ready-for-delivery.service";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -11,7 +12,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const userId = session?.user?.id;
+    if (!ownerAdminId || !userId) return jsonError("Unauthorized.", 401);
+
+    const userAccess = await getSessionAccess(userId);
+    if (!userAccess) return jsonError("User session access not found.", 401);
 
     const { searchParams } = new URL(request.url);
     const requestedOffice =
@@ -24,13 +29,22 @@ export async function GET(request: NextRequest) {
         ? requestedOffice.trim()
         : null;
 
-    const data = await listReadyForDelivery(ownerAdminId, officeFilter, {
-      search: searchParams.get("search") ?? undefined,
-      service: searchParams.get("service") ?? undefined,
-      country: searchParams.get("country") ?? undefined,
-      officeLocation: officeFilter ?? undefined,
-      date: searchParams.get("date") ?? undefined,
-    });
+    if (officeFilter && !hasOfficeAccess(userAccess, officeFilter)) {
+      return jsonError("Access to the requested office location is forbidden.", 403);
+    }
+
+    const data = await listReadyForDelivery(
+      ownerAdminId,
+      officeFilter,
+      {
+        search: searchParams.get("search") ?? undefined,
+        service: searchParams.get("service") ?? undefined,
+        country: searchParams.get("country") ?? undefined,
+        officeLocation: officeFilter ?? undefined,
+        date: searchParams.get("date") ?? undefined,
+      },
+      userAccess
+    );
 
     return jsonOk(data);
   } catch (error) {

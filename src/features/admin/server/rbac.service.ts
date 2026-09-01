@@ -1167,6 +1167,7 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     prisma.user.findUnique({
       where: { id: userId },
       include: {
+        officeLocationRef: { select: { id: true, officeName: true } },
         role: {
           include: {
             rolePermissions: {
@@ -1231,8 +1232,26 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     }
   }
 
-  const allowedOfficeIds = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocationId);
-  const allowedOfficeNames = isSuperAdmin ? null : officeVisRows.map((v) => v.officeLocation.officeName);
+  const primaryOfficeId = user.officeLocationId ?? user.officeLocationRef?.id ?? null;
+  const primaryOfficeName = user.officeLocationName ?? user.officeLocationRef?.officeName ?? null;
+
+  const allowedOfficeIds = isSuperAdmin
+    ? null
+    : Array.from(
+        new Set([
+          ...(primaryOfficeId ? [primaryOfficeId] : []),
+          ...officeVisRows.map((v) => v.officeLocationId),
+        ])
+      );
+
+  const allowedOfficeNames = isSuperAdmin
+    ? null
+    : Array.from(
+        new Set([
+          ...(primaryOfficeName ? [primaryOfficeName] : []),
+          ...officeVisRows.map((v) => v.officeLocation.officeName),
+        ])
+      );
 
   const access = buildSafeSessionAccess({
     userId: user.id,
