@@ -1202,8 +1202,8 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   }
 
   const isOwner = user.ownerAdminId === user.id || !user.ownerAdminId;
-  const isSuperAdmin = isOwner || user.role?.name === "Super Admin";
-  const roleName = isOwner ? "Super Admin" : (user.role?.name ?? "User");
+  const isSuperAdmin = user.role ? user.role.name === "Super Admin" : isOwner;
+  const roleName = user.role?.name ?? (isOwner ? "Super Admin" : "User");
   
   const permissions: string[] = [];
   const permissionScopes: Record<string, string> = {};

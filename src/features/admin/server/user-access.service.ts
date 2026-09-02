@@ -291,7 +291,7 @@ export async function listUserAccessData(ownerAdminId: string) {
 
   const mappedUsers = users.map((u) => {
     const isOwner = u.ownerAdminId === u.id || !u.ownerAdminId;
-    const isSuperAdmin = isOwner || u.role?.name === "Super Admin";
+    const isSuperAdmin = u.role ? u.role.name === "Super Admin" : isOwner;
     const hasExplicitUserPermissions = userPermMap.has(u.id);
 
     const rawUserPerms = userPermMap.get(u.id) ?? [];
@@ -310,7 +310,7 @@ export async function listUserAccessData(ownerAdminId: string) {
       name: u.name ?? "Workspace User",
       email: u.email,
       image: u.image ?? "",
-      roleName: isOwner ? "Super Admin" : (u.role?.name ?? "User"),
+      roleName: u.role?.name ?? (isOwner ? "Super Admin" : "User"),
       isActive: u.isActive,
       isSuperAdmin,
       hasUserPermissions: hasExplicitUserPermissions,
@@ -400,7 +400,7 @@ export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: s
   ]);
 
   const isOwner = !user?.ownerAdminId || user.ownerAdminId === user.id;
-  const isSuperAdmin = isOwner || user?.role?.name === "Super Admin";
+  const isSuperAdmin = user?.role ? user.role.name === "Super Admin" : isOwner;
 
   const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
   const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
