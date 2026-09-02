@@ -440,19 +440,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               session.user.isSuperAdmin = access.isSuperAdmin;
               session.user.allowedOfficeIds = access.allowedOfficeIds;
               session.user.allowedOfficeNames = access.allowedOfficeNames;
+              session.user.moduleOfficeVisibilities = access.moduleOfficeVisibilities;
             } else {
               session.user.permissions = [];
               session.user.allowedOfficeIds = [];
               session.user.allowedOfficeNames = [];
+              session.user.moduleOfficeVisibilities = null;
             }
           } else if (token.accountType === "ASSIGNED_OFFICE") {
             session.user.permissions = ["menu.assigned-office", "assigned_office.view"];
             session.user.allowedOfficeIds = null;
             session.user.allowedOfficeNames = null;
+            session.user.moduleOfficeVisibilities = null;
           } else {
             session.user.permissions = [];
             session.user.allowedOfficeIds = [];
             session.user.allowedOfficeNames = [];
+            session.user.moduleOfficeVisibilities = null;
           }
 
           console.info("[auth] Session Payload:", {

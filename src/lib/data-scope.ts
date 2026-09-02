@@ -104,11 +104,12 @@ export function buildDataScopeFilter(user: SessionAccess | any, permissionCode: 
  * Returns { id: "none" } if user has 0 allowed offices assigned.
  */
 export function buildOfficeVisibilityWhereInput(
-  user: { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null } | any,
+  user: { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null; moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null } | any,
   options: {
     officeIdField?: string;
     officeNameField?: string;
     relationOfficeField?: string;
+    moduleKey?: string;
   } = {}
 ) {
   if (!user) return { id: "none" };
@@ -116,8 +117,16 @@ export function buildOfficeVisibilityWhereInput(
     return {};
   }
 
-  const allowedIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
-  const allowedNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
+  let allowedIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
+  let allowedNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
+
+  if (options.moduleKey && user.moduleOfficeVisibilities?.[options.moduleKey]) {
+    const modConfig = user.moduleOfficeVisibilities[options.moduleKey];
+    if (modConfig) {
+      allowedIds = modConfig.officeIds ?? [];
+      allowedNames = modConfig.officeNames ?? [];
+    }
+  }
 
   if (allowedIds.length === 0 && allowedNames.length === 0) {
     return { id: "none" };

@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 
 import { setUserOfficeVisibility } from "@/features/admin/server/user-access.service";
-import { requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -20,15 +19,29 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => null);
     const userId = body?.userId;
+    const moduleKey = body?.moduleKey;
     const officeLocationIds = Array.isArray(body?.officeLocationIds)
       ? body.officeLocationIds.filter((id: any) => typeof id === "string" && id.trim())
-      : [];
+      : undefined;
+    const moduleOfficeMap = body?.moduleOfficeMap && typeof body.moduleOfficeMap === "object"
+      ? (body.moduleOfficeMap as Record<string, string[]>)
+      : undefined;
 
     if (!userId || typeof userId !== "string") {
       return jsonError("Target user ID is required.", 400);
     }
 
-    const result = await setUserOfficeVisibility(ownerAdminId, userId, officeLocationIds);
+    if (!moduleKey && !moduleOfficeMap && !officeLocationIds) {
+      return jsonError("Either moduleKey with officeLocationIds or moduleOfficeMap is required.", 400);
+    }
+
+    const result = await setUserOfficeVisibility(ownerAdminId, userId, {
+      moduleKey: typeof moduleKey === "string" && moduleKey.trim() ? moduleKey.trim() : undefined,
+      officeLocationIds,
+      moduleOfficeMap,
+      createdBy: session.user.id,
+    });
+
     return jsonOk(result);
   } catch (error) {
     console.error("[POST /api/admin/user-access/offices] Save office visibility error:", error);

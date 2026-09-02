@@ -26,6 +26,21 @@ export async function GET(request: NextRequest) {
 
     const isSuperAdmin = userAccess.isSuperAdmin === true || userAccess.allowedOfficeNames === null;
 
+    // Scope userAccess to ready_for_delivery module if module-specific visibility exists
+    let effectiveAllowedOfficeNames = userAccess.allowedOfficeNames;
+    let effectiveAllowedOfficeIds = userAccess.allowedOfficeIds;
+    if (!isSuperAdmin && userAccess.moduleOfficeVisibilities?.["ready_for_delivery"]) {
+      const modConfig = userAccess.moduleOfficeVisibilities["ready_for_delivery"];
+      effectiveAllowedOfficeNames = modConfig.officeNames;
+      effectiveAllowedOfficeIds = modConfig.officeIds;
+    }
+
+    const effectiveUserAccess = {
+      ...userAccess,
+      allowedOfficeNames: effectiveAllowedOfficeNames,
+      allowedOfficeIds: effectiveAllowedOfficeIds,
+    };
+
     let officeFilter: string | null = null;
 
     if (requestedOffice && requestedOffice.trim() !== "") {
@@ -36,15 +51,15 @@ export async function GET(request: NextRequest) {
         }
         officeFilter = null;
       } else {
-        if (!hasOfficeAccess(userAccess, trimmed)) {
+        if (!hasOfficeAccess(userAccess, trimmed, "ready_for_delivery")) {
           return jsonError("Access to the requested office location is forbidden.", 403);
         }
         officeFilter = trimmed;
       }
     } else {
       if (!isSuperAdmin) {
-        // Default to user's assigned office (first authorized office)
-        officeFilter = userAccess.allowedOfficeNames?.[0] ?? null;
+        // Default to user's assigned office (first authorized office for ready_for_delivery)
+        officeFilter = effectiveAllowedOfficeNames?.[0] ?? null;
       } else {
         officeFilter = null;
       }
@@ -60,7 +75,7 @@ export async function GET(request: NextRequest) {
         officeLocation: officeFilter ?? undefined,
         date: searchParams.get("date") ?? undefined,
       },
-      userAccess
+      effectiveUserAccess
     );
 
     return jsonOk(data);

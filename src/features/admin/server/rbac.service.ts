@@ -49,6 +49,7 @@ function buildSafeSessionAccess(params: {
   isSuperAdmin?: boolean;
   allowedOfficeIds?: string[] | null;
   allowedOfficeNames?: string[] | null;
+  moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null;
 }): SessionAccess {
   const role = params.role ?? (params.legacyRole === "ADMIN" ? "Super Admin" : "User");
   const roles = params.roles ?? (role ? [role] : []);
@@ -68,6 +69,7 @@ function buildSafeSessionAccess(params: {
     isSuperAdmin,
     allowedOfficeIds: params.allowedOfficeIds ?? null,
     allowedOfficeNames: params.allowedOfficeNames ?? null,
+    moduleOfficeVisibilities: params.moduleOfficeVisibilities ?? null,
   };
 }
 
@@ -1235,6 +1237,21 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   const primaryOfficeId = user.officeLocationId ?? user.officeLocationRef?.id ?? null;
   const primaryOfficeName = user.officeLocationName ?? user.officeLocationRef?.officeName ?? null;
 
+  // Build module-wise office visibility map
+  const moduleOfficeVisibilities: Record<string, { officeIds: string[]; officeNames: string[] }> = {};
+  for (const v of officeVisRows) {
+    const mKey = v.moduleKey || "global";
+    if (!moduleOfficeVisibilities[mKey]) {
+      moduleOfficeVisibilities[mKey] = { officeIds: [], officeNames: [] };
+    }
+    if (v.officeLocationId && !moduleOfficeVisibilities[mKey].officeIds.includes(v.officeLocationId)) {
+      moduleOfficeVisibilities[mKey].officeIds.push(v.officeLocationId);
+    }
+    if (v.officeLocation?.officeName && !moduleOfficeVisibilities[mKey].officeNames.includes(v.officeLocation.officeName)) {
+      moduleOfficeVisibilities[mKey].officeNames.push(v.officeLocation.officeName);
+    }
+  }
+
   const allowedOfficeIds = isSuperAdmin
     ? null
     : Array.from(
@@ -1265,21 +1282,36 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     isSuperAdmin,
     allowedOfficeIds,
     allowedOfficeNames,
+    moduleOfficeVisibilities: isSuperAdmin ? null : moduleOfficeVisibilities,
   });
 
   return access;
 }
 
 export function hasOfficeAccess(
-  access: SessionAccess | { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null } | null | undefined,
+  access: SessionAccess | { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null; moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null } | null | undefined,
   officeIdOrName?: string | null,
+  moduleKey?: string
 ): boolean {
   if (!access) return false;
   if (access.isSuperAdmin || access.allowedOfficeIds === null || access.allowedOfficeNames === null) return true;
   if (!officeIdOrName) return false;
+
+  const target = officeIdOrName.trim().toLowerCase();
+
+  // If moduleKey is provided and module-specific visibilities exist for this module, check them
+  if (moduleKey && access.moduleOfficeVisibilities) {
+    const modConfig = access.moduleOfficeVisibilities[moduleKey];
+    if (modConfig) {
+      const matchId = modConfig.officeIds.some((id) => id.toLowerCase() === target);
+      const matchName = modConfig.officeNames.some((name) => name.toLowerCase() === target);
+      return matchId || matchName;
+    }
+  }
+
   return (
-    (access.allowedOfficeIds ?? []).includes(officeIdOrName) ||
-    (access.allowedOfficeNames ?? []).includes(officeIdOrName)
+    (access.allowedOfficeIds ?? []).some((id) => id.toLowerCase() === target) ||
+    (access.allowedOfficeNames ?? []).some((name) => name.toLowerCase() === target)
   );
 }
 

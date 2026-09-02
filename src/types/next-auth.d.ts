@@ -20,6 +20,7 @@ declare module "next-auth" {
       officeId?: string;
       allowedOfficeIds?: string[] | null;
       allowedOfficeNames?: string[] | null;
+      moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null;
     } & DefaultSession["user"];
   }
 }

@@ -794,13 +794,16 @@ model UserOfficeVisibility {
   id               String         @id @default(cuid())
   userId           String         @map("user_id")
   user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleKey        String         @default("global") @map("module_key")
   officeLocationId String         @map("office_location_id")
   officeLocation   OfficeLocation @relation(fields: [officeLocationId], references: [id], onDelete: Cascade)
+  createdBy        String?        @map("created_by")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  @@unique([userId, officeLocationId])
+  @@unique([userId, moduleKey, officeLocationId])
   @@index([userId])
+  @@index([moduleKey])
   @@index([officeLocationId])
   @@map("user_office_visibility")
 }

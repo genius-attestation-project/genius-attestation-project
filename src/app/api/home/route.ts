@@ -29,6 +29,15 @@ export async function GET(req: NextRequest) {
 
     let officeId: string | undefined = undefined;
 
+    let allowedOfficeIds = currentUser.allowedOfficeIds;
+    let allowedOfficeNames = currentUser.allowedOfficeNames;
+
+    if (!isSuperAdmin && currentUser.moduleOfficeVisibilities?.["home"]) {
+      const modConfig = currentUser.moduleOfficeVisibilities["home"];
+      allowedOfficeIds = modConfig.officeIds;
+      allowedOfficeNames = modConfig.officeNames;
+    }
+
     if (isSuperAdmin) {
       officeId = requestedOfficeId || undefined;
     } else {
@@ -40,7 +49,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (requestedOfficeId) {
-        if (!hasOfficeAccess(currentUser, requestedOfficeId)) {
+        if (!hasOfficeAccess(currentUser, requestedOfficeId, "home")) {
           return NextResponse.json(
             { error: "Access to the requested office location is forbidden." },
             { status: 403 }
@@ -48,7 +57,7 @@ export async function GET(req: NextRequest) {
         }
         officeId = requestedOfficeId;
       } else {
-        officeId = currentUser.officeLocationId || currentUser.allowedOfficeIds?.[0] || undefined;
+        officeId = currentUser.officeLocationId || allowedOfficeIds?.[0] || undefined;
       }
     }
 
@@ -58,8 +67,8 @@ export async function GET(req: NextRequest) {
         officeId,
         search,
         isSuperAdmin: currentUser.isSuperAdmin,
-        allowedOfficeIds: currentUser.allowedOfficeIds,
-        allowedOfficeNames: currentUser.allowedOfficeNames,
+        allowedOfficeIds,
+        allowedOfficeNames,
       });
       return NextResponse.json({ data });
     }

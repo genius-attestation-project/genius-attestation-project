@@ -19,6 +19,14 @@ export async function GET(request: NextRequest) {
     }
 
     let officeLocationName = session?.user?.officeLocationName;
+    const isSuperAdmin = Boolean(session?.user?.isSuperAdmin);
+
+    if (!isSuperAdmin && session?.user?.moduleOfficeVisibilities?.["process"]) {
+      const processOfficeNames = session.user.moduleOfficeVisibilities["process"].officeNames;
+      if (processOfficeNames && processOfficeNames.length > 0) {
+        officeLocationName = processOfficeNames[0];
+      }
+    }
 
     const { searchParams } = new URL(request.url);
     const processType = searchParams.get("processType") || undefined;
@@ -26,7 +34,7 @@ export async function GET(request: NextRequest) {
     const officeParam = searchParams.get("officeId") || searchParams.get("officeName") || searchParams.get("office");
 
     if (officeParam) {
-      if (!hasOfficeAccess(session.user, officeParam)) {
+      if (!hasOfficeAccess(session.user, officeParam, "process")) {
         return jsonError("You do not have access to the specified office location.", 403);
       }
 

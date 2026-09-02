@@ -53,6 +53,21 @@ export type UserAccessRow = {
   createdBy: string;
 };
 
+export type ModuleDefinitionItem = {
+  key: string;
+  label: string;
+  href?: string;
+  category?: string;
+  description?: string;
+  subModules?: Array<{
+    key: string;
+    label: string;
+    href?: string;
+  }>;
+};
+
+export type UserModuleOfficeVisibilityMap = Record<string, string[]>;
+
 export type SessionAccess = {
   id: string;
   name: string | null;
@@ -65,6 +80,7 @@ export type SessionAccess = {
   isSuperAdmin: boolean;
   allowedOfficeIds?: string[] | null;
   allowedOfficeNames?: string[] | null;
+  moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null;
 };
 
 export type RolePayload = {

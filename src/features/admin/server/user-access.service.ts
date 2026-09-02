@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sidebarNavigation, permissionModules } from "@/features/admin/data/rbac.data";
 import { PERMISSION_CONFIGURED_SENTINEL } from "./rbac.service";
 
 /**
@@ -13,7 +14,7 @@ async function assertUserInOwnerScope(ownerAdminId: string, targetUserId: string
         { id: ownerAdminId },
       ],
     },
-    select: { id: true, ownerAdminId: true },
+    select: { id: true, ownerAdminId: true, role: { select: { name: true } } },
   });
 
   if (!targetUser) {
@@ -24,66 +25,370 @@ async function assertUserInOwnerScope(ownerAdminId: string, targetUserId: string
 }
 
 /**
- * Returns list of assigned office location IDs for a user.
+ * System Operational Modules dynamically derived from sidebar navigation & permission definitions.
+ * Provides canonical module keys, display labels, categories, and descriptions for Office Visibility Access.
  */
-export async function getUserOfficeVisibility(ownerAdminId: string, userId: string): Promise<string[]> {
+export function getOperationalModules() {
+  const modulesList: Array<{
+    key: string;
+    label: string;
+    href: string;
+    description: string;
+    category: string;
+    subModules?: Array<{ key: string; label: string; href?: string }>;
+  }> = [];
+
+  const seenKeys = new Set<string>();
+
+  // Canonical mapping for primary operational modules
+  const operationalMap: Record<string, { key: string; label: string; description: string; category: string }> = {
+    "/dashboard/revenue-registration": {
+      key: "revenue_registration",
+      label: "Revenue Registration",
+      description: "Customer registration, document intake, and invoice collection",
+      category: "Operations",
+    },
+    "/dashboard/process": {
+      key: "process",
+      label: "Process Module",
+      description: "Document movement between branch offices and assigned processing centers",
+      category: "Processing",
+    },
+    "/dashboard/home": {
+      key: "home",
+      label: "Home Workflow",
+      description: "Document In Hand, Inbound bundles, Outbound bundles, and Movement History",
+      category: "Operations",
+    },
+    "/dashboard/ready-for-delivery": {
+      key: "ready_for_delivery",
+      label: "Ready For Delivery",
+      description: "Final document dispatch, customer delivery, and courier tracking",
+      category: "Delivery",
+    },
+    "/dashboard/search-report": {
+      key: "search_report",
+      label: "Search / Report",
+      description: "General document search, tracking status query, and operational exports",
+      category: "Reporting",
+    },
+    "/dashboard/lead-management": {
+      key: "lead_management",
+      label: "Lead Management",
+      description: "Lead capture, followups, assignment, LOB, and closed deals pipeline",
+      category: "Sales",
+    },
+    "/dashboard/pending-approval": {
+      key: "pending_approval",
+      label: "Pending Approval",
+      description: "Supervisor approval queue for status transitions and document workflow",
+      category: "Approvals",
+    },
+    "/dashboard/account-statements": {
+      key: "account_statements",
+      label: "Account Statement",
+      description: "Client financial ledgers, statement entries, and running balance records",
+      category: "Finance",
+    },
+    "/dashboard/account-panel": {
+      key: "account_panel",
+      label: "Account Panel",
+      description: "Direct accounting vouchers, expense debits, and credit entries",
+      category: "Finance",
+    },
+    "/dashboard/reports": {
+      key: "reports",
+      label: "Reports & Analytics",
+      description: "Centralized analytical reports and executive summary dashboards",
+      category: "Reporting",
+    },
+    "/dashboard/bm-report": {
+      key: "bm_report",
+      label: "BM Report",
+      description: "Real-time document movement tracking center and branch metrics",
+      category: "Reporting",
+    },
+    "/dashboard/welcome-call": {
+      key: "welcome_call",
+      label: "Welcome Call",
+      description: "Customer verification and welcome call onboarding queue",
+      category: "Operations",
+    },
+    "/dashboard/assigned-office": {
+      key: "assigned_office",
+      label: "Assigned Office",
+      description: "External partner processing offices and document dispatch",
+      category: "Master Data",
+    },
+    "/dashboard/master-configuration": {
+      key: "master_configuration",
+      label: "Master Configuration",
+      description: "Document types, categories, process types, and corporate client details",
+      category: "Master Data",
+    },
+    "/dashboard/attendance": {
+      key: "attendance",
+      label: "Attendance",
+      description: "Daily staff attendance records, summaries, and approval workflow",
+      category: "HR",
+    },
+    "/dashboard/leave-management": {
+      key: "leave",
+      label: "Leave Management",
+      description: "Employee leave requests, approvals, and balance management",
+      category: "HR",
+    },
+    "/dashboard/salary-management": {
+      key: "salary",
+      label: "Salary Management",
+      description: "Monthly payroll generation, salary calculator, and payroll reports",
+      category: "HR",
+    },
+    "/dashboard/admin-management": {
+      key: "admin_management",
+      label: "Admin Management",
+      description: "Workspace users, roles, departments, and office locations",
+      category: "Administration",
+    },
+  };
+
+  for (const nav of sidebarNavigation) {
+    const config = operationalMap[nav.href];
+    const key = config?.key ?? nav.pagePermission.replace(".view", "").replace("-", "_");
+    const label = config?.label ?? nav.label;
+    const description = config?.description ?? `${nav.label} module office visibility control`;
+    const category = config?.category ?? "General";
+
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+
+      const subModules = nav.children?.map((c) => ({
+        key: `${key}.${c.pagePermission.replace(".view", "").replace("-", "_")}`,
+        label: c.label,
+        href: c.href,
+      }));
+
+      modulesList.push({
+        key,
+        label,
+        href: nav.href,
+        description,
+        category,
+        subModules: subModules && subModules.length > 0 ? subModules : undefined,
+      });
+    }
+  }
+
+  return modulesList;
+}
+
+/**
+ * Returns module-wise assigned office location IDs for a user.
+ * If moduleKey is provided, returns string[] of officeLocationIds for that module.
+ * If moduleKey is omitted, returns Record<string, string[]> containing all module-wise mappings.
+ */
+export async function getUserOfficeVisibility(
+  ownerAdminId: string,
+  userId: string,
+  moduleKey?: string
+): Promise<string[] | Record<string, string[]>> {
   await assertUserInOwnerScope(ownerAdminId, userId);
 
-  const visibilities = await prisma.userOfficeVisibility.findMany({
+  if (moduleKey) {
+    const visibilities = await prisma.userOfficeVisibility.findMany({
+      where: { userId, moduleKey },
+      select: { officeLocationId: true },
+    });
+    return visibilities.map((v) => v.officeLocationId);
+  }
+
+  const allVisibilities = await prisma.userOfficeVisibility.findMany({
     where: { userId },
-    select: { officeLocationId: true },
+    select: { moduleKey: true, officeLocationId: true },
   });
 
-  return visibilities.map((v) => v.officeLocationId);
+  const moduleOfficeMap: Record<string, string[]> = {};
+  for (const v of allVisibilities) {
+    const mKey = v.moduleKey || "global";
+    if (!moduleOfficeMap[mKey]) {
+      moduleOfficeMap[mKey] = [];
+    }
+    moduleOfficeMap[mKey].push(v.officeLocationId);
+  }
+
+  return moduleOfficeMap;
 }
 
 /**
  * Saves assigned office location IDs for a target user.
- * Validates that all officeLocationIds belong to the current ownerAdminId scope.
+ * Supports saving per-module (moduleKey + officeLocationIds) or bulk (moduleOfficeMap).
  */
 export async function setUserOfficeVisibility(
   ownerAdminId: string,
   targetUserId: string,
-  officeLocationIds: string[],
-): Promise<{ success: boolean; officeLocationIds: string[] }> {
+  options: {
+    moduleKey?: string;
+    officeLocationIds?: string[];
+    moduleOfficeMap?: Record<string, string[]>;
+    createdBy?: string;
+  }
+): Promise<{ success: boolean; moduleOfficeMap: Record<string, string[]> }> {
   await assertUserInOwnerScope(ownerAdminId, targetUserId);
 
-  // Validate that all supplied office location IDs belong to the ownerAdminId
-  if (officeLocationIds.length > 0) {
-    const validOffices = await prisma.officeLocation.findMany({
-      where: {
-        id: { in: officeLocationIds },
-        ownerAdminId,
-      },
-      select: { id: true },
+  // Validate all office location IDs
+  const allOfficeIdsToValidate = new Set<string>();
+  if (options.officeLocationIds) {
+    options.officeLocationIds.forEach((id) => allOfficeIdsToValidate.add(id));
+  }
+  if (options.moduleOfficeMap) {
+    Object.values(options.moduleOfficeMap).forEach((ids) => {
+      if (Array.isArray(ids)) {
+        ids.forEach((id) => allOfficeIdsToValidate.add(id));
+      }
     });
+  }
 
-    const validOfficeIds = new Set(validOffices.map((o) => o.id));
-    const invalidIds = officeLocationIds.filter((id) => !validOfficeIds.has(id));
+  const uniqueIds = Array.from(allOfficeIdsToValidate).filter(Boolean);
 
+  if (uniqueIds.length > 0) {
+    const db = prisma as any;
+    const [validGlobalOffices, validAssignedOffices] = await Promise.all([
+      prisma.officeLocation.findMany({
+        where: {
+          id: { in: uniqueIds },
+          ownerAdminId,
+        },
+        select: { id: true },
+      }),
+      db.assignedOffice
+        ? db.assignedOffice.findMany({
+            where: {
+              id: { in: uniqueIds },
+              ownerAdminId,
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const validOfficeIds = new Set([
+      ...validGlobalOffices.map((o) => o.id),
+      ...validAssignedOffices.map((o: any) => o.id),
+    ]);
+
+    const invalidIds = uniqueIds.filter((id) => !validOfficeIds.has(id));
     if (invalidIds.length > 0) {
       throw new Error(`One or more selected office locations are invalid or unauthorized.`);
     }
   }
 
-  // Atomically update user_office_visibility
   await prisma.$transaction(async (tx) => {
-    await tx.userOfficeVisibility.deleteMany({
-      where: { userId: targetUserId },
-    });
-
-    if (officeLocationIds.length > 0) {
-      await tx.userOfficeVisibility.createMany({
-        data: officeLocationIds.map((officeLocationId) => ({
-          userId: targetUserId,
-          officeLocationId,
-        })),
-        skipDuplicates: true,
+    if (options.moduleOfficeMap) {
+      // Bulk update: replace all module-wise office visibilities for target user
+      await tx.userOfficeVisibility.deleteMany({
+        where: { userId: targetUserId },
       });
+
+      const recordsToCreate: Array<{
+        userId: string;
+        moduleKey: string;
+        officeLocationId: string;
+        createdBy?: string;
+      }> = [];
+
+      for (const [mKey, ids] of Object.entries(options.moduleOfficeMap)) {
+        if (Array.isArray(ids)) {
+          const distinctIds = Array.from(new Set(ids.filter(Boolean)));
+          for (const officeLocationId of distinctIds) {
+            recordsToCreate.push({
+              userId: targetUserId,
+              moduleKey: mKey,
+              officeLocationId,
+              createdBy: options.createdBy,
+            });
+          }
+        }
+      }
+
+      if (recordsToCreate.length > 0) {
+        await tx.userOfficeVisibility.createMany({
+          data: recordsToCreate,
+          skipDuplicates: true,
+        });
+      }
+    } else if (options.moduleKey) {
+      // Per-module update: replace only the specific module's office visibilities
+      const targetModuleKey = options.moduleKey;
+      const targetOfficeIds = Array.from(
+        new Set((options.officeLocationIds ?? []).filter(Boolean))
+      );
+
+      await tx.userOfficeVisibility.deleteMany({
+        where: {
+          userId: targetUserId,
+          moduleKey: targetModuleKey,
+        },
+      });
+
+      if (targetOfficeIds.length > 0) {
+        await tx.userOfficeVisibility.createMany({
+          data: targetOfficeIds.map((officeLocationId) => ({
+            userId: targetUserId,
+            moduleKey: targetModuleKey,
+            officeLocationId,
+            createdBy: options.createdBy,
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
   });
 
-  return { success: true, officeLocationIds };
+  // Return the latest complete module-wise mapping
+  const updatedVis = (await getUserOfficeVisibility(
+    ownerAdminId,
+    targetUserId
+  )) as Record<string, string[]>;
+
+  return { success: true, moduleOfficeMap: updatedVis };
+}
+
+/**
+ * Copies module-wise office visibility configuration from sourceUserId to targetUserId.
+ */
+export async function copyUserOfficeVisibility(
+  ownerAdminId: string,
+  sourceUserId: string,
+  targetUserId: string,
+  createdBy?: string
+): Promise<{ success: boolean; copiedCount: number; moduleCount: number }> {
+  await assertUserInOwnerScope(ownerAdminId, sourceUserId);
+  await assertUserInOwnerScope(ownerAdminId, targetUserId);
+
+  if (sourceUserId === targetUserId) {
+    throw new Error("Source and target user cannot be the same.");
+  }
+
+  const sourceMap = (await getUserOfficeVisibility(
+    ownerAdminId,
+    sourceUserId
+  )) as Record<string, string[]>;
+
+  await setUserOfficeVisibility(ownerAdminId, targetUserId, {
+    moduleOfficeMap: sourceMap,
+    createdBy,
+  });
+
+  let totalOfficesCount = 0;
+  let moduleCount = 0;
+  for (const ids of Object.values(sourceMap)) {
+    if (Array.isArray(ids) && ids.length > 0) {
+      moduleCount++;
+      totalOfficesCount += ids.length;
+    }
+  }
+
+  return { success: true, copiedCount: totalOfficesCount, moduleCount };
 }
 
 /**
@@ -108,7 +413,7 @@ export async function getUserPermissions(ownerAdminId: string, userId: string): 
 export async function setUserPermissions(
   ownerAdminId: string,
   targetUserId: string,
-  permissionKeys: string[],
+  permissionKeys: string[]
 ): Promise<{ success: boolean; permissionKeys: string[] }> {
   await assertUserInOwnerScope(ownerAdminId, targetUserId);
 
@@ -139,7 +444,7 @@ export async function setUserPermissions(
 export async function copyUserPermissions(
   ownerAdminId: string,
   sourceUserId: string,
-  targetUserId: string,
+  targetUserId: string
 ): Promise<{ success: boolean; copiedCount: number }> {
   await assertUserInOwnerScope(ownerAdminId, sourceUserId);
   await assertUserInOwnerScope(ownerAdminId, targetUserId);
@@ -190,17 +495,14 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
 }
 
 /**
- * Lists all users for ownerAdminId with complete office visibility and module permissions data.
+ * Lists all users for ownerAdminId with complete module-wise office visibility and module permissions data.
  */
 export async function listUserAccessData(ownerAdminId: string) {
   const db = prisma as any;
   const [users, officeLocations, assignedOffices, visibilities, permissions] = await Promise.all([
     prisma.user.findMany({
       where: {
-        OR: [
-          { ownerAdminId },
-          { id: ownerAdminId },
-        ],
+        OR: [{ ownerAdminId }, { id: ownerAdminId }],
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -257,6 +559,7 @@ export async function listUserAccessData(ownerAdminId: string) {
       },
       select: {
         userId: true,
+        moduleKey: true,
         officeLocationId: true,
       },
     }),
@@ -273,12 +576,22 @@ export async function listUserAccessData(ownerAdminId: string) {
     }),
   ]);
 
-  // Group office visibilities by userId
-  const officeVisMap = new Map<string, string[]>();
+  // Group module-wise office visibilities: userId -> { moduleKey -> officeLocationIds[] }
+  const userModuleOfficeMap = new Map<string, Record<string, string[]>>();
+  const userTotalOfficesMap = new Map<string, Set<string>>();
+
   for (const v of visibilities) {
-    const list = officeVisMap.get(v.userId) ?? [];
-    list.push(v.officeLocationId);
-    officeVisMap.set(v.userId, list);
+    const mKey = v.moduleKey || "global";
+    const userMap = userModuleOfficeMap.get(v.userId) ?? {};
+    if (!userMap[mKey]) {
+      userMap[mKey] = [];
+    }
+    userMap[mKey].push(v.officeLocationId);
+    userModuleOfficeMap.set(v.userId, userMap);
+
+    const totalSet = userTotalOfficesMap.get(v.userId) ?? new Set<string>();
+    totalSet.add(v.officeLocationId);
+    userTotalOfficesMap.set(v.userId, totalSet);
   }
 
   // Group user permissions by userId
@@ -305,6 +618,9 @@ export async function listUserAccessData(ownerAdminId: string) {
       effectivePermissionKeys = mapRolePermissionsToMatrixCatalog(roleCodes);
     }
 
+    const moduleVisMap = userModuleOfficeMap.get(u.id) ?? {};
+    const totalConfiguredOffices = userTotalOfficesMap.get(u.id)?.size ?? 0;
+
     return {
       id: u.id,
       name: u.name ?? "Workspace User",
@@ -314,7 +630,9 @@ export async function listUserAccessData(ownerAdminId: string) {
       isActive: u.isActive,
       isSuperAdmin,
       hasUserPermissions: hasExplicitUserPermissions,
-      officeLocationIds: officeVisMap.get(u.id) ?? [],
+      moduleOfficeVisibilities: moduleVisMap,
+      officeLocationIds: Array.from(userTotalOfficesMap.get(u.id) ?? []),
+      configuredOfficesCount: totalConfiguredOffices,
       permissionKeys: effectivePermissionKeys,
     };
   });
@@ -349,17 +667,97 @@ export async function listUserAccessData(ownerAdminId: string) {
     a.officeName.localeCompare(b.officeName)
   );
 
+  const operationalModules = getOperationalModules();
+
   return {
     users: mappedUsers,
     officeLocations: formattedOffices,
+    assignedOffices: assignedList.sort((a, b) => a.officeName.localeCompare(b.officeName)),
+    globalOffices: globalList.sort((a, b) => a.officeName.localeCompare(b.officeName)),
+    modules: operationalModules,
+  };
+}
+
+/**
+ * Resolves allowed office IDs and office names for a specific module and user.
+ * For Super Admin: returns unrestricted access ({ isSuperAdmin: true, allowedOfficeIds: null, allowedOfficeNames: null }).
+ * For non-Super Admin: returns strictly the permitted offices for that specific moduleKey.
+ */
+export async function getUserModuleAllowedOffices(
+  userId: string,
+  moduleKey: string,
+  ownerAdminId?: string
+): Promise<{
+  isSuperAdmin: boolean;
+  allowedOfficeIds: string[] | null;
+  allowedOfficeNames: string[] | null;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      ownerAdminId: true,
+      officeLocationId: true,
+      officeLocationName: true,
+      role: { select: { name: true } },
+    },
+  });
+
+  if (!user) {
+    return { isSuperAdmin: false, allowedOfficeIds: [], allowedOfficeNames: [] };
+  }
+
+  const isOwner = !user.ownerAdminId || user.ownerAdminId === user.id;
+  const isSuperAdmin = user.role ? user.role.name === "Super Admin" : isOwner;
+
+  if (isSuperAdmin) {
+    return { isSuperAdmin: true, allowedOfficeIds: null, allowedOfficeNames: null };
+  }
+
+  // Find module-specific office visibilities
+  const moduleVisRows = await prisma.userOfficeVisibility.findMany({
+    where: {
+      userId,
+      OR: [{ moduleKey }, { moduleKey: "global" }],
+    },
+    include: {
+      officeLocation: { select: { id: true, officeName: true } },
+    },
+  });
+
+  // Filter for exact module matches first, or fallback to global
+  const exactModuleRows = moduleVisRows.filter((v) => v.moduleKey === moduleKey);
+  const effectiveRows = exactModuleRows.length > 0 ? exactModuleRows : moduleVisRows;
+
+  const allowedIds: string[] = [];
+  const allowedNames: string[] = [];
+
+  for (const r of effectiveRows) {
+    if (r.officeLocationId && !allowedIds.includes(r.officeLocationId)) {
+      allowedIds.push(r.officeLocationId);
+    }
+    if (r.officeLocation?.officeName && !allowedNames.includes(r.officeLocation.officeName)) {
+      allowedNames.push(r.officeLocation.officeName);
+    }
+  }
+
+  // Include user's primary office if configured and not already present
+  if (user.officeLocationId && !allowedIds.includes(user.officeLocationId)) {
+    allowedIds.push(user.officeLocationId);
+  }
+  if (user.officeLocationName && !allowedNames.includes(user.officeLocationName)) {
+    allowedNames.push(user.officeLocationName);
+  }
+
+  return {
+    isSuperAdmin: false,
+    allowedOfficeIds: allowedIds,
+    allowedOfficeNames: allowedNames,
   };
 }
 
 /**
  * Canonical helper for resolving office visibility options for a user.
- * Returns strictly separated assignedOffices and globalOffices.
- * For Super Admin: returns all workspace assigned and global offices.
- * For non-Super Admin: returns ONLY offices permitted in UserOfficeVisibility table.
  */
 export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: string) {
   const db = prisma as any;
@@ -395,7 +793,7 @@ export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: s
       : Promise.resolve([]),
     prisma.userOfficeVisibility.findMany({
       where: { userId },
-      select: { officeLocationId: true },
+      select: { officeLocationId: true, moduleKey: true },
     }),
   ]);
 
@@ -405,7 +803,7 @@ export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: s
   const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
   const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
 
-  // Build Assigned Offices list (Source 2: assigned_offices table)
+  // Build Assigned Offices list
   const allAssigned = (assignedOffices as any[]).map((ao: any) => ({
     id: ao.id,
     officeName: ao.username,
@@ -416,7 +814,7 @@ export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: s
     sourceType: "ASSIGNED_OFFICE" as const,
   }));
 
-  // Build Global Offices list (Source 1: office_locations table, excluding assigned office shadow records)
+  // Build Global Offices list
   const allGlobal = officeLocations
     .filter((loc) => !assignedOfficeIds.has(loc.id))
     .map((loc) => ({

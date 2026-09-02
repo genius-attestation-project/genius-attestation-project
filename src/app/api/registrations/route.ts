@@ -33,13 +33,22 @@ export async function GET(request: NextRequest) {
     const page = isNaN(parsedPage) ? 1 : parsedPage;
     const pageSize = isNaN(parsedPageSize) ? 10 : parsedPageSize;
 
+    let allowedOfficeIds = session.user.allowedOfficeIds;
+    let allowedOfficeNames = session.user.allowedOfficeNames;
+
+    if (!session.user.isSuperAdmin && session.user.moduleOfficeVisibilities?.["revenue_registration"]) {
+      const modConfig = session.user.moduleOfficeVisibilities["revenue_registration"];
+      allowedOfficeIds = modConfig.officeIds;
+      allowedOfficeNames = modConfig.officeNames;
+    }
+
     const data = await listRegistrations(ownerAdminId, {
       page,
       pageSize,
       query,
       isSuperAdmin: session.user.isSuperAdmin,
-      allowedOfficeIds: session.user.allowedOfficeIds,
-      allowedOfficeNames: session.user.allowedOfficeNames,
+      allowedOfficeIds,
+      allowedOfficeNames,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
       trackingNumber: searchParams.get("trackingNumber") ?? undefined,
