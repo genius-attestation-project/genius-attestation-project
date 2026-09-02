@@ -454,7 +454,7 @@ export function HomeDashboard({ currentOfficeLocationName, isSuperAdmin = false 
                 </option>
               ))}
             </select>
-          ) : offices.length <= 1 ? (
+          ) : (
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-sm font-bold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 shadow-2xs">
               <span>
                 {offices.find((o) => o.id === selectedOfficeId)?.officeName ||
@@ -465,18 +465,6 @@ export function HomeDashboard({ currentOfficeLocationName, isSuperAdmin = false 
                 Assigned
               </span>
             </div>
-          ) : (
-            <select
-              value={selectedOfficeId}
-              onChange={(e) => setSelectedOfficeId(e.target.value)}
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
-            >
-              {offices.map((off) => (
-                <option key={off.id} value={off.id}>
-                  {off.officeName}
-                </option>
-              ))}
-            </select>
           )}
         </div>
       </div>
