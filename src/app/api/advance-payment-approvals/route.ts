@@ -5,6 +5,7 @@ import {
   submitAdvancePaymentApproval,
 } from "@/features/revenue/server/advance-payment-approval.service";
 import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,6 +15,14 @@ export async function GET(request: Request) {
     const session = await auth();
     if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (
+      !session.user.isSuperAdmin &&
+      !hasPermission(session.user, "advance_payment_approval.view") &&
+      !hasPermission(session.user, "advance_details_approval.view")
+    ) {
+      return NextResponse.json({ error: "Forbidden. Access to advance payment approvals denied." }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -52,6 +61,14 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (
+      !session.user.isSuperAdmin &&
+      !hasPermission(session.user, "advance_payment_approval.approve") &&
+      !hasPermission(session.user, "advance_payment_approval.reject")
+    ) {
+      return NextResponse.json({ error: "Forbidden. You do not have permission to process advance approvals." }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({}));

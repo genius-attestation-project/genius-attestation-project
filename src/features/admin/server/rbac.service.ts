@@ -918,77 +918,46 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       }
     }
 
-    // 2. Home
-    if (key.startsWith("home.")) {
-      result.add("home.view");
-      result.add("menu.home");
+    // 2. Pending Approval Module & Types
+    if (
+      key.startsWith("pending_approval.") ||
+      key.startsWith("advance_payment_approval.") ||
+      key.startsWith("movement_approval.") ||
+      key.startsWith("advance_details_approval.") ||
+      key.startsWith("corporate_details_approval.") ||
+      key.startsWith("lobApproval.") ||
+      key.startsWith("inactiveLead.") ||
+      key.startsWith("overdueFollowup.")
+    ) {
+      result.add("pending_approval.view");
+      result.add("menu.lead-management.pending-approval");
 
-      if (key === "home.document_in_hand.view") {
-        result.add("home.view");
-      } else if (key === "home.document_in_hand.transfer") {
-        result.add("home.transfer");
-      } else if (key === "home.inbound.view") {
-        result.add("home.view");
-      } else if (key === "home.inbound.receive") {
-        result.add("home.receive");
-      } else if (key === "home.inbound.return") {
-        result.add("home.return");
-      } else if (key === "home.outbound.view") {
-        result.add("home.view");
-      } else if (key === "home.outbound.retrieve") {
-        result.add("home.retrieve");
-      } else if (key === "home.movement_history.view") {
-        result.add("movement_history.view");
-        result.add("document_movement.view");
+      if (key.startsWith("advance_payment_approval.")) {
+        result.add("advance_payment_approval.view");
+      }
+      if (key.startsWith("movement_approval.")) {
+        result.add("movement_approval.view");
+      }
+      if (key.startsWith("advance_details_approval.")) {
+        result.add("advance_details_approval.view");
+      }
+      if (key.startsWith("corporate_details_approval.")) {
+        result.add("corporate_details_approval.view");
+      }
+      if (key.startsWith("lobApproval.")) {
+        result.add("lobApproval.view");
+        result.add("lob.view");
+        result.add("menu.lead-management.lob");
+      }
+      if (key.startsWith("inactiveLead.")) {
+        result.add("inactiveLead.view");
+      }
+      if (key.startsWith("overdueFollowup.")) {
+        result.add("overdueFollowup.view");
       }
     }
 
-    // 3. Process
-    if (key.startsWith("process.")) {
-      result.add("process.view");
-      result.add("menu.process");
-
-      if (key === "process.document_in_hand.view") {
-        result.add("process.view");
-      } else if (key === "process.document_in_hand.transfer") {
-        result.add("process.transfer");
-      } else if (key === "process.document_in_hand.actions") {
-        result.add("process.create");
-        result.add("process.edit");
-        result.add("process.move");
-        result.add("process.complete");
-      } else if (key === "process.inbound.view") {
-        result.add("process.view");
-      } else if (key === "process.inbound.receive") {
-        result.add("process.receive");
-      } else if (key === "process.inbound.return") {
-        result.add("process.return");
-      } else if (key === "process.outbound.view") {
-        result.add("process.view");
-      } else if (key === "process.outbound.retrieve") {
-        result.add("process.retrieve");
-      } else if (key === "process.bundle_movement.view") {
-        result.add("document_movement.view");
-      }
-    }
-
-    // 4. Ready For Delivery
-    if (key.startsWith("ready_for_delivery.")) {
-      result.add("ready_for_delivery.view");
-      result.add("menu.ready-for-delivery");
-      if (key === "ready_for_delivery.deliver") {
-        result.add("ready_for_delivery.undo");
-        result.add("ready_for_delivery.view_details");
-      }
-    }
-
-    // 5. Welcome Call
-    if (key.startsWith("welcome_call.")) {
-      result.add("welcome_call.view");
-      result.add("menu.welcome-call");
-    }
-
-    // 6. Lead Management
+    // 3. Lead Management & Submodules
     if (
       key.startsWith("leads.") ||
       key.startsWith("followups.") ||
@@ -1018,10 +987,53 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       }
     }
 
-    // 7. Pending Approval
-    if (key.startsWith("pending_approval.")) {
-      result.add("pending_approval.view");
-      result.add("menu.lead-management.pending-approval");
+    // 4. Home
+    if (key.startsWith("home.")) {
+      result.add("home.view");
+      result.add("menu.home");
+
+      if (key === "home.document_in_hand.view" || key === "home.document_in_hand.transfer") {
+        result.add("home.document_in_hand.view");
+      } else if (key.startsWith("home.inbound.")) {
+        result.add("home.inbound.view");
+      } else if (key.startsWith("home.outbound.")) {
+        result.add("home.outbound.view");
+      } else if (key === "home.movement_history.view") {
+        result.add("movement_history.view");
+        result.add("document_movement.view");
+      }
+    }
+
+    // 5. Process
+    if (key.startsWith("process.")) {
+      result.add("process.view");
+      result.add("menu.process");
+
+      if (key.startsWith("process.document_in_hand.")) {
+        result.add("process.document_in_hand.view");
+      } else if (key.startsWith("process.inbound.")) {
+        result.add("process.inbound.view");
+      } else if (key.startsWith("process.outbound.")) {
+        result.add("process.outbound.view");
+      } else if (key === "process.bundle_movement.view") {
+        result.add("document_movement.view");
+      }
+    }
+
+    // 6. Ready For Delivery
+    if (key.startsWith("ready_for_delivery.")) {
+      result.add("ready_for_delivery.view");
+      result.add("menu.ready-for-delivery");
+      if (key === "ready_for_delivery.deliver") {
+        result.add("ready_for_delivery.undo");
+        result.add("ready_for_delivery.view_details");
+      }
+    }
+
+    // 7. Welcome Call
+    if (key.startsWith("welcome_call.")) {
+      result.add("welcome_call.view");
+      result.add("menu.welcome-call");
     }
 
     // 8. Search / Report
@@ -1063,7 +1075,7 @@ export function expandEffectivePermissions(keys: string[]): string[] {
     if (key.startsWith("attendance.")) {
       result.add("attendance.view");
       result.add("menu.attendance");
-      if (key === "attendance.view") {
+      if (key === "attendance.view" || key === "attendance.records.view") {
         result.add("menu.attendance.dashboard");
         result.add("menu.attendance.records");
       } else if (key.startsWith("attendance.check_out.") || key.startsWith("attendance.checkout.")) {
@@ -1071,7 +1083,7 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         result.add("menu.attendance.checkout");
       } else if (key === "attendance.summary.create") {
         result.add("menu.attendance.daily-summary");
-      } else if (key === "attendance.summary.view") {
+      } else if (key === "attendance.summary.view" || key === "attendance_approval.view") {
         result.add("menu.attendance.daily-summary-approval");
         result.add("menu.attendance.approval");
       }
@@ -1112,23 +1124,63 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       }
     }
 
-    // 16. Master Configuration
-    if (key.startsWith("master_configuration.") || key.startsWith("account_menu.")) {
+    // 16. Master Configuration & Submodules
+    if (
+      key.startsWith("master_configuration.") ||
+      key.startsWith("account_menu.") ||
+      key.startsWith("departments.") ||
+      key.startsWith("office_locations.")
+    ) {
       result.add("master_configuration.view");
       result.add("menu.master-configuration");
+
+      if (key.startsWith("master_configuration.document_types.")) {
+        result.add("master_configuration.document_types.view");
+        result.add("menu.master-configuration.document-types");
+      }
+      if (key.startsWith("master_configuration.document_type_categories.")) {
+        result.add("master_configuration.document_type_categories.view");
+        result.add("menu.master-configuration.document-type-categories");
+      }
+      if (key.startsWith("master_configuration.process_types.")) {
+        result.add("master_configuration.process_types.view");
+        result.add("menu.master-configuration.attestation-types");
+      }
+      if (key.startsWith("master_configuration.sub_process.")) {
+        result.add("master_configuration.sub_process.view");
+        result.add("menu.master-configuration.sub-process");
+      }
+      if (key.startsWith("master_configuration.customer_types.")) {
+        result.add("master_configuration.customer_types.view");
+        result.add("menu.master-configuration.customer-types");
+      }
+      if (key.startsWith("master_configuration.corporate_details.")) {
+        result.add("master_configuration.corporate_details.view");
+        result.add("menu.master-configuration.corporate-details");
+      }
+      if (key.startsWith("master_configuration.payment_mode.")) {
+        result.add("master_configuration.payment_mode.view");
+        result.add("menu.master-configuration.payment-mode");
+      }
+      if (key.startsWith("master_configuration.courier_companies.")) {
+        result.add("master_configuration.courier_companies.view");
+        result.add("menu.master-configuration.courier-companies");
+      }
       if (key.startsWith("account_menu.")) {
         result.add("account_menu.view");
         result.add("menu.master-configuration.account-menu");
       }
-      if (key.startsWith("master_configuration.")) {
-        result.add("menu.master-configuration.document-types");
-        result.add("menu.master-configuration.document-type-categories");
-        result.add("menu.master-configuration.attestation-types");
-        result.add("menu.master-configuration.sub-process");
-        result.add("menu.master-configuration.customer-types");
-        result.add("menu.master-configuration.corporate-details");
-        result.add("menu.master-configuration.payment-mode");
-        result.add("menu.master-configuration.courier-companies");
+      if (key.startsWith("departments.")) {
+        result.add("departments.view");
+        result.add("admin_management.view");
+        result.add("menu.admin-management");
+        result.add("menu.admin-management.department");
+      }
+      if (key.startsWith("office_locations.")) {
+        result.add("office_locations.view");
+        result.add("admin_management.view");
+        result.add("menu.admin-management");
+        result.add("menu.admin-management.office-location");
       }
     }
 
@@ -1139,19 +1191,7 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       result.add("menu.admin-management");
       result.add("menu.admin-management.users");
     }
-    if (key.startsWith("departments.")) {
-      result.add("departments.view");
-      result.add("admin_management.view");
-      result.add("menu.admin-management");
-      result.add("menu.admin-management.department");
-    }
-    if (key.startsWith("office_locations.")) {
-      result.add("office_locations.view");
-      result.add("admin_management.view");
-      result.add("menu.admin-management");
-      result.add("menu.admin-management.office-location");
-    }
-    if (key.startsWith("roles.")) {
+    if (key.startsWith("roles.") || key.startsWith("access_management.")) {
       result.add("roles.view");
       result.add("admin_management.view");
       result.add("menu.admin-management");
@@ -1326,12 +1366,7 @@ export function hasPermission(
   if (!Array.isArray(access.permissions)) {
     return false;
   }
-  if (access.permissions.includes(code) || access.permissions.includes("*")) {
-    return true;
-  }
-
-  const expandedRequested = expandEffectivePermissions([code]);
-  return expandedRequested.some((exp) => access.permissions.includes(exp));
+  return access.permissions.includes(code) || access.permissions.includes("*");
 }
 
 export function getPermissionScope(

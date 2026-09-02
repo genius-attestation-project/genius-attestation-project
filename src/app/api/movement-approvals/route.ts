@@ -3,12 +3,17 @@ import { auth } from "@/lib/auth";
 import { listPendingMovementApprovals } from "@/features/document-movement/server/movement-approval.service";
 import { resolveOfficeLocationId, resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) return jsonError("No owner admin ID found.", 401);
+
+    if (!session.user.isSuperAdmin && !hasPermission(session.user, "movement_approval.view")) {
+      return jsonError("Forbidden. You do not have permission to view movement approvals.", 403);
+    }
 
     const url = new URL(request.url);
     const queryOfficeId = url.searchParams.get("officeId") || url.searchParams.get("officeLocationId");

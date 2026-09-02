@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import {
   deleteRegistration,
   getRegistrationById,
@@ -11,15 +12,15 @@ import {
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
 import { NextRequest } from "next/server";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
+
+    if (!hasPermission(session.user, "revenue_registration.view")) {
+      return jsonError("You do not have permission to view this registration.", 403);
+    }
 
     const { id } = await context.params;
     const registration = await getRegistrationById(ownerAdminId, id);
@@ -39,7 +40,11 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
+
+    if (!hasPermission(session.user, "revenue_registration.edit")) {
+      return jsonError("You do not have permission to edit revenue registrations.", 403);
+    }
 
     const { id } = await context.params;
     const parsed = registrationInputSchema.safeParse(body);
@@ -81,7 +86,11 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
+
+    if (!hasPermission(session.user, "revenue_registration.delete")) {
+      return jsonError("You do not have permission to delete revenue registrations.", 403);
+    }
 
     const { id } = await context.params;
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;

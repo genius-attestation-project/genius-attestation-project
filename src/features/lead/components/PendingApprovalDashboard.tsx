@@ -120,15 +120,69 @@ export function PendingApprovalDashboard() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
 
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
+
+  const canViewAdvancePayment =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("advance_payment_approval.view") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewMovement =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("movement_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewAdvanceDetails =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("advance_details_approval.view") ||
+      currentUser?.permissions?.includes("advance_payment_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewCorporate =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("corporate_details_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewLob =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("lobApproval.view") ||
+      currentUser?.permissions?.includes("lob.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewInactive =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("inactiveLead.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewOverdue =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("overdueFollowup.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
   const canApprove =
-    currentUser?.isSuperAdmin ||
+    isSuperAdmin ||
     currentUser?.permissions?.includes("advance_payment_approval.approve") ||
     currentUser?.permissions?.includes("pending_approval.edit") ||
     currentUser?.permissions?.includes("pendingApproval.approve") ||
     currentUser?.permissions?.includes("*");
 
   const canApproveMovement =
-    currentUser?.isSuperAdmin ||
+    isSuperAdmin ||
     currentUser?.permissions?.includes("movement_approval.approve") ||
     currentUser?.permissions?.includes("pending_approval.edit") ||
     currentUser?.permissions?.includes("pendingApproval.approve") ||
@@ -165,7 +219,55 @@ export function PendingApprovalDashboard() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const permittedTabs = React.useMemo(() => {
+    const list: { key: MainTabKey; label: string; count: number }[] = [];
+    if (canViewAdvancePayment) {
+      list.push({ key: "advance_payment", label: "Advance Payment Approvals", count: advancePaymentRequests.length });
+    }
+    if (canViewMovement) {
+      list.push({ key: "movement_approval", label: "Movement Approval", count: movementApprovals.length });
+    }
+    if (canViewAdvanceDetails) {
+      list.push({ key: "advance_details", label: "Advance Details", count: hasSearchedAdvanceDetails ? allAdvanceRecords.length : 0 });
+    }
+    if (canViewCorporate) {
+      list.push({ key: "corporate_approval", label: "Corporate Details Approval", count: corporateApprovals.length });
+    }
+    if (canViewLob) {
+      list.push({ key: "lob", label: "LOB Requests", count: lobRequests.length });
+    }
+    if (canViewInactive) {
+      list.push({ key: "inactive", label: "Inactive Leads", count: inactiveLeads.length });
+    }
+    if (canViewOverdue) {
+      list.push({ key: "overdue", label: "Overdue Follow-ups", count: overdueFollowups.length });
+    }
+    return list;
+  }, [
+    canViewAdvancePayment,
+    canViewMovement,
+    canViewAdvanceDetails,
+    canViewCorporate,
+    canViewLob,
+    canViewInactive,
+    canViewOverdue,
+    advancePaymentRequests.length,
+    movementApprovals.length,
+    hasSearchedAdvanceDetails,
+    allAdvanceRecords.length,
+    corporateApprovals.length,
+    lobRequests.length,
+    inactiveLeads.length,
+    overdueFollowups.length,
+  ]);
+
   const [activeTab, setActiveTab] = useState<MainTabKey>("advance_payment");
+
+  useEffect(() => {
+    if (permittedTabs.length > 0 && !permittedTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(permittedTabs[0].key);
+    }
+  }, [permittedTabs, activeTab]);
 
   const [actionModal, setActionModal] = useState<{
     type: ApprovalAction;
@@ -180,14 +282,34 @@ export function PendingApprovalDashboard() {
     setLoading(true);
     setError("");
     try {
+      const advancePromise = canViewAdvancePayment
+        ? parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const movementPromise = canViewMovement
+        ? parseResponse<{ items: MovementApprovalItem[] }>(await fetch("/api/movement-approvals", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const corporatePromise = canViewCorporate
+        ? parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const inactivePromise = canViewInactive
+        ? parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const lobPromise = canViewLob
+        ? parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const overduePromise = canViewOverdue
+        ? parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      const officesPromise = fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] }));
+
       const [advanceRes, movementRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
-        parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })),
-        parseResponse<{ items: MovementApprovalItem[] }>(await fetch("/api/movement-approvals", { cache: "no-store" })).catch(() => ({ items: [] })),
-        parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })),
-        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive", { cache: "no-store" })),
-        parseResponse<{ items: LeadWorkflowApproval[] }>(await fetch("/api/workflow-approvals/lob", { cache: "no-store" })),
-        parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/overdue", { cache: "no-store" })),
-        fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] })),
+        advancePromise,
+        movementPromise,
+        corporatePromise,
+        inactivePromise,
+        lobPromise,
+        overduePromise,
+        officesPromise,
       ]);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setMovementApprovals(movementRes.items ?? []);
@@ -448,35 +570,31 @@ export function PendingApprovalDashboard() {
       </section>
 
       <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5 dark:bg-white/5">
-        <div className="flex flex-wrap gap-3">
-          {[
-            { key: "advance_payment" as const, label: "Advance Payment Approvals", count: advancePaymentRequests.length },
-            { key: "movement_approval" as const, label: "Movement Approval", count: movementApprovals.length },
-            { key: "advance_details" as const, label: "Advance Details", count: hasSearchedAdvanceDetails ? allAdvanceRecords.length : 0 },
-            { key: "corporate_approval" as const, label: "Corporate Details Approval", count: corporateApprovals.length },
-            { key: "lob" as const, label: "LOB Requests", count: lobRequests.length },
-            { key: "inactive" as const, label: "Inactive Leads", count: inactiveLeads.length },
-            { key: "overdue" as const, label: "Overdue Follow-ups", count: overdueFollowups.length },
-          ].map((tab) => {
-            const active = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "rounded-2xl border px-4 py-3 text-left transition",
-                  active
-                    ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none"
-                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
-                ].join(" ")}
-              >
-                <span className="block text-sm font-bold">{tab.label}</span>
-                <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>{tab.count} items</span>
-              </button>
-            );
-          })}
-        </div>
+        {permittedTabs.length === 0 ? (
+          <p className="text-xs font-semibold text-soft py-2">You do not have permission to view any approval queues.</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {permittedTabs.map((tab) => {
+              const active = tab.key === activeTab;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={[
+                    "rounded-2xl border px-4 py-3 text-left transition cursor-pointer",
+                    active
+                      ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none"
+                      : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  <span className="block text-sm font-bold">{tab.label}</span>
+                  <span className={`mt-1 block text-xs ${active ? "text-blue-50" : "text-soft"}`}>{tab.count} items</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {error && (

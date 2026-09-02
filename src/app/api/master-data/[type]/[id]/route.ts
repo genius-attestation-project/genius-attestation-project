@@ -1,8 +1,38 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/middleware/auth.middleware";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 const normalizeName = (str: string) => str.replace(/\s+/g, "").toLowerCase();
+
+function getMasterDataPermissionKey(slug: string, action: "view" | "create" | "edit" | "delete") {
+  const normalized = slug.toLowerCase().replace(/_/g, "-");
+  switch (normalized) {
+    case "document-types":
+      return `master_configuration.document_types.${action}`;
+    case "document-type-categories":
+      return `master_configuration.document_type_categories.${action}`;
+    case "process-types":
+    case "attestation-types":
+      return `master_configuration.process_types.${action}`;
+    case "sub-process":
+      return `master_configuration.sub_process.${action}`;
+    case "customer-types":
+      return `master_configuration.customer_types.${action}`;
+    case "corporate-details":
+      return `master_configuration.corporate_details.${action}`;
+    case "payment-mode":
+      return `master_configuration.payment_mode.${action}`;
+    case "courier-companies":
+      return `master_configuration.courier_companies.${action}`;
+    case "departments":
+      return `departments.${action}`;
+    case "office-locations":
+      return `office_locations.${action}`;
+    default:
+      return `master_configuration.${action}`;
+  }
+}
 
 export async function PUT(
   request: NextRequest,
@@ -10,13 +40,21 @@ export async function PUT(
 ) {
   const params = await context.params;
   try {
-    const session = await requirePermission("admin_management.view", `/api/master-data/${params.type}/${params.id}`);
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+    const rawSlug = params.type.toLowerCase();
+    const permKey = getMasterDataPermissionKey(rawSlug, "edit");
+    if (
+      !session.user.isSuperAdmin &&
+      !hasPermission(session.user, permKey) &&
+      !hasPermission(session.user, "master_configuration.manage")
+    ) {
+      return NextResponse.json({ message: "Forbidden. You do not have permission to edit this configuration." }, { status: 403 });
     }
     const ownerAdminId = session.user.ownerAdminId!;
 
-    const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const body = await request.json();
     const { name, category, categoryId, description, isActive, sortOrder, subPackageIds, coreSubPackageId } = body;
@@ -248,13 +286,21 @@ export async function DELETE(
 ) {
   const params = await context.params;
   try {
-    const session = await requirePermission("admin_management.view", `/api/master-data/${params.type}/${params.id}`);
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+    const rawSlug = params.type.toLowerCase();
+    const permKey = getMasterDataPermissionKey(rawSlug, "delete");
+    if (
+      !session.user.isSuperAdmin &&
+      !hasPermission(session.user, permKey) &&
+      !hasPermission(session.user, "master_configuration.manage")
+    ) {
+      return NextResponse.json({ message: "Forbidden. You do not have permission to delete this configuration." }, { status: 403 });
     }
     const ownerAdminId = session.user.ownerAdminId!;
 
-    const rawSlug = params.type.toLowerCase();
     const type = params.type.toUpperCase().replace(/-/g, "_");
 
     // Dedicated handler for Document Type Categories

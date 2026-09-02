@@ -1,6 +1,7 @@
 import { FollowupActionType, FollowupStatus, LeadStatus, Prisma } from "@prisma/client";
 
 import { buildDataScopeFilter } from "@/lib/data-scope";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
 import {
@@ -883,17 +884,70 @@ export async function listLeads(user: any, ownerAdminId: string, params: {
     }
   }
 
-  const scopeFilter = buildDataScopeFilter(user, "leads.view", {
-    createdByField: "createdById",
-    assignedToField: "assignedUserId",
-    departmentRelation: "creator",
-    officeRelation: "creator",
-  });
+  let leadVisibilityFilter: Prisma.LeadWhereInput = {};
+
+  const isSuperAdmin = user?.isSuperAdmin === true;
+  const hasViewAll = isSuperAdmin || hasPermission(user, "leads.view_all");
+  const hasViewAssigned = hasPermission(user, "leads.view_assigned_users");
+  const hasViewOwn = hasPermission(user, "leads.view_own");
+  const hasGenericView = hasPermission(user, "leads.view") || hasPermission(user, "lead_management.view");
+
+  if (!isSuperAdmin) {
+    if (hasViewAll) {
+      leadVisibilityFilter = {};
+    } else if (hasViewAssigned && user?.id) {
+      leadVisibilityFilter = {
+        OR: [
+          { createdById: user.id },
+          { assignedUserId: user.id },
+          { creator: { supervisorUserId: user.id } },
+        ],
+      };
+    } else if (hasViewOwn && user?.id) {
+      leadVisibilityFilter = {
+        OR: [
+          { createdById: user.id },
+          { assignedUserId: user.id },
+        ],
+      };
+    } else if (hasGenericView) {
+      const scopeFilter = buildDataScopeFilter(user, "leads.view", {
+        createdByField: "createdById",
+        assignedToField: "assignedUserId",
+        departmentRelation: "creator",
+        officeRelation: "creator",
+      });
+      leadVisibilityFilter = Object.keys(scopeFilter).length > 0 ? scopeFilter : {};
+    } else {
+      leadVisibilityFilter = { id: "none" };
+    }
+  }
+
+  // Office visibility filter for leads
+  let officeCondition: Prisma.LeadWhereInput = {};
+  if (!isSuperAdmin && user) {
+    let allowedOfficeIds = user.allowedOfficeIds;
+    if (user.moduleOfficeVisibilities?.["lead_management"]) {
+      allowedOfficeIds = user.moduleOfficeVisibilities["lead_management"].officeIds;
+    }
+    if (Array.isArray(allowedOfficeIds)) {
+      if (allowedOfficeIds.length > 0) {
+        officeCondition = {
+          creator: {
+            officeLocationId: { in: allowedOfficeIds },
+          },
+        };
+      } else {
+        officeCondition = { id: "none" };
+      }
+    }
+  }
 
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
     AND: [
-      Object.keys(scopeFilter).length > 0 ? scopeFilter : {},
+      Object.keys(leadVisibilityFilter).length > 0 ? leadVisibilityFilter : {},
+      Object.keys(officeCondition).length > 0 ? officeCondition : {},
       {
         ...(status ? { leadStatus: status } : {}),
         ...(service ? { service: { contains: service } } : {}),

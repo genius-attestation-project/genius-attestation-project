@@ -34,7 +34,7 @@ import {
   PlaneTakeoff,
   BriefcaseBusiness,
 } from "lucide-react";
-import { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
@@ -82,6 +82,7 @@ type ModuleDefinitionItem = {
 type ActionDefinition = {
   key: string;
   label: string;
+  description?: string;
 };
 
 type SubModuleDefinition = {
@@ -92,6 +93,9 @@ type SubModuleDefinition = {
 type ModulePermissionDefinition = {
   key: string;
   label: string;
+  category: string;
+  description?: string;
+  moduleAccessKey?: string;
   subModules?: SubModuleDefinition[];
   actions?: ActionDefinition[];
 };
@@ -100,6 +104,9 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
     key: "revenue_registration",
     label: "REVENUE REGISTRATION",
+    category: "Operations",
+    description: "Revenue collection, document registration, customer billing, and exports.",
+    moduleAccessKey: "revenue_registration.view",
     actions: [
       { key: "revenue_registration.view", label: "View" },
       { key: "revenue_registration.create", label: "Create" },
@@ -110,97 +117,96 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
     ],
   },
   {
-    key: "home",
-    label: "HOME",
+    key: "pending_approval",
+    label: "PENDING APPROVAL",
+    category: "Finance & Approvals",
+    description: "Individual enterprise approval queues for advance payments, movements, and workflows.",
+    moduleAccessKey: "pending_approval.view",
     subModules: [
       {
-        label: "Document In Hand",
+        label: "Advance Payment Approval",
         actions: [
-          { key: "home.document_in_hand.view", label: "View" },
-          { key: "home.document_in_hand.transfer", label: "Transfer" },
+          { key: "advance_payment_approval.view", label: "View" },
+          { key: "advance_payment_approval.approve", label: "Approve" },
+          { key: "advance_payment_approval.reject", label: "Reject" },
         ],
       },
       {
-        label: "Inbound Bundles",
+        label: "Movement Approval",
         actions: [
-          { key: "home.inbound.view", label: "View" },
-          { key: "home.inbound.receive", label: "Receive" },
-          { key: "home.inbound.return", label: "Return" },
+          { key: "movement_approval.view", label: "View" },
+          { key: "movement_approval.approve", label: "Approve" },
         ],
       },
       {
-        label: "Outbound Bundles",
+        label: "Advance Details Approval",
         actions: [
-          { key: "home.outbound.view", label: "View" },
-          { key: "home.outbound.retrieve", label: "Retrieve" },
+          { key: "advance_details_approval.view", label: "View" },
+          { key: "advance_details_approval.manage", label: "Manage (Edit / Delete)" },
         ],
       },
       {
-        label: "Movement History",
-        actions: [{ key: "home.movement_history.view", label: "View" }],
-      },
-    ],
-  },
-  {
-    key: "process",
-    label: "PROCESS MODULE",
-    subModules: [
-      {
-        label: "Document In Hand",
+        label: "Corporate Details Approval",
         actions: [
-          { key: "process.document_in_hand.view", label: "View" },
-          { key: "process.document_in_hand.transfer", label: "Transfer To Assigned Office" },
-          { key: "process.document_in_hand.actions", label: "Transfer / Process Actions" },
+          { key: "corporate_details_approval.view", label: "View" },
+          { key: "corporate_details_approval.approve", label: "Approve" },
+          { key: "corporate_details_approval.reject", label: "Reject" },
+          { key: "corporate_details_approval.edit", label: "Edit" },
         ],
       },
       {
-        label: "Inbound",
+        label: "LOB Requests",
         actions: [
-          { key: "process.inbound.view", label: "View" },
-          { key: "process.inbound.receive", label: "Receive" },
-          { key: "process.inbound.return", label: "Return" },
+          { key: "lobApproval.view", label: "View" },
+          { key: "lobApproval.approve", label: "Approve" },
+          { key: "lobApproval.reject", label: "Reject" },
+          { key: "lobApproval.return", label: "Return" },
         ],
       },
       {
-        label: "Outbound",
+        label: "Inactive Leads",
         actions: [
-          { key: "process.outbound.view", label: "View" },
-          { key: "process.outbound.retrieve", label: "Retrieve" },
+          { key: "inactiveLead.view", label: "View" },
+          { key: "inactiveLead.approve", label: "Approve" },
+          { key: "inactiveLead.reject", label: "Reject" },
+          { key: "inactiveLead.return", label: "Return" },
         ],
       },
       {
-        label: "Bundle Movement",
-        actions: [{ key: "process.bundle_movement.view", label: "View" }],
+        label: "Overdue Follow-ups",
+        actions: [
+          { key: "overdueFollowup.view", label: "View" },
+          { key: "overdueFollowup.approve", label: "Approve" },
+          { key: "overdueFollowup.reject", label: "Reject" },
+          { key: "overdueFollowup.return", label: "Return" },
+        ],
       },
-    ],
-  },
-  {
-    key: "ready_for_delivery",
-    label: "READY FOR DELIVERY",
-    actions: [
-      { key: "ready_for_delivery.view", label: "View" },
-      { key: "ready_for_delivery.deliver", label: "Deliver" },
-    ],
-  },
-  {
-    key: "welcome_call",
-    label: "WELCOME CALL",
-    actions: [
-      { key: "welcome_call.view", label: "View" },
-      { key: "welcome_call.complete", label: "Complete" },
     ],
   },
   {
     key: "lead_management",
     label: "LEAD MANAGEMENT",
+    category: "Sales & CRM",
+    description: "Lead pipelines, followups, assignments, LOB requests, and closed conversions.",
+    moduleAccessKey: "lead_management.view",
     subModules: [
       {
-        label: "All Leads",
+        label: "Lead Access Scope",
+        actions: [
+          { key: "leads.view_all", label: "View All Leads (All Permitted Offices)" },
+          { key: "leads.view_own", label: "View Own Leads (Created / Assigned to User)" },
+          { key: "leads.view_assigned_users", label: "View Assigned Users Leads (Reporting Staff)" },
+        ],
+      },
+      {
+        label: "All Leads Actions",
         actions: [
           { key: "leads.view", label: "View" },
           { key: "leads.create", label: "Create" },
           { key: "leads.edit", label: "Edit" },
           { key: "leads.delete", label: "Delete" },
+          { key: "leads.export", label: "Export" },
+          { key: "leads.import", label: "Import" },
         ],
       },
       {
@@ -231,25 +237,243 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
     ],
   },
   {
-    key: "pending_approval",
-    label: "PENDING APPROVAL",
+    key: "master_configuration",
+    label: "MASTER CONFIGURATION",
+    category: "Configuration",
+    description: "System master registries, document categories, process types, and account menus.",
+    moduleAccessKey: "master_configuration.view",
+    subModules: [
+      {
+        label: "Departments",
+        actions: [
+          { key: "departments.view", label: "View" },
+          { key: "departments.create", label: "Create" },
+          { key: "departments.edit", label: "Edit" },
+          { key: "departments.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Office Locations",
+        actions: [
+          { key: "office_locations.view", label: "View" },
+          { key: "office_locations.create", label: "Create" },
+          { key: "office_locations.edit", label: "Edit" },
+          { key: "office_locations.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Document Types",
+        actions: [
+          { key: "master_configuration.document_types.view", label: "View" },
+          { key: "master_configuration.document_types.create", label: "Create" },
+          { key: "master_configuration.document_types.edit", label: "Edit" },
+          { key: "master_configuration.document_types.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Document Type Categories",
+        actions: [
+          { key: "master_configuration.document_type_categories.view", label: "View" },
+          { key: "master_configuration.document_type_categories.create", label: "Create" },
+          { key: "master_configuration.document_type_categories.edit", label: "Edit" },
+          { key: "master_configuration.document_type_categories.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Process Types",
+        actions: [
+          { key: "master_configuration.process_types.view", label: "View" },
+          { key: "master_configuration.process_types.create", label: "Create" },
+          { key: "master_configuration.process_types.edit", label: "Edit" },
+          { key: "master_configuration.process_types.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Sub Process",
+        actions: [
+          { key: "master_configuration.sub_process.view", label: "View" },
+          { key: "master_configuration.sub_process.create", label: "Create" },
+          { key: "master_configuration.sub_process.edit", label: "Edit" },
+          { key: "master_configuration.sub_process.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Customer Types",
+        actions: [
+          { key: "master_configuration.customer_types.view", label: "View" },
+          { key: "master_configuration.customer_types.create", label: "Create" },
+          { key: "master_configuration.customer_types.edit", label: "Edit" },
+          { key: "master_configuration.customer_types.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Corporate Details",
+        actions: [
+          { key: "master_configuration.corporate_details.view", label: "View" },
+          { key: "master_configuration.corporate_details.create", label: "Create" },
+          { key: "master_configuration.corporate_details.edit", label: "Edit" },
+          { key: "master_configuration.corporate_details.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Payment Mode",
+        actions: [
+          { key: "master_configuration.payment_mode.view", label: "View" },
+          { key: "master_configuration.payment_mode.create", label: "Create" },
+          { key: "master_configuration.payment_mode.edit", label: "Edit" },
+          { key: "master_configuration.payment_mode.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Courier Companies",
+        actions: [
+          { key: "master_configuration.courier_companies.view", label: "View" },
+          { key: "master_configuration.courier_companies.create", label: "Create" },
+          { key: "master_configuration.courier_companies.edit", label: "Edit" },
+          { key: "master_configuration.courier_companies.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Account Menu",
+        actions: [
+          { key: "account_menu.view", label: "View" },
+          { key: "account_menu.create", label: "Create" },
+          { key: "account_menu.update", label: "Update" },
+          { key: "account_menu.delete", label: "Delete" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "process",
+    label: "PROCESS MODULE",
+    category: "Processing",
+    description: "Office document processing, transfers, inbound receipts, and dispatch outbounds.",
+    moduleAccessKey: "process.view",
+    subModules: [
+      {
+        label: "Document In Hand",
+        actions: [
+          { key: "process.document_in_hand.view", label: "View" },
+          { key: "process.document_in_hand.transfer", label: "Transfer To Assigned Office" },
+          { key: "process.document_in_hand.actions", label: "Transfer / Process Actions (Create/Edit/Complete/Delete)" },
+        ],
+      },
+      {
+        label: "Inbound",
+        actions: [
+          { key: "process.inbound.view", label: "View" },
+          { key: "process.inbound.receive", label: "Receive Document" },
+          { key: "process.inbound.return", label: "Return Document" },
+        ],
+      },
+      {
+        label: "Outbound",
+        actions: [
+          { key: "process.outbound.view", label: "View" },
+          { key: "process.outbound.retrieve", label: "Send / Retrieve Document" },
+        ],
+      },
+      {
+        label: "Bundle Movement",
+        actions: [{ key: "process.bundle_movement.view", label: "View Movement History" }],
+      },
+    ],
+  },
+  {
+    key: "ready_for_delivery",
+    label: "READY FOR DELIVERY",
+    category: "Operations",
+    description: "Queue for documents ready for final handover and customer dispatch.",
+    moduleAccessKey: "ready_for_delivery.view",
     actions: [
-      { key: "pending_approval.view", label: "View" },
-      { key: "pending_approval.approve", label: "Approve" },
-      { key: "pending_approval.reject", label: "Reject" },
+      { key: "ready_for_delivery.view", label: "View" },
+      { key: "ready_for_delivery.deliver", label: "Deliver Document" },
+      { key: "ready_for_delivery.undo", label: "Undo Delivery" },
+      { key: "ready_for_delivery.view_details", label: "View Details" },
+      { key: "ready_for_delivery.export", label: "Export" },
+      { key: "ready_for_delivery.edit", label: "Edit" },
+      { key: "ready_for_delivery.delete", label: "Delete" },
+    ],
+  },
+  {
+    key: "home",
+    label: "HOME WORKFLOW",
+    category: "Workflow",
+    description: "HQ Document in hand, internal bundle routing, transfer receipts, and audit history.",
+    moduleAccessKey: "home.view",
+    subModules: [
+      {
+        label: "Document In Hand",
+        actions: [
+          { key: "home.document_in_hand.view", label: "View" },
+          { key: "home.document_in_hand.transfer", label: "Transfer" },
+        ],
+      },
+      {
+        label: "Inbound Bundles",
+        actions: [
+          { key: "home.inbound.view", label: "View" },
+          { key: "home.inbound.receive", label: "Receive" },
+          { key: "home.inbound.return", label: "Return" },
+        ],
+      },
+      {
+        label: "Outbound Bundles",
+        actions: [
+          { key: "home.outbound.view", label: "View" },
+          { key: "home.outbound.retrieve", label: "Send / Retrieve" },
+        ],
+      },
+      {
+        label: "Movement History",
+        actions: [{ key: "home.movement_history.view", label: "View Movement History" }],
+      },
     ],
   },
   {
     key: "search_report",
     label: "SEARCH / REPORT",
+    category: "Analytics & Reports",
+    description: "Unified cross-office tracking number search, customer lookups, and report exports.",
+    moduleAccessKey: "search_report.view",
     actions: [
-      { key: "search_report.view", label: "View" },
-      { key: "search_report.export", label: "Export" },
+      { key: "search_report.view", label: "View Reports" },
+      { key: "search_report.export", label: "Export Reports" },
+    ],
+  },
+  {
+    key: "account_modules",
+    label: "ACCOUNT MODULES",
+    category: "Finance & Accounts",
+    description: "Financial transactions, payment vouchers, ledger entries, and accounting statements.",
+    subModules: [
+      {
+        label: "Account Panel",
+        actions: [
+          { key: "account_panel.view", label: "View" },
+          { key: "account_panel.create", label: "Create" },
+          { key: "account_panel.edit", label: "Edit" },
+          { key: "account_panel.delete", label: "Delete" },
+        ],
+      },
+      {
+        label: "Account Statements",
+        actions: [
+          { key: "account_statements.view", label: "View" },
+          { key: "account_statements.export", label: "Export" },
+          { key: "account_statements.edit", label: "Edit" },
+          { key: "account_statements.delete", label: "Delete" },
+        ],
+      },
     ],
   },
   {
     key: "reports",
     label: "REPORTS & ANALYTICS",
+    category: "Analytics & Reports",
+    description: "Consolidated enterprise analytics, registration summaries, and business intelligence.",
+    moduleAccessKey: "reports.view",
     actions: [
       { key: "reports.view", label: "View" },
       { key: "reports.export", label: "Export" },
@@ -258,6 +482,9 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
     key: "bm_report",
     label: "BM REPORT",
+    category: "Analytics & Reports",
+    description: "Branch Manager specific reporting and executive KPIs.",
+    moduleAccessKey: "bm_report.view",
     actions: [
       { key: "bm_report.view", label: "View" },
       { key: "bm_report.export", label: "Export" },
@@ -266,38 +493,42 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
     key: "assigned_office",
     label: "ASSIGNED OFFICE",
+    category: "Operations",
+    description: "External outsourced office portals, rate cards, and task delegation.",
+    moduleAccessKey: "assigned_office.view",
     actions: [
       { key: "assigned_office.view", label: "View" },
       { key: "assigned_office.manage", label: "Manage" },
+      { key: "assigned_office.create", label: "Create" },
+      { key: "assigned_office.edit", label: "Edit" },
+      { key: "assigned_office.delete", label: "Delete" },
+      { key: "assigned_office.export", label: "Export" },
     ],
   },
   {
-    key: "account_modules",
-    label: "ACCOUNT MODULES",
-    subModules: [
-      {
-        label: "Account Panel",
-        actions: [
-          { key: "account_panel.view", label: "View" },
-          { key: "account_panel.create", label: "Create" },
-        ],
-      },
-      {
-        label: "Account Statements",
-        actions: [
-          { key: "account_statements.view", label: "View" },
-          { key: "account_statements.export", label: "Export" },
-        ],
-      },
+    key: "welcome_call",
+    label: "WELCOME CALL",
+    category: "Operations",
+    description: "Post-registration customer onboarding, feedback recording, and status updates.",
+    moduleAccessKey: "welcome_call.view",
+    actions: [
+      { key: "welcome_call.view", label: "View" },
+      { key: "welcome_call.complete", label: "Complete" },
     ],
   },
   {
     key: "attendance",
     label: "ATTENDANCE",
+    category: "HR & Staff",
+    description: "Staff biometric check-in, geofencing logs, daily summaries, and approval controls.",
+    moduleAccessKey: "attendance.view",
     subModules: [
       {
         label: "Dashboard & Records",
-        actions: [{ key: "attendance.view", label: "View" }],
+        actions: [
+          { key: "attendance.view", label: "View Dashboard" },
+          { key: "attendance.records.view", label: "View Records" },
+        ],
       },
       {
         label: "Check Out",
@@ -311,6 +542,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         actions: [
           { key: "attendance.summary.create", label: "Create" },
           { key: "attendance.summary.view", label: "View Approval" },
+          { key: "attendance_approval.view", label: "Approval Authority" },
         ],
       },
       {
@@ -322,6 +554,9 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
     key: "leave",
     label: "LEAVE MANAGEMENT",
+    category: "HR & Staff",
+    description: "Leave application requests, quota calculations, team approvals, and balance reports.",
+    moduleAccessKey: "leave.view",
     subModules: [
       {
         label: "Apply Leave",
@@ -344,6 +579,9 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
     key: "salary",
     label: "SALARY MANAGEMENT",
+    category: "HR & Staff",
+    description: "Payroll computation, salary calculators, monthly dispatches, and audit statements.",
+    moduleAccessKey: "salary.view",
     subModules: [
       {
         label: "Dashboard",
@@ -355,7 +593,10 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
       },
       {
         label: "Monthly Payroll",
-        actions: [{ key: "salary.generate", label: "Generate" }],
+        actions: [
+          { key: "salary.generate", label: "Generate" },
+          { key: "salary.approve", label: "Approve" },
+        ],
       },
       {
         label: "Reports",
@@ -364,30 +605,11 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
     ],
   },
   {
-    key: "master_configuration",
-    label: "MASTER CONFIGURATION",
-    subModules: [
-      {
-        label: "General Configurations",
-        actions: [
-          { key: "master_configuration.view", label: "View" },
-          { key: "master_configuration.manage", label: "Manage" },
-        ],
-      },
-      {
-        label: "Account Menu",
-        actions: [
-          { key: "account_menu.view", label: "View" },
-          { key: "account_menu.create", label: "Create" },
-          { key: "account_menu.update", label: "Update" },
-          { key: "account_menu.delete", label: "Delete" },
-        ],
-      },
-    ],
-  },
-  {
     key: "admin_management",
     label: "ADMIN MANAGEMENT",
+    category: "Administration",
+    description: "Workspace users, roles & permission matrices, department setups, and branch profiles.",
+    moduleAccessKey: "admin_management.view",
     subModules: [
       {
         label: "Users",
@@ -436,6 +658,15 @@ export function UserAccessManagement() {
   // Search & Filter state
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [moduleSearchQuery, setModuleSearchQuery] = useState("");
+  const [permSearchQuery, setPermSearchQuery] = useState("");
+
+  // Accordion state for Tab 2
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    revenue_registration: true,
+    pending_approval: true,
+    lead_management: true,
+    master_configuration: true,
+  });
 
   // Office Visibility editing state: userId -> { moduleKey -> officeLocationIds[] }
   const [officeVisMap, setOfficeVisMap] = useState<Record<string, Record<string, string[]>>>({});
@@ -580,7 +811,7 @@ export function UserAccessManagement() {
     return { assignedOffices: assigned, globalOffices: global };
   }, [officeLocations]);
 
-  // Filter dynamic modules for search
+  // Filter dynamic modules for search in Tab 1
   const filteredModules = useMemo(() => {
     if (!moduleSearchQuery.trim()) return modules;
     const q = moduleSearchQuery.toLowerCase().trim();
@@ -591,6 +822,26 @@ export function UserAccessManagement() {
         m.category.toLowerCase().includes(q)
     );
   }, [modules, moduleSearchQuery]);
+
+  // Filter permission modules for search in Tab 2
+  const filteredPermissionCatalog = useMemo(() => {
+    if (!permSearchQuery.trim()) return MODULE_PERMISSIONS_CATALOG;
+    const q = permSearchQuery.toLowerCase().trim();
+    return MODULE_PERMISSIONS_CATALOG.filter((m) => {
+      const matchLabel = m.label.toLowerCase().includes(q);
+      const matchDesc = m.description?.toLowerCase().includes(q) ?? false;
+      const matchCategory = m.category.toLowerCase().includes(q);
+      const matchSub = m.subModules?.some(
+        (sm) =>
+          sm.label.toLowerCase().includes(q) ||
+          sm.actions.some((a) => a.label.toLowerCase().includes(q) || a.key.toLowerCase().includes(q))
+      ) ?? false;
+      const matchActions = m.actions?.some(
+        (a) => a.label.toLowerCase().includes(q) || a.key.toLowerCase().includes(q)
+      ) ?? false;
+      return matchLabel || matchDesc || matchCategory || matchSub || matchActions;
+    });
+  }, [permSearchQuery]);
 
   const selectedUser = useMemo(
     () => users.find((u) => u.id === selectedUserId) ?? null,
@@ -740,6 +991,9 @@ export function UserAccessManagement() {
     if (!selectedUserId) return;
     const allKeys: string[] = [];
 
+    if (moduleDef.moduleAccessKey) {
+      allKeys.push(moduleDef.moduleAccessKey);
+    }
     if (moduleDef.actions) {
       for (const a of moduleDef.actions) allKeys.push(a.key);
     }
@@ -759,6 +1013,29 @@ export function UserAccessManagement() {
         return { ...prev, [selectedUserId]: next };
       }
     });
+  }
+
+  function toggleSubModulePermissions(subModule: SubModuleDefinition, enable: boolean) {
+    if (!selectedUserId) return;
+    const allKeys = subModule.actions.map((a) => a.key);
+
+    setUserPermMap((prev) => {
+      const current = prev[selectedUserId] ?? [];
+      if (enable) {
+        const next = Array.from(new Set([...current, ...allKeys]));
+        return { ...prev, [selectedUserId]: next };
+      } else {
+        const next = current.filter((k) => !allKeys.includes(k));
+        return { ...prev, [selectedUserId]: next };
+      }
+    });
+  }
+
+  function toggleAccordion(moduleKey: string) {
+    setExpandedModules((prev) => ({
+      ...prev,
+      [moduleKey]: !prev[moduleKey],
+    }));
   }
 
   async function handleSavePermissions() {
@@ -822,7 +1099,7 @@ export function UserAccessManagement() {
       <PageHeader
         eyebrow="Admin Management"
         title="User Access Management"
-        description="Redesigned per-user access control: Granular Module-Wise Office Visibility Scoping and Action Permissions."
+        description="Granular per-user authorization: Module-Wise Office Visibility and Detailed Module & Action Permissions."
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -1122,11 +1399,11 @@ export function UserAccessManagement() {
         </section>
       ) : (
         /* =================================================== */
-        /* SECTION 2: MODULE & ACTION PERMISSIONS              */
+        /* SECTION 2: MODULE & ACTION PERMISSIONS (REDESIGNED) */
         /* =================================================== */
-        <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           {/* Left Column: User Selector List */}
-          <DashboardCard title="Users" description="Select a user to configure permissions.">
+          <DashboardCard title="Users" description="Select a user to configure granular permissions.">
             <div className="mb-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
@@ -1140,38 +1417,42 @@ export function UserAccessManagement() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 max-h-150 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-1.5 max-h-160 overflow-y-auto pr-1">
               {filteredUsers.map((u) => {
                 const isSelected = u.id === selectedUserId;
+                const userKeys = userPermMap[u.id] ?? [];
                 return (
                   <button
                     key={u.id}
                     type="button"
                     onClick={() => setSelectedUserId(u.id)}
-                    className={`flex items-center gap-3 rounded-xl p-2.5 text-left text-xs transition-colors cursor-pointer ${
+                    className={`flex items-center gap-3 rounded-2xl p-3 text-left text-xs transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-blue-600 font-extrabold text-white shadow-sm"
-                        : "hover:bg-black/5 text-foreground dark:hover:bg-white/5"
+                        ? "bg-blue-50/90 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 border-2 border-blue-500 shadow-xs"
+                        : "hover:bg-black/5 dark:hover:bg-white/5 text-foreground border border-transparent"
                     }`}
                   >
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full font-bold ${
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-sm ${
                         isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                       }`}
                     >
                       {u.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold">{u.name}</p>
-                      <p
-                        className={`truncate text-[11px] ${
-                          isSelected ? "text-blue-100" : "text-soft"
-                        }`}
-                      >
-                        {u.roleName}
-                      </p>
+                      <p className="truncate font-extrabold text-sm">{u.name}</p>
+                      <p className="truncate text-[11px] text-soft">{u.email}</p>
+                      <div className="flex items-center gap-2 text-[11px] mt-1 font-semibold text-soft">
+                        <span className="rounded-md bg-black/5 px-1.5 py-0.5 dark:bg-white/10 text-foreground">
+                          {u.roleName}
+                        </span>
+                        <span>•</span>
+                        <span className={u.isSuperAdmin ? "text-purple-600 dark:text-purple-400 font-bold" : ""}>
+                          {u.isSuperAdmin ? "Full Access" : `${userKeys.length} permissions`}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 );
@@ -1180,172 +1461,296 @@ export function UserAccessManagement() {
           </DashboardCard>
 
           {/* Right Column: Permission Matrix for Selected User */}
-          <DashboardCard
-            title={
-              selectedUser
-                ? `Permission Matrix: ${selectedUser.name}`
-                : "Module & Action Permissions"
-            }
-            description="Configure exact module visibility, sub-module access, and action capabilities for this individual user."
-          >
-            {selectedUser ? (
-              <div className="flex flex-col gap-6">
-                {/* Action Bar: Copy / Paste / Save */}
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-(--border) bg-white/40 p-4 dark:bg-white/5">
-                  <div className="flex items-center gap-3">
+          {selectedUser ? (
+            <div className="flex flex-col gap-6">
+              {/* Header Bar */}
+              <DashboardCard>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-extrabold text-foreground">
+                        Module & Action Permissions — {selectedUser.name}
+                      </h3>
+                      <span className="rounded-lg bg-blue-100 px-2 py-0.5 text-xs font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        {selectedUser.roleName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-soft mt-1">
+                      Configure granular module visibility, approval types, and action capabilities for this individual user.
+                    </p>
+                  </div>
+
+                  {/* Actions: Copy / Paste / Save */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={handleCopyPermissions}>
-                      <Copy size={15} />
+                      <Copy size={14} />
                       Copy Permissions
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={!copiedPermissionsState}
+                      disabled={!copiedPermissionsState || copiedPermissionsState.sourceUserId === selectedUser.id}
                       onClick={() => setPasteConfirmModalOpen(true)}
                     >
-                      <ClipboardPaste size={15} />
+                      <ClipboardPaste size={14} />
                       Paste Permissions
                     </Button>
-                    {copiedPermissionsState ? (
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                        Copied from: {copiedPermissionsState.sourceUserName}
-                      </span>
-                    ) : null}
+                    {!selectedUser.isSuperAdmin && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={savingPermissions}
+                        onClick={() => void handleSavePermissions()}
+                      >
+                        <Save size={14} />
+                        {savingPermissions ? "Saving..." : "Save Permissions"}
+                      </Button>
+                    )}
                   </div>
-
-                  <Button
-                    variant="primary"
-                    disabled={savingPermissions || selectedUser.isSuperAdmin}
-                    onClick={() => void handleSavePermissions()}
-                  >
-                    <Save size={16} />
-                    {savingPermissions ? "Saving..." : "Save Permissions"}
-                  </Button>
                 </div>
 
-                {selectedUser.isSuperAdmin ? (
-                  <div className="rounded-2xl border border-purple-500/20 bg-purple-50 p-4 text-sm font-bold text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">
-                    <ShieldCheck className="mb-1 inline-block h-5 w-5 mr-1" />
-                    Root Super Admin possesses full administrative access across all modules and
-                    actions.
+                {copiedPermissionsState ? (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-50/70 dark:bg-blue-950/30 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900/30">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={14} className="text-blue-600 dark:text-blue-400" />
+                      <span>
+                        Clipboard ready: Copied permissions from{" "}
+                        <strong className="font-extrabold">{copiedPermissionsState.sourceUserName}</strong> (
+                        {copiedPermissionsState.permissionKeys.length} items)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCopiedPermissionsState(null)}
+                      className="text-soft hover:text-foreground cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 ) : null}
+              </DashboardCard>
 
-                {/* Module Matrix */}
-                <div className="grid gap-6">
-                  {MODULE_PERMISSIONS_CATALOG.map((moduleDef) => {
-                    const userKeys = userPermMap[selectedUser.id] ?? [];
-
-                    return (
-                      <div
-                        key={moduleDef.key}
-                        className="rounded-2xl border border-(--border) bg-white/60 p-5 dark:bg-white/5"
+              {/* Super Admin Notice */}
+              {selectedUser.isSuperAdmin ? (
+                <div className="rounded-3xl border border-purple-200 bg-purple-50 p-6 text-sm font-semibold text-purple-900 dark:border-purple-900/30 dark:bg-purple-950/40 dark:text-purple-300 flex items-start gap-4">
+                  <ShieldCheck className="h-8 w-8 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-base">Super Admin — Root System Access</h4>
+                    <p className="text-purple-700 dark:text-purple-300/80 font-normal mt-1 leading-relaxed">
+                      Super Admin users automatically hold unrestricted permissions across all system modules, approval queues, and actions.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {/* Permissions Search Filter */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
+                    <input
+                      type="text"
+                      value={permSearchQuery}
+                      onChange={(e) => setPermSearchQuery(e.target.value)}
+                      placeholder="Search permission modules or actions (e.g. Revenue Registration, Movement Approval, View Own Leads)..."
+                      className="w-full rounded-2xl border border-(--border) bg-white/70 pl-9 pr-8 py-2.5 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-white/5"
+                    />
+                    {permSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setPermSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-soft hover:text-foreground cursor-pointer"
                       >
-                        <div className="mb-4 flex items-center justify-between border-b border-(--border) pb-3">
-                          <h4 className="font-extrabold text-foreground">{moduleDef.label}</h4>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => toggleAllModulePermissions(moduleDef, true)}
-                              className="text-xs font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
-                            >
-                              Select All
-                            </button>
-                            <span className="text-soft">|</span>
-                            <button
-                              type="button"
-                              onClick={() => toggleAllModulePermissions(moduleDef, false)}
-                              className="text-xs font-bold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
-                            >
-                              Deselect All
-                            </button>
-                          </div>
-                        </div>
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
 
-                        {/* Flat Actions */}
-                        {moduleDef.actions && moduleDef.actions.length > 0 ? (
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {moduleDef.actions.map((action) => {
-                              const checked = userKeys.includes(action.key);
-                              return (
-                                <label
-                                  key={action.key}
-                                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
-                                    checked
-                                      ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/30"
-                                      : "border-(--border) bg-white/40 hover:border-slate-400 dark:bg-white/5"
-                                  }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={selectedUser.isSuperAdmin}
-                                    onChange={() => togglePermissionKey(action.key)}
-                                    className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                  />
-                                  <span className="text-xs font-bold text-foreground">
-                                    {action.label}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        ) : null}
+                  {/* Module Matrix Cards */}
+                  <div className="grid gap-4">
+                    {filteredPermissionCatalog.map((moduleDef) => {
+                      const userKeys = userPermMap[selectedUser.id] ?? [];
+                      const isExpanded = expandedModules[moduleDef.key] ?? true;
 
-                        {/* Sub-modules */}
-                        {moduleDef.subModules && moduleDef.subModules.length > 0 ? (
-                          <div className="grid gap-4">
-                            {moduleDef.subModules.map((subModule) => (
-                              <div
-                                key={subModule.label}
-                                className="rounded-xl border border-(--border) p-3"
+                      // Count active permissions in this module
+                      const allModuleKeys: string[] = [];
+                      if (moduleDef.moduleAccessKey) allModuleKeys.push(moduleDef.moduleAccessKey);
+                      if (moduleDef.actions) {
+                        for (const a of moduleDef.actions) allModuleKeys.push(a.key);
+                      }
+                      if (moduleDef.subModules) {
+                        for (const sm of moduleDef.subModules) {
+                          for (const a of sm.actions) allModuleKeys.push(a.key);
+                        }
+                      }
+                      const activeCount = allModuleKeys.filter((k) => userKeys.includes(k)).length;
+
+                      return (
+                        <div
+                          key={moduleDef.key}
+                          className="rounded-3xl border border-(--border) bg-white/70 p-5 shadow-xs transition-all dark:bg-white/5 dark:border-white/10"
+                        >
+                          {/* Module Accordion Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--border) pb-3">
+                            <div
+                              className="flex items-center gap-3 cursor-pointer select-none"
+                              onClick={() => toggleAccordion(moduleDef.key)}
+                            >
+                              <span className="rounded-lg bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                {moduleDef.category}
+                              </span>
+                              <h4 className="text-sm font-extrabold text-foreground">{moduleDef.label}</h4>
+                              <span className="text-xs text-soft font-semibold">
+                                ({activeCount}/{allModuleKeys.length} enabled)
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp size={16} className="text-soft" />
+                              ) : (
+                                <ChevronDown size={16} className="text-soft" />
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleAllModulePermissions(moduleDef, true)}
+                                className="text-xs font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
                               >
-                                <p className="mb-2 text-xs font-extrabold text-soft uppercase tracking-wider">
-                                  {subModule.label}
-                                </p>
-                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                  {subModule.actions.map((action) => {
-                                    const checked = userKeys.includes(action.key);
+                                Select All
+                              </button>
+                              <span className="text-soft">|</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleAllModulePermissions(moduleDef, false)}
+                                className="text-xs font-bold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
+                              >
+                                Deselect All
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Accordion Body */}
+                          {isExpanded && (
+                            <div className="mt-4 flex flex-col gap-4 animate-in fade-in duration-150">
+                              {moduleDef.description ? (
+                                <p className="text-xs text-soft">{moduleDef.description}</p>
+                              ) : null}
+
+                              {/* Top-Level Actions */}
+                              {moduleDef.actions && moduleDef.actions.length > 0 ? (
+                                <div>
+                                  <p className="mb-2 text-xs font-extrabold text-soft uppercase tracking-wider">
+                                    Actions & Operations
+                                  </p>
+                                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    {moduleDef.actions.map((action) => {
+                                      const checked = userKeys.includes(action.key);
+                                      return (
+                                        <label
+                                          key={action.key}
+                                          className={`flex items-center gap-3 rounded-xl border p-2.5 cursor-pointer transition-colors ${
+                                            checked
+                                              ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/30"
+                                              : "border-(--border) bg-white/40 hover:border-slate-400 dark:bg-white/5"
+                                          }`}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            disabled={selectedUser.isSuperAdmin}
+                                            onChange={() => togglePermissionKey(action.key)}
+                                            className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                          />
+                                          <span className="text-xs font-bold text-foreground">
+                                            {action.label}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {/* Submodules / Approval Types / Scopes */}
+                              {moduleDef.subModules && moduleDef.subModules.length > 0 ? (
+                                <div className="grid gap-4">
+                                  {moduleDef.subModules.map((subModule) => {
+                                    const subModuleKeys = subModule.actions.map((a) => a.key);
+                                    const allChecked = subModuleKeys.every((k) => userKeys.includes(k));
+
                                     return (
-                                      <label
-                                        key={action.key}
-                                        className={`flex items-center gap-3 rounded-xl border p-2.5 cursor-pointer transition-colors ${
-                                          checked
-                                            ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/30"
-                                            : "border-(--border) bg-white/40 hover:border-slate-400 dark:bg-white/5"
-                                        }`}
+                                      <div
+                                        key={subModule.label}
+                                        className="rounded-2xl border border-(--border) bg-black/5 dark:bg-white/5 p-4"
                                       >
-                                        <input
-                                          type="checkbox"
-                                          checked={checked}
-                                          disabled={selectedUser.isSuperAdmin}
-                                          onChange={() => togglePermissionKey(action.key)}
-                                          className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                        />
-                                        <span className="text-xs font-bold text-foreground">
-                                          {action.label}
-                                        </span>
-                                      </label>
+                                        <div className="flex items-center justify-between mb-3 border-b border-(--border) pb-2">
+                                          <p className="text-xs font-extrabold text-foreground uppercase tracking-wider">
+                                            {subModule.label}
+                                          </p>
+                                          <div className="flex items-center gap-2 text-[11px]">
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleSubModulePermissions(subModule, true)}
+                                              className="font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
+                                            >
+                                              All
+                                            </button>
+                                            <span className="text-soft">|</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleSubModulePermissions(subModule, false)}
+                                              className="font-bold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
+                                            >
+                                              Clear
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                          {subModule.actions.map((action) => {
+                                            const checked = userKeys.includes(action.key);
+                                            return (
+                                              <label
+                                                key={action.key}
+                                                className={`flex items-center gap-3 rounded-xl border p-2.5 cursor-pointer transition-colors ${
+                                                  checked
+                                                    ? "border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/30"
+                                                    : "border-(--border) bg-white/40 hover:border-slate-400 dark:bg-white/5"
+                                                }`}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={checked}
+                                                  disabled={selectedUser.isSuperAdmin}
+                                                  onChange={() => togglePermissionKey(action.key)}
+                                                  className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-foreground">
+                                                  {action.label}
+                                                </span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
                                     );
                                   })}
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <EmptyState
-                icon={ShieldCheck}
-                title="Select a User"
-                description="Select a user from the left list to configure individual module and action permissions."
-              />
-            )}
-          </DashboardCard>
+              )}
+            </div>
+          ) : (
+            <EmptyState
+              icon={ShieldCheck}
+              title="Select a User"
+              description="Select a user from the left list to configure individual module and action permissions."
+            />
+          )}
         </section>
       )}
 
@@ -1449,12 +1854,17 @@ export function UserAccessManagement() {
                 className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 shadow-2xl dark:bg-[#0f1115] border border-slate-200 dark:border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-4 text-slate-900 dark:text-white"
               >
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
-                  <h3
-                    id="paste-confirm-modal-title"
-                    className="text-lg font-extrabold text-slate-900 dark:text-white"
-                  >
-                    Confirm Paste Permissions
-                  </h3>
+                  <div className="flex items-center gap-2.5">
+                    <div className="rounded-xl bg-blue-100 p-2 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                      <ClipboardPaste size={20} />
+                    </div>
+                    <h3
+                      id="paste-confirm-modal-title"
+                      className="text-lg font-extrabold text-slate-900 dark:text-white"
+                    >
+                      Confirm Paste Permissions
+                    </h3>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setPasteConfirmModalOpen(false)}
@@ -1465,15 +1875,8 @@ export function UserAccessManagement() {
                 </div>
 
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                  Replace{" "}
-                  <strong className="font-bold text-slate-900 dark:text-white">
-                    {selectedUser.name}
-                  </strong>
-                  &apos;s current module/action permissions with the copied permission set from{" "}
-                  <strong className="font-bold text-slate-900 dark:text-white">
-                    {copiedPermissionsState.sourceUserName}
-                  </strong>
-                  ?
+                  Replace <strong className="font-bold text-slate-900 dark:text-white">{selectedUser.name}</strong>&apos;s current module/action permissions with the copied permission set ({copiedPermissionsState.permissionKeys.length} permissions) from{" "}
+                  <strong className="font-bold text-slate-900 dark:text-white">{copiedPermissionsState.sourceUserName}</strong>?
                 </p>
 
                 <div className="rounded-2xl border border-blue-500/20 bg-blue-50/80 p-3.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
