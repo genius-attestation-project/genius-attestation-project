@@ -101,10 +101,15 @@ export function buildDataScopeFilter(user: SessionAccess | any, permissionCode: 
 /**
  * Builds Prisma where condition to enforce user's allowed Office Visibility.
  * Returns empty object {} if user is Super Admin or has full access (allowedOfficeIds === null).
- * Returns { id: "none" } if user has 0 allowed offices assigned.
+ * Returns { id: "none" } if user has 0 allowed offices assigned for the requested module.
  */
 export function buildOfficeVisibilityWhereInput(
-  user: { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null; moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null } | any,
+  user: {
+    isSuperAdmin?: boolean;
+    allowedOfficeIds?: string[] | null;
+    allowedOfficeNames?: string[] | null;
+    moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null;
+  } | any,
   options: {
     officeIdField?: string;
     officeNameField?: string;
@@ -117,15 +122,20 @@ export function buildOfficeVisibilityWhereInput(
     return {};
   }
 
-  let allowedIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
-  let allowedNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
+  let allowedIds: string[] = [];
+  let allowedNames: string[] = [];
 
-  if (options.moduleKey && user.moduleOfficeVisibilities?.[options.moduleKey]) {
+  if (options.moduleKey && user.moduleOfficeVisibilities !== null && user.moduleOfficeVisibilities !== undefined) {
     const modConfig = user.moduleOfficeVisibilities[options.moduleKey];
-    if (modConfig) {
-      allowedIds = modConfig.officeIds ?? [];
-      allowedNames = modConfig.officeNames ?? [];
+    if (!modConfig || (modConfig.officeIds.length === 0 && modConfig.officeNames.length === 0)) {
+      // User has configured module visibilities, but this specific module has 0 offices granted
+      return { id: "none" };
     }
+    allowedIds = modConfig.officeIds ?? [];
+    allowedNames = modConfig.officeNames ?? [];
+  } else {
+    allowedIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
+    allowedNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
   }
 
   if (allowedIds.length === 0 && allowedNames.length === 0) {

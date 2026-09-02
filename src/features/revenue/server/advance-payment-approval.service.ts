@@ -251,6 +251,9 @@ export async function listAdvancePaymentApprovals(
     registrationId?: string;
     page?: number;
     pageSize?: number;
+    isSuperAdmin?: boolean;
+    allowedOfficeNames?: string[] | null;
+    allowedOfficeIds?: string[] | null;
   },
 ) {
   const page = Math.max(1, params?.page ?? 1);
@@ -268,6 +271,22 @@ export async function listAdvancePaymentApprovals(
     ...(statusFilter && statusFilter !== "All" ? { status: statusFilter } : {}),
     ...(officeFilter && officeFilter !== "All" ? { office: { equals: officeFilter } } : {}),
   };
+
+  // Enforce office visibility access
+  if (params?.allowedOfficeNames !== undefined || params?.isSuperAdmin !== undefined) {
+    if (!params?.isSuperAdmin && params?.allowedOfficeNames !== null && params?.allowedOfficeNames !== undefined) {
+      if (params.allowedOfficeNames.length === 0) {
+        where.id = "none";
+      } else {
+        where.office = { in: params.allowedOfficeNames };
+        if (officeFilter && officeFilter !== "All") {
+          if (!params.allowedOfficeNames.includes(officeFilter)) {
+            where.id = "none";
+          }
+        }
+      }
+    }
+  }
 
   if (fromDate || toDate) {
     where.requestedAt = {

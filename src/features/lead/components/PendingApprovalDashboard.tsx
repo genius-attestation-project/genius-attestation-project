@@ -126,7 +126,6 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("advance_payment_approval.view") ||
-      currentUser?.permissions?.includes("pending_approval.view") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -141,7 +140,6 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("advance_details_approval.view") ||
-      currentUser?.permissions?.includes("advance_payment_approval.view") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -156,7 +154,6 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.view") ||
-      currentUser?.permissions?.includes("lob.view") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -174,19 +171,103 @@ export function PendingApprovalDashboard() {
       currentUser?.permissions?.includes("*")
     );
 
-  const canApprove =
+  const canApproveAdvance =
     isSuperAdmin ||
-    currentUser?.permissions?.includes("advance_payment_approval.approve") ||
-    currentUser?.permissions?.includes("pending_approval.edit") ||
-    currentUser?.permissions?.includes("pendingApproval.approve") ||
-    currentUser?.permissions?.includes("*");
+    Boolean(
+      currentUser?.permissions?.includes("advance_payment_approval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectAdvance =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("advance_payment_approval.reject") ||
+      currentUser?.permissions?.includes("*")
+    );
 
   const canApproveMovement =
     isSuperAdmin ||
-    currentUser?.permissions?.includes("movement_approval.approve") ||
-    currentUser?.permissions?.includes("pending_approval.edit") ||
-    currentUser?.permissions?.includes("pendingApproval.approve") ||
-    currentUser?.permissions?.includes("*");
+    Boolean(
+      currentUser?.permissions?.includes("movement_approval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canManageAdvanceDetails =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("advance_details_approval.manage") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveCorporate =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("corporate_details_approval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectCorporate =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("corporate_details_approval.reject") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canEditCorporate =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("corporate_details_approval.edit") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveLob =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("lobApproval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectLob =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("lobApproval.reject") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canReturnLob =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("lobApproval.return") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveInactive =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("inactiveLead.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canReturnInactive =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("inactiveLead.return") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveOverdue =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("overdueFollowup.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canReturnOverdue =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("overdueFollowup.return") ||
+      currentUser?.permissions?.includes("*")
+    );
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [movementApprovals, setMovementApprovals] = useState<MovementApprovalItem[]>([]);
@@ -693,14 +774,16 @@ export function PendingApprovalDashboard() {
                           <p className="text-soft">{formatDate(item.requestedDate)}</p>
                         </td>
                         <td className="px-5 py-4">
-                          {canApprove ? (
-                            <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
+                            {canApproveAdvance && (
                               <Button
                                 size="sm"
                                 onClick={() => setApprovingAdvance(item)}
                               >
                                 Approve
                               </Button>
+                            )}
+                            {canRejectAdvance && (
                               <Button
                                 variant="danger"
                                 size="sm"
@@ -715,12 +798,13 @@ export function PendingApprovalDashboard() {
                               >
                                 Reject
                               </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs italic text-slate-400" title="Approval permission required">
-                              Approval Permission Required
-                            </span>
-                          )}
+                            )}
+                            {!canApproveAdvance && !canRejectAdvance && (
+                              <span className="text-xs italic text-slate-400">
+                                View Only
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1007,8 +1091,8 @@ export function PendingApprovalDashboard() {
                                       <Eye size={14} />
                                     </Button>
                                   )}
-                                  {/* Edit button: ONLY for Approved records */}
-                                  {isApproved && (
+                                  {/* Edit button: ONLY for Approved records and if permitted */}
+                                  {isApproved && canManageAdvanceDetails && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -1019,16 +1103,21 @@ export function PendingApprovalDashboard() {
                                       <Pencil size={14} />
                                     </Button>
                                   )}
-                                  {/* Delete button: Visible for Pending Approval, Rejected, and Approved */}
-                                  <Button
-                                    size="sm"
-                                    variant="danger"
-                                    onClick={() => setDeletingAdvance(item)}
-                                    title="Delete Advance Payment"
-                                    className="p-1.5 text-xs"
-                                  >
-                                    <Trash2 size={14} />
-                                  </Button>
+                                  {/* Delete button: Visible if permitted */}
+                                  {canManageAdvanceDetails && (
+                                    <Button
+                                      size="sm"
+                                      variant="danger"
+                                      onClick={() => setDeletingAdvance(item)}
+                                      title="Delete Advance Payment"
+                                      className="p-1.5 text-xs"
+                                    >
+                                      <Trash2 size={14} />
+                                    </Button>
+                                  )}
+                                  {!canManageAdvanceDetails && !isApproved && (
+                                    <span className="text-xs italic text-slate-400">View Only</span>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1091,41 +1180,50 @@ export function PendingApprovalDashboard() {
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setEditingCorporate(item)}
-                              title="Edit Info"
-                            >
-                              <Pencil size={14} className="mr-1" /> Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                setActionModal({
-                                  type: "Approved",
-                                  requestType: "CORPORATE_DETAILS",
-                                  id: item.id,
-                                  title: `Approve Corporate Details (${item.companyName})`,
-                                })
-                              }
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() =>
-                                setActionModal({
-                                  type: "Rejected",
-                                  requestType: "CORPORATE_DETAILS",
-                                  id: item.id,
-                                  title: `Reject Corporate Details (${item.companyName})`,
-                                })
-                              }
-                            >
-                              Reject
-                            </Button>
+                            {canEditCorporate && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setEditingCorporate(item)}
+                                title="Edit Info"
+                              >
+                                <Pencil size={14} className="mr-1" /> Edit
+                              </Button>
+                            )}
+                            {canApproveCorporate && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Approved",
+                                    requestType: "CORPORATE_DETAILS",
+                                    id: item.id,
+                                    title: `Approve Corporate Details (${item.companyName})`,
+                                  })
+                                }
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {canRejectCorporate && (
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() =>
+                                  setActionModal({
+                                    type: "Rejected",
+                                    requestType: "CORPORATE_DETAILS",
+                                    id: item.id,
+                                    title: `Reject Corporate Details (${item.companyName})`,
+                                  })
+                                }
+                              >
+                                Reject
+                              </Button>
+                            )}
+                            {!canEditCorporate && !canApproveCorporate && !canRejectCorporate && (
+                              <span className="text-xs italic text-slate-400">View Only</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1156,9 +1254,18 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4">{formatDate(item.requestedAt)}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "LOB_REQUEST", id: item.id, title: "Approve LOB Request" })}>Approve</Button>
-                            <Button variant="danger" size="sm" onClick={() => setActionModal({ type: "Rejected", requestType: "LOB_REQUEST", id: item.id, title: "Reject LOB Request" })}>Reject</Button>
-                            <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "LOB_REQUEST", id: item.id, title: "Return LOB Request" })}>Return</Button>
+                            {canApproveLob && (
+                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "LOB_REQUEST", id: item.id, title: "Approve LOB Request" })}>Approve</Button>
+                            )}
+                            {canRejectLob && (
+                              <Button variant="danger" size="sm" onClick={() => setActionModal({ type: "Rejected", requestType: "LOB_REQUEST", id: item.id, title: "Reject LOB Request" })}>Reject</Button>
+                            )}
+                            {canReturnLob && (
+                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "LOB_REQUEST", id: item.id, title: "Return LOB Request" })}>Return</Button>
+                            )}
+                            {!canApproveLob && !canRejectLob && !canReturnLob && (
+                              <span className="text-xs italic text-slate-400">View Only</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1191,8 +1298,15 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "INACTIVE_LEAD", id: item.id, title: "Move Inactive Lead to LOB" })}>Move to LOB</Button>
-                            <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "INACTIVE_LEAD", id: item.id, title: "Return to User" })}>Return to User</Button>
+                            {canApproveInactive && (
+                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "INACTIVE_LEAD", id: item.id, title: "Move Inactive Lead to LOB" })}>Move to LOB</Button>
+                            )}
+                            {canReturnInactive && (
+                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "INACTIVE_LEAD", id: item.id, title: "Return to User" })}>Return to User</Button>
+                            )}
+                            {!canApproveInactive && !canReturnInactive && (
+                              <span className="text-xs italic text-slate-400">View Only</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1223,8 +1337,15 @@ export function PendingApprovalDashboard() {
                         <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
                         <td className="px-5 py-4">
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Unlock Follow-up" })}>Unlock</Button>
-                            <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Return to User" })}>Return to User</Button>
+                            {canApproveOverdue && (
+                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Unlock Follow-up" })}>Unlock</Button>
+                            )}
+                            {canReturnOverdue && (
+                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Return to User" })}>Return to User</Button>
+                            )}
+                            {!canApproveOverdue && !canReturnOverdue && (
+                              <span className="text-xs italic text-slate-400">View Only</span>
+                            )}
                           </div>
                         </td>
                       </tr>

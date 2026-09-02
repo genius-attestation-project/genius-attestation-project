@@ -4,7 +4,7 @@ import { listCorporateDetails } from "@/features/corporate-details/server/corpor
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePermission("pending_approval.view", "/api/lead-approvals/corporate-details");
+    const session = await requirePermission("corporate_details_approval.view", "/api/lead-approvals/corporate-details");
     if (!session) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }

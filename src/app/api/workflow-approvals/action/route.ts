@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { actionInactiveLead, actionLobRequest, actionOverdueFollowup } from "@/features/lead/server/workflow-approval.service";
 import { ApprovalRequestType, WorkflowApprovalStatus } from "@prisma/client";
 import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,8 +22,12 @@ export async function POST(req: NextRequest) {
     }
 
     const workflowAction = action as WorkflowApprovalStatus;
+    const actionKey = workflowAction === "Approved" ? "approve" : workflowAction === "Rejected" ? "reject" : "return";
 
     if (type === ApprovalRequestType.INACTIVE_LEAD) {
+      if (!session.user.isSuperAdmin && !hasPermission(session.user, `inactiveLead.${actionKey}`)) {
+        return NextResponse.json({ error: `Forbidden. You do not have permission to ${actionKey} inactive leads.` }, { status: 403 });
+      }
       await actionInactiveLead({
         leadId: id,
         action: workflowAction,
@@ -31,6 +36,9 @@ export async function POST(req: NextRequest) {
         ownerAdminId,
       });
     } else if (type === ApprovalRequestType.LOB_REQUEST) {
+      if (!session.user.isSuperAdmin && !hasPermission(session.user, `lobApproval.${actionKey}`)) {
+        return NextResponse.json({ error: `Forbidden. You do not have permission to ${actionKey} LOB requests.` }, { status: 403 });
+      }
       await actionLobRequest({
         approvalId: id,
         action: workflowAction,
@@ -39,6 +47,9 @@ export async function POST(req: NextRequest) {
         ownerAdminId,
       });
     } else if (type === ApprovalRequestType.OVERDUE_FOLLOWUP) {
+      if (!session.user.isSuperAdmin && !hasPermission(session.user, `overdueFollowup.${actionKey}`)) {
+        return NextResponse.json({ error: `Forbidden. You do not have permission to ${actionKey} overdue followups.` }, { status: 403 });
+      }
       await actionOverdueFollowup({
         leadId: id,
         action: workflowAction,

@@ -1,7 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
 export async function listPendingMovementApprovals(
-  param: string | { ownerAdminId: string; officeId?: string; officeName?: string }
+  param:
+    | string
+    | {
+        ownerAdminId: string;
+        officeId?: string;
+        officeName?: string;
+        isSuperAdmin?: boolean;
+        allowedOfficeNames?: string[] | null;
+        allowedOfficeIds?: string[] | null;
+      }
 ) {
   const ownerAdminId = typeof param === "string" ? param : param.ownerAdminId;
   const targetOfficeId = typeof param === "string" ? undefined : param.officeId?.trim();
@@ -102,9 +111,26 @@ export async function listPendingMovementApprovals(
   });
 
   const pendingOnly = mapped.filter((item) => item.advanceAmount <= 0);
+  let result = pendingOnly;
+
+  if (typeof param !== "string" && (param.allowedOfficeNames !== undefined || param.isSuperAdmin !== undefined)) {
+    if (!param.isSuperAdmin && param.allowedOfficeNames !== null && param.allowedOfficeNames !== undefined) {
+      if (param.allowedOfficeNames.length === 0) {
+        return [];
+      }
+      const allowedNames = param.allowedOfficeNames.map((n) => n.toLowerCase());
+      const allowedIds = param.allowedOfficeIds || [];
+      result = result.filter((item) => {
+        const inRegOffice = item.registrationOffice && allowedNames.includes(item.registrationOffice.toLowerCase());
+        const inCurOffice = item.currentOffice && allowedNames.includes(item.currentOffice.toLowerCase());
+        const inCurOfficeId = item.currentOfficeId && allowedIds.includes(item.currentOfficeId);
+        return inRegOffice || inCurOffice || inCurOfficeId;
+      });
+    }
+  }
 
   if (targetOfficeId || resolvedTargetOfficeName) {
-    return pendingOnly.filter((item) => {
+    result = result.filter((item) => {
       const matchId = targetOfficeId && item.currentOfficeId && item.currentOfficeId === targetOfficeId;
       const matchName =
         resolvedTargetOfficeName &&
@@ -114,7 +140,7 @@ export async function listPendingMovementApprovals(
     });
   }
 
-  return pendingOnly;
+  return result;
 }
 
 export async function createMovementApprovalRequest(params: {

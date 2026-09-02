@@ -34,6 +34,14 @@ export async function GET(request: Request) {
     const registrationId = searchParams.get("registrationId") || undefined;
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "100", 10);
+    let allowedOfficeIds = session.user.allowedOfficeIds;
+    let allowedOfficeNames = session.user.allowedOfficeNames;
+
+    if (!session.user.isSuperAdmin && session.user.moduleOfficeVisibilities?.["pending_approval"]) {
+      const modConfig = session.user.moduleOfficeVisibilities["pending_approval"];
+      allowedOfficeIds = modConfig.officeIds;
+      allowedOfficeNames = modConfig.officeNames;
+    }
 
     const result = await listAdvancePaymentApprovals(session.user.ownerAdminId, {
       status,
@@ -44,6 +52,9 @@ export async function GET(request: Request) {
       registrationId,
       page,
       pageSize,
+      isSuperAdmin: session.user.isSuperAdmin,
+      allowedOfficeIds,
+      allowedOfficeNames,
     });
 
     return NextResponse.json(result);

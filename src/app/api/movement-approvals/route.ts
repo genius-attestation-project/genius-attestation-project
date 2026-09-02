@@ -33,10 +33,22 @@ export async function GET(request: NextRequest) {
       officeLocationName: queryOfficeName || (session?.user as any)?.officeLocationName,
     });
 
+    let allowedOfficeIds = session.user.allowedOfficeIds;
+    let allowedOfficeNames = session.user.allowedOfficeNames;
+
+    if (!session.user.isSuperAdmin && session.user.moduleOfficeVisibilities?.["pending_approval"]) {
+      const modConfig = session.user.moduleOfficeVisibilities["pending_approval"];
+      allowedOfficeIds = modConfig.officeIds;
+      allowedOfficeNames = modConfig.officeNames;
+    }
+
     const items = await listPendingMovementApprovals({
       ownerAdminId,
-      officeId: userOfficeId || undefined,
-      officeName: userOfficeName || undefined,
+      officeId: (queryOfficeId ? userOfficeId : undefined) ?? undefined,
+      officeName: (queryOfficeName ? userOfficeName : undefined) ?? undefined,
+      isSuperAdmin: session.user.isSuperAdmin,
+      allowedOfficeIds: allowedOfficeIds ?? undefined,
+      allowedOfficeNames: allowedOfficeNames ?? undefined,
     });
     return jsonOk({ items });
   } catch (error: any) {

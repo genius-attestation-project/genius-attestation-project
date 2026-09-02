@@ -165,17 +165,10 @@ export async function ensureRbacBootstrap() {
   if (!bootstrapPromise) {
     bootstrapPromise = (async () => {
       try {
-        for (const permission of permissionCatalog) {
-          await prisma.permission.upsert({
-            where: { code: permission.code },
-            update: {
-              name: permission.name,
-              module: permission.module,
-              description: permission.description,
-            },
-            create: permission,
-          });
-        }
+        await prisma.permission.createMany({
+          data: permissionCatalog,
+          skipDuplicates: true,
+        });
         rbacBootstrapped = true;
       } catch (error) {
         console.error("[rbac] Failed to bootstrap RBAC data.", error);
@@ -193,51 +186,59 @@ export async function ensureAdminRoles(ownerAdminId: string) {
   if (ensuredAdminRolesSet.has(ownerAdminId)) return;
   await ensureRbacBootstrap();
 
+  const existingRoles = await prisma.accessRole.findMany({
+    where: { ownerAdminId },
+    select: { id: true, name: true },
+  });
+  const existingRoleNames = new Set(existingRoles.map((r) => r.name));
+
+  const allPermissions = await prisma.permission.findMany({
+    select: { id: true, code: true },
+  });
+  const permCodeToId = new Map(allPermissions.map((p) => [p.code, p.id]));
+
   for (const definition of defaultRoleDefinitions) {
     const roleName = definition.name;
-    let role = await prisma.accessRole.findFirst({
-      where: {
-        name: roleName,
-        ownerAdminId,
-      },
-    });
+    let roleId = existingRoles.find((r) => r.name === roleName)?.id;
 
-    if (!role) {
+    if (!roleId && !existingRoleNames.has(roleName)) {
       try {
-        role = await prisma.accessRole.create({
+        const createdRole = await prisma.accessRole.create({
           data: {
             name: roleName,
             description: definition.description,
             isActive: definition.isActive,
             ownerAdminId,
           },
+          select: { id: true },
         });
+        roleId = createdRole.id;
       } catch (error: any) {
         if (error.code === "P2002") {
-          // Race condition: another request already created the role, fetch it
-          role = await prisma.accessRole.findFirst({
+          const found = await prisma.accessRole.findFirst({
             where: { name: roleName, ownerAdminId },
+            select: { id: true },
           });
-        } else {
-          throw error;
+          roleId = found?.id;
         }
       }
     }
 
-    if (role) {
-      const permissions =
-        definition.permissions === "*"
-          ? await prisma.permission.findMany({ select: { id: true } })
-          : await prisma.permission.findMany({
-              where: { code: { in: [...definition.permissions] } },
-              select: { id: true },
-            });
+    if (roleId) {
+      let targetPermIds: string[] = [];
+      if (definition.permissions === "*") {
+        targetPermIds = allPermissions.map((p) => p.id);
+      } else {
+        targetPermIds = definition.permissions
+          .map((code) => permCodeToId.get(code))
+          .filter(Boolean) as string[];
+      }
 
-      if (permissions.length > 0) {
+      if (targetPermIds.length > 0) {
         await prisma.rolePermission.createMany({
-          data: permissions.map((permission: { id: string }) => ({
-            roleId: role.id,
-            permissionId: permission.id,
+          data: targetPermIds.map((pId) => ({
+            roleId: roleId!,
+            permissionId: pId,
           })),
           skipDuplicates: true,
         });
