@@ -36,6 +36,7 @@ import { DestinationOfficeSelect } from "./DestinationOfficeSelect";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
+  isSuperAdmin?: boolean;
 };
 
 type OfficeOption = {
@@ -47,7 +48,7 @@ type OfficeOption = {
 
 type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
 
-export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps) {
+export function HomeDashboard({ currentOfficeLocationName, isSuperAdmin = false }: HomeDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("document_in_hand");
   const [offices, setOffices] = useState<OfficeOption[]>([]);
   const [assignedOffices, setAssignedOffices] = useState<OfficeOption[]>([]);
@@ -87,7 +88,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
         const res = await fetch("/api/offices/all");
         if (res.ok) {
           const body = await res.json();
-          const list = body.offices || body.data || [];
+          const list: OfficeOption[] = body.offices || body.data || [];
           setOffices(list);
           setAssignedOffices(body.assignedOffices || []);
           setGlobalOffices(body.globalOffices || []);
@@ -97,8 +98,10 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
             );
             if (current) {
               setSelectedOfficeId(current.id);
-            } else {
+            } else if (!isSuperAdmin) {
               setSelectedOfficeId(list[0].id);
+            } else {
+              setSelectedOfficeId("");
             }
           }
         }
@@ -107,7 +110,7 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
       }
     }
     loadOffices();
-  }, [currentOfficeLocationName]);
+  }, [currentOfficeLocationName, isSuperAdmin]);
 
   // Fetch active tab data
   const fetchData = async () => {
@@ -438,18 +441,43 @@ export function HomeDashboard({ currentOfficeLocationName }: HomeDashboardProps)
         <div className="flex items-center gap-3">
           <Building2 className="h-5 w-5 text-blue-600" />
           <span className="text-sm font-semibold text-slate-700">Office Location:</span>
-          <select
-            value={selectedOfficeId}
-            onChange={(e) => setSelectedOfficeId(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">All Offices</option>
-            {offices.map((off) => (
-              <option key={off.id} value={off.id}>
-                {off.officeName}
-              </option>
-            ))}
-          </select>
+          {isSuperAdmin ? (
+            <select
+              value={selectedOfficeId}
+              onChange={(e) => setSelectedOfficeId(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">All Offices</option>
+              {offices.map((off) => (
+                <option key={off.id} value={off.id}>
+                  {off.officeName}
+                </option>
+              ))}
+            </select>
+          ) : offices.length <= 1 ? (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-sm font-bold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 shadow-2xs">
+              <span>
+                {offices.find((o) => o.id === selectedOfficeId)?.officeName ||
+                  currentOfficeLocationName ||
+                  (offices[0]?.officeName ?? "Assigned Office")}
+              </span>
+              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Assigned
+              </span>
+            </div>
+          ) : (
+            <select
+              value={selectedOfficeId}
+              onChange={(e) => setSelectedOfficeId(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+            >
+              {offices.map((off) => (
+                <option key={off.id} value={off.id}>
+                  {off.officeName}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

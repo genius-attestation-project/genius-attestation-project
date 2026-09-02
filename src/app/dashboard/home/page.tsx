@@ -17,5 +17,12 @@ export default async function HomePage() {
     userId: session.user.id,
   });
 
-  return <HomeDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
+  const isSuperAdmin = Boolean(session.user.isSuperAdmin || session.user.role === "Super Admin");
+
+  return (
+    <HomeDashboard
+      currentOfficeLocationName={currentOfficeLocationName ?? ""}
+      isSuperAdmin={isSuperAdmin}
+    />
+  );
 }

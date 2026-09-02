@@ -23,17 +23,32 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const section = searchParams.get("section") || "document_in_hand";
-    let officeId = searchParams.get("officeId") || currentUser.officeLocationId || undefined;
+    const requestedOfficeId = searchParams.get("officeId");
+    const isSuperAdmin = Boolean(currentUser.isSuperAdmin || currentUser.role === "Super Admin");
     const search = searchParams.get("search") || undefined;
 
-    if (officeId && !hasOfficeAccess(currentUser, officeId)) {
-      if (!currentUser.isSuperAdmin && currentUser.allowedOfficeIds?.length) {
-        officeId = currentUser.allowedOfficeIds[0];
-      } else if (!currentUser.isSuperAdmin) {
+    let officeId: string | undefined = undefined;
+
+    if (isSuperAdmin) {
+      officeId = requestedOfficeId || undefined;
+    } else {
+      if (requestedOfficeId === "all" || requestedOfficeId === "ALL") {
         return NextResponse.json(
-          { error: "Access to the requested office location is forbidden." },
+          { error: "Access to 'All Offices' is forbidden for non-Super Admin users." },
           { status: 403 }
         );
+      }
+
+      if (requestedOfficeId) {
+        if (!hasOfficeAccess(currentUser, requestedOfficeId)) {
+          return NextResponse.json(
+            { error: "Access to the requested office location is forbidden." },
+            { status: 403 }
+          );
+        }
+        officeId = requestedOfficeId;
+      } else {
+        officeId = currentUser.officeLocationId || currentUser.allowedOfficeIds?.[0] || undefined;
       }
     }
 
