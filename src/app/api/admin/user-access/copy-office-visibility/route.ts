@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { copyUserOfficeVisibility } from "@/features/admin/server/user-access.service";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -13,8 +14,14 @@ export async function POST(request: NextRequest) {
       return jsonError("Authentication required.", 401);
     }
 
-    if (!session?.user?.isSuperAdmin) {
-      return jsonError("Super Admin access required to copy office visibility.", 403);
+    const canManage =
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "access_management.manage_offices") ||
+      hasPermission(session.user, "roles.view") ||
+      hasPermission(session.user, "admin_management.view");
+
+    if (!canManage) {
+      return jsonError("Forbidden. You do not have permission to copy office visibility.", 403);
     }
 
     const body = await request.json().catch(() => null);

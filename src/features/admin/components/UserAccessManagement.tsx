@@ -872,14 +872,40 @@ export function UserAccessManagement() {
         body: JSON.stringify({
           userId,
           moduleKey,
+          moduleId: moduleKey,
           officeLocationIds: targetOffices,
+          officeIds: targetOffices,
         }),
       });
 
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as { message?: string; moduleOfficeMap?: Record<string, string[]> };
       if (!response.ok) {
         throw new Error(payload.message ?? `Failed to save visibility for ${moduleKey}.`);
       }
+
+      if (payload.moduleOfficeMap) {
+        setOfficeVisMap((prev) => ({
+          ...prev,
+          [userId]: payload.moduleOfficeMap!,
+        }));
+      }
+
+      // Update local users summary
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id !== userId) return u;
+          const updatedModuleVis = payload.moduleOfficeMap ?? { ...(officeVisMap[userId] ?? {}) };
+          const distinctOffices = Array.from(
+            new Set(Object.values(updatedModuleVis).flat().filter(Boolean))
+          );
+          return {
+            ...u,
+            moduleOfficeVisibilities: updatedModuleVis,
+            officeLocationIds: distinctOffices,
+            configuredOfficesCount: distinctOffices.length,
+          };
+        })
+      );
 
       const moduleName = modules.find((m) => m.key === moduleKey)?.label ?? moduleKey;
       setSuccessMessage(`Saved office visibility for ${moduleName}!`);
@@ -910,10 +936,34 @@ export function UserAccessManagement() {
         }),
       });
 
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as { message?: string; moduleOfficeMap?: Record<string, string[]> };
       if (!response.ok) {
         throw new Error(payload.message ?? "Failed to save all module office visibilities.");
       }
+
+      if (payload.moduleOfficeMap) {
+        setOfficeVisMap((prev) => ({
+          ...prev,
+          [userId]: payload.moduleOfficeMap!,
+        }));
+      }
+
+      // Update local users summary
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id !== userId) return u;
+          const updatedModuleVis = payload.moduleOfficeMap ?? { ...(officeVisMap[userId] ?? {}) };
+          const distinctOffices = Array.from(
+            new Set(Object.values(updatedModuleVis).flat().filter(Boolean))
+          );
+          return {
+            ...u,
+            moduleOfficeVisibilities: updatedModuleVis,
+            officeLocationIds: distinctOffices,
+            configuredOfficesCount: distinctOffices.length,
+          };
+        })
+      );
 
       setSuccessMessage(`All module office visibilities saved for ${selectedUser.name}!`);
       setTimeout(() => setSuccessMessage(""), 3000);

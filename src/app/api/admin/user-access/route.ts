@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { listUserAccessData } from "@/features/admin/server/user-access.service";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -14,8 +14,15 @@ export async function GET(request: NextRequest) {
       return jsonError("Authentication required.", 401);
     }
 
-    if (!session?.user?.isSuperAdmin) {
-      return jsonError("Super Admin access required to manage user access.", 403);
+    const canAccess =
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "access_management.manage_offices") ||
+      hasPermission(session.user, "access_management.manage_permissions") ||
+      hasPermission(session.user, "roles.view") ||
+      hasPermission(session.user, "admin_management.view");
+
+    if (!canAccess) {
+      return jsonError("Forbidden. You do not have permission to access user permissions management.", 403);
     }
 
     const data = await listUserAccessData(ownerAdminId);

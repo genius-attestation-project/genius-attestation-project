@@ -229,54 +229,102 @@ export async function setUserOfficeVisibility(
   options: {
     moduleKey?: string;
     officeLocationIds?: string[];
+    officeIds?: string[];
     moduleOfficeMap?: Record<string, string[]>;
     createdBy?: string;
   }
 ): Promise<{ success: boolean; moduleOfficeMap: Record<string, string[]> }> {
-  await assertUserInOwnerScope(ownerAdminId, targetUserId);
+  const targetUser = await assertUserInOwnerScope(ownerAdminId, targetUserId);
+  const effectiveOwnerAdminId = targetUser.ownerAdminId || targetUserId || ownerAdminId;
+  const validOwnerIds = Array.from(new Set([ownerAdminId, effectiveOwnerAdminId, targetUserId].filter(Boolean)));
 
-  // Validate all office location IDs
-  const allOfficeIdsToValidate = new Set<string>();
-  if (options.officeLocationIds) {
-    options.officeLocationIds.forEach((id) => allOfficeIdsToValidate.add(id));
+  // Collect all office IDs provided from either officeLocationIds, officeIds, or moduleOfficeMap
+  const rawProvidedIds = new Set<string>();
+  const inputList = options.officeLocationIds ?? options.officeIds;
+  if (Array.isArray(inputList)) {
+    inputList.forEach((id) => {
+      if (typeof id === "string" && id.trim()) rawProvidedIds.add(id.trim());
+    });
   }
-  if (options.moduleOfficeMap) {
+  if (options.moduleOfficeMap && typeof options.moduleOfficeMap === "object") {
     Object.values(options.moduleOfficeMap).forEach((ids) => {
       if (Array.isArray(ids)) {
-        ids.forEach((id) => allOfficeIdsToValidate.add(id));
+        ids.forEach((id) => {
+          if (typeof id === "string" && id.trim()) rawProvidedIds.add(id.trim());
+        });
       }
     });
   }
 
-  const uniqueIds = Array.from(allOfficeIdsToValidate).filter(Boolean);
+  const uniqueIds = Array.from(rawProvidedIds);
+
+  // Map of any provided ID -> resolved office_locations.id
+  const resolvedOfficeLocIdMap = new Map<string, string>();
 
   if (uniqueIds.length > 0) {
     const db = prisma as any;
-    const [validGlobalOffices, validAssignedOffices] = await Promise.all([
+    const [matchingGlobalOffices, matchingAssignedOffices] = await Promise.all([
       prisma.officeLocation.findMany({
         where: {
           id: { in: uniqueIds },
-          ownerAdminId,
+          ownerAdminId: { in: validOwnerIds },
         },
-        select: { id: true },
+        select: { id: true, officeName: true },
       }),
       db.assignedOffice
         ? db.assignedOffice.findMany({
             where: {
               id: { in: uniqueIds },
-              ownerAdminId,
+              ownerAdminId: { in: validOwnerIds },
             },
-            select: { id: true },
+            select: { id: true, username: true, ownerAdminId: true },
           })
         : Promise.resolve([]),
     ]);
 
-    const validOfficeIds = new Set([
-      ...validGlobalOffices.map((o) => o.id),
-      ...validAssignedOffices.map((o: any) => o.id),
-    ]);
+    // Register direct office_locations matches
+    matchingGlobalOffices.forEach((loc) => {
+      resolvedOfficeLocIdMap.set(loc.id, loc.id);
+    });
 
-    const invalidIds = uniqueIds.filter((id) => !validOfficeIds.has(id));
+    // For any matched assignedOffice IDs, resolve or create the corresponding office_locations.id
+    for (const ao of matchingAssignedOffices as any[]) {
+      let existingLoc = await prisma.officeLocation.findFirst({
+        where: {
+          id: ao.id,
+          ownerAdminId: { in: validOwnerIds },
+        },
+        select: { id: true },
+      });
+
+      if (!existingLoc) {
+        existingLoc = await prisma.officeLocation.findFirst({
+          where: {
+            officeName: ao.username,
+            ownerAdminId: { in: validOwnerIds },
+          },
+          select: { id: true },
+        });
+      }
+
+      if (existingLoc) {
+        resolvedOfficeLocIdMap.set(ao.id, existingLoc.id);
+      } else {
+        const createdLoc = await prisma.officeLocation.create({
+          data: {
+            officeName: ao.username,
+            location: "External Processing Office",
+            timezone: "Asia/Kolkata",
+            isProcessOffice: true,
+            ownerAdminId: ao.ownerAdminId || ownerAdminId,
+          },
+          select: { id: true },
+        });
+        resolvedOfficeLocIdMap.set(ao.id, createdLoc.id);
+      }
+    }
+
+    const invalidIds = uniqueIds.filter((id) => !resolvedOfficeLocIdMap.has(id));
     if (invalidIds.length > 0) {
       throw new Error(`One or more selected office locations are invalid or unauthorized.`);
     }
@@ -298,8 +346,15 @@ export async function setUserOfficeVisibility(
 
       for (const [mKey, ids] of Object.entries(options.moduleOfficeMap)) {
         if (Array.isArray(ids)) {
-          const distinctIds = Array.from(new Set(ids.filter(Boolean)));
-          for (const officeLocationId of distinctIds) {
+          const distinctResolvedIds = Array.from(
+            new Set(
+              ids
+                .map((rawId) => resolvedOfficeLocIdMap.get(rawId) || rawId)
+                .filter((id) => resolvedOfficeLocIdMap.has(id))
+            )
+          );
+
+          for (const officeLocationId of distinctResolvedIds) {
             recordsToCreate.push({
               userId: targetUserId,
               moduleKey: mKey,
@@ -320,7 +375,11 @@ export async function setUserOfficeVisibility(
       // Per-module update: replace only the specific module's office visibilities
       const targetModuleKey = options.moduleKey;
       const targetOfficeIds = Array.from(
-        new Set((options.officeLocationIds ?? []).filter(Boolean))
+        new Set(
+          (options.officeLocationIds ?? options.officeIds ?? [])
+            .map((rawId) => resolvedOfficeLocIdMap.get(rawId) || rawId)
+            .filter((id) => resolvedOfficeLocIdMap.has(id))
+        )
       );
 
       await tx.userOfficeVisibility.deleteMany({
@@ -576,21 +635,103 @@ export async function listUserAccessData(ownerAdminId: string) {
     }),
   ]);
 
+  // 1. Map each assigned office to its corresponding office_locations record
+  const assignedOfficeLocMap = new Map<string, string>(); // ao.id -> officeLocation.id
+  const assignedOfficeLocIdSet = new Set<string>(); // set of officeLocation.ids that belong to assigned offices
+
+  for (const ao of assignedOffices as any[]) {
+    // Check if officeLocations already has an exact match by id
+    const exactLoc = officeLocations.find((l) => l.id === ao.id);
+    if (exactLoc) {
+      assignedOfficeLocMap.set(ao.id, exactLoc.id);
+      assignedOfficeLocIdSet.add(exactLoc.id);
+      continue;
+    }
+
+    // Check if officeLocations has a match by officeName (case-insensitive)
+    const nameMatchLoc = officeLocations.find(
+      (l) => l.officeName.trim().toLowerCase() === ao.username.trim().toLowerCase()
+    );
+    if (nameMatchLoc) {
+      assignedOfficeLocMap.set(ao.id, nameMatchLoc.id);
+      assignedOfficeLocIdSet.add(nameMatchLoc.id);
+      continue;
+    }
+
+    // If no matching office_locations record exists, create one
+    const createdLoc = await prisma.officeLocation.create({
+      data: {
+        officeName: ao.username,
+        location: "External Processing Office",
+        timezone: "Asia/Kolkata",
+        isProcessOffice: true,
+        ownerAdminId: ao.ownerAdminId || ownerAdminId,
+      },
+    });
+    assignedOfficeLocMap.set(ao.id, createdLoc.id);
+    assignedOfficeLocIdSet.add(createdLoc.id);
+    officeLocations.push(createdLoc);
+  }
+
+  // Source 2: Dashboard -> Assigned Office (mapped to office_locations table ID)
+  const assignedList = (assignedOffices as any[]).map((ao: any) => {
+    const locId = assignedOfficeLocMap.get(ao.id) || ao.id;
+    return {
+      id: locId,
+      officeName: ao.username,
+      location: "External Processing Office",
+      isProcessOffice: true,
+      isAssignedOffice: true,
+      category: "ASSIGNED_OFFICE" as const,
+      sourceType: "ASSIGNED_OFFICE" as const,
+    };
+  });
+
+  // Source 1: Admin Management -> Office Location (office_locations table)
+  const globalList = officeLocations
+    .filter((loc) => !assignedOfficeLocIdSet.has(loc.id))
+    .map((loc) => ({
+      id: loc.id,
+      officeName: loc.officeName,
+      location: loc.location || "Office Location",
+      isProcessOffice: loc.isProcessOffice,
+      isAssignedOffice: false,
+      category: "GLOBAL_OFFICE" as const,
+      sourceType: "GLOBAL_OFFICE" as const,
+    }));
+
+  const formattedOffices = [...assignedList, ...globalList].sort((a, b) =>
+    a.officeName.localeCompare(b.officeName)
+  );
+
+  const validOfficeIdSet = new Set(formattedOffices.map((o) => o.id));
+
   // Group module-wise office visibilities: userId -> { moduleKey -> officeLocationIds[] }
   const userModuleOfficeMap = new Map<string, Record<string, string[]>>();
   const userTotalOfficesMap = new Map<string, Set<string>>();
 
   for (const v of visibilities) {
+    let effectiveLocId = v.officeLocationId;
+    if (assignedOfficeLocMap.has(effectiveLocId)) {
+      effectiveLocId = assignedOfficeLocMap.get(effectiveLocId)!;
+    }
+    // Only include valid officeLocationId that belongs to current workspace
+    if (!validOfficeIdSet.has(effectiveLocId)) {
+      continue;
+    }
+
     const mKey = v.moduleKey || "global";
     const userMap = userModuleOfficeMap.get(v.userId) ?? {};
     if (!userMap[mKey]) {
       userMap[mKey] = [];
     }
-    userMap[mKey].push(v.officeLocationId);
+    if (!userMap[mKey].includes(effectiveLocId)) {
+      userMap[mKey].push(effectiveLocId);
+    }
     userModuleOfficeMap.set(v.userId, userMap);
 
     const totalSet = userTotalOfficesMap.get(v.userId) ?? new Set<string>();
-    totalSet.add(v.officeLocationId);
+    totalSet.add(effectiveLocId);
     userTotalOfficesMap.set(v.userId, totalSet);
   }
 
@@ -636,36 +777,6 @@ export async function listUserAccessData(ownerAdminId: string) {
       permissionKeys: effectivePermissionKeys,
     };
   });
-
-  const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
-
-  // Source 2: Dashboard -> Assigned Office (assigned_offices table)
-  const assignedList = (assignedOffices as any[]).map((ao: any) => ({
-    id: ao.id,
-    officeName: ao.username,
-    location: "External Processing Office",
-    isProcessOffice: true,
-    isAssignedOffice: true,
-    category: "ASSIGNED_OFFICE" as const,
-    sourceType: "ASSIGNED_OFFICE" as const,
-  }));
-
-  // Source 1: Admin Management -> Office Location (office_locations table)
-  const globalList = officeLocations
-    .filter((loc) => !assignedOfficeIds.has(loc.id))
-    .map((loc) => ({
-      id: loc.id,
-      officeName: loc.officeName,
-      location: loc.location || "Office Location",
-      isProcessOffice: loc.isProcessOffice,
-      isAssignedOffice: false,
-      category: "GLOBAL_OFFICE" as const,
-      sourceType: "GLOBAL_OFFICE" as const,
-    }));
-
-  const formattedOffices = [...assignedList, ...globalList].sort((a, b) =>
-    a.officeName.localeCompare(b.officeName)
-  );
 
   const operationalModules = getOperationalModules();
 
