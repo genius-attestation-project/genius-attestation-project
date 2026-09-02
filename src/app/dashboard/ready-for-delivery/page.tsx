@@ -20,5 +20,12 @@ export default async function ReadyForDeliveryPage() {
     userId: session.user.id,
   });
 
-  return <ReadyForDeliveryDashboard currentOfficeLocationName={currentOfficeLocationName ?? ""} />;
+  const isSuperAdmin = Boolean(session.user.isSuperAdmin || session.user.role === "Super Admin");
+
+  return (
+    <ReadyForDeliveryDashboard
+      currentOfficeLocationName={currentOfficeLocationName ?? ""}
+      isSuperAdmin={isSuperAdmin}
+    />
+  );
 }

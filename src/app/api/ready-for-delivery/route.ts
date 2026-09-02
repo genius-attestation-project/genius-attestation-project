@@ -24,13 +24,30 @@ export async function GET(request: NextRequest) {
       searchParams.get("registrationOffice") ||
       undefined;
 
-    const officeFilter =
-      requestedOffice && requestedOffice !== "all" && requestedOffice.trim() !== ""
-        ? requestedOffice.trim()
-        : null;
+    const isSuperAdmin = userAccess.isSuperAdmin === true || userAccess.allowedOfficeNames === null;
 
-    if (officeFilter && !hasOfficeAccess(userAccess, officeFilter)) {
-      return jsonError("Access to the requested office location is forbidden.", 403);
+    let officeFilter: string | null = null;
+
+    if (requestedOffice && requestedOffice.trim() !== "") {
+      const trimmed = requestedOffice.trim();
+      if (trimmed === "all") {
+        if (!isSuperAdmin) {
+          return jsonError("Access to 'All Delivery Locations' is forbidden for non-Super Admin users.", 403);
+        }
+        officeFilter = null;
+      } else {
+        if (!hasOfficeAccess(userAccess, trimmed)) {
+          return jsonError("Access to the requested office location is forbidden.", 403);
+        }
+        officeFilter = trimmed;
+      }
+    } else {
+      if (!isSuperAdmin) {
+        // Default to user's assigned office (first authorized office)
+        officeFilter = userAccess.allowedOfficeNames?.[0] ?? null;
+      } else {
+        officeFilter = null;
+      }
     }
 
     const data = await listReadyForDelivery(

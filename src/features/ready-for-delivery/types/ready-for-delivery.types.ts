@@ -64,6 +64,9 @@ export type ReadyForDeliveryResponse = {
   sections: ReadyForDeliverySection[];
   stats: ReadyForDeliveryStats;
   filters: ReadyForDeliveryFilters;
+  isSuperAdmin?: boolean;
+  defaultOffice?: string | null;
+  allowedOffices?: string[];
 };
 
 export type ReadyForDeliveryDetail = Registration & {

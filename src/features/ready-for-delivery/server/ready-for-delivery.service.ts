@@ -194,7 +194,7 @@ async function listReadyRows(
   officeLocationName: string | null,
   userAccess?: UserAccessScope
 ) {
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
+  const isSuperAdmin = Boolean(userAccess && (userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null));
   const allowedNames = (userAccess?.allowedOfficeNames ?? []).map((n) => n.trim().toLowerCase());
 
   if (!isSuperAdmin) {
@@ -208,6 +208,7 @@ async function listReadyRows(
     }
   }
 
+  // Non-super admin querying without specific office filter (or "all") -> restricted to all allowed office names
   if (!isSuperAdmin && (!officeLocationName || officeLocationName === "all")) {
     return prisma.$queryRaw<ReadyForDeliveryRow[]>(Prisma.sql`
       SELECT
@@ -357,50 +358,51 @@ async function buildFilters(
   rows: ReadyForDeliveryRow[],
   userAccess?: UserAccessScope
 ): Promise<ReadyForDeliveryFilters> {
-  const setOfOffices = new Set<string>();
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  const allowedNames = isSuperAdmin ? null : new Set((userAccess?.allowedOfficeNames ?? []).map((n) => n.trim().toLowerCase()));
+  const isSuperAdmin = Boolean(userAccess && (userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null));
+  const userAllowedOfficeNames = userAccess?.allowedOfficeNames ?? [];
 
-  rows.forEach((row) => {
-    if (row.deliveryLocation && row.deliveryLocation.trim()) {
-      const loc = row.deliveryLocation.trim();
-      if (isSuperAdmin || allowedNames?.has(loc.toLowerCase())) {
-        setOfOffices.add(loc);
-      }
-    }
-  });
+  let officeLocations: string[];
 
-  const dbOffices = await prisma.officeLocation.findMany({
-    where: { ownerAdminId },
-    select: { officeName: true },
-  });
-  dbOffices.forEach((o) => {
-    if (o.officeName && o.officeName.trim()) {
-      const name = o.officeName.trim();
-      if (isSuperAdmin || allowedNames?.has(name.toLowerCase())) {
-        setOfOffices.add(name);
+  if (!isSuperAdmin) {
+    // Non-Super Admin: Filters MUST ONLY present explicitly authorized offices
+    officeLocations = Array.from(new Set(userAllowedOfficeNames.map((n) => n.trim()))).filter(Boolean).sort();
+  } else {
+    // Super Admin: Load all office locations in workspace
+    const setOfOffices = new Set<string>();
+    rows.forEach((row) => {
+      if (row.deliveryLocation && row.deliveryLocation.trim()) {
+        setOfOffices.add(row.deliveryLocation.trim());
       }
-    }
-  });
+    });
 
-  const dbRegs = await prisma.registration.findMany({
-    where: { ownerAdminId },
-    distinct: ["deliveryLocation"],
-    select: { deliveryLocation: true },
-  });
-  dbRegs.forEach((r) => {
-    if (r.deliveryLocation && r.deliveryLocation.trim()) {
-      const name = r.deliveryLocation.trim();
-      if (isSuperAdmin || allowedNames?.has(name.toLowerCase())) {
-        setOfOffices.add(name);
+    const dbOffices = await prisma.officeLocation.findMany({
+      where: { ownerAdminId },
+      select: { officeName: true },
+    });
+    dbOffices.forEach((o) => {
+      if (o.officeName && o.officeName.trim()) {
+        setOfOffices.add(o.officeName.trim());
       }
-    }
-  });
+    });
+
+    const dbRegs = await prisma.registration.findMany({
+      where: { ownerAdminId },
+      distinct: ["deliveryLocation"],
+      select: { deliveryLocation: true },
+    });
+    dbRegs.forEach((r) => {
+      if (r.deliveryLocation && r.deliveryLocation.trim()) {
+        setOfOffices.add(r.deliveryLocation.trim());
+      }
+    });
+
+    officeLocations = Array.from(setOfOffices).sort();
+  }
 
   return {
     services: Array.from(new Set(rows.map((row) => row.service?.trim()).filter(isNonEmptyString))).sort(),
     countries: Array.from(new Set(rows.map((row) => row.country?.trim()).filter(isNonEmptyString))).sort(),
-    officeLocations: Array.from(setOfOffices).sort(),
+    officeLocations,
   };
 }
 
@@ -432,14 +434,14 @@ export async function listReadyForDelivery(
   params: ReadyForDeliveryQueryParams,
   userAccess?: UserAccessScope,
 ) {
+  const isSuperAdmin = Boolean(userAccess && (userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null));
+  const allowedNames = userAccess?.allowedOfficeNames ?? [];
+
   const rows = await listReadyRows(ownerAdminId, officeLocationName, userAccess);
   const filteredRows = rows.filter((row) => rowMatchesFilters(row, params));
   const items = filteredRows.map(mapReadyForDeliveryItem);
   const sections = buildSections(items);
   const filters = await buildFilters(ownerAdminId, rows, userAccess);
-
-  const isSuperAdmin = !userAccess || userAccess.isSuperAdmin || userAccess.allowedOfficeNames === null;
-  const allowedNames = userAccess?.allowedOfficeNames ?? [];
 
   const deliveredCount = await prisma.registration.count({
     where: {
@@ -458,6 +460,9 @@ export async function listReadyForDelivery(
     sections,
     stats: buildStats(items, deliveredCount),
     filters,
+    isSuperAdmin,
+    defaultOffice: allowedNames[0] ?? null,
+    allowedOffices: isSuperAdmin ? null : allowedNames,
   };
 }
 

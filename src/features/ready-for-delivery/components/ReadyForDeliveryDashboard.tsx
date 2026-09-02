@@ -35,6 +35,7 @@ import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 
 type ReadyForDeliveryDashboardProps = {
   currentOfficeLocationName: string;
+  isSuperAdmin?: boolean;
 };
 
 const emptyStats: ReadyForDeliveryStats = {
@@ -184,6 +185,7 @@ function ReadyForDeliveryDetailView({ registration }: { registration: ReadyForDe
 
 export function ReadyForDeliveryDashboard({
   currentOfficeLocationName,
+  isSuperAdmin = false,
 }: ReadyForDeliveryDashboardProps) {
   const [items, setItems] = useState<ReadyForDeliveryItem[]>([]);
   const [sections, setSections] = useState<ReadyForDeliverySection[]>([]);
@@ -198,7 +200,9 @@ export function ReadyForDeliveryDashboard({
   const [activeSearch, setActiveSearch] = useState("");
   const [service, setService] = useState("");
   const [country, setCountry] = useState("");
-  const [officeLocation, setOfficeLocation] = useState("");
+  const [officeLocation, setOfficeLocation] = useState(
+    isSuperAdmin ? "" : currentOfficeLocationName
+  );
   const [date, setDate] = useState("");
 
   const [deliverItem, setDeliverItem] = useState<ReadyForDeliveryItem | null>(null);
@@ -230,11 +234,15 @@ export function ReadyForDeliveryDashboard({
     officeLocation: string;
     date: string;
   }>) {
+    const nextOfficeLocation = overrides?.officeLocation !== undefined
+      ? overrides.officeLocation
+      : (officeLocation || (isSuperAdmin ? "" : currentOfficeLocationName));
+
     const next = {
       search: overrides?.search ?? activeSearch,
       service: overrides?.service ?? service,
       country: overrides?.country ?? country,
-      officeLocation: overrides?.officeLocation ?? officeLocation,
+      officeLocation: nextOfficeLocation,
       date: overrides?.date ?? date,
     };
 
@@ -278,6 +286,14 @@ export function ReadyForDeliveryDashboard({
 
       setStats(data.stats ?? emptyStats);
       setFilters(data.filters ?? emptyFilters);
+
+      // For non-Super Admin, if current officeLocation state is empty, auto-set to assigned office or default office
+      if (!isSuperAdmin && !officeLocation) {
+        const resolvedOffice = data.defaultOffice || currentOfficeLocationName || data.filters?.officeLocations?.[0] || "";
+        if (resolvedOffice) {
+          setOfficeLocation(resolvedOffice);
+        }
+      }
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -369,13 +385,14 @@ export function ReadyForDeliveryDashboard({
     setActiveSearch("");
     setService("");
     setCountry("");
-    setOfficeLocation("");
+    const resetOffice = isSuperAdmin ? "" : (currentOfficeLocationName || (filters.officeLocations[0] ?? ""));
+    setOfficeLocation(resetOffice);
     setDate("");
     await loadReadyForDelivery({
       search: "",
       service: "",
       country: "",
-      officeLocation: "",
+      officeLocation: resetOffice,
       date: "",
     });
   }
@@ -503,15 +520,34 @@ export function ReadyForDeliveryDashboard({
           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Delivery Location
           </label>
-          <SearchableSelect
-            value={officeLocation}
-            options={officeOptions}
-            onChange={(nextValue) => {
-              setOfficeLocation(nextValue);
-              void loadReadyForDelivery({ officeLocation: nextValue });
-            }}
-            placeholder="All Delivery Locations"
-          />
+          {isSuperAdmin ? (
+            <SearchableSelect
+              value={officeLocation}
+              options={officeOptions}
+              onChange={(nextValue) => {
+                setOfficeLocation(nextValue);
+                void loadReadyForDelivery({ officeLocation: nextValue });
+              }}
+              placeholder="All Delivery Locations"
+            />
+          ) : filters.officeLocations.length <= 1 ? (
+            <div className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-sm font-bold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+              <span>{officeLocation || currentOfficeLocationName || (filters.officeLocations[0] ?? "Assigned Office")}</span>
+              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Assigned
+              </span>
+            </div>
+          ) : (
+            <SearchableSelect
+              value={officeLocation}
+              options={officeOptions}
+              onChange={(nextValue) => {
+                setOfficeLocation(nextValue);
+                void loadReadyForDelivery({ officeLocation: nextValue });
+              }}
+              placeholder={currentOfficeLocationName || "Select Office Location"}
+            />
+          )}
         </div>
 
         <div className="md:col-span-4">
