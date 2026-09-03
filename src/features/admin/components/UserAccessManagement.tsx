@@ -646,6 +646,22 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   },
 ];
 
+const ALL_CATALOG_PERMISSION_KEYS: Set<string> = (() => {
+  const keys = new Set<string>();
+  for (const mod of MODULE_PERMISSIONS_CATALOG) {
+    if (mod.moduleAccessKey) keys.add(mod.moduleAccessKey);
+    if (mod.actions) {
+      for (const a of mod.actions) keys.add(a.key);
+    }
+    if (mod.subModules) {
+      for (const sm of mod.subModules) {
+        for (const a of sm.actions) keys.add(a.key);
+      }
+    }
+  }
+  return keys;
+})();
+
 export function UserAccessManagement() {
   const [activeTab, setActiveTab] = useState<"offices" | "permissions">("offices");
   const [users, setUsers] = useState<UserAccessItem[]>([]);
@@ -760,10 +776,10 @@ export function UserAccessManagement() {
       }
       setOfficeVisMap(visMap);
 
-      // Initialize userPermMap
+      // Initialize userPermMap (sanitizing to only valid catalog keys)
       const permMap: Record<string, string[]> = {};
       for (const u of fetchedUsers) {
-        permMap[u.id] = [...u.permissionKeys];
+        permMap[u.id] = u.permissionKeys.filter((k) => ALL_CATALOG_PERMISSION_KEYS.has(k));
       }
       setUserPermMap(permMap);
 
@@ -1095,7 +1111,8 @@ export function UserAccessManagement() {
     setSuccessMessage("");
 
     try {
-      const targetPermissions = userPermMap[selectedUserId] ?? [];
+      const rawPermissions = userPermMap[selectedUserId] ?? [];
+      const targetPermissions = rawPermissions.filter((k) => ALL_CATALOG_PERMISSION_KEYS.has(k));
       const response = await fetch("/api/admin/user-access/permissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1134,7 +1151,7 @@ export function UserAccessManagement() {
 
     setUserPermMap((prev) => ({
       ...prev,
-      [selectedUserId]: [...copiedPermissionsState.permissionKeys],
+      [selectedUserId]: copiedPermissionsState.permissionKeys.filter((k) => ALL_CATALOG_PERMISSION_KEYS.has(k)),
     }));
 
     setPasteConfirmModalOpen(false);
