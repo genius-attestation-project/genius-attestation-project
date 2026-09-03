@@ -54,29 +54,25 @@ export function buildProcessWhereClause(
       where.OR = officeFilter;
     }
   } else if (tab === "outbound") {
-    where.AND = [
-      {
-        OR: [
-          { currentModule: { not: "PROCESS_MODULE" } },
-          { status: { in: ["COMPLETED", "OUTBOUND", "SEND_TO_OFFICE", "RETURNED", "REJECTED", "Pending Receive", "INBOUND"] } },
-        ],
-      },
-      {
-        OR: [
-          {
-            fromOffice: {
-              ownerAdminId,
-              ...(officeLocationName ? { officeName: officeLocationName } : {}),
-            },
-          },
-          {
-            bundle: {
-              ownerAdminId,
-            },
-          },
-        ],
-      },
-    ];
+    where.fromModule = "PROCESS_MODULE";
+    where.status = {
+      in: [
+        "Pending Receive",
+        "INBOUND",
+        "OUTBOUND",
+        "SEND_TO_OFFICE",
+        "INBOUND_PENDING",
+        "In Transfer",
+        "In Transit",
+        "Partially Received",
+      ],
+    };
+    if (officeLocationName) {
+      where.OR = [
+        { fromOffice: { officeName: officeLocationName } },
+        { bundle: { fromOffice: { officeName: officeLocationName } } },
+      ];
+    }
   } else if (tab === "bundle") {
     where.bundleId = { not: null };
     if (officeFilter) {
@@ -316,7 +312,7 @@ export async function transferProcessDocumentsToHome(params: {
 
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const bundleNumber = `HOME-PROC-${dateStr}-${randomSuffix}`;
+  const bundleNumber = `PROC-${dateStr}-${randomSuffix}`;
 
   return prisma.$transaction(async (tx: any) => {
     let destOffice = await tx.officeLocation.findFirst({
@@ -415,7 +411,7 @@ export async function transferProcessDocumentsToHome(params: {
           currentModule: "HOME",
           fromOfficeId: docFromOfficeId,
           toOfficeId: params.toOfficeId,
-          currentOfficeId: params.toOfficeId,
+          currentOfficeId: docFromOfficeId,
           status: "Pending Receive",
           currentStatus: "Pending Receive",
           bundleId: bundle.id,
@@ -581,9 +577,9 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
         }
       }
     } else {
-      // Create new bundle for unbundled documents
-      const count = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
-      const bundleNumber = `BND-OFFICE-${String(count + 1).padStart(5, "0")}`;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const bundleNumber = `PROC-AO-${dateStr}-${randomSuffix}`;
 
       bundle = await tx.bundle.create({
         data: {
@@ -619,7 +615,7 @@ export async function transferProcessDocumentsToAssignedOffice(params: {
           currentModule: "ASSIGNED_OFFICE",
           fromOfficeId: docSenderOfficeId,
           toOfficeId: targetOfficeId,
-          currentOfficeId: targetOfficeId,
+          currentOfficeId: docSenderOfficeId,
           originalProcessOfficeId: docSenderOfficeId,
           returnOfficeId: docSenderOfficeId,
           status: "INBOUND",

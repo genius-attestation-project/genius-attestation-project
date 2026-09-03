@@ -187,18 +187,26 @@ export async function retrieveOutboundDocuments(
       });
 
       // 3. Restore the document to the module and office it was transferred from.
-      // This is essential for Process outbound retrievals, and retains bundleId
-      // so a partially retrieved bundle is never split into new records.
-      const previousModule = movement.fromModule || "REGISTRATION";
-      const previousOfficeId = movement.fromOfficeId || userOfficeId;
+      const isProcessModule =
+        movement.fromModule === "PROCESS_MODULE" ||
+        Boolean(bundle?.bundleNumber?.startsWith("PROC-")) ||
+        Boolean(bundle?.bundleNumber?.startsWith("BND-OFFICE-")) ||
+        Boolean(bundle?.bundleNumber?.startsWith("HOME-PROC-"));
+
+      const targetModule = isProcessModule ? "PROCESS_MODULE" : "HOME";
+      const targetStatus = isProcessModule ? "IN_HAND" : "HOME";
+      const previousOfficeId = movement.fromOfficeId || bundle?.fromOfficeId || userOfficeId;
+
       const updatedMovement = await tx.documentMovement.update({
         where: { trackingNumber },
         data: {
-          currentModule: previousModule,
+          fromModule: targetModule,
+          toModule: targetModule,
+          currentModule: targetModule,
           currentOfficeId: previousOfficeId,
           toOfficeId: previousOfficeId,
           fromOfficeId: previousOfficeId,
-          status: previousModule === "PROCESS_MODULE" ? "IN_HAND" : "HOME",
+          status: targetStatus,
           currentStatus: "Document In Hand",
           remarks: reason || `Retrieved by ${userOfficeName}`,
         },

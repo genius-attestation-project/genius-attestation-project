@@ -19,7 +19,15 @@ export async function POST(request: NextRequest) {
     }
 
     const access = await getSessionAccess(userId);
-    if (!access || !hasPermission(access, "document_movement.retrieve")) {
+    const canRetrieve =
+      hasPermission(access, "document_movement.retrieve") ||
+      hasPermission(access, "home.outbound.retrieve") ||
+      hasPermission(access, "home.retrieve") ||
+      hasPermission(access, "process.outbound.retrieve") ||
+      hasPermission(access, "process.retrieve") ||
+      Boolean(access?.isSuperAdmin || (access as any)?.role === "Super Admin");
+
+    if (!access || !canRetrieve) {
       return jsonError("You do not have permission to retrieve outbound documents.", 403);
     }
 

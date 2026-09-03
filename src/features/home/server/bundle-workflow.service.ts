@@ -449,10 +449,27 @@ export async function listOutboundBundles(params: {
   const officeIds = [params.fromOfficeId];
   if (office) officeIds.push(office.id);
 
+  // Exclude bundles that belong to PROCESS_MODULE
+  const processMovements = await db.documentMovement.findMany({
+    where: {
+      fromModule: "PROCESS_MODULE",
+      bundleId: { not: null },
+    },
+    select: { bundleId: true },
+  });
+  const processBundleIds = new Set(processMovements.map((m: any) => m.bundleId).filter(Boolean));
+
   const bundles = await db.bundle.findMany({
     where: {
       fromOfficeId: { in: officeIds },
       ownerAdminId: params.ownerAdminId,
+      status: { in: ["Pending Receive", "INBOUND_PENDING", "Partially Received", "In Transit"] },
+      NOT: [
+        { bundleNumber: { startsWith: "HOME-PROC-" } },
+        { bundleNumber: { startsWith: "PROC-" } },
+        { bundleNumber: { startsWith: "BND-OFFICE-" } },
+        ...(processBundleIds.size > 0 ? [{ id: { in: Array.from(processBundleIds) } }] : []),
+      ],
     },
     include: {
       fromOffice: true,
@@ -472,16 +489,26 @@ export async function listOutboundBundles(params: {
     });
     const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
 
-    for (const b of bundles) {
+    const validBundles = bundles.filter((b: any) => {
+      if (!b.items || b.items.length === 0) return false;
+      const unreceivedItems = b.items.filter(
+        (item: any) => item.status !== "Received" && item.status !== "Completed" && item.status !== "Retrieved"
+      );
+      return unreceivedItems.length > 0;
+    });
+
+    for (const b of validBundles) {
       if (b.items) {
         for (const item of b.items) {
           item.registration = regMap.get(item.trackingNumber) || null;
         }
       }
     }
+
+    return validBundles;
   }
 
-  return bundles;
+  return [];
 }
 
 export async function receiveBundle(params: {
