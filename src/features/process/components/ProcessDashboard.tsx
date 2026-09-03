@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate, formatBundleNumber, formatTitleCase } from "@/utils/format";
@@ -62,9 +62,46 @@ type ModalAction =
   | "TRANSFER_TO_HOME"
   | "TRANSFER_TO_ASSIGNED_OFFICE";
 
-export function ProcessDashboard() {
+type ProcessDashboardProps = {
+  userPermissions?: string[];
+  isSuperAdmin?: boolean;
+};
+
+export function ProcessDashboard({
+  userPermissions = [],
+  isSuperAdmin = false,
+}: ProcessDashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ProcessTab>("in_hand");
+
+  // Permission checks
+  const perms = userPermissions;
+  const canViewInHand = isSuperAdmin || perms.includes("process.document_in_hand.view");
+  const canTransferInHand = isSuperAdmin || perms.includes("process.document_in_hand.transfer") || perms.includes("process.transfer");
+  const canPerformActions = isSuperAdmin || perms.includes("process.document_in_hand.actions") || perms.includes("process.move") || perms.includes("process.create") || perms.includes("process.edit");
+  const canViewInbound = isSuperAdmin || perms.includes("process.inbound.view");
+  const canReceiveInbound = isSuperAdmin || perms.includes("process.inbound.receive") || perms.includes("process.receive");
+  const canReturnInbound = isSuperAdmin || perms.includes("process.inbound.return") || perms.includes("process.return");
+  const canViewOutbound = isSuperAdmin || perms.includes("process.outbound.view");
+  const canRetrieveOutbound = isSuperAdmin || perms.includes("process.outbound.retrieve") || perms.includes("process.retrieve") || perms.includes("document_movement.retrieve");
+  const canViewBundle = isSuperAdmin || perms.includes("process.bundle_movement.view");
+
+  const availableTabs = useMemo(() => {
+    const tabs: ProcessTab[] = [];
+    if (canViewInHand) tabs.push("in_hand");
+    if (canViewInbound) tabs.push("inbound");
+    if (canViewOutbound) tabs.push("outbound");
+    if (canViewBundle) tabs.push("bundle");
+    return tabs;
+  }, [canViewInHand, canViewInbound, canViewOutbound, canViewBundle]);
+
+  const [activeTab, setActiveTab] = useState<ProcessTab>(() => availableTabs[0] || "in_hand");
+
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [availableTabs, activeTab]);
+
   const [processType, setProcessType] = useState<string>("All");
   const [priorityFilter, setPriorityFilter] = useState<string>("All");
   
@@ -391,32 +428,39 @@ export function ProcessDashboard() {
     },
   ];
 
-  const tabsConfig = [
-    { 
-      key: "in_hand" as const, 
-      label: "Document In Hand", 
-      count: stats.inHand,
-      description: "Live Documents Under Processing" 
-    },
-    { 
-      key: "inbound" as const, 
-      label: "Inbound", 
-      count: stats.inbound,
-      description: "Incoming From Assigned Office" 
-    },
-    { 
-      key: "outbound" as const, 
-      label: "Outbound", 
-      count: stats.outbound,
-      description: "Completed / Outgoing Documents" 
-    },
-    { 
-      key: "bundle" as const, 
-      label: "Bundle Movement", 
-      count: 0,
-      description: "Sub-Package & Bundle Transfers" 
-    },
-  ];
+  const tabsConfig = useMemo(() => {
+    const all = [
+      { 
+        key: "in_hand" as const, 
+        label: "Document In Hand", 
+        count: stats.inHand,
+        description: "Live Documents Under Processing",
+        visible: canViewInHand,
+      },
+      { 
+        key: "inbound" as const, 
+        label: "Inbound", 
+        count: stats.inbound,
+        description: "Incoming From Assigned Office",
+        visible: canViewInbound,
+      },
+      { 
+        key: "outbound" as const, 
+        label: "Outbound", 
+        count: stats.outbound,
+        description: "Completed / Outgoing Documents",
+        visible: canViewOutbound,
+      },
+      { 
+        key: "bundle" as const, 
+        label: "Bundle Movement", 
+        count: 0,
+        description: "Sub-Package & Bundle Transfers",
+        visible: canViewBundle,
+      },
+    ];
+    return all.filter((t) => t.visible);
+  }, [stats, canViewInHand, canViewInbound, canViewOutbound, canViewBundle]);
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">

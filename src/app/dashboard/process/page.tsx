@@ -9,5 +9,12 @@ export default async function ProcessPage() {
     return <AccessDenied description="Your role cannot access the Process Module." />;
   }
 
-  return <ProcessDashboard />;
+  const isSuperAdmin = Boolean(session.user.isSuperAdmin || session.user.role === "Super Admin");
+
+  return (
+    <ProcessDashboard
+      userPermissions={session.user.permissions || []}
+      isSuperAdmin={isSuperAdmin}
+    />
+  );
 }

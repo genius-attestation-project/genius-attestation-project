@@ -23,6 +23,7 @@ export default async function HomePage() {
     <HomeDashboard
       currentOfficeLocationName={currentOfficeLocationName ?? ""}
       isSuperAdmin={isSuperAdmin}
+      userPermissions={session.user.permissions || []}
     />
   );
 }

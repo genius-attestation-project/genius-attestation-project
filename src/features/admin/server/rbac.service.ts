@@ -1026,7 +1026,12 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         }
       } else if (key.startsWith("home.outbound.")) {
         result.add("home.outbound.view");
+        if (key === "home.outbound.retrieve") {
+          result.add("home.retrieve");
+          result.add("document_movement.retrieve");
+        }
       } else if (key === "home.movement_history.view") {
+        result.add("home.movement_history.view");
         result.add("movement_history.view");
         result.add("document_movement.view");
       }

@@ -62,6 +62,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === "document_in_hand") {
+      if (!hasPermission(currentUser, "home.document_in_hand.view")) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to view Document In Hand." },
+          { status: 403 }
+        );
+      }
       const data = await listDocumentInHand({
         ownerAdminId: currentUser.ownerAdminId,
         officeId,
@@ -74,6 +80,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === "inbound") {
+      if (!hasPermission(currentUser, "home.inbound.view")) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to view Inbound Bundles." },
+          { status: 403 }
+        );
+      }
       if (!officeId) {
         return NextResponse.json({ data: [] });
       }
@@ -85,6 +97,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === "outbound") {
+      if (!hasPermission(currentUser, "home.outbound.view")) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to view Outbound Bundles." },
+          { status: 403 }
+        );
+      }
       if (!officeId) {
         return NextResponse.json({ data: [] });
       }
@@ -96,6 +114,18 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === "history") {
+      const canViewHistory =
+        hasPermission(currentUser, "home.movement_history.view") ||
+        hasPermission(currentUser, "movement_history.view") ||
+        hasPermission(currentUser, "document_movement.view");
+
+      if (!canViewHistory) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to view Movement History." },
+          { status: 403 }
+        );
+      }
+
       const data = await getMovementHistory({
         ownerAdminId: currentUser.ownerAdminId,
         officeId,
@@ -125,8 +155,15 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "transfer") {
-      if (!hasPermission(currentUser, "home.transfer")) {
-        return NextResponse.json({ error: "You do not have permission to transfer bundles." }, { status: 403 });
+      const canTransfer =
+        hasPermission(currentUser, "home.document_in_hand.transfer") ||
+        hasPermission(currentUser, "home.transfer");
+
+      if (!canTransfer) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to transfer documents." },
+          { status: 403 }
+        );
       }
       const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
       const effectiveFromOfficeId = fromOfficeId || currentUser.officeLocationId;
@@ -158,8 +195,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "receive") {
-      if (!hasPermission(currentUser, "home.receive")) {
-        return NextResponse.json({ error: "You do not have permission to receive bundles." }, { status: 403 });
+      const canReceive =
+        hasPermission(currentUser, "home.inbound.receive") ||
+        hasPermission(currentUser, "home.receive");
+
+      if (!canReceive) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to receive bundles." },
+          { status: 403 }
+        );
       }
       const { bundleId, receivedTrackingNumbers, remarks } = body;
       const result = await receiveBundle({
