@@ -1,13 +1,18 @@
-"use client";
-
 import React from "react";
+import { AccessDenied } from "@/components/shared/AccessDenied";
 import { AccountTreeContainer } from "@/features/account-menu/components/AccountTreeContainer";
+import { requirePermission } from "@/middleware/auth.middleware";
 import { FolderTree } from "lucide-react";
 
-export default function AccountMenuMasterPage() {
+export default async function AccountMenuMasterPage() {
+  const session = await requirePermission("account_menu.view", "/dashboard/master-configuration/account-menu");
+
+  if (!session) {
+    return <AccessDenied description="Your role cannot access Account Menu Master Configuration." />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-[#0b0c0e] py-6">
-      {/* Header Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-2">
         <div className="flex items-center justify-between">
           <div>
@@ -27,7 +32,6 @@ export default function AccountMenuMasterPage() {
         </div>
       </div>
 
-      {/* Main Tree Container */}
       <AccountTreeContainer />
     </div>
   );

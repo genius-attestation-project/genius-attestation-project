@@ -55,7 +55,7 @@ function buildSafeSessionAccess(params: {
   const roles = params.roles ?? (role ? [role] : []);
   const permissions = params.permissions ?? [];
   const permissionScopes = params.permissionScopes ?? {};
-  const isSuperAdmin = params.isSuperAdmin ?? (role === "Super Admin" || role === "Admin");
+  const isSuperAdmin = Boolean(params.isSuperAdmin ?? (role === "Super Admin"));
 
   return {
     id: params.userId,
@@ -935,20 +935,39 @@ export function expandEffectivePermissions(keys: string[]): string[] {
 
       if (key.startsWith("advance_payment_approval.")) {
         result.add("advance_payment_approval.view");
+        if (key === "advance_payment_approval.approve" || key === "advance_payment_approval.reject") {
+          result.add("pending_approval.edit");
+        }
       }
       if (key.startsWith("movement_approval.")) {
         result.add("movement_approval.view");
+        if (key === "movement_approval.approve" || key === "movement_approval.reject") {
+          result.add("pending_approval.edit");
+        }
       }
       if (key.startsWith("advance_details_approval.")) {
         result.add("advance_details_approval.view");
+        if (key === "advance_details_approval.manage") {
+          result.add("advance_payment_approval.edit");
+          result.add("advance_payment_approval.delete");
+          result.add("pending_approval.edit");
+        }
       }
       if (key.startsWith("corporate_details_approval.")) {
         result.add("corporate_details_approval.view");
+        if (
+          key === "corporate_details_approval.approve" ||
+          key === "corporate_details_approval.reject" ||
+          key === "corporate_details_approval.edit"
+        ) {
+          result.add("pending_approval.edit");
+        }
       }
       if (key.startsWith("lobApproval.")) {
         result.add("lobApproval.view");
-        result.add("lob.view");
-        result.add("menu.lead-management.lob");
+        if (key === "lobApproval.approve" || key === "lobApproval.reject") {
+          result.add("pending_approval.edit");
+        }
       }
       if (key.startsWith("inactiveLead.")) {
         result.add("inactiveLead.view");
@@ -995,8 +1014,16 @@ export function expandEffectivePermissions(keys: string[]): string[] {
 
       if (key === "home.document_in_hand.view" || key === "home.document_in_hand.transfer") {
         result.add("home.document_in_hand.view");
+        if (key === "home.document_in_hand.transfer") {
+          result.add("home.transfer");
+        }
       } else if (key.startsWith("home.inbound.")) {
         result.add("home.inbound.view");
+        if (key === "home.inbound.receive") {
+          result.add("home.receive");
+        } else if (key === "home.inbound.return") {
+          result.add("home.return");
+        }
       } else if (key.startsWith("home.outbound.")) {
         result.add("home.outbound.view");
       } else if (key === "home.movement_history.view") {
@@ -1012,10 +1039,29 @@ export function expandEffectivePermissions(keys: string[]): string[] {
 
       if (key.startsWith("process.document_in_hand.")) {
         result.add("process.document_in_hand.view");
+        if (key === "process.document_in_hand.transfer") {
+          result.add("process.transfer");
+          result.add("process.move");
+        } else if (key === "process.document_in_hand.actions") {
+          result.add("process.move");
+          result.add("process.create");
+          result.add("process.edit");
+          result.add("process.complete");
+          result.add("process.delete");
+        }
       } else if (key.startsWith("process.inbound.")) {
         result.add("process.inbound.view");
+        if (key === "process.inbound.receive") {
+          result.add("process.receive");
+          result.add("process.move");
+        } else if (key === "process.inbound.return") {
+          result.add("process.return");
+        }
       } else if (key.startsWith("process.outbound.")) {
         result.add("process.outbound.view");
+        if (key === "process.outbound.retrieve") {
+          result.add("process.retrieve");
+        }
       } else if (key === "process.bundle_movement.view") {
         result.add("document_movement.view");
       }
@@ -1128,9 +1174,7 @@ export function expandEffectivePermissions(keys: string[]): string[] {
     // 16. Master Configuration & Submodules
     if (
       key.startsWith("master_configuration.") ||
-      key.startsWith("account_menu.") ||
-      key.startsWith("departments.") ||
-      key.startsWith("office_locations.")
+      key.startsWith("account_menu.")
     ) {
       result.add("master_configuration.view");
       result.add("menu.master-configuration");
@@ -1171,32 +1215,35 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         result.add("account_menu.view");
         result.add("menu.master-configuration.account-menu");
       }
+    }
+
+    // 17. Admin Management
+    if (
+      key.startsWith("users.") ||
+      key.startsWith("roles.") ||
+      key.startsWith("access_management.") ||
+      key.startsWith("departments.") ||
+      key.startsWith("office_locations.")
+    ) {
+      result.add("admin_management.view");
+      result.add("menu.admin-management");
+
+      if (key.startsWith("users.")) {
+        result.add("users.view");
+        result.add("menu.admin-management.users");
+      }
+      if (key.startsWith("roles.") || key.startsWith("access_management.")) {
+        result.add("roles.view");
+        result.add("menu.admin-management.roles");
+      }
       if (key.startsWith("departments.")) {
         result.add("departments.view");
-        result.add("admin_management.view");
-        result.add("menu.admin-management");
         result.add("menu.admin-management.department");
       }
       if (key.startsWith("office_locations.")) {
         result.add("office_locations.view");
-        result.add("admin_management.view");
-        result.add("menu.admin-management");
         result.add("menu.admin-management.office-location");
       }
-    }
-
-    // 17. Admin Management
-    if (key.startsWith("users.")) {
-      result.add("users.view");
-      result.add("admin_management.view");
-      result.add("menu.admin-management");
-      result.add("menu.admin-management.users");
-    }
-    if (key.startsWith("roles.") || key.startsWith("access_management.")) {
-      result.add("roles.view");
-      result.add("admin_management.view");
-      result.add("menu.admin-management");
-      result.add("menu.admin-management.roles");
     }
   }
 
@@ -1244,9 +1291,8 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
     }
   }
 
-  const isOwner = user.ownerAdminId === user.id || !user.ownerAdminId;
-  const isSuperAdmin = user.role ? user.role.name === "Super Admin" : isOwner;
-  const roleName = user.role?.name ?? (isOwner ? "Super Admin" : "User");
+  const isSuperAdmin = Boolean(user.role?.name === "Super Admin");
+  const roleName = user.role?.name ?? (isSuperAdmin ? "Super Admin" : "User");
   
   const permissions: string[] = [];
   const permissionScopes: Record<string, string> = {};

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import { rejectMovementApproval } from "@/features/document-movement/server/movement-approval.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
@@ -12,6 +13,15 @@ export async function POST(
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId || !session?.user?.id) {
       return jsonError("Unauthorized.", 401);
+    }
+
+    const canReject =
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "movement_approval.reject") ||
+      hasPermission(session.user, "pending_approval.edit");
+
+    if (!canReject) {
+      return jsonError("Forbidden. You do not have permission to reject movement requests.", 403);
     }
 
     const { id } = await params;

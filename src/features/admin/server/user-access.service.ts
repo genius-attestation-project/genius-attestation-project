@@ -744,8 +744,7 @@ export async function listUserAccessData(ownerAdminId: string) {
   }
 
   const mappedUsers = users.map((u) => {
-    const isOwner = u.ownerAdminId === u.id || !u.ownerAdminId;
-    const isSuperAdmin = u.role ? u.role.name === "Super Admin" : isOwner;
+    const isSuperAdmin = Boolean(u.role?.name === "Super Admin");
     const hasExplicitUserPermissions = userPermMap.has(u.id);
 
     const rawUserPerms = userPermMap.get(u.id) ?? [];
@@ -767,7 +766,7 @@ export async function listUserAccessData(ownerAdminId: string) {
       name: u.name ?? "Workspace User",
       email: u.email,
       image: u.image ?? "",
-      roleName: u.role?.name ?? (isOwner ? "Super Admin" : "User"),
+      roleName: u.role?.name ?? (isSuperAdmin ? "Super Admin" : "User"),
       isActive: u.isActive,
       isSuperAdmin,
       hasUserPermissions: hasExplicitUserPermissions,

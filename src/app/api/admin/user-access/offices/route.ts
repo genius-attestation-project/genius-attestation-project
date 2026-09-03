@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
     const canManage =
       session.user.isSuperAdmin ||
       hasPermission(session.user, "access_management.manage_offices") ||
-      hasPermission(session.user, "roles.view") ||
-      hasPermission(session.user, "admin_management.view");
+      hasPermission(session.user, "roles.edit");
 
     if (!canManage) {
       return jsonError("Forbidden. You do not have permission to modify office visibility.", 403);
@@ -40,6 +39,10 @@ export async function POST(request: NextRequest) {
 
     if (!userId || typeof userId !== "string") {
       return jsonError("Target user ID is required.", 400);
+    }
+
+    if (!session.user.isSuperAdmin && userId === session.user.id) {
+      return jsonError("Forbidden. You cannot modify your own office visibility.", 403);
     }
 
     if (!moduleKey && !moduleOfficeMap && !officeLocationIds) {

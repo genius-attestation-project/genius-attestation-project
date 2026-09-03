@@ -39,22 +39,23 @@ function filterNavigation(
     
     // If parent matches the search query, we show all its children without filtering them further.
     // If parent doesn't match, we apply the search query filter to its children.
-    let children = item.children
-      ? filterNavigation(item.children, permissions, isSuperAdmin, hasMatch ? "" : query)
+    const hasChildren = Boolean(item.children && item.children.length > 0);
+    const children = hasChildren
+      ? filterNavigation(item.children!, permissions, isSuperAdmin, hasMatch ? "" : query)
       : undefined;
 
-    const visible =
-      isSuperAdmin ||
-      permissions.includes(item.menuPermission) ||
-      permissions.includes(item.pagePermission) ||
-      Boolean(children?.length);
+    const visible = isSuperAdmin
+      ? true
+      : hasChildren
+      ? Boolean(children && children.length > 0)
+      : (permissions.includes(item.menuPermission) || permissions.includes(item.pagePermission));
 
     if (!visible) {
       return [];
     }
     
     // If there's a search query and this item doesn't match AND none of its children match, hide it.
-    const childMatches = children && children.length > 0;
+    const childMatches = Boolean(children && children.length > 0);
     if (query && !hasMatch && !childMatches) {
        return [];
     }
