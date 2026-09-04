@@ -85,13 +85,38 @@ export async function listDocumentInHand(params: {
     );
   }
 
+  const andConditions: any[] = [
+    {
+      OR: [
+        { advancePaid: { gt: 0 } },
+        { advancePaymentStatus: { in: ["Pending Approval", "Approved"] } },
+        { advancePaymentSubmitted: true },
+        { movementApproved: true },
+      ],
+    },
+  ];
+
+  if (officeMatchConditions.length > 0) {
+    andConditions.push({ OR: officeMatchConditions });
+  }
+
   const registrations = await prisma.registration.findMany({
     where: {
       ...whereClause,
       trackingStatus: {
-        notIn: ["In Transfer", "Transferred", "INBOUND_PENDING", "In Transit", "Ready for Delivery", "Delivered"],
+        notIn: [
+          "In Transfer",
+          "Transferred",
+          "INBOUND_PENDING",
+          "In Transit",
+          "Ready for Delivery",
+          "Delivered",
+          "Cancelled",
+          "Movement Approval Rejected",
+          "Movement Approval Pending",
+        ],
       },
-      ...(officeMatchConditions.length > 0 ? { OR: officeMatchConditions } : {}),
+      AND: andConditions,
     },
     include: {
       documentMovements: {
@@ -115,11 +140,15 @@ export async function listDocumentInHand(params: {
     const mov = reg.documentMovements?.[0];
     
     const advancePaid = Number(reg.advancePaid ?? 0);
-    const hasAdvanceAmount = !isNaN(advancePaid) && advancePaid > 0;
+    const hasAdvanceAmount =
+      (!isNaN(advancePaid) && advancePaid > 0) ||
+      reg.advancePaymentStatus === "Pending Approval" ||
+      reg.advancePaymentStatus === "Approved" ||
+      reg.advancePaymentSubmitted;
 
     const latestApproval = reg.movementApprovals?.[0];
     const isApproved = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
-    const isPending = !hasAdvanceAmount && !isApproved && (latestApproval?.status === "Pending" || !latestApproval);
+    const isPending = !hasAdvanceAmount && !isApproved;
 
     const hasMovementApprovalPending = isPending;
     const canTransfer = hasAdvanceAmount || isApproved;
@@ -167,6 +196,8 @@ export async function createTransferBundle(params: {
         id: true,
         trackingNumber: true,
         advancePaid: true,
+        advancePaymentStatus: true,
+        advancePaymentSubmitted: true,
         movementApproved: true,
         movementApprovals: {
           orderBy: { createdAt: "desc" },
@@ -180,7 +211,11 @@ export async function createTransferBundle(params: {
     }
 
     const advancePaid = Number(reg.advancePaid ?? 0);
-    const hasAdvanceAmount = !isNaN(advancePaid) && advancePaid > 0;
+    const hasAdvanceAmount =
+      (!isNaN(advancePaid) && advancePaid > 0) ||
+      reg.advancePaymentStatus === "Pending Approval" ||
+      reg.advancePaymentStatus === "Approved" ||
+      reg.advancePaymentSubmitted;
     const latestApproval = reg.movementApprovals?.[0];
     const isApproved = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
 

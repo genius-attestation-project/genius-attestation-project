@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { listPendingMovementApprovals } from "@/features/document-movement/server/movement-approval.service";
+import {
+  listPendingMovementApprovals,
+  createMovementApprovalRequest,
+} from "@/features/document-movement/server/movement-approval.service";
 import { resolveOfficeLocationId, resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
 import { hasPermission } from "@/features/admin/server/rbac.service";
@@ -54,5 +57,55 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Failed to list pending movement approvals:", error);
     return jsonError(error.message || "Failed to list movement approvals.", 500);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth();
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
+    if (!ownerAdminId || !session?.user?.id) {
+      return jsonError("Unauthorized.", 401);
+    }
+
+    const canCreate =
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "movement_approval.create") ||
+      hasPermission(session.user, "revenue_registration.create") ||
+      hasPermission(session.user, "revenue_registration.edit") ||
+      hasPermission(session.user, "revenue_registration.view");
+
+    if (!canCreate) {
+      return jsonError("Forbidden. You do not have permission to request movement approval.", 403);
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const registrationId = typeof body.registrationId === "string" ? body.registrationId.trim() : "";
+    const remarks = typeof body.remarks === "string" ? body.remarks.trim() : "";
+
+    if (!registrationId) {
+      return jsonError("Registration ID is required.", 400);
+    }
+
+    if (!remarks) {
+      return jsonError("Remarks are mandatory when requesting movement approval.", 400);
+    }
+
+    const item = await createMovementApprovalRequest({
+      ownerAdminId,
+      registrationId,
+      performedBy: session.user.name || session.user.email || "System User",
+      requestedByUserId: session.user.id,
+      remarks,
+    });
+
+    if (!item) {
+      return jsonError("Unable to create movement approval request. Document not found or advance payment exists.", 400);
+    }
+
+    return jsonOk({ success: true, item });
+  } catch (error: any) {
+    console.error("Failed to create movement approval request:", error);
+    return jsonError(error.message || "Failed to create movement approval request.", 500);
   }
 }

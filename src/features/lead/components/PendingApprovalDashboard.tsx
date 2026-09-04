@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  AlertCircle,
   BadgeCheck,
   Building2,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate, formatDateTime, formatTitleCase } from "@/utils/format";
 
@@ -51,6 +53,8 @@ type MovementApprovalItem = {
   advanceAmount: number;
   totalAmount?: number;
   status: string;
+  remarks?: string;
+  approvalRemarks?: string | null;
   requestedBy: string;
   requestedDate: string;
   mobile?: string;
@@ -189,6 +193,15 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("movement_approval.approve") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectMovement =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("movement_approval.reject") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -355,6 +368,7 @@ export function PendingApprovalDashboard() {
     requestType: string;
     id: string;
     title: string;
+    meta?: any;
   } | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -846,18 +860,20 @@ export function PendingApprovalDashboard() {
                           className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </th>
-                      <th className="px-5 py-4">Tracking Number</th>
-                      <th className="px-5 py-4">Customer Name</th>
-                      <th className="px-5 py-4">Document Name</th>
-                      <th className="px-5 py-4">Document Type</th>
-                      <th className="px-5 py-4">Advance Amount</th>
-                      <th className="px-5 py-4">Actions</th>
+                      <th className="px-4 py-4">Tracking Number</th>
+                      <th className="px-4 py-4">Customer Name</th>
+                      <th className="px-4 py-4">Document / Type</th>
+                      <th className="px-4 py-4">Registration Office</th>
+                      <th className="px-4 py-4">Current Office</th>
+                      <th className="px-4 py-4 min-w-50">Requester Remarks</th>
+                      <th className="px-4 py-4">Requested By</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
                     {movementApprovals.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-soft">
+                        <td colSpan={9} className="p-8 text-center text-soft">
                           No pending movement approval requests.
                         </td>
                       </tr>
@@ -873,30 +889,44 @@ export function PendingApprovalDashboard() {
                               className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
                           </td>
-                          <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
-                            {item.trackingNumber}
+                          <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                              className="hover:underline"
+                            >
+                              {item.trackingNumber}
+                            </Link>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-4">
                             <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
                             {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
                           </td>
-                          <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                            {item.documentName ? formatTitleCase(item.documentName) : "-"}
+                          <td className="px-4 py-4">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : "-"}</p>
+                            <p className="text-xs text-soft">{item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
                           </td>
-                          <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                            {item.documentType ? formatTitleCase(item.documentType) : "-"}
+                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                            {item.registrationOffice || "-"}
                           </td>
-                          <td className="px-5 py-4">
-                            <p className="font-extrabold text-slate-900 dark:text-white text-sm">
-                              {formatCurrency(item.advanceAmount)}
-                            </p>
-                            {item.totalAmount ? (
-                              <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
-                            ) : null}
+                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                            {item.currentOffice || item.registrationOffice || "-"}
                           </td>
-                          <td className="px-5 py-4">
-                            {canApproveMovement ? (
-                              <div className="flex gap-2">
+                          <td className="px-4 py-4 min-w-50">
+                            {item.remarks ? (
+                              <div className="rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 border border-amber-200/60 dark:border-amber-900/40">
+                                {item.remarks}
+                              </div>
+                            ) : (
+                              <span className="text-xs italic text-slate-400">No remarks provided</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-xs whitespace-nowrap">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
+                            <p className="text-soft">{formatDate(item.requestedDate)}</p>
+                          </td>
+                          <td className="px-4 py-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-2">
+                              {canApproveMovement && (
                                 <Button
                                   size="sm"
                                   onClick={() =>
@@ -905,17 +935,36 @@ export function PendingApprovalDashboard() {
                                       requestType: "MOVEMENT_APPROVAL",
                                       id: item.id,
                                       title: `Approve Document Movement (${item.trackingNumber})`,
+                                      meta: item,
                                     })
                                   }
                                 >
                                   Approve
                                 </Button>
-                              </div>
-                            ) : (
-                              <span className="text-xs italic text-slate-400" title="Approval permission required">
-                                Approval Permission Required
-                              </span>
-                            )}
+                              )}
+                              {canRejectMovement && (
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() =>
+                                    setActionModal({
+                                      type: "Rejected",
+                                      requestType: "MOVEMENT_APPROVAL",
+                                      id: item.id,
+                                      title: `Reject Document Movement (${item.trackingNumber})`,
+                                      meta: item,
+                                    })
+                                  }
+                                >
+                                  Reject
+                                </Button>
+                              )}
+                              {!canApproveMovement && !canRejectMovement && (
+                                <span className="text-xs italic text-slate-400" title="Approval permission required">
+                                  View Only
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1418,16 +1467,93 @@ export function PendingApprovalDashboard() {
         open={Boolean(actionModal)}
         onClose={() => { if (!submitting) setActionModal(null); }}
         title={actionModal?.title || "Action"}
-        description={actionModal?.type === "Rejected" ? "Rejection reason is required." : "Provide remarks for this action."}
+        description={
+          actionModal?.requestType === "MOVEMENT_APPROVAL"
+            ? actionModal.type === "Approved"
+              ? "Review zero-advance movement request details and confirm approval."
+              : "Specify reason for rejecting zero-advance movement request."
+            : actionModal?.type === "Rejected"
+            ? "Rejection reason is required."
+            : "Provide remarks for this action."
+        }
         placement="center"
       >
         {actionModal && (
-          <div className="grid gap-4">
+          <div className="grid gap-4 text-xs sm:text-sm">
+            {/* Movement Approval Document Summary Card */}
+            {actionModal.requestType === "MOVEMENT_APPROVAL" && actionModal.meta && (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 dark:border-blue-900/40 dark:bg-blue-950/20">
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Tracking Number:</span>
+                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                        {actionModal.meta.trackingNumber}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Customer:</span>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {formatTitleCase(actionModal.meta.customerName)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Registration Office:</span>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        {actionModal.meta.registrationOffice || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Current Office:</span>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        {actionModal.meta.currentOffice || actionModal.meta.registrationOffice || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Advance Paid:</span>
+                      <p className="font-bold text-rose-600 dark:text-rose-400">
+                        ₹{Number(actionModal.meta.advanceAmount || 0).toFixed(2)} (Zero Advance)
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">Requested By:</span>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">
+                        {actionModal.meta.requestedBy || "System User"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Original Requester Remarks Callout */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 dark:border-amber-900/50 dark:bg-amber-950/30">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                    <AlertCircle size={14} className="text-amber-600 dark:text-amber-400" />
+                    <span>Requester Reason / Remarks:</span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
+                    {actionModal.meta.remarks || "No remarks provided"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <Textarea
-              label={actionModal.type === "Rejected" ? "Rejection Reason *" : "Remarks"}
+              label={
+                actionModal.type === "Rejected"
+                  ? "Rejection Reason *"
+                  : actionModal.requestType === "MOVEMENT_APPROVAL"
+                  ? "Approval Remarks (Optional)"
+                  : "Remarks"
+              }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={actionModal.type === "Rejected" ? "Enter specific reason for rejecting advance payment..." : "Optional remarks..."}
+              placeholder={
+                actionModal.type === "Rejected"
+                  ? "Enter specific reason for rejecting request..."
+                  : actionModal.requestType === "MOVEMENT_APPROVAL"
+                  ? "Optional note (e.g. Approved per branch manager authorization)..."
+                  : "Optional remarks..."
+              }
               required={actionModal.type === "Rejected"}
             />
             <div className="flex justify-end gap-3">
@@ -1437,7 +1563,11 @@ export function PendingApprovalDashboard() {
                 onClick={() => void submitAction()}
                 disabled={submitting || (actionModal.type === "Rejected" && !reason.trim())}
               >
-                {submitting ? "Processing..." : "Submit Action"}
+                {submitting
+                  ? "Processing..."
+                  : actionModal.type === "Approved"
+                  ? "Confirm Approval"
+                  : "Confirm Rejection"}
               </Button>
             </div>
           </div>

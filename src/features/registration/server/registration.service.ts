@@ -23,6 +23,10 @@ const registrationInclude = {
     orderBy: { requestedAt: "desc" as const },
     take: 1,
   },
+  movementApprovals: {
+    orderBy: { requestedDate: "desc" as const },
+    take: 1,
+  },
 };
 
 type RegistrationRecord = Prisma.RegistrationGetPayload<{
@@ -53,6 +57,11 @@ function mapRegistration(registration: RegistrationRecord) {
     registration.advancePaymentStatus === "Pending Approval" && latestAdvanceApproval?.status === "Pending Approval"
       ? Number(latestAdvanceApproval.advanceAmount)
       : 0;
+
+  const latestMovApproval = (registration as any).movementApprovals?.[0];
+  const movementApprovalStatus =
+    latestMovApproval?.status ?? (registration.movementApproved ? "Approved" : "None");
+  const movementApprovalRemarks = latestMovApproval?.remarks ?? null;
 
   return {
     ...registration,
@@ -108,6 +117,9 @@ function mapRegistration(registration: RegistrationRecord) {
       name: registration.creator.name,
       email: registration.creator.email,
     } : null,
+    movementApproved: Boolean(registration.movementApproved),
+    movementApprovalStatus,
+    movementApprovalRemarks,
   };
 }
 
@@ -450,12 +462,18 @@ export async function createRegistration(
     }
 
     // 3. Create Revenue Registration
+    const isZeroAdvance = requestedAdvance <= 0;
+    const initialTrackingStatus = isZeroAdvance ? "Movement Approval Pending" : "Document In Hand";
+    const initialMovementStatus = isZeroAdvance ? "REGISTRATION" : "HOME";
+
     const reg = await tx.registration.create({
       data: {
         ...buildRegistrationData(
           { ...input, regionOfRegistration: sourceOfficeName },
           { approvedAdvance: 0 },
         ),
+        movementApproved: false,
+        trackingStatus: initialTrackingStatus,
         welcomeCallStatus: "Pending",
         ownerAdminId,
         createdBy: userId ?? null,
@@ -466,7 +484,7 @@ export async function createRegistration(
           create: [
             {
               action: "Registration created",
-              description: `Registration ${input.trackingNumber} was created.`,
+              description: `Registration ${input.trackingNumber} was created.${isZeroAdvance ? " Movement approval is required (Zero Advance)." : ""}`,
               performedBy: performedBy ?? null,
             },
             ...(countryChangedFromLead
@@ -485,7 +503,8 @@ export async function createRegistration(
             trackingNumber: input.trackingNumber,
             currentOfficeId: sourceOffice?.id ?? null,
             currentModule: "REGISTRATION",
-            status: "HOME",
+            status: initialMovementStatus,
+            currentStatus: initialTrackingStatus,
             movementType: "INITIAL",
             createdBy: performedBy ?? null,
             originOfficeId: sourceOffice?.id ?? null,
@@ -500,9 +519,10 @@ export async function createRegistration(
       data: {
         trackingNumber: input.trackingNumber,
         action: "Created",
-        newStatus: "HOME",
+        newStatus: initialMovementStatus,
         newOffice: sourceOfficeName,
         performedBy: performedBy ?? null,
+        remarks: isZeroAdvance ? "Movement approval required before transfer" : undefined,
       },
     });
 

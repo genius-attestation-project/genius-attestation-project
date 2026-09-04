@@ -21,6 +21,7 @@ import {
   CheckSquare,
   Square,
   AlertTriangle,
+  Send,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -44,6 +45,7 @@ import { PriorityDot } from "@/components/ui/PriorityDot";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
+import { RequestMovementApprovalModal } from "@/features/registration/components/RequestMovementApprovalModal";
 import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
 import {
   paymentStatusOptions,
@@ -426,6 +428,7 @@ export function RegistrationManager({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [movementApprovalTarget, setMovementApprovalTarget] = useState<Registration | null>(null);
 
   const isAllPageSelected = useMemo(() => {
     if (registrations.length === 0) return false;
@@ -1588,6 +1591,39 @@ export function RegistrationManager({
                         </td>
                         <td className="px-3.5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
+                            {Number(registration.advancePaid || 0) <= 0 && !registration.movementApproved && (
+                              <Button
+                                variant={registration.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
+                                size="sm"
+                                title={
+                                  registration.movementApprovalStatus === "Pending"
+                                    ? "Movement approval request is pending review"
+                                    : "Request movement approval to allow document movement without advance payment"
+                                }
+                                onClick={() => setMovementApprovalTarget(registration)}
+                                className={`h-8 px-2 text-[11px] font-bold flex items-center gap-1 shrink-0 ${
+                                  registration.movementApprovalStatus === "Pending"
+                                    ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : registration.movementApprovalStatus === "Rejected"
+                                    ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-xs"
+                                }`}
+                              >
+                                <Send size={12} />
+                                <span className="hidden xl:inline">
+                                  {registration.movementApprovalStatus === "Pending"
+                                    ? "Approval Pending"
+                                    : registration.movementApprovalStatus === "Rejected"
+                                    ? "Re-request Approval"
+                                    : "Request Movement"}
+                                </span>
+                                <span className="xl:hidden">
+                                  {registration.movementApprovalStatus === "Pending"
+                                    ? "Pending"
+                                    : "Movement"}
+                                </span>
+                              </Button>
+                            )}
                             {hasTimelinePermission && (
                               <Button 
                                 variant="ghost" 
@@ -2321,6 +2357,17 @@ export function RegistrationManager({
           </div>
         </div>
       )}
+
+      {/* Request Movement Approval Modal */}
+      <RequestMovementApprovalModal
+        open={Boolean(movementApprovalTarget)}
+        onClose={() => setMovementApprovalTarget(null)}
+        registration={movementApprovalTarget}
+        onSuccess={() => {
+          setSuccess("Movement approval request submitted successfully.");
+          fetchRegistrations(query, filters, page, pageSize);
+        }}
+      />
     </div>
   );
 }

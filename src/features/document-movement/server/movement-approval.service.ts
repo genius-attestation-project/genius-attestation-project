@@ -104,6 +104,8 @@ export async function listPendingMovementApprovals(
       advanceAmount: Math.max(Number(item.advanceAmount ?? 0), Number(reg?.advancePaid ?? 0)),
       totalAmount: Number(reg?.totalCharges ?? 0),
       status: item.status,
+      remarks: item.remarks || "",
+      approvalRemarks: item.approvalRemarks || null,
       requestedBy: item.requestedByName || "System User",
       requestedDate: item.requestedDate.toISOString(),
       mobile: reg?.mobile || "-",
@@ -148,6 +150,7 @@ export async function createMovementApprovalRequest(params: {
   registrationId: string;
   performedBy?: string;
   requestedByUserId?: string;
+  remarks?: string;
 }) {
   const reg = await prisma.registration.findFirst({
     where: { id: params.registrationId, ownerAdminId: params.ownerAdminId },
@@ -167,7 +170,7 @@ export async function createMovementApprovalRequest(params: {
     return null;
   }
 
-  // Prevent creating duplicate pending movement approvals for the same document
+  // If a pending movement approval already exists, update its remarks if new remarks are provided
   const existingPending = await prisma.movementApproval.findFirst({
     where: {
       registrationId: reg.id,
@@ -177,10 +180,23 @@ export async function createMovementApprovalRequest(params: {
   });
 
   if (existingPending) {
+    const newRemarks = (params.remarks ?? "").trim();
+    if (newRemarks && newRemarks !== existingPending.remarks) {
+      return prisma.movementApproval.update({
+        where: { id: existingPending.id },
+        data: {
+          remarks: newRemarks,
+          requestedById: params.requestedByUserId ?? existingPending.requestedById,
+          requestedByName: params.performedBy ?? existingPending.requestedByName,
+          requestedDate: new Date(),
+        },
+      });
+    }
     return existingPending;
   }
 
   const currentOfficeName = reg.documentMovements?.[0]?.currentOffice?.officeName || reg.regionOfRegistration || null;
+  const requestRemarks = (params.remarks ?? "").trim() || "Customer requested processing without advance payment.";
 
   return prisma.$transaction(async (tx) => {
     const approval = await tx.movementApproval.create({
@@ -193,6 +209,7 @@ export async function createMovementApprovalRequest(params: {
         currentOffice: currentOfficeName,
         advanceAmount: reg.advancePaid,
         status: "Pending",
+        remarks: requestRemarks,
         requestedById: params.requestedByUserId ?? null,
         requestedByName: params.performedBy ?? "System User",
         requestedDate: new Date(),
@@ -202,7 +219,10 @@ export async function createMovementApprovalRequest(params: {
 
     await tx.registration.update({
       where: { id: reg.id },
-      data: { movementApproved: false },
+      data: {
+        movementApproved: false,
+        trackingStatus: "Movement Approval Pending",
+      },
     });
 
     await tx.movementHistory.create({
@@ -212,7 +232,7 @@ export async function createMovementApprovalRequest(params: {
         oldOffice: currentOfficeName,
         newOffice: currentOfficeName,
         performedBy: params.performedBy ?? "System User",
-        remarks: "Advance amount is 0. Movement approval requested automatically.",
+        remarks: requestRemarks,
       },
     });
 
@@ -221,7 +241,7 @@ export async function createMovementApprovalRequest(params: {
         registrationId: reg.id,
         action: "MOVEMENT_APPROVAL_REQUESTED",
         performedBy: params.performedBy ?? "System User",
-        description: "Movement approval requested due to zero advance amount.",
+        description: `Movement approval requested: "${requestRemarks}"`,
       },
     });
 
@@ -251,6 +271,7 @@ export async function approveMovementApproval(params: {
 
   const approverName = params.approvedByName || params.approvedByUserId;
   const currentOffice = movApp.currentOffice || movApp.registrationOffice || null;
+  const approvalNote = (params.remarks ?? "").trim() || "Movement approval granted";
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.movementApproval.update({
@@ -260,13 +281,26 @@ export async function approveMovementApproval(params: {
         approvedById: params.approvedByUserId,
         approvedByName: approverName,
         approvedAt: new Date(),
-        remarks: params.remarks ?? "Movement approved",
+        approvalRemarks: approvalNote,
       },
     });
 
     await tx.registration.update({
       where: { id: movApp.registrationId },
-      data: { movementApproved: true },
+      data: {
+        movementApproved: true,
+        trackingStatus: "Document In Hand",
+      },
+    });
+
+    await tx.documentMovement.updateMany({
+      where: {
+        registrationId: movApp.registrationId,
+      },
+      data: {
+        status: "HOME",
+        currentStatus: "Document In Hand",
+      },
     });
 
     await tx.movementHistory.create({
@@ -276,7 +310,7 @@ export async function approveMovementApproval(params: {
         oldOffice: currentOffice,
         newOffice: currentOffice,
         performedBy: approverName,
-        remarks: params.remarks || "Movement approval granted",
+        remarks: approvalNote,
       },
     });
 
@@ -285,7 +319,7 @@ export async function approveMovementApproval(params: {
         registrationId: movApp.registrationId,
         action: "MOVEMENT_APPROVED",
         performedBy: approverName,
-        description: `Movement approval granted by ${approverName}.`,
+        description: `Movement approval granted by ${approverName}. Note: "${approvalNote}"`,
       },
     });
 
@@ -311,6 +345,7 @@ export async function rejectMovementApproval(params: {
 
   const rejectorName = params.rejectedByName || params.rejectedByUserId;
   const currentOffice = movApp.currentOffice || movApp.registrationOffice || null;
+  const reason = (params.rejectionReason ?? "").trim() || "Movement approval rejected";
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.movementApproval.update({
@@ -320,13 +355,16 @@ export async function rejectMovementApproval(params: {
         rejectedById: params.rejectedByUserId,
         rejectedByName: rejectorName,
         rejectedAt: new Date(),
-        rejectionReason: params.rejectionReason ?? "Movement approval rejected",
+        rejectionReason: reason,
       },
     });
 
     await tx.registration.update({
       where: { id: movApp.registrationId },
-      data: { movementApproved: false },
+      data: {
+        movementApproved: false,
+        trackingStatus: "Movement Approval Rejected",
+      },
     });
 
     await tx.movementHistory.create({
@@ -336,7 +374,7 @@ export async function rejectMovementApproval(params: {
         oldOffice: currentOffice,
         newOffice: currentOffice,
         performedBy: rejectorName,
-        remarks: params.rejectionReason || "Movement approval rejected",
+        remarks: reason,
       },
     });
 
@@ -345,7 +383,7 @@ export async function rejectMovementApproval(params: {
         registrationId: movApp.registrationId,
         action: "MOVEMENT_REJECTED",
         performedBy: rejectorName,
-        description: `Movement approval rejected by ${rejectorName}.`,
+        description: `Movement approval rejected by ${rejectorName}. Reason: "${reason}"`,
       },
     });
 
@@ -407,13 +445,26 @@ export async function bulkApproveMovementApprovals(params: {
           approvedById: params.approvedByUserId,
           approvedByName: approverName,
           approvedAt: now,
-          remarks,
+          approvalRemarks: remarks,
         },
       });
 
       await tx.registration.update({
         where: { id: movApp.registrationId },
-        data: { movementApproved: true },
+        data: {
+          movementApproved: true,
+          trackingStatus: "Document In Hand",
+        },
+      });
+
+      await tx.documentMovement.updateMany({
+        where: {
+          registrationId: movApp.registrationId,
+        },
+        data: {
+          status: "HOME",
+          currentStatus: "Document In Hand",
+        },
       });
 
       await tx.movementHistory.create({
@@ -432,7 +483,7 @@ export async function bulkApproveMovementApprovals(params: {
           registrationId: movApp.registrationId,
           action: "MOVEMENT_APPROVED",
           performedBy: approverName,
-          description: `Bulk movement approval granted by ${approverName}.`,
+          description: `Bulk movement approval granted by ${approverName}. Note: "${remarks}"`,
         },
       });
 

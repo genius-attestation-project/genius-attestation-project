@@ -260,30 +260,22 @@ export function HomeDashboard({
                   className={
                     isSelected
                       ? "bg-blue-50/50 dark:bg-blue-950/20"
-                      : isPendingApproval
-                      ? "bg-amber-50/20 dark:bg-amber-950/10 hover:bg-amber-50/30"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                   }
                 >
                   {canTransfer && (
                     <td className="p-3 text-center">
-                      {canMove ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSelectInHand(tNum)}
-                          className="text-slate-600 dark:text-slate-400 focus:outline-hidden"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-blue-600" />
-                          ) : (
-                            <Square className="h-5 w-5 text-slate-400" />
-                          )}
-                        </button>
-                      ) : (
-                        <div title="Movement approval pending" className="flex items-center justify-center">
-                          <Square className="h-5 w-5 text-slate-300 dark:text-slate-600 cursor-not-allowed" />
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectInHand(tNum)}
+                        className="text-slate-600 dark:text-slate-400 focus:outline-hidden cursor-pointer"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Square className="h-5 w-5 text-slate-400" />
+                        )}
+                      </button>
                     </td>
                   )}
                   <td className="p-3 text-center font-semibold text-slate-500">{startIndex + index + 1}</td>
@@ -296,11 +288,6 @@ export function HomeDashboard({
                       >
                         {tNum}
                       </Link>
-                      {isPendingApproval && (
-                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                          Movement approval pending
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="p-3 text-center text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">

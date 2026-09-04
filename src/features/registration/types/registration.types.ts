@@ -75,6 +75,9 @@ export type Registration = {
   advancePaymentApprovedAt?: Date | string | null;
   advancePaymentRejectedBy?: string | null;
   advancePaymentRejectedAt?: Date | string | null;
+  movementApproved?: boolean;
+  movementApprovalStatus?: string;
+  movementApprovalRemarks?: string | null;
   trackingStatus: string;
   welcomeCallStatus: string;
   welcomeCalledBy: string | null;

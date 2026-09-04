@@ -135,7 +135,9 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         label: "Movement Approval",
         actions: [
           { key: "movement_approval.view", label: "View" },
+          { key: "movement_approval.create", label: "Create / Request" },
           { key: "movement_approval.approve", label: "Approve" },
+          { key: "movement_approval.reject", label: "Reject" },
         ],
       },
       {

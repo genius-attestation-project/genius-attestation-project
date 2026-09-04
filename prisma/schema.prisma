@@ -1720,6 +1720,7 @@ model MovementApproval {
   rejectedAt         DateTime?    @map("rejected_at")
   rejectionReason    String?      @map("rejection_reason")
   remarks            String?      @db.Text
+  approvalRemarks    String?      @db.Text @map("approval_remarks")
   ownerAdminId       String       @map("owner_admin_id")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
