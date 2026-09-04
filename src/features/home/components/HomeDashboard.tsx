@@ -118,7 +118,7 @@ export function HomeDashboard({
   useEffect(() => {
     async function loadOffices() {
       try {
-        const res = await fetch("/api/offices/all");
+        const res = await fetch("/api/offices/all?module=home");
         if (res.ok) {
           const body = await res.json();
           const list: OfficeOption[] = body.offices || body.data || [];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import {
   listDocumentInHand,
@@ -130,6 +131,8 @@ export async function GET(req: NextRequest) {
         ownerAdminId: currentUser.ownerAdminId,
         officeId,
         search,
+        isSuperAdmin: currentUser.isSuperAdmin,
+        allowedOfficeNames,
       });
       return NextResponse.json({ data });
     }
@@ -168,14 +171,14 @@ export async function POST(req: NextRequest) {
       const { trackingNumbers, fromOfficeId, toOfficeId, remarks } = body;
       const effectiveFromOfficeId = fromOfficeId || currentUser.officeLocationId;
 
-      if (effectiveFromOfficeId && !hasOfficeAccess(currentUser, effectiveFromOfficeId)) {
+      if (effectiveFromOfficeId && !hasOfficeAccess(currentUser, effectiveFromOfficeId, "home")) {
         return NextResponse.json(
           { error: "Access to the source office location is forbidden." },
           { status: 403 }
         );
       }
 
-      if (toOfficeId && !hasOfficeAccess(currentUser, toOfficeId)) {
+      if (toOfficeId && !hasOfficeAccess(currentUser, toOfficeId, "home")) {
         return NextResponse.json(
           { error: "Access to the destination office location is forbidden." },
           { status: 403 }
@@ -206,6 +209,33 @@ export async function POST(req: NextRequest) {
         );
       }
       const { bundleId, receivedTrackingNumbers, remarks } = body;
+
+      if (!bundleId) {
+        return NextResponse.json({ error: "Bundle ID is required." }, { status: 400 });
+      }
+
+      const targetBundle = await prisma.bundle.findFirst({
+        where: {
+          id: bundleId,
+          ownerAdminId: currentUser.ownerAdminId,
+        },
+        select: { id: true, toOfficeId: true },
+      });
+
+      if (!targetBundle) {
+        return NextResponse.json(
+          { error: "Bundle not found or does not belong to your workspace." },
+          { status: 404 }
+        );
+      }
+
+      if (!hasOfficeAccess(currentUser, targetBundle.toOfficeId, "home")) {
+        return NextResponse.json(
+          { error: "Access to the destination office location is forbidden." },
+          { status: 403 }
+        );
+      }
+
       const result = await receiveBundle({
         bundleId,
         receivedTrackingNumbers,
@@ -218,6 +248,14 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  } catch (error: any) {
+    console.error("Home API POST Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to process request" },
+      { status: 500 }
+    );
+  }
+}
   } catch (error: any) {
     console.error("Home API POST Error:", error);
     return NextResponse.json(

@@ -9,9 +9,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const moduleKey = searchParams.get("module") || searchParams.get("moduleKey") || undefined;
+
     const { assignedOffices, globalOffices, offices } = await getOfficeVisibilityOptions(
       currentUser.id,
-      currentUser.ownerAdminId
+      currentUser.ownerAdminId,
+      moduleKey
     );
 
     return NextResponse.json({

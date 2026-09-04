@@ -868,8 +868,13 @@ export async function getUserModuleAllowedOffices(
 
 /**
  * Canonical helper for resolving office visibility options for a user.
+ * When moduleKey is supplied, returns only office options explicitly authorized for that module.
  */
-export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: string) {
+export async function getOfficeVisibilityOptions(
+  userId: string,
+  ownerAdminId: string,
+  moduleKey?: string
+) {
   const db = prisma as any;
   const [user, officeLocations, assignedOffices, visibilities] = await Promise.all([
     prisma.user.findUnique({
@@ -902,7 +907,10 @@ export async function getOfficeVisibilityOptions(userId: string, ownerAdminId: s
         })
       : Promise.resolve([]),
     prisma.userOfficeVisibility.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(moduleKey && moduleKey.trim() ? { moduleKey: moduleKey.trim() } : {}),
+      },
       select: { officeLocationId: true, moduleKey: true },
     }),
   ]);

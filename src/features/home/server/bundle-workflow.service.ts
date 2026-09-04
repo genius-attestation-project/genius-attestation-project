@@ -756,13 +756,68 @@ export async function getMovementHistory(params: {
   bundleNumber?: string;
   trackingNumber?: string;
   search?: string;
+  isSuperAdmin?: boolean;
+  allowedOfficeNames?: string[] | null;
 }) {
   const whereClause: any = {};
 
-  if (params.trackingNumber) {
-    whereClause.trackingNumber = { contains: params.trackingNumber };
-  } else if (params.search) {
-    whereClause.trackingNumber = { contains: params.search };
+  // Resolve office names for filtering
+  let officeName: string | undefined = undefined;
+  if (params.officeId) {
+    const office = await prisma.officeLocation.findFirst({
+      where: {
+        ownerAdminId: params.ownerAdminId,
+        OR: [{ id: params.officeId }, { officeName: params.officeId }],
+      },
+      select: { officeName: true },
+    });
+    if (office) {
+      officeName = office.officeName;
+    }
+  }
+
+  const officeNamesToMatch: string[] = [];
+  if (params.officeId) officeNamesToMatch.push(params.officeId);
+  if (officeName && !officeNamesToMatch.includes(officeName)) {
+    officeNamesToMatch.push(officeName);
+  }
+
+  if (!params.isSuperAdmin && params.allowedOfficeNames !== null && params.allowedOfficeNames !== undefined) {
+    const allowed = params.allowedOfficeNames;
+    if (allowed.length === 0) {
+      return [];
+    }
+    if (params.officeId && !allowed.includes(params.officeId) && (!officeName || !allowed.includes(officeName))) {
+      return [];
+    }
+    if (officeNamesToMatch.length === 0) {
+      officeNamesToMatch.push(...allowed);
+    }
+  }
+
+  // Get tracking numbers belonging to this workspace owner
+  const searchTerm = (params.trackingNumber || params.search || "").trim();
+  const tenantRegistrations = await prisma.registration.findMany({
+    where: {
+      ownerAdminId: params.ownerAdminId,
+      ...(searchTerm ? { trackingNumber: { contains: searchTerm } } : {}),
+    },
+    select: { trackingNumber: true },
+    take: 500,
+  });
+
+  if (tenantRegistrations.length === 0) {
+    return [];
+  }
+
+  const allowedTrackingNumbers = tenantRegistrations.map((r) => r.trackingNumber);
+  whereClause.trackingNumber = { in: allowedTrackingNumbers };
+
+  if (officeNamesToMatch.length > 0) {
+    whereClause.OR = [
+      { oldOffice: { in: officeNamesToMatch } },
+      { newOffice: { in: officeNamesToMatch } },
+    ];
   }
 
   const history = await prisma.movementHistory.findMany({
