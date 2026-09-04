@@ -27,34 +27,6 @@ export async function listPendingMovementApprovals(
     }
   }
 
-  // Ensure any existing zero-advance unapproved registrations lacking a movement approval record create a pending request
-  const unapprovedZeroAdvanceRegs = await prisma.registration.findMany({
-    where: {
-      ownerAdminId,
-      movementApproved: false,
-      advancePaid: { lte: 0 },
-      trackingStatus: {
-        notIn: ["In Transfer", "Transferred", "INBOUND_PENDING", "In Transit", "Ready for Delivery", "Delivered", "Cancelled"],
-      },
-      movementApprovals: {
-        none: {
-          status: { in: ["Pending", "Approved", "Rejected"] },
-        },
-      },
-    },
-    select: { id: true },
-  });
-
-  if (unapprovedZeroAdvanceRegs.length > 0) {
-    for (const reg of unapprovedZeroAdvanceRegs) {
-      await createMovementApprovalRequest({
-        ownerAdminId,
-        registrationId: reg.id,
-        performedBy: "System User",
-      }).catch(() => {});
-    }
-  }
-
   const items = await prisma.movementApproval.findMany({
     where: {
       ownerAdminId,
@@ -170,7 +142,12 @@ export async function createMovementApprovalRequest(params: {
     return null;
   }
 
-  // If a pending movement approval already exists, update its remarks if new remarks are provided
+  const requestRemarks = (params.remarks ?? "").trim();
+  if (!requestRemarks) {
+    throw new Error("Remarks are required when requesting movement approval.");
+  }
+
+  // If a pending movement approval already exists, update its remarks
   const existingPending = await prisma.movementApproval.findFirst({
     where: {
       registrationId: reg.id,
@@ -180,23 +157,18 @@ export async function createMovementApprovalRequest(params: {
   });
 
   if (existingPending) {
-    const newRemarks = (params.remarks ?? "").trim();
-    if (newRemarks && newRemarks !== existingPending.remarks) {
-      return prisma.movementApproval.update({
-        where: { id: existingPending.id },
-        data: {
-          remarks: newRemarks,
-          requestedById: params.requestedByUserId ?? existingPending.requestedById,
-          requestedByName: params.performedBy ?? existingPending.requestedByName,
-          requestedDate: new Date(),
-        },
-      });
-    }
-    return existingPending;
+    return prisma.movementApproval.update({
+      where: { id: existingPending.id },
+      data: {
+        remarks: requestRemarks,
+        requestedById: params.requestedByUserId ?? existingPending.requestedById,
+        requestedByName: params.performedBy ?? existingPending.requestedByName,
+        requestedDate: new Date(),
+      },
+    });
   }
 
   const currentOfficeName = reg.documentMovements?.[0]?.currentOffice?.officeName || reg.regionOfRegistration || null;
-  const requestRemarks = (params.remarks ?? "").trim() || "Customer requested processing without advance payment.";
 
   return prisma.$transaction(async (tx) => {
     const approval = await tx.movementApproval.create({
@@ -222,6 +194,13 @@ export async function createMovementApprovalRequest(params: {
       data: {
         movementApproved: false,
         trackingStatus: "Movement Approval Pending",
+      },
+    });
+
+    await tx.documentMovement.updateMany({
+      where: { trackingNumber: reg.trackingNumber },
+      data: {
+        currentStatus: "Movement Approval Pending",
       },
     });
 

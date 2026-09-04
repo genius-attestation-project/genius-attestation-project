@@ -1,7 +1,6 @@
 import { Prisma, FollowupActionType } from "@prisma/client";
 
 import { submitAdvancePaymentApproval, getApprovedAdvanceSum } from "@/features/revenue/server/advance-payment-approval.service";
-import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
 import { prisma } from "@/lib/prisma";
 import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
 
@@ -463,7 +462,7 @@ export async function createRegistration(
 
     // 3. Create Revenue Registration
     const isZeroAdvance = requestedAdvance <= 0;
-    const initialTrackingStatus = isZeroAdvance ? "Movement Approval Pending" : "Document In Hand";
+    const initialTrackingStatus = isZeroAdvance ? "Registered" : "Document In Hand";
     const initialMovementStatus = isZeroAdvance ? "REGISTRATION" : "HOME";
 
     const reg = await tx.registration.create({
@@ -484,7 +483,7 @@ export async function createRegistration(
           create: [
             {
               action: "Registration created",
-              description: `Registration ${input.trackingNumber} was created.${isZeroAdvance ? " Movement approval is required (Zero Advance)." : ""}`,
+              description: `Registration ${input.trackingNumber} was created.`,
               performedBy: performedBy ?? null,
             },
             ...(countryChangedFromLead
@@ -522,7 +521,6 @@ export async function createRegistration(
         newStatus: initialMovementStatus,
         newOffice: sourceOfficeName,
         performedBy: performedBy ?? null,
-        remarks: isZeroAdvance ? "Movement approval required before transfer" : undefined,
       },
     });
 
@@ -549,12 +547,6 @@ export async function createRegistration(
       collectedBy: input.collectedPerson || null,
       performedByUserId: userId,
     }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
-  } else {
-    await createMovementApprovalRequest({
-      ownerAdminId,
-      registrationId: registrationResult.id,
-      performedBy: performedBy ?? "System User",
-    }).catch((err) => console.error("[registration] Movement approval creation error:", err));
   }
 
   const reloaded = await prisma.registration.findUnique({
@@ -685,12 +677,6 @@ export async function updateRegistration(
       collectedBy: input.collectedPerson || null,
       performedByUserId: undefined,
     }).catch((err) => console.error("[registration] Advance payment approval update error:", err));
-  } else if (Number(registrationResult.advancePaid) <= 0 && !registrationResult.movementApproved) {
-    await createMovementApprovalRequest({
-      ownerAdminId,
-      registrationId: registrationResult.id,
-      performedBy: performedBy ?? "System User",
-    }).catch((err) => console.error("[registration] Movement approval update request error:", err));
   }
 
   logRegistrationWorkflow("Updated registration.", {

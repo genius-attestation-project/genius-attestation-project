@@ -1611,16 +1611,14 @@ export function RegistrationManager({
                               >
                                 <Send size={12} />
                                 <span className="hidden xl:inline">
-                                  {registration.movementApprovalStatus === "Pending"
-                                    ? "Approval Pending"
-                                    : registration.movementApprovalStatus === "Rejected"
+                                  {registration.movementApprovalStatus === "Rejected"
                                     ? "Re-request Approval"
-                                    : "Request Movement"}
+                                    : "Approval Pending"}
                                 </span>
                                 <span className="xl:hidden">
-                                  {registration.movementApprovalStatus === "Pending"
-                                    ? "Pending"
-                                    : "Movement"}
+                                  {registration.movementApprovalStatus === "Rejected"
+                                    ? "Re-request"
+                                    : "Approval Pending"}
                                 </span>
                               </Button>
                             )}

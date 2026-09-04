@@ -865,7 +865,6 @@ export function PendingApprovalDashboard() {
                       <th className="px-4 py-4">Document / Type</th>
                       <th className="px-4 py-4">Registration Office</th>
                       <th className="px-4 py-4">Current Office</th>
-                      <th className="px-4 py-4 min-w-50">Requester Remarks</th>
                       <th className="px-4 py-4">Requested By</th>
                       <th className="px-4 py-4 text-right">Actions</th>
                     </tr>
@@ -873,7 +872,7 @@ export function PendingApprovalDashboard() {
                   <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
                     {movementApprovals.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="p-8 text-center text-soft">
+                        <td colSpan={8} className="p-8 text-center text-soft">
                           No pending movement approval requests.
                         </td>
                       </tr>
@@ -910,15 +909,6 @@ export function PendingApprovalDashboard() {
                           </td>
                           <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
                             {item.currentOffice || item.registrationOffice || "-"}
-                          </td>
-                          <td className="px-4 py-4 min-w-50">
-                            {item.remarks ? (
-                              <div className="rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 border border-amber-200/60 dark:border-amber-900/40">
-                                {item.remarks}
-                              </div>
-                            ) : (
-                              <span className="text-xs italic text-slate-400">No remarks provided</span>
-                            )}
                           </td>
                           <td className="px-4 py-4 text-xs whitespace-nowrap">
                             <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
@@ -1566,7 +1556,7 @@ export function PendingApprovalDashboard() {
                 {submitting
                   ? "Processing..."
                   : actionModal.type === "Approved"
-                  ? "Confirm Approval"
+                  ? (actionModal.requestType === "MOVEMENT_APPROVAL" ? "Confirm Approve" : "Confirm Approval")
                   : "Confirm Rejection"}
               </Button>
             </div>

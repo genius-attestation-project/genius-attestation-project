@@ -179,7 +179,7 @@ export function RequestMovementApprovalModal({
             className="flex items-center gap-2 font-bold"
           >
             <Send size={14} />
-            {loading ? "Submitting..." : isPending ? "Update Request" : "Submit Request"}
+            {loading ? "Updating..." : "Update Request"}
           </Button>
         </div>
       </div>

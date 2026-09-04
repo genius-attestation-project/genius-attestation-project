@@ -3,8 +3,24 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("=== Starting Movement Approval Data Migration ===");
+  console.log("=== Starting Movement Approval Data Migration & Cleanup ===");
 
+  // 1. Delete all fake / auto-generated pending movement approval records
+  const deletedPending = await prisma.movementApproval.deleteMany({
+    where: {
+      status: "Pending",
+      OR: [
+        { requestedByName: "Migration Script" },
+        { remarks: { contains: "Auto-migrated" } },
+        { remarks: "Movement approval required for zero-advance registration" },
+        { remarks: "Movement approval required before transfer" },
+      ],
+    },
+  });
+
+  console.log(`- Cleaned up ${deletedPending.count} auto-generated pending movement approval records.`);
+
+  // 2. Fetch all zero-advance registrations
   const zeroAdvanceRegs = await prisma.registration.findMany({
     where: {
       advancePaid: { lte: 0 },
@@ -17,16 +33,15 @@ async function main() {
       documentMovements: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        include: { currentOffice: true },
       },
     },
   });
 
-  console.log(`Found ${zeroAdvanceRegs.length} zero/empty-advance registrations.`);
+  console.log(`Found ${zeroAdvanceRegs.length} zero/empty-advance registrations to reconcile.`);
 
-  let approvedCount = 0;
-  let pendingCreatedCount = 0;
-  let alreadyPendingCount = 0;
+  let approvedPreservedCount = 0;
+  let validPendingPreservedCount = 0;
+  let unrequestedResetCount = 0;
 
   const chunkSize = 50;
   for (let i = 0; i < zeroAdvanceRegs.length; i += chunkSize) {
@@ -45,14 +60,15 @@ async function main() {
           "Completed",
         ].includes(reg.trackingStatus);
 
+        // Case 3: Already transferred or approved records
         if (isTransferredOrAdvanced) {
           if (!reg.movementApproved) {
             await prisma.registration.update({
               where: { id: reg.id },
               data: { movementApproved: true },
             });
-            approvedCount++;
           }
+          approvedPreservedCount++;
           return;
         }
 
@@ -65,13 +81,14 @@ async function main() {
                 trackingStatus: "Document In Hand",
               },
             });
-            approvedCount++;
           }
+          approvedPreservedCount++;
           return;
         }
 
+        // Case 2: Valid user-submitted pending request
         if (latestApproval?.status === "Pending") {
-          alreadyPendingCount++;
+          validPendingPreservedCount++;
           if (reg.trackingStatus !== "Movement Approval Pending" || reg.movementApproved !== false) {
             await prisma.registration.update({
               where: { id: reg.id },
@@ -84,53 +101,36 @@ async function main() {
           return;
         }
 
-        const officeName =
-          reg.documentMovements[0]?.currentOffice?.officeName || reg.regionOfRegistration || null;
+        // Case 1: Unrequested zero-advance registrations (NOT_REQUESTED)
+        // Reset tracking status to "Registered" and ensure movementApproved = false
+        if (reg.trackingStatus === "Movement Approval Pending" || reg.movementApproved !== false) {
+          await prisma.registration.update({
+            where: { id: reg.id },
+            data: {
+              movementApproved: false,
+              trackingStatus: "Registered",
+            },
+          });
 
-        await prisma.movementApproval.create({
-          data: {
-            registrationId: reg.id,
-            trackingNumber: reg.trackingNumber,
-            customerName: reg.customerName || null,
-            documentName: reg.documentName,
-            registrationOffice: reg.regionOfRegistration,
-            currentOffice: officeName,
-            advanceAmount: reg.advancePaid ?? 0,
-            status: "Pending",
-            remarks: "Auto-migrated: Pending movement approval for zero-advance registration",
-            requestedByName: "Migration Script",
-            requestedDate: reg.createdAt,
-            ownerAdminId: reg.ownerAdminId || "SYSTEM",
-          },
-        });
-
-        await prisma.registration.update({
-          where: { id: reg.id },
-          data: {
-            movementApproved: false,
-            trackingStatus: "Movement Approval Pending",
-          },
-        });
-
-        await prisma.documentMovement.updateMany({
-          where: { registrationId: reg.id },
-          data: {
-            status: "REGISTRATION",
-            currentStatus: "Movement Approval Pending",
-          },
-        });
-
-        pendingCreatedCount++;
+          await prisma.documentMovement.updateMany({
+            where: { registrationId: reg.id },
+            data: {
+              status: "REGISTRATION",
+              currentStatus: "Registered",
+            },
+          });
+        }
+        unrequestedResetCount++;
       })
     );
 
     console.log(`Processed ${Math.min(i + chunkSize, zeroAdvanceRegs.length)} / ${zeroAdvanceRegs.length} records...`);
   }
 
-  console.log("=== Movement Approval Migration Completed ===");
-  console.log(`- Legacy advanced/transferred registrations marked approved: ${approvedCount}`);
-  console.log(`- Already pending registrations synced: ${alreadyPendingCount}`);
-  console.log(`- New pending movement approval requests created: ${pendingCreatedCount}`);
+  console.log("=== Movement Approval Migration & Cleanup Completed ===");
+  console.log(`- Approved records preserved: ${approvedPreservedCount}`);
+  console.log(`- Valid user-submitted pending requests preserved: ${validPendingPreservedCount}`);
+  console.log(`- Unrequested zero-advance documents reset to Registered: ${unrequestedResetCount}`);
 }
 
 main()

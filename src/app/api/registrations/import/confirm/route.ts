@@ -6,7 +6,6 @@ import crypto from "crypto";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
-import { createMovementApprovalRequest } from "@/features/document-movement/server/movement-approval.service";
 import { Prisma } from "@prisma/client";
 import { parseDateValue, normalizeTrackingNumber } from "@/features/registration/server/registration-fields";
 
@@ -260,7 +259,8 @@ export async function POST(req: NextRequest) {
                   trackingNumber,
                   currentOfficeId: sourceOfficeId,
                   currentModule: "REGISTRATION",
-                  status: "HOME",
+                  status: advancePaid > 0 ? "HOME" : "REGISTRATION",
+                  currentStatus: data.trackingStatus || (advancePaid > 0 ? "Document In Hand" : "Registered"),
                   movementType: "INITIAL",
                   createdBy: session.user.name || session.user.email || importedBy,
                   originOfficeId: sourceOfficeId,
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
             data: {
               trackingNumber,
               action: "Created",
-              newStatus: "HOME",
+              newStatus: advancePaid > 0 ? "HOME" : "REGISTRATION",
               newOffice: targetOfficeName,
               performedBy: session.user.name || session.user.email || importedBy,
             },
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
           return reg;
         }, { maxWait: 20000, timeout: 60000 });
 
-        // Trigger advance payment approval or movement approval workflow
+        // Trigger advance payment approval workflow if advance paid > 0
         if (advancePaid > 0) {
           await submitAdvancePaymentApproval({
             ownerAdminId,
@@ -295,12 +295,6 @@ export async function POST(req: NextRequest) {
             collectedBy: payload.collectedPerson || null,
             performedByUserId: importedBy,
           }).catch((err) => console.error("[import] submitAdvancePaymentApproval error:", err));
-        } else {
-          await createMovementApprovalRequest({
-            ownerAdminId,
-            registrationId: createdReg.id,
-            performedBy: session.user.name || session.user.email || importedBy,
-          }).catch((err) => console.error("[import] createMovementApprovalRequest error:", err));
         }
 
         successfulRows++;
