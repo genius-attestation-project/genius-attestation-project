@@ -256,11 +256,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-  } catch (error: any) {
-    console.error("Home API POST Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to process request" },
-      { status: 500 }
-    );
-  }
-}
