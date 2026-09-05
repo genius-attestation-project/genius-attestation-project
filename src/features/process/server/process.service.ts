@@ -671,11 +671,22 @@ export async function processBulkMove(params: {
   }
 
   return prisma.$transaction(async (tx: any) => {
+    const user = await tx.user.findUnique({
+      where: { id: params.userId },
+      select: { name: true },
+    });
+    const performerName = user?.name || params.userId;
+
     for (const trackingNumber of params.trackingNumbers) {
       const movement = await tx.documentMovement.findFirst({
         where: {
           trackingNumber,
           registration: { ownerAdminId: params.ownerAdminId },
+        },
+        include: {
+          toOffice: true,
+          fromOffice: true,
+          registration: true,
         },
       });
 
@@ -690,16 +701,20 @@ export async function processBulkMove(params: {
         nextStatus = params.action;
       }
 
+      const receivingOfficeId = movement.toOfficeId || movement.currentOfficeId;
+      const receivingOfficeName = movement.toOffice?.officeName || params.officeLocationName || "Process Office";
+
       await tx.documentMovement.updateMany({
         where: { trackingNumber },
         data: {
           status: nextStatus,
           currentModule: "PROCESS_MODULE",
           currentStatus: params.action === "RECEIVE" ? "Document In Hand" : nextStatus,
+          currentOfficeId: receivingOfficeId,
           remarks: params.remarks,
           updatedAt: new Date(),
           ...(params.action === "RECEIVE"
-            ? { receivedAt: new Date(), receivedBy: params.userId }
+            ? { receivedAt: new Date(), receivedBy: performerName }
             : {}),
         },
       });
@@ -722,7 +737,7 @@ export async function processBulkMove(params: {
             data: {
               status: "Received",
               receivedAt: new Date(),
-              receivedBy: params.userId,
+              receivedBy: performerName,
             },
           });
 
@@ -760,10 +775,26 @@ export async function processBulkMove(params: {
           action: actionLabel,
           oldStatus: movement.status,
           newStatus: nextStatus,
-          performedBy: params.userId,
+          oldOffice: movement.fromOffice?.officeName || "Sending Office",
+          newOffice: receivingOfficeName,
+          performedBy: performerName,
           remarks: params.remarks,
         },
       });
+
+      if (movement.registration) {
+        await tx.auditTrail.create({
+          data: {
+            registrationId: movement.registration.id,
+            action: params.action === "RECEIVE" ? "Document received in process" : `Process status: ${params.action}`,
+            performedBy: performerName,
+            description:
+              params.action === "RECEIVE"
+                ? `Document received in Process Module at ${receivingOfficeName} by ${performerName}.`
+                : `Document status updated to ${nextStatus} by ${performerName}.`,
+          },
+        });
+      }
     }
 
     return { success: true, count: params.trackingNumbers.length };

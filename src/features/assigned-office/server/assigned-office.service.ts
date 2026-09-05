@@ -1623,12 +1623,20 @@ export async function transferBackToProcess(params: {
       where: { id: params.officeId },
     });
 
-    const officeName = office ? office.username : "Assigned Office";
-
-    // Ensure source office location exists
     let sourceOffice = await tx.officeLocation.findFirst({
-      where: { OR: [{ id: params.officeId }, { officeName }] },
+      where: {
+        OR: [
+          { id: params.officeId },
+          ...(office?.username ? [{ officeName: office.username }] : []),
+        ],
+      },
     });
+
+    if (!office && !sourceOffice) {
+      throw new Error(`Assigned office not found for ID: ${params.officeId}`);
+    }
+
+    const officeName = office ? office.username : sourceOffice!.officeName;
 
     if (!sourceOffice) {
       sourceOffice = await tx.officeLocation.create({
@@ -1642,6 +1650,22 @@ export async function transferBackToProcess(params: {
         },
       });
     }
+
+    const allAssignedOfficeLocs = await tx.officeLocation.findMany({
+      where: {
+        OR: [
+          { id: params.officeId },
+          { officeName: officeName },
+          ...(office?.username ? [{ officeName: office.username }] : []),
+        ],
+      },
+    });
+    const assignedOfficeLocIds = Array.from(
+      new Set([params.officeId, sourceOffice.id, ...allAssignedOfficeLocs.map((l: any) => l.id)])
+    );
+    const assignedOfficeNames = Array.from(
+      new Set([officeName, sourceOffice.officeName, ...(office?.username ? [office.username] : [])])
+    );
 
     // Step 1: For each document, deterministically find its original sending office
     const docRoutingMap = new Map<string, { tNum: string; docMov: any; returnOffice: any; reg: any }>();
@@ -1666,10 +1690,8 @@ export async function transferBackToProcess(params: {
           trackingNumber: tNum,
           bundle: {
             OR: [
-              { toOfficeId: params.officeId },
-              { toOfficeId: sourceOffice.id },
-              { toOffice: { officeName: officeName } },
-              { toOffice: { officeName: sourceOffice.officeName } },
+              { toOfficeId: { in: assignedOfficeLocIds } },
+              { toOffice: { officeName: { in: assignedOfficeNames } } },
             ],
           },
         },
@@ -1684,10 +1706,8 @@ export async function transferBackToProcess(params: {
       if (latestInboundBundleItem?.bundle?.fromOffice) {
         const candidate = latestInboundBundleItem.bundle.fromOffice;
         if (
-          candidate.id !== sourceOffice.id &&
-          candidate.id !== params.officeId &&
-          candidate.officeName !== officeName &&
-          candidate.officeName !== sourceOffice.officeName
+          !assignedOfficeLocIds.includes(candidate.id) &&
+          !assignedOfficeNames.includes(candidate.officeName)
         ) {
           returnOffice = candidate;
         }
@@ -1697,15 +1717,10 @@ export async function transferBackToProcess(params: {
       if (
         !returnOffice &&
         docMov?.returnOfficeId &&
-        docMov.returnOfficeId !== sourceOffice.id &&
-        docMov.returnOfficeId !== params.officeId
+        !assignedOfficeLocIds.includes(docMov.returnOfficeId)
       ) {
         const found = await tx.officeLocation.findFirst({ where: { id: docMov.returnOfficeId } });
-        if (
-          found &&
-          found.officeName !== officeName &&
-          found.officeName !== sourceOffice.officeName
-        ) {
+        if (found && !assignedOfficeNames.includes(found.officeName)) {
           returnOffice = found;
         }
       }
@@ -1714,15 +1729,10 @@ export async function transferBackToProcess(params: {
       if (
         !returnOffice &&
         docMov?.fromOfficeId &&
-        docMov.fromOfficeId !== sourceOffice.id &&
-        docMov.fromOfficeId !== params.officeId
+        !assignedOfficeLocIds.includes(docMov.fromOfficeId)
       ) {
         const found = await tx.officeLocation.findFirst({ where: { id: docMov.fromOfficeId } });
-        if (
-          found &&
-          found.officeName !== officeName &&
-          found.officeName !== sourceOffice.officeName
-        ) {
+        if (found && !assignedOfficeNames.includes(found.officeName)) {
           returnOffice = found;
         }
       }
@@ -1736,15 +1746,13 @@ export async function transferBackToProcess(params: {
 
         for (const h of historyEntries) {
           const isTargetAssigned =
-            h.newOffice === sourceOffice.officeName ||
-            h.newOffice === officeName ||
+            assignedOfficeNames.includes(h.newOffice) ||
             (h.action && (h.action.includes("Assigned Office") || h.action.includes("Transfer to Assigned Office")));
 
           if (
             isTargetAssigned &&
             h.oldOffice &&
-            h.oldOffice !== sourceOffice.officeName &&
-            h.oldOffice !== officeName
+            !assignedOfficeNames.includes(h.oldOffice)
           ) {
             const found = await tx.officeLocation.findFirst({
               where: { officeName: h.oldOffice, ownerAdminId: params.ownerAdminId },
@@ -1764,10 +1772,8 @@ export async function transferBackToProcess(params: {
             ownerAdminId: params.ownerAdminId,
             isProcessOffice: true,
             NOT: [
-              { id: sourceOffice.id },
-              { id: params.officeId },
-              { officeName },
-              { officeName: sourceOffice.officeName },
+              { id: { in: assignedOfficeLocIds } },
+              { officeName: { in: assignedOfficeNames } },
             ],
           },
         });
@@ -1779,10 +1785,8 @@ export async function transferBackToProcess(params: {
           where: {
             ownerAdminId: params.ownerAdminId,
             NOT: [
-              { id: sourceOffice.id },
-              { id: params.officeId },
-              { officeName },
-              { officeName: sourceOffice.officeName },
+              { id: { in: assignedOfficeLocIds } },
+              { officeName: { in: assignedOfficeNames } },
             ],
           },
         });
@@ -1859,8 +1863,9 @@ export async function transferBackToProcess(params: {
           }
         }
       } else {
-        const bundleSeq = String(baseBundleCount + createdBundles.length + 1).padStart(4, "0");
-        const bundleNumber = `BND-PROC-${dateStr}-${bundleSeq}`;
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const bundleNumber = `BND-PROC-${dateStr}-${randomSuffix}-${randomHex}`;
 
         groupBundle = await tx.bundle.create({
           data: {
@@ -1881,6 +1886,20 @@ export async function transferBackToProcess(params: {
       }
 
       createdBundles.push(groupBundle.bundleNumber);
+
+      // Clean up any in-progress SubPackage movements for these tracking numbers
+      if (tx.subPackageMovement) {
+        await tx.subPackageMovement.updateMany({
+          where: {
+            trackingNumber: { in: groupTrackingNumbers },
+            status: "In Progress",
+          },
+          data: {
+            status: "Returned",
+            returnedAt: now,
+          },
+        });
+      }
 
       // Step 4: Update document movements for documents in this group
       for (const item of group.items) {
@@ -1925,6 +1944,17 @@ export async function transferBackToProcess(params: {
                   params.remarks ||
                   `Transferred back to Process Office (${destOffice.officeName}) via Bundle ${groupBundle.bundleNumber}`,
                 ownerAdminId: params.ownerAdminId,
+              },
+            });
+          }
+
+          if (tx.auditTrail) {
+            await tx.auditTrail.create({
+              data: {
+                registrationId: reg.id,
+                action: "Transferred Back to Process",
+                performedBy: params.userName || params.userId,
+                description: `Document transferred back from ${sourceOffice.officeName || officeName} to ${destOffice.officeName} via bundle ${groupBundle.bundleNumber}.`,
               },
             });
           }
