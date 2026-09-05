@@ -114,6 +114,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
       { key: "revenue_registration.delete", label: "Delete" },
       { key: "revenue_registration.import", label: "Import" },
       { key: "revenue_registration.export", label: "Export" },
+      { key: "revenue_registration.movement_request", label: "Movement Request" },
     ],
   },
   {
@@ -138,6 +139,14 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
           { key: "movement_approval.create", label: "Create / Request" },
           { key: "movement_approval.approve", label: "Approve" },
           { key: "movement_approval.reject", label: "Reject" },
+        ],
+      },
+      {
+        label: "Edit Request",
+        actions: [
+          { key: "edit_request.view", label: "View" },
+          { key: "edit_request.approve", label: "Approve" },
+          { key: "edit_request.reject", label: "Reject" },
         ],
       },
       {
@@ -1050,7 +1059,20 @@ export function UserAccessManagement() {
     if (!selectedUserId) return;
     setUserPermMap((prev) => {
       const current = prev[selectedUserId] ?? [];
-      const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+      let next: string[];
+      if (current.includes(key)) {
+        next = current.filter((k) => k !== key);
+        if (key === "edit_request.view") {
+          next = next.filter((k) => k !== "edit_request.approve" && k !== "edit_request.reject");
+        }
+      } else {
+        next = [...current, key];
+        if (key === "edit_request.approve" || key === "edit_request.reject") {
+          if (!next.includes("edit_request.view")) {
+            next.push("edit_request.view");
+          }
+        }
+      }
       return { ...prev, [selectedUserId]: next };
     });
   }

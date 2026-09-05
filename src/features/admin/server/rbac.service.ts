@@ -945,10 +945,18 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       key.startsWith("corporate_details_approval.") ||
       key.startsWith("lobApproval.") ||
       key.startsWith("inactiveLead.") ||
-      key.startsWith("overdueFollowup.")
+      key.startsWith("overdueFollowup.") ||
+      key.startsWith("edit_request.")
     ) {
       result.add("pending_approval.view");
       result.add("menu.lead-management.pending-approval");
+
+      if (key.startsWith("edit_request.")) {
+        result.add("edit_request.view");
+        if (key === "edit_request.approve" || key === "edit_request.reject") {
+          result.add("pending_approval.edit");
+        }
+      }
 
       if (key.startsWith("advance_payment_approval.")) {
         result.add("advance_payment_approval.view");

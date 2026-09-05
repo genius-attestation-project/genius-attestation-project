@@ -35,14 +35,14 @@ async function runTests() {
   console.log("\n--- TEST 1: Super Admin Office Categorization & Mutual Exclusivity ---");
   const superAdminVis = await getOfficeVisibilityOptions(superAdmin.id, ownerAdminId, "home");
   
-  const superAssignedNames = superAdminVis.assignedOffices.map((o) => o.officeName);
-  const superGlobalNames = superAdminVis.globalOffices.map((o) => o.officeName);
-  const superAssignedIds = new Set(superAdminVis.assignedOffices.map((o) => o.id));
-  const superGlobalIds = new Set(superAdminVis.globalOffices.map((o) => o.id));
+  const superAssignedNames = superAdminVis.assignedOffices.map((o: { officeName: string }) => o.officeName);
+  const superGlobalNames = superAdminVis.globalOffices.map((o: { officeName: string }) => o.officeName);
+  const superAssignedIds = new Set(superAdminVis.assignedOffices.map((o: { id: string }) => o.id));
+  const superGlobalIds = new Set(superAdminVis.globalOffices.map((o: { id: string }) => o.id));
 
-  const superAdminIdOverlap = superAdminVis.assignedOffices.filter((o) => superGlobalIds.has(o.id));
-  const superAdminNameOverlap = superAdminVis.assignedOffices.filter((o) =>
-    superGlobalNames.map((n) => n.toLowerCase()).includes(o.officeName.toLowerCase())
+  const superAdminIdOverlap = superAdminVis.assignedOffices.filter((o: { id: string }) => superGlobalIds.has(o.id));
+  const superAdminNameOverlap = superAdminVis.assignedOffices.filter((o: { officeName: string }) =>
+    superGlobalNames.map((n: string) => n.toLowerCase()).includes(o.officeName.toLowerCase())
   );
 
   const t1Passed =
@@ -51,7 +51,7 @@ async function runTests() {
     superAdminIdOverlap.length === 0 &&
     superAdminNameOverlap.length === 0 &&
     !superGlobalNames.includes("AmGenius") &&
-    !superGlobalNames.some((n) => n.startsWith("TestAssignedC")) &&
+    !superGlobalNames.some((n: string) => n.startsWith("TestAssignedC")) &&
     superAssignedNames.includes("AmGenius");
 
   recordResult(
@@ -64,14 +64,14 @@ async function runTests() {
   console.log("\n--- TEST 2: Restricted User (Nifras) Office Visibility ---");
   const nifrasVis = await getOfficeVisibilityOptions(restrictedUser.id, ownerAdminId, "home");
   
-  const nifrasAssignedNames = nifrasVis.assignedOffices.map((o) => o.officeName);
-  const nifrasGlobalNames = nifrasVis.globalOffices.map((o) => o.officeName);
-  const nifrasAssignedIds = new Set(nifrasVis.assignedOffices.map((o) => o.id));
-  const nifrasGlobalIds = new Set(nifrasVis.globalOffices.map((o) => o.id));
+  const nifrasAssignedNames = nifrasVis.assignedOffices.map((o: { officeName: string }) => o.officeName);
+  const nifrasGlobalNames = nifrasVis.globalOffices.map((o: { officeName: string }) => o.officeName);
+  const nifrasAssignedIds = new Set(nifrasVis.assignedOffices.map((o: { id: string }) => o.id));
+  const nifrasGlobalIds = new Set(nifrasVis.globalOffices.map((o: { id: string }) => o.id));
 
-  const nifrasIdOverlap = nifrasVis.assignedOffices.filter((o) => nifrasGlobalIds.has(o.id));
-  const nifrasNameOverlap = nifrasVis.assignedOffices.filter((o) =>
-    nifrasGlobalNames.map((n) => n.toLowerCase()).includes(o.officeName.toLowerCase())
+  const nifrasIdOverlap = nifrasVis.assignedOffices.filter((o: { id: string }) => nifrasGlobalIds.has(o.id));
+  const nifrasNameOverlap = nifrasVis.assignedOffices.filter((o: { officeName: string }) =>
+    nifrasGlobalNames.map((n: string) => n.toLowerCase()).includes(o.officeName.toLowerCase())
   );
 
   const t2Passed =
@@ -81,7 +81,7 @@ async function runTests() {
     nifrasNameOverlap.length === 0 &&
     nifrasAssignedNames.includes("AmGenius") &&
     !nifrasGlobalNames.includes("AmGenius") &&
-    !nifrasGlobalNames.some((n) => n.startsWith("TestAssignedC"));
+    !nifrasGlobalNames.some((n: string) => n.startsWith("TestAssignedC"));
 
   recordResult(
     "Restricted User Categorization",
@@ -95,7 +95,7 @@ async function runTests() {
   const branchNames = branchLocations.map((b) => b.officeName);
   const t3Passed =
     !branchNames.includes("AmGenius") &&
-    !branchNames.some((n) => n.startsWith("TestAssignedC")) &&
+    !branchNames.some((n: string) => n.startsWith("TestAssignedC")) &&
     branchNames.includes("Kochi HQ");
 
   recordResult(
@@ -106,22 +106,24 @@ async function runTests() {
 
   // TEST 4: Frontend Logic Emulation (Search, Current Office Filter, Stable ID Dedup)
   console.log("\n--- TEST 4: Frontend Dropdown Logic Emulation ---");
-  const currentOfficeId = superAdminVis.globalOffices.find((o) => o.officeName === "Kochi HQ")?.id;
+  type OfficeItem = { id: string; officeName: string };
+
+  const currentOfficeId = superAdminVis.globalOffices.find((o: OfficeItem) => o.officeName === "Kochi HQ")?.id;
   
   // Emulate DestinationOfficeSelect logic
-  const sourceAssigned = superAdminVis.assignedOffices;
-  const sourceGlobal = superAdminVis.globalOffices;
+  const sourceAssigned: OfficeItem[] = superAdminVis.assignedOffices;
+  const sourceGlobal: OfficeItem[] = superAdminVis.globalOffices;
   
-  const assignedIds = new Set(sourceAssigned.map((o) => o.id));
-  const cleanGlobal = sourceGlobal.filter((o) => !assignedIds.has(o.id));
+  const assignedIds = new Set(sourceAssigned.map((o: OfficeItem) => o.id));
+  const cleanGlobal = sourceGlobal.filter((o: OfficeItem) => !assignedIds.has(o.id));
   
-  const filterSelf = (list: typeof sourceAssigned) =>
-    currentOfficeId ? list.filter((o) => o.id !== currentOfficeId) : list;
+  const filterSelf = <T extends OfficeItem>(list: T[]): T[] =>
+    currentOfficeId ? list.filter((o: T) => o.id !== currentOfficeId) : list;
   
   const dropdownAssigned = filterSelf(sourceAssigned);
   const dropdownGlobal = filterSelf(cleanGlobal);
 
-  const t4SelfExcluded = !dropdownGlobal.some((o) => o.id === currentOfficeId);
+  const t4SelfExcluded = !dropdownGlobal.some((o: OfficeItem) => o.id === currentOfficeId);
   const t4AssignedIntact = dropdownAssigned.length === sourceAssigned.length;
   const t4Passed = t4SelfExcluded && t4AssignedIntact;
 
@@ -133,7 +135,7 @@ async function runTests() {
 
   // Search filter check
   const searchTerm = "delhi";
-  const searchResults = [...dropdownAssigned, ...dropdownGlobal].filter((o) =>
+  const searchResults: OfficeItem[] = [...dropdownAssigned, ...dropdownGlobal].filter((o: OfficeItem) =>
     o.officeName.toLowerCase().includes(searchTerm)
   );
   const t4SearchPassed = searchResults.length === 1 && searchResults[0].officeName === "Process Delhi";
@@ -149,7 +151,7 @@ async function runTests() {
   const otherUser = await prisma.user.findFirst({ where: { ownerAdminId: otherOwnerId } });
   if (otherUser) {
     const otherVis = await getOfficeVisibilityOptions(otherUser.id, otherOwnerId, "home");
-    const otherOfficeNames = otherVis.offices.map((o) => o.officeName);
+    const otherOfficeNames = otherVis.offices.map((o: { officeName: string }) => o.officeName);
     const hasLeakage = otherOfficeNames.includes("Calicut Office") || otherOfficeNames.includes("Kochi HQ");
     recordResult(
       "Workspace Isolation",
@@ -166,8 +168,8 @@ async function runTests() {
     select: { id: true, trackingNumber: true },
   });
 
-  const assignedDestOffice = superAdminVis.assignedOffices.find((o) => o.officeName === "AmGenius");
-  const globalDestOffice = superAdminVis.globalOffices.find((o) => o.officeName === "Calicut Office");
+  const assignedDestOffice = superAdminVis.assignedOffices.find((o: { officeName: string }) => o.officeName === "AmGenius");
+  const globalDestOffice = superAdminVis.globalOffices.find((o: { officeName: string }) => o.officeName === "Calicut Office");
 
   if (assignedDestOffice && globalDestOffice && testDoc) {
     // Check permission helper hasOfficeAccess for restricted user

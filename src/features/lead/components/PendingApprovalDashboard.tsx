@@ -134,7 +134,8 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("edit_request.view") ||
-      currentUser?.permissions?.includes("pending_approval.view") ||
+      currentUser?.permissions?.includes("edit_request.approve") ||
+      currentUser?.permissions?.includes("edit_request.reject") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -142,7 +143,6 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("edit_request.approve") ||
-      currentUser?.permissions?.includes("pending_approval.edit") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -150,7 +150,6 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("edit_request.reject") ||
-      currentUser?.permissions?.includes("pending_approval.edit") ||
       currentUser?.permissions?.includes("*")
     );
 

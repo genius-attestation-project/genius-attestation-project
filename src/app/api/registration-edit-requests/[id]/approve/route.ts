@@ -11,8 +11,8 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
     if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
 
     const canApprove =
-      hasPermission(session.user, "edit_request.approve") ||
-      hasPermission(session.user, "pending_approval.edit");
+      session.user.isSuperAdmin ||
+      hasPermission(session.user, "edit_request.approve");
 
     if (!canApprove) {
       return jsonError("You do not have permission to approve edit requests.", 403);

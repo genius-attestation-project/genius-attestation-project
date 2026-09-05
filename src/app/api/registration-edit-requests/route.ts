@@ -11,8 +11,10 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
 
     const canView =
+      session.user.isSuperAdmin ||
       hasPermission(session.user, "edit_request.view") ||
-      hasPermission(session.user, "pending_approval.view");
+      hasPermission(session.user, "edit_request.approve") ||
+      hasPermission(session.user, "edit_request.reject");
 
     if (!canView) {
       return jsonError("You do not have permission to view edit requests.", 403);

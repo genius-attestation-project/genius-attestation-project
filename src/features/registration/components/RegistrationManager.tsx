@@ -63,6 +63,7 @@ type RegistrationManagerProps = {
   hasTimelinePermission?: boolean;
   hasImportPermission?: boolean;
   hasDeletePermission?: boolean;
+  hasMovementRequestPermission?: boolean;
 };
 
 const blankForm: RegistrationFormState = {
@@ -409,10 +410,20 @@ export function RegistrationManager({
   hasTimelinePermission = false,
   hasImportPermission = false,
   hasDeletePermission = false,
+  hasMovementRequestPermission = false,
 }: RegistrationManagerProps) {
   const router = useRouter();
   const { user: currentUser } = useAuth();
   const currentUserName = currentUser?.name || currentUser?.email || "";
+
+  const canRequestMovement =
+    Boolean(currentUser?.isSuperAdmin) ||
+    Boolean(hasMovementRequestPermission) ||
+    Boolean(
+      currentUser?.permissions?.includes("revenue_registration.movement_request") ||
+      currentUser?.permissions?.includes("movement_approval.create") ||
+      currentUser?.permissions?.includes("*")
+    );
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -1607,7 +1618,7 @@ export function RegistrationManager({
                         </td>
                         <td className="px-3.5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
-                            {Number(registration.advancePaid || 0) <= 0 && !registration.movementApproved && (
+                            {Number(registration.advancePaid || 0) <= 0 && !registration.movementApproved && canRequestMovement && (
                               <Button
                                 variant={registration.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
                                 size="sm"

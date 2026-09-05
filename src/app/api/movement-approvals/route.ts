@@ -70,10 +70,8 @@ export async function POST(request: NextRequest) {
 
     const canCreate =
       session.user.isSuperAdmin ||
-      hasPermission(session.user, "movement_approval.create") ||
-      hasPermission(session.user, "revenue_registration.create") ||
-      hasPermission(session.user, "revenue_registration.edit") ||
-      hasPermission(session.user, "revenue_registration.view");
+      hasPermission(session.user, "revenue_registration.movement_request") ||
+      hasPermission(session.user, "movement_approval.create");
 
     if (!canCreate) {
       return jsonError("Forbidden. You do not have permission to request movement approval.", 403);
