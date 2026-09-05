@@ -300,7 +300,17 @@ export async function createTransferBundle(params: {
     }
 
     const isTargetAssignedOffice = params.toOfficeId
-      ? await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } })
+      ? (await tx.assignedOffice.findUnique({ where: { id: params.toOfficeId } })) ||
+        (toLocation
+          ? await tx.assignedOffice.findFirst({
+              where: {
+                OR: [
+                  { id: toLocation.id },
+                  { username: toLocation.officeName, ownerAdminId: params.ownerAdminId },
+                ],
+              },
+            })
+          : null)
       : null;
     const destinationModule = isTargetAssignedOffice ? "ASSIGNED_OFFICE" : "HOME";
 

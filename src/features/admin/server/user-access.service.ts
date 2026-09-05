@@ -638,8 +638,12 @@ export async function listUserAccessData(ownerAdminId: string) {
   // 1. Map each assigned office to its corresponding office_locations record
   const assignedOfficeLocMap = new Map<string, string>(); // ao.id -> officeLocation.id
   const assignedOfficeLocIdSet = new Set<string>(); // set of officeLocation.ids that belong to assigned offices
+  const assignedOfficeNamesSet = new Set<string>(); // set of assigned office usernames in lowercase
 
   for (const ao of assignedOffices as any[]) {
+    assignedOfficeNamesSet.add(ao.username.trim().toLowerCase());
+    assignedOfficeLocIdSet.add(ao.id);
+
     // Check if officeLocations already has an exact match by id
     const exactLoc = officeLocations.find((l) => l.id === ao.id);
     if (exactLoc) {
@@ -661,6 +665,7 @@ export async function listUserAccessData(ownerAdminId: string) {
     // If no matching office_locations record exists, create one
     const createdLoc = await prisma.officeLocation.create({
       data: {
+        id: ao.id,
         officeName: ao.username,
         location: "External Processing Office",
         timezone: "Asia/Kolkata",
@@ -671,6 +676,16 @@ export async function listUserAccessData(ownerAdminId: string) {
     assignedOfficeLocMap.set(ao.id, createdLoc.id);
     assignedOfficeLocIdSet.add(createdLoc.id);
     officeLocations.push(createdLoc);
+  }
+
+  // Also include any officeLocation whose location is "External Processing Office" or matches an assigned office name
+  for (const loc of officeLocations) {
+    if (
+      loc.location === "External Processing Office" ||
+      assignedOfficeNamesSet.has(loc.officeName.trim().toLowerCase())
+    ) {
+      assignedOfficeLocIdSet.add(loc.id);
+    }
   }
 
   // Source 2: Dashboard -> Assigned Office (mapped to office_locations table ID)
@@ -689,7 +704,11 @@ export async function listUserAccessData(ownerAdminId: string) {
 
   // Source 1: Admin Management -> Office Location (office_locations table)
   const globalList = officeLocations
-    .filter((loc) => !assignedOfficeLocIdSet.has(loc.id))
+    .filter(
+      (loc) =>
+        !assignedOfficeLocIdSet.has(loc.id) &&
+        !assignedOfficeNamesSet.has(loc.officeName.trim().toLowerCase())
+    )
     .map((loc) => ({
       id: loc.id,
       officeName: loc.officeName,
@@ -743,48 +762,44 @@ export async function listUserAccessData(ownerAdminId: string) {
     userPermMap.set(p.userId, list);
   }
 
-  const mappedUsers = users.map((u) => {
-    const isSuperAdmin = Boolean(u.role?.name === "Super Admin");
-    const hasExplicitUserPermissions = userPermMap.has(u.id);
+  // Format users with their module-wise office visibilities and permissions
+  const formattedUsers = users.map((u) => {
+    const isSuperAdminUser = u.role?.name === "Super Admin";
+    const explicitPerms = userPermMap.get(u.id) ?? [];
+    const isConfigured = explicitPerms.length > 0;
 
-    const rawUserPerms = userPermMap.get(u.id) ?? [];
-    const cleanUserPerms = rawUserPerms.filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
-
-    let effectivePermissionKeys: string[] = [];
-    if (hasExplicitUserPermissions) {
-      effectivePermissionKeys = cleanUserPerms;
+    let permissionKeys: string[] = [];
+    if (isConfigured) {
+      permissionKeys = explicitPerms.filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
     } else if (u.role?.rolePermissions) {
-      const roleCodes = u.role.rolePermissions.map((rp) => rp.permission.code);
-      effectivePermissionKeys = mapRolePermissionsToMatrixCatalog(roleCodes);
+      permissionKeys = mapRolePermissionsToMatrixCatalog(
+        u.role.rolePermissions.map((rp) => rp.permission.code)
+      );
     }
-
-    const moduleVisMap = userModuleOfficeMap.get(u.id) ?? {};
-    const totalConfiguredOffices = userTotalOfficesMap.get(u.id)?.size ?? 0;
 
     return {
       id: u.id,
-      name: u.name ?? "Workspace User",
+      name: u.name ?? "Unnamed User",
       email: u.email,
-      image: u.image ?? "",
-      roleName: u.role?.name ?? (isSuperAdmin ? "Super Admin" : "User"),
+      image: u.image ?? null,
+      roleId: u.roleId ?? "",
+      roleName: u.role?.name ?? "No Role",
       isActive: u.isActive,
-      isSuperAdmin,
-      hasUserPermissions: hasExplicitUserPermissions,
-      moduleOfficeVisibilities: moduleVisMap,
-      officeLocationIds: Array.from(userTotalOfficesMap.get(u.id) ?? []),
-      configuredOfficesCount: totalConfiguredOffices,
-      permissionKeys: effectivePermissionKeys,
+      isSuperAdmin: isSuperAdminUser,
+      primaryOfficeLocationId: u.officeLocationId ?? null,
+      primaryOfficeLocationName: u.officeLocationName ?? null,
+      moduleOfficeVisibilities: userModuleOfficeMap.get(u.id) ?? {},
+      permissionKeys,
+      totalOfficesCount: userTotalOfficesMap.get(u.id)?.size ?? 0,
+      totalPermissionsCount: permissionKeys.length,
+      isConfigured,
     };
   });
 
-  const operationalModules = getOperationalModules();
-
   return {
-    users: mappedUsers,
+    users: formattedUsers,
     officeLocations: formattedOffices,
-    assignedOffices: assignedList.sort((a, b) => a.officeName.localeCompare(b.officeName)),
-    globalOffices: globalList.sort((a, b) => a.officeName.localeCompare(b.officeName)),
-    modules: operationalModules,
+    modules: getOperationalModules(),
   };
 }
 
@@ -902,6 +917,7 @@ export async function getOfficeVisibilityOptions(
             id: true,
             username: true,
             email: true,
+            ownerAdminId: true,
           },
           orderBy: { username: "asc" },
         })
@@ -918,23 +934,80 @@ export async function getOfficeVisibilityOptions(
   const isOwner = !user?.ownerAdminId || user.ownerAdminId === user.id;
   const isSuperAdmin = user?.role ? user.role.name === "Super Admin" : isOwner;
 
-  const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
-  const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
+  // 1. Map each assigned office to its corresponding office_locations record
+  const assignedOfficeLocMap = new Map<string, string>(); // ao.id -> officeLocation.id
+  const assignedOfficeLocIdSet = new Set<string>(); // set of all officeLocation IDs belonging to assigned offices
+  const assignedOfficeNamesSet = new Set<string>(); // set of assigned office usernames in lowercase
 
-  // Build Assigned Offices list
-  const allAssigned = (assignedOffices as any[]).map((ao: any) => ({
-    id: ao.id,
-    officeName: ao.username,
-    location: "External Processing Office",
-    isProcessOffice: true,
-    isAssignedOffice: true,
-    category: "ASSIGNED_OFFICE" as const,
-    sourceType: "ASSIGNED_OFFICE" as const,
-  }));
+  for (const ao of assignedOffices as any[]) {
+    assignedOfficeNamesSet.add(ao.username.trim().toLowerCase());
+    assignedOfficeLocIdSet.add(ao.id);
 
-  // Build Global Offices list
+    // Check if officeLocations already has an exact match by id
+    const exactLoc = officeLocations.find((l) => l.id === ao.id);
+    if (exactLoc) {
+      assignedOfficeLocMap.set(ao.id, exactLoc.id);
+      assignedOfficeLocIdSet.add(exactLoc.id);
+      continue;
+    }
+
+    // Check if officeLocations has a match by officeName (case-insensitive)
+    const nameMatchLoc = officeLocations.find(
+      (l) => l.officeName.trim().toLowerCase() === ao.username.trim().toLowerCase()
+    );
+    if (nameMatchLoc) {
+      assignedOfficeLocMap.set(ao.id, nameMatchLoc.id);
+      assignedOfficeLocIdSet.add(nameMatchLoc.id);
+      continue;
+    }
+
+    // If no matching office_locations record exists, create one
+    const createdLoc = await prisma.officeLocation.create({
+      data: {
+        id: ao.id,
+        officeName: ao.username,
+        location: "External Processing Office",
+        timezone: "Asia/Kolkata",
+        isProcessOffice: true,
+        ownerAdminId: ao.ownerAdminId || ownerAdminId,
+      },
+    });
+    assignedOfficeLocMap.set(ao.id, createdLoc.id);
+    assignedOfficeLocIdSet.add(createdLoc.id);
+    officeLocations.push(createdLoc);
+  }
+
+  // Also include any officeLocation whose location is "External Processing Office" or matches an assigned office name
+  for (const loc of officeLocations) {
+    if (
+      loc.location === "External Processing Office" ||
+      assignedOfficeNamesSet.has(loc.officeName.trim().toLowerCase())
+    ) {
+      assignedOfficeLocIdSet.add(loc.id);
+    }
+  }
+
+  // Build Assigned Offices list (strictly assigned/external processing offices only)
+  const allAssigned = (assignedOffices as any[]).map((ao: any) => {
+    const locId = assignedOfficeLocMap.get(ao.id) || ao.id;
+    return {
+      id: locId,
+      officeName: ao.username,
+      location: "External Processing Office",
+      isProcessOffice: true,
+      isAssignedOffice: true,
+      category: "ASSIGNED_OFFICE" as const,
+      sourceType: "ASSIGNED_OFFICE" as const,
+    };
+  });
+
+  // Build Global Offices list (strictly valid global / internal branch offices only)
   const allGlobal = officeLocations
-    .filter((loc) => !assignedOfficeIds.has(loc.id))
+    .filter(
+      (loc) =>
+        !assignedOfficeLocIdSet.has(loc.id) &&
+        !assignedOfficeNamesSet.has(loc.officeName.trim().toLowerCase())
+    )
     .map((loc) => ({
       id: loc.id,
       officeName: loc.officeName,
@@ -956,8 +1029,13 @@ export async function getOfficeVisibilityOptions(
   }
 
   // Non-Super Admin: filter strictly by permittedOfficeIds
+  const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
+
   const permittedAssigned = allAssigned
-    .filter((ao) => permittedOfficeIds.has(ao.id))
+    .filter((ao) => {
+      const matchedAo = (assignedOffices as any[]).find((item: any) => item.username.toLowerCase() === ao.officeName.toLowerCase());
+      return permittedOfficeIds.has(ao.id) || (matchedAo && permittedOfficeIds.has(matchedAo.id));
+    })
     .sort((a, b) => a.officeName.localeCompare(b.officeName));
 
   const permittedGlobal = allGlobal

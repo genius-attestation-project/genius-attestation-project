@@ -43,10 +43,21 @@ export function DestinationOfficeSelect({
 
   // All available offices combined
   const allAvailableOffices = useMemo(() => {
+    let combined: OfficeOption[] = [];
     if (assignedOfficesInput || globalOfficesInput) {
-      return [...(assignedOfficesInput || []), ...(globalOfficesInput || [])];
+      combined = [...(assignedOfficesInput || []), ...(globalOfficesInput || [])];
+    } else {
+      combined = offices;
     }
-    return offices;
+    const seen = new Set<string>();
+    const deduped: OfficeOption[] = [];
+    for (const o of combined) {
+      if (!seen.has(o.id)) {
+        seen.add(o.id);
+        deduped.push(o);
+      }
+    }
+    return deduped;
   }, [offices, assignedOfficesInput, globalOfficesInput]);
 
   // Filter out the current active location (cannot transfer to self)
@@ -64,13 +75,54 @@ export function DestinationOfficeSelect({
   const { assignedOffices, globalOffices, flatList } = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    const sourceAssigned = assignedOfficesInput
-      ? assignedOfficesInput
-      : offices.filter((o) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice);
+    // 1. Determine raw sources
+    let rawAssigned: OfficeOption[] = [];
+    let rawGlobal: OfficeOption[] = [];
 
-    const sourceGlobal = globalOfficesInput
-      ? globalOfficesInput
-      : offices.filter((o) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice));
+    if (assignedOfficesInput && globalOfficesInput) {
+      rawAssigned = assignedOfficesInput;
+      rawGlobal = globalOfficesInput;
+    } else if (assignedOfficesInput) {
+      rawAssigned = assignedOfficesInput;
+      rawGlobal = offices.filter(
+        (o) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
+      );
+    } else if (globalOfficesInput) {
+      rawAssigned = offices.filter(
+        (o) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice
+      );
+      rawGlobal = globalOfficesInput;
+    } else {
+      rawAssigned = offices.filter(
+        (o) => o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice
+      );
+      rawGlobal = offices.filter(
+        (o) => !(o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice)
+      );
+    }
+
+    // 2. Strict category isolation: Assigned offices only in assigned, Global only in global
+    const seenAssignedIds = new Set<string>();
+    const cleanAssigned: OfficeOption[] = [];
+    for (const o of rawAssigned) {
+      if (!seenAssignedIds.has(o.id)) {
+        seenAssignedIds.add(o.id);
+        cleanAssigned.push(o);
+      }
+    }
+
+    const seenGlobalIds = new Set<string>();
+    const cleanGlobal: OfficeOption[] = [];
+    for (const o of rawGlobal) {
+      // Must not be flagged as assigned office and must not duplicate an assigned office by ID
+      const isAssigned = Boolean(
+        o.category === "ASSIGNED_OFFICE" || o.isAssignedOffice || seenAssignedIds.has(o.id)
+      );
+      if (!isAssigned && !seenGlobalIds.has(o.id)) {
+        seenGlobalIds.add(o.id);
+        cleanGlobal.push(o);
+      }
+    }
 
     const filterSelf = (list: OfficeOption[]) =>
       currentOfficeId ? list.filter((o) => o.id !== currentOfficeId) : list;
@@ -78,11 +130,11 @@ export function DestinationOfficeSelect({
     const filterSearch = (list: OfficeOption[]) =>
       term ? list.filter((o) => o.officeName.toLowerCase().includes(term)) : list;
 
-    const assigned = filterSearch(filterSelf(sourceAssigned)).sort((a, b) =>
+    const assigned = filterSearch(filterSelf(cleanAssigned)).sort((a, b) =>
       a.officeName.localeCompare(b.officeName)
     );
 
-    const global = filterSearch(filterSelf(sourceGlobal)).sort((a, b) =>
+    const global = filterSearch(filterSelf(cleanGlobal)).sort((a, b) =>
       a.officeName.localeCompare(b.officeName)
     );
 

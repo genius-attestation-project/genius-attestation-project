@@ -799,6 +799,16 @@ export async function deleteDepartment(ownerAdminId: string, departmentId: strin
 }
 
 export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeLocationRow[]> {
+  const db = prisma as any;
+  const assignedOffices = db.assignedOffice
+    ? await db.assignedOffice.findMany({
+        where: { ownerAdminId },
+        select: { id: true, username: true },
+      })
+    : [];
+  const assignedOfficeIds = new Set((assignedOffices as any[]).map((ao: any) => ao.id));
+  const assignedOfficeNames = new Set((assignedOffices as any[]).map((ao: any) => ao.username.trim().toLowerCase()));
+
   const officeLocations = await prisma.$queryRaw<Array<{
     id: string;
     officeName: string;
@@ -819,7 +829,14 @@ export async function listOfficeLocations(ownerAdminId: string): Promise<OfficeL
     ORDER BY created_at DESC
   `;
 
-  return officeLocations.map(mapOfficeLocation);
+  const branchLocations = officeLocations.filter(
+    (loc) =>
+      !assignedOfficeIds.has(loc.id) &&
+      !assignedOfficeNames.has(loc.officeName.trim().toLowerCase()) &&
+      loc.location !== "External Processing Office"
+  );
+
+  return branchLocations.map(mapOfficeLocation);
 }
 
 export async function createOfficeLocation(
