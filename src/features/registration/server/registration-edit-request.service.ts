@@ -79,6 +79,8 @@ export function computeFieldChanges(
   // Ignored system fields that are not part of user edits
   const ignoredKeys = new Set([
     "id",
+    "trackingNumber",
+    "tracking_number",
     "createdAt",
     "updatedAt",
     "created_at",
@@ -345,6 +347,7 @@ export async function createEditRequest(params: CreateEditRequestParams) {
 
   // 3. Compare original data and proposed data to compute field changes
   const originalSnapshot: Record<string, any> = {
+    trackingNumber: existing.trackingNumber,
     customerName: existing.customerName,
     mobile: existing.mobile,
     email: existing.email,
@@ -584,6 +587,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
             status: "HOME",
             currentModule: "HOME",
             currentStatus: "Document In Hand",
+            movementType: "RETURN_FROM_RFD",
             updatedAt: new Date(),
           },
         });
@@ -598,7 +602,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
           oldOffice: oldDeliveryLocation,
           newOffice: oldDeliveryLocation,
           performedBy: approvedByName || "System Approver",
-          remarks: `Delivery location changed from ${oldDeliveryLocation} to ${newDeliveryLocation} through approved edit request. Document returned to Home Document In Hand for normal transfer workflow.`,
+          remarks: `Delivery to ${newDeliveryLocation}: returned to Home Document In Hand.`.slice(0, 190),
         },
       });
 
@@ -685,6 +689,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
         ...updateData,
         trackingStatus: finalTrackingStatus,
         bmStatus: finalBmStatus,
+        movementApproved: rfdSpecialHandled ? true : currentReg.movementApproved,
         auditTrail: {
           create: auditEntries,
         },
