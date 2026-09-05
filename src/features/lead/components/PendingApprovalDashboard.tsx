@@ -28,9 +28,13 @@ import { AgreementCell } from "@/components/common/AgreementCell";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { AdvanceApprovalModal } from "@/features/revenue/components/AdvanceApprovalModal";
 import { EditAdvanceModal } from "@/features/revenue/components/EditAdvanceModal";
+import { EditRequestDiffModal } from "@/features/registration/components/EditRequestDiffModal";
+import { RejectEditRequestModal } from "@/features/registration/components/RejectEditRequestModal";
+import type { RegistrationEditRequestItem } from "@/features/registration/types/registration-edit-request.types";
 
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
 type MainTabKey =
+  | "edit_request"
   | "advance_payment"
   | "movement_approval"
   | "advance_details"
@@ -125,6 +129,30 @@ export function PendingApprovalDashboard() {
   const { user: currentUser } = useAuth();
 
   const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
+
+  const canViewEditRequests =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("edit_request.view") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveEditRequests =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("edit_request.approve") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectEditRequests =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("edit_request.reject") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
+      currentUser?.permissions?.includes("*")
+    );
 
   const canViewAdvancePayment =
     isSuperAdmin ||
@@ -282,6 +310,10 @@ export function PendingApprovalDashboard() {
       currentUser?.permissions?.includes("*")
     );
 
+  const [editRequests, setEditRequests] = useState<RegistrationEditRequestItem[]>([]);
+  const [approvingEditRequest, setApprovingEditRequest] = useState<RegistrationEditRequestItem | null>(null);
+  const [rejectingEditRequest, setRejectingEditRequest] = useState<RegistrationEditRequestItem | null>(null);
+
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [movementApprovals, setMovementApprovals] = useState<MovementApprovalItem[]>([]);
   const [selectedMovementIds, setSelectedMovementIds] = useState<string[]>([]);
@@ -315,6 +347,9 @@ export function PendingApprovalDashboard() {
 
   const permittedTabs = React.useMemo(() => {
     const list: { key: MainTabKey; label: string; count: number }[] = [];
+    if (canViewEditRequests) {
+      list.push({ key: "edit_request", label: "Edit Request", count: editRequests.length });
+    }
     if (canViewAdvancePayment) {
       list.push({ key: "advance_payment", label: "Advance Payment Approvals", count: advancePaymentRequests.length });
     }
@@ -353,9 +388,11 @@ export function PendingApprovalDashboard() {
     lobRequests.length,
     inactiveLeads.length,
     overdueFollowups.length,
+    canViewEditRequests,
+    editRequests.length,
   ]);
 
-  const [activeTab, setActiveTab] = useState<MainTabKey>("advance_payment");
+  const [activeTab, setActiveTab] = useState<MainTabKey>("edit_request");
 
   useEffect(() => {
     if (permittedTabs.length > 0 && !permittedTabs.some((t) => t.key === activeTab)) {
@@ -377,6 +414,9 @@ export function PendingApprovalDashboard() {
     setLoading(true);
     setError("");
     try {
+      const editRequestPromise = canViewEditRequests
+        ? parseResponse<{ items: RegistrationEditRequestItem[] }>(await fetch("/api/registration-edit-requests?status=PENDING", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
       const advancePromise = canViewAdvancePayment
         ? parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
@@ -397,7 +437,8 @@ export function PendingApprovalDashboard() {
         : Promise.resolve({ items: [] });
       const officesPromise = fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] }));
 
-      const [advanceRes, movementRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
+      const [editRes, advanceRes, movementRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
+        editRequestPromise,
         advancePromise,
         movementPromise,
         corporatePromise,
@@ -406,6 +447,7 @@ export function PendingApprovalDashboard() {
         overduePromise,
         officesPromise,
       ]);
+      setEditRequests(editRes.items ?? []);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setMovementApprovals(movementRes.items ?? []);
       setCorporateApprovals(corporateRes.items ?? []);
@@ -710,6 +752,95 @@ export function PendingApprovalDashboard() {
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:bg-white/5">
           <div className="overflow-x-auto">
+            {activeTab === "edit_request" && (
+              <table className="min-w-345 text-left text-sm">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                  <tr>
+                    <th className="px-5 py-4">Tracking Number</th>
+                    <th className="px-5 py-4">Customer Name</th>
+                    <th className="px-5 py-4">Document Type</th>
+                    <th className="px-5 py-4">Registration Office</th>
+                    <th className="px-5 py-4">Current Office</th>
+                    <th className="px-5 py-4">Requested By</th>
+                    <th className="px-5 py-4">Requested Date</th>
+                    <th className="px-5 py-4">Changed Fields</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                  {editRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-soft">
+                        No pending edit approval requests.
+                      </td>
+                    </tr>
+                  ) : (
+                    editRequests.map((item) => (
+                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                          <Link
+                            href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                            className="hover:underline"
+                          >
+                            {item.trackingNumber}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            {item.customerName ? formatTitleCase(item.customerName) : "-"}
+                          </p>
+                        </td>
+                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                          {item.documentType || item.documentName || "-"}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                          {item.registrationOffice || "-"}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                          {item.currentOffice || item.registrationOffice || "-"}
+                        </td>
+                        <td className="px-5 py-4 text-xs">
+                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedBy || "System User"}</p>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
+                          {formatDateTime(item.requestedAt)}
+                        </td>
+                        <td className="px-5 py-4 text-xs">
+                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            {item.fieldChanges?.length || 0} {item.fieldChanges?.length === 1 ? "field" : "fields"} changed
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {canApproveEditRequests && (
+                              <Button
+                                size="sm"
+                                onClick={() => setApprovingEditRequest(item)}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {canRejectEditRequests && (
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => setRejectingEditRequest(item)}
+                              >
+                                Reject
+                              </Button>
+                            )}
+                            {!canApproveEditRequests && !canRejectEditRequests && (
+                              <span className="text-xs italic text-slate-400">View Only</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
             {activeTab === "advance_payment" && (
               <table className="min-w-345 text-left text-sm">
                 <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
@@ -1616,6 +1747,41 @@ export function PendingApprovalDashboard() {
         initialData={editingCorporate}
         title="Edit Pending Corporate Details"
         description="Update corporate details before approving or rejecting."
+      />
+
+      {/* Edit Request Diff / Approve Modal */}
+      <EditRequestDiffModal
+        isOpen={Boolean(approvingEditRequest)}
+        onClose={() => setApprovingEditRequest(null)}
+        request={approvingEditRequest}
+        onApprove={async (id) => {
+          const res = await parseResponse<{ message?: string }>(
+            await fetch(`/api/registration-edit-requests/${id}/approve`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+          setSuccess(res.message || "Edit request approved successfully.");
+          await loadData();
+        }}
+      />
+
+      {/* Edit Request Reject Modal */}
+      <RejectEditRequestModal
+        isOpen={Boolean(rejectingEditRequest)}
+        onClose={() => setRejectingEditRequest(null)}
+        request={rejectingEditRequest}
+        onReject={async (id, rejectionReason) => {
+          const res = await parseResponse<{ message?: string }>(
+            await fetch(`/api/registration-edit-requests/${id}/reject`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rejectionReason }),
+            })
+          );
+          setSuccess(res.message || "Edit request rejected.");
+          await loadData();
+        }}
       />
     </div>
   );

@@ -493,6 +493,7 @@ model Registration {
   communications          DocumentCommunication[]
   advancePaymentApprovals AdvancePaymentApproval[]
   movementApprovals       MovementApproval[]
+  editRequests            RegistrationEditRequest[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -726,7 +727,7 @@ model AuditTrail {
   registrationId String       @map("registration_id")
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   action         String
-  description    String
+  description    String       @db.Text
   performedBy    String?      @map("performed_by")
   createdAt      DateTime     @default(now()) @map("created_at")
 
@@ -1731,6 +1732,47 @@ model MovementApproval {
   @@index([ownerAdminId])
   @@index([requestedDate])
   @@map("movement_approvals")
+}
+
+model RegistrationEditRequest {
+  id                        String       @id @default(cuid())
+  registrationId            String       @map("registration_id")
+  registration              Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber            String       @map("tracking_number")
+  customerName              String?      @map("customer_name")
+  documentType              String?      @map("document_type")
+  documentName              String?      @map("document_name")
+  registrationOffice        String?      @map("registration_office")
+  currentOffice             String?      @map("current_office")
+  originalSnapshot          Json         @map("original_snapshot")
+  proposedSnapshot          Json         @map("proposed_snapshot")
+  fieldChanges              Json         @map("field_changes")
+  status                    String       @default("PENDING") @map("status")
+  requestedById             String?      @map("requested_by_id")
+  requestedBy               String?      @map("requested_by")
+  requestedAt               DateTime     @default(now()) @map("requested_at")
+  approvedById              String?      @map("approved_by_id")
+  approvedBy                String?      @map("approved_by")
+  approvedAt                DateTime?    @map("approved_at")
+  rejectedById              String?      @map("rejected_by_id")
+  rejectedBy                String?      @map("rejected_by")
+  rejectedAt                DateTime?    @map("rejected_at")
+  rejectionReason           String?      @db.Text @map("rejection_reason")
+  documentVersion           String?      @map("document_version")
+  documentUpdatedAtSnapshot DateTime?    @map("document_updated_at_snapshot")
+  workspaceId               String?      @map("workspace_id")
+  tenantId                  String?      @map("tenant_id")
+  ownerAdminId              String       @map("owner_admin_id")
+  createdAt                 DateTime     @default(now()) @map("created_at")
+  updatedAt                 DateTime     @updatedAt @map("updated_at")
+
+  @@index([registrationId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([requestedAt])
+  @@index([ownerAdminId, status])
+  @@map("registration_edit_requests")
 }
 
 model AccountMenu {

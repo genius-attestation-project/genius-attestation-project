@@ -22,6 +22,8 @@ import {
   Square,
   AlertTriangle,
   Send,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -1025,8 +1027,14 @@ export function RegistrationManager({
         body: JSON.stringify(parsed.data),
       });
       const data = await parseResponse(response);
-      await uploadSelectedFiles(data.registration.id);
-      setSuccess(selected ? "Registration updated." : "Registration created.");
+      if (data.registration?.id) {
+        await uploadSelectedFiles(data.registration.id);
+      }
+      setSuccess(
+        selected
+          ? data.message || "Edit approval request submitted. The document will update once approved."
+          : "Registration created."
+      );
       setDrawerMode(null);
       await fetchRegistrations();
       router.push("/dashboard/revenue-registration");
@@ -1524,14 +1532,22 @@ export function RegistrationManager({
                           {((page - 1) * pageSize) + index + 1}
                         </td>
                         <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <PriorityDot priority={registration.priority} size={10} />
-                            <Link
-                              href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
-                              className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                            >
-                              {registration.trackingNumber}
-                            </Link>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <PriorityDot priority={registration.priority} size={10} />
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
+                                className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                              >
+                                {registration.trackingNumber}
+                              </Link>
+                            </div>
+                            {registration.hasPendingEditRequest && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/50 dark:text-amber-300 w-fit">
+                                <Clock size={10} className="text-amber-600 dark:text-amber-400" />
+                                Edit Approval Pending
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
@@ -1730,6 +1746,14 @@ export function RegistrationManager({
         onClose={() => setDrawerMode(null)}
       >
         <form onSubmit={handleSubmit} className="grid gap-5">
+          {selected?.hasPendingEditRequest && (
+            <div className="flex items-center gap-2.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                An edit approval request is currently pending for this document. Submitting changes will create a new request if approved or rejected.
+              </span>
+            </div>
+          )}
           <Section title="Section 1: Customer Info">
             <Input
               label="Tracking Number"

@@ -26,6 +26,11 @@ const registrationInclude = {
     orderBy: { requestedDate: "desc" as const },
     take: 1,
   },
+  editRequests: {
+    where: { status: "PENDING" },
+    orderBy: { requestedAt: "desc" as const },
+    take: 1,
+  },
 };
 
 type RegistrationRecord = Prisma.RegistrationGetPayload<{
@@ -61,6 +66,10 @@ function mapRegistration(registration: RegistrationRecord) {
   const movementApprovalStatus =
     latestMovApproval?.status ?? (registration.movementApproved ? "Approved" : "None");
   const movementApprovalRemarks = latestMovApproval?.remarks ?? null;
+
+  const pendingEditReq = (registration as any).editRequests?.[0];
+  const hasPendingEditRequest = Boolean(pendingEditReq);
+  const pendingEditRequestId = pendingEditReq?.id ?? null;
 
   return {
     ...registration,
@@ -119,6 +128,8 @@ function mapRegistration(registration: RegistrationRecord) {
     movementApproved: Boolean(registration.movementApproved),
     movementApprovalStatus,
     movementApprovalRemarks,
+    hasPendingEditRequest,
+    pendingEditRequestId,
   };
 }
 

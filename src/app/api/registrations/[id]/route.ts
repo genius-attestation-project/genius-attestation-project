@@ -7,8 +7,8 @@ import { hasPermission } from "@/features/admin/server/rbac.service";
 import {
   deleteRegistration,
   getRegistrationById,
-  updateRegistration,
 } from "@/features/registration/server/registration.service";
+import { createEditRequest } from "@/features/registration/server/registration-edit-request.service";
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
 import { NextRequest } from "next/server";
 
@@ -42,7 +42,12 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const ownerAdminId = session?.user?.ownerAdminId;
     if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
 
-    if (!hasPermission(session.user, "revenue_registration.edit")) {
+    const canEdit =
+      hasPermission(session.user, "revenue_registration.edit") ||
+      hasPermission(session.user, "revenue_registration.create_request") ||
+      hasPermission(session.user, "edit.create_request");
+
+    if (!canEdit) {
       return jsonError("You do not have permission to edit revenue registrations.", 403);
     }
 
@@ -62,19 +67,33 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       return jsonError("Assign a valid office location to the current user before updating registrations.", 400);
     }
 
-    const performedBy = session.user?.name ?? session.user?.email ?? undefined;
-    const registration = await updateRegistration(ownerAdminId, id, parsed.data, sourceOfficeName, performedBy);
+    const requestedByName = session.user?.name ?? session.user?.email ?? "User";
+    const editRequest = await createEditRequest({
+      ownerAdminId,
+      registrationId: id,
+      input: parsed.data,
+      sourceOfficeName,
+      requestedById: session.user.id,
+      requestedByName,
+    });
 
-    if (!registration) return jsonError("Registration not found.", 404);
+    return jsonOk({
+      message: "Edit approval request created successfully. Document changes will apply upon approval.",
+      editRequest,
+      registration: { id },
+      isEditRequest: true,
+    });
+  } catch (error: any) {
+    if (error?.statusCode) {
+      return jsonError(error.message, error.statusCode);
+    }
 
-    return jsonOk({ registration });
-  } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return jsonError("Tracking number already exists.", 409);
     }
 
-    const message = error instanceof Error ? error.message : "Unable to update registration.";
-    console.error("Failed to update registration", {
+    const message = error instanceof Error ? error.message : "Unable to submit edit request.";
+    console.error("Failed to submit edit request", {
       error,
       payload: body,
     });

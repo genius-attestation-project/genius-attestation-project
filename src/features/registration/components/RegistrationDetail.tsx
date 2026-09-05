@@ -112,6 +112,12 @@ export function RegistrationDetail({
           </div>
           <div className="flex flex-wrap gap-2">
             {actionButton}
+            {registration.hasPendingEditRequest && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/50 dark:text-amber-300">
+                <Clock3 className="h-3.5 w-3.5 text-amber-600" />
+                Edit Approval Pending
+              </span>
+            )}
             <StatusPill value={registration.paymentStatus} />
             {registration.advancePaymentStatus && registration.advancePaymentStatus !== "None" ? (
               <StatusPill value={`Advance: ${registration.advancePaymentStatus}`} tone={advancePaymentTone} />
@@ -121,6 +127,15 @@ export function RegistrationDetail({
           </div>
         </div>
       </section>
+
+      {registration.hasPendingEditRequest && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 dark:border-amber-700/60 dark:bg-amber-950/40">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">Edit Approval Pending</p>
+          <p className="mt-1 text-xs font-semibold text-amber-900 dark:text-amber-200">
+            An edit request has been submitted for this document and is currently awaiting approval. The displayed document details reflect the original unchanged data.
+          </p>
+        </div>
+      )}
 
       {registration.advancePaymentStatus === "Rejected" && registration.advancePaymentRejectionReason && (
         <div className="rounded-2xl border border-rose-500/30 bg-rose-50/80 p-4 dark:bg-rose-500/10">

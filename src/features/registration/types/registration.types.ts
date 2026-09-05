@@ -93,6 +93,8 @@ export type Registration = {
   createdDate: string;
   files: RegistrationFileItem[];
   auditTrail: AuditTrailItem[];
+  hasPendingEditRequest?: boolean;
+  pendingEditRequestId?: string | null;
 };
 
 export type RegistrationFormState = {
