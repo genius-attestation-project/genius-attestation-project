@@ -278,6 +278,7 @@ export async function approveMovementApproval(params: {
       },
       data: {
         status: "HOME",
+        currentModule: "HOME",
         currentStatus: "Document In Hand",
       },
     });
@@ -442,6 +443,7 @@ export async function bulkApproveMovementApprovals(params: {
         },
         data: {
           status: "HOME",
+          currentModule: "HOME",
           currentStatus: "Document In Hand",
         },
       });

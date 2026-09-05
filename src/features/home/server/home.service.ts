@@ -126,16 +126,41 @@ export async function listHomeInHand(ownerAdminId: string, officeLocationName: s
       registration: { ownerAdminId },
       currentOfficeId: officeId,
       status: { in: ["HOME", "Received", "Document In Hand", "IN_HAND"] },
-      currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package", "Ready for Delivery", "READY_FOR_DELIVERY"] },
+      currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package", "Ready for Delivery", "READY_FOR_DELIVERY", "Registered", "Movement Approval Pending", "Advance Payment Approval Pending"] },
     },
     include: {
-      registration: true,
+      registration: {
+        include: {
+          movementApprovals: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      },
       fromOffice: true,
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return movements.map(mapMovement);
+  const validMovements = movements.filter((mov) => {
+    const reg = mov.registration;
+    if (!reg) return false;
+
+    const isReceivedFromInbound = Boolean(
+      mov.bundleId || mov.fromOfficeId || mov.receivedAt || (mov.movementType && mov.movementType !== "INITIAL")
+    );
+
+    if (isReceivedFromInbound) return true;
+
+    const advancePaid = Number(reg.advancePaid ?? 0);
+    const hasApprovedAdvance = !isNaN(advancePaid) && advancePaid > 0 && reg.advancePaymentStatus === "Approved";
+    const latestApproval = reg.movementApprovals?.[0];
+    const hasApprovedMovement = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
+
+    return hasApprovedAdvance || (advancePaid <= 0 && hasApprovedMovement);
+  });
+
+  return validMovements.map(mapMovement);
 }
 
 export async function listHomeOutward(ownerAdminId: string, officeLocationName: string) {

@@ -146,9 +146,21 @@ function buildRegistrationData(
     input.commissionToUserId || input.commissionToName || input.commissionToEmail,
   );
 
+  const rawRequestedAdvance = Number(input.requestedAdvanceAmount ?? (input as any).advancePaid ?? 0);
+  let computedAdvancePaymentStatus = (input as any).advancePaymentStatus;
+  if (!computedAdvancePaymentStatus) {
+    if (Number(approvedAdvance) > 0) {
+      computedAdvancePaymentStatus = "Approved";
+    } else if (rawRequestedAdvance > 0) {
+      computedAdvancePaymentStatus = "Pending Approval";
+    } else {
+      computedAdvancePaymentStatus = "None";
+    }
+  }
+
   const computedPaymentStatus = calculatePaymentStatus({
     approvalStatus: input.approvalStatus || "Pending",
-    advancePaymentStatus: (input as any).advancePaymentStatus || "Pending Approval",
+    advancePaymentStatus: computedAdvancePaymentStatus,
     totalCharges: Number(totalCharges),
     advancePaid: Number(approvedAdvance),
     balanceAmount: Number(balanceAmount),
@@ -472,9 +484,12 @@ export async function createRegistration(
     }
 
     // 3. Create Revenue Registration
-    const isZeroAdvance = requestedAdvance <= 0;
-    const initialTrackingStatus = isZeroAdvance ? "Registered" : "Document In Hand";
-    const initialMovementStatus = isZeroAdvance ? "REGISTRATION" : "HOME";
+    // Newly registered documents always start with trackingStatus "Registered" and movement status "REGISTRATION"
+    // They may only enter "Document In Hand" (status "HOME") upon approval:
+    // Route 1: Advance Payment Approval (for advance > 0)
+    // Route 2: Movement Approval (for zero advance)
+    const initialTrackingStatus = "Registered";
+    const initialMovementStatus = "REGISTRATION";
 
     const reg = await tx.registration.create({
       data: {

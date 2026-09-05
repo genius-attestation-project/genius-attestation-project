@@ -506,6 +506,18 @@ export async function approveAdvancePayment(args: {
 
   const shouldAutoDeliver = newBalanceAmount === 0 && Boolean(reg?.deliveryType || reg?.deliveryStatus);
 
+  const isInitialRegistration =
+    !reg?.trackingStatus ||
+    reg?.trackingStatus === "Registered" ||
+    reg?.trackingStatus === "Advance Payment Approval Pending" ||
+    reg?.trackingStatus === "Movement Approval Rejected";
+
+  const nextTrackingStatus = shouldAutoDeliver
+    ? "Delivered"
+    : isInitialRegistration
+    ? "Document In Hand"
+    : reg?.trackingStatus;
+
   // 3. Update registration officially confirming advance & new balance
   await prisma.registration.update({
     where: { id: approval.registrationId },
@@ -517,11 +529,15 @@ export async function approveAdvancePayment(args: {
       advancePaymentApprovedBy: approvedByName,
       advancePaymentApprovedAt: approvalDate,
       advancePaymentRejectionReason: null,
+      ...(nextTrackingStatus ? { trackingStatus: nextTrackingStatus } : {}),
       ...(shouldAutoDeliver
         ? {
-          trackingStatus: "Delivered",
           deliveryStatus: "Delivered",
           bmStatus: "Delivered",
+        }
+        : isInitialRegistration
+        ? {
+          bmStatus: "Accepted",
         }
         : {}),
       auditTrail: {
@@ -544,6 +560,40 @@ export async function approveAdvancePayment(args: {
       },
     },
   });
+
+  // If the document is in initial registration stage, transition movement to HOME -> Document In Hand
+  if (!shouldAutoDeliver && isInitialRegistration) {
+    const initialMov = await prisma.documentMovement.findFirst({
+      where: {
+        registrationId: approval.registrationId,
+        status: "REGISTRATION",
+      },
+    });
+
+    if (initialMov) {
+      await prisma.documentMovement.update({
+        where: { id: initialMov.id },
+        data: {
+          status: "HOME",
+          currentModule: "HOME",
+          currentStatus: "Document In Hand",
+        },
+      });
+
+      await prisma.movementHistory.create({
+        data: {
+          trackingNumber: approval.trackingNumber,
+          action: "Advance Payment Approved",
+          oldStatus: "REGISTRATION",
+          newStatus: "HOME",
+          oldOffice: approval.office || "Registration Office",
+          newOffice: approval.office || "Registration Office",
+          performedBy: approvedByName,
+          remarks: `Advance payment approved (₹${Number(approval.advanceAmount).toLocaleString()}). Document moved to Home Document In Hand.`,
+        },
+      });
+    }
+  }
 
   // 4. Create or update AccountStatementEntry credit entry for financial ledger
   const existingEntry = await prisma.accountStatementEntry.findFirst({

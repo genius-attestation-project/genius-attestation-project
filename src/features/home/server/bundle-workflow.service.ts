@@ -74,7 +74,7 @@ export async function listDocumentInHand(params: {
               ...(params.officeId ? [{ currentOfficeId: params.officeId }] : []),
               { currentOffice: { officeName: { in: officeNamesToMatch } } },
             ],
-            status: { in: ["Received", "Document In Hand", "HOME", "Completed"] },
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND"] },
           },
         },
       },
@@ -85,16 +85,39 @@ export async function listDocumentInHand(params: {
     );
   }
 
-  const andConditions: any[] = [
-    {
-      OR: [
-        { advancePaid: { gt: 0 } },
-        { advancePaymentStatus: { in: ["Pending Approval", "Approved"] } },
-        { advancePaymentSubmitted: true },
-        { movementApproved: true },
-      ],
-    },
-  ];
+  // Mandatory Visibility Rule:
+  // 1. Transferred / Received documents arriving via Inbound Bundle at destination office.
+  // 2. Initial Registration Route 1: Advance Amount > 0 AND Advance Payment Approval status is Approved.
+  // 3. Initial Registration Route 2: Zero Advance (<= 0) AND Movement Approval status is Approved.
+  const approvalConditions: any = {
+    OR: [
+      // Condition 1: Transferred / Received from Inbound bundle / previous movement
+      {
+        documentMovements: {
+          some: {
+            OR: [
+              { bundleId: { not: null } },
+              { fromOfficeId: { not: null } },
+              { movementType: { not: "INITIAL" } },
+            ],
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND"] },
+          },
+        },
+      },
+      // Condition 2: Route 1 - Advance > 0 with Approved advance payment
+      {
+        advancePaid: { gt: 0 },
+        advancePaymentStatus: "Approved",
+      },
+      // Condition 3: Route 2 - Zero advance with Approved movement request
+      {
+        advancePaid: { lte: 0 },
+        movementApproved: true,
+      },
+    ],
+  };
+
+  const andConditions: any[] = [approvalConditions];
 
   if (officeMatchConditions.length > 0) {
     andConditions.push({ OR: officeMatchConditions });
@@ -114,6 +137,8 @@ export async function listDocumentInHand(params: {
           "Cancelled",
           "Movement Approval Rejected",
           "Movement Approval Pending",
+          "Advance Payment Approval Pending",
+          "Registered",
         ],
       },
       AND: andConditions,
@@ -136,40 +161,37 @@ export async function listDocumentInHand(params: {
     orderBy: { createdAt: "desc" },
   });
 
-  return registrations.map((reg) => {
-    const mov = reg.documentMovements?.[0];
-    
-    const advancePaid = Number(reg.advancePaid ?? 0);
-    const hasAdvanceAmount =
-      (!isNaN(advancePaid) && advancePaid > 0) ||
-      reg.advancePaymentStatus === "Pending Approval" ||
-      reg.advancePaymentStatus === "Approved" ||
-      reg.advancePaymentSubmitted;
+  return registrations
+    .map((reg) => {
+      const mov = reg.documentMovements?.[0];
 
-    const latestApproval = reg.movementApprovals?.[0];
-    const isApproved = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
-    const isPending = !hasAdvanceAmount && !isApproved;
+      const advancePaid = Number(reg.advancePaid ?? 0);
+      const isReceivedFromInbound = Boolean(
+        mov && (mov.bundleId || mov.fromOfficeId || mov.receivedAt || (mov.movementType && mov.movementType !== "INITIAL"))
+      );
 
-    const hasMovementApprovalPending = isPending;
-    const canTransfer = hasAdvanceAmount || isApproved;
+      const hasApprovedAdvance = !isNaN(advancePaid) && advancePaid > 0 && reg.advancePaymentStatus === "Approved";
+      const latestApproval = reg.movementApprovals?.[0];
+      const hasApprovedMovement = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
 
-    // Classification based on actual movement state:
-    // A document is REGISTERED if it is at its initial registration state (no bundle receipt, no transfer from another office).
-    // If it arrived through an Inbound Bundle / transfer (has fromOfficeId, receivedAt, bundleId, or movementType not INITIAL),
-    // it belongs to the RECEIVED category.
-    const isReceivedFromInbound = Boolean(
-      mov && (mov.bundleId || mov.fromOfficeId || mov.receivedAt || (mov.movementType && mov.movementType !== "INITIAL"))
-    );
+      const isVisible = isReceivedFromInbound || hasApprovedAdvance || (advancePaid <= 0 && hasApprovedMovement);
+      if (!isVisible) {
+        return null;
+      }
 
-    const inHandCategory: "REGISTERED" | "RECEIVED" = isReceivedFromInbound ? "RECEIVED" : "REGISTERED";
+      const hasMovementApprovalPending = !isReceivedFromInbound && !hasApprovedAdvance && !hasApprovedMovement;
+      const canTransfer = isReceivedFromInbound || hasApprovedAdvance || hasApprovedMovement;
 
-    return {
-      ...reg,
-      inHandCategory,
-      hasMovementApprovalPending,
-      canTransfer,
-    };
-  });
+      const inHandCategory: "REGISTERED" | "RECEIVED" = isReceivedFromInbound ? "RECEIVED" : "REGISTERED";
+
+      return {
+        ...reg,
+        inHandCategory,
+        hasMovementApprovalPending,
+        canTransfer,
+      };
+    })
+    .filter(Boolean) as any[];
 }
 
 export async function createTransferBundle(params: {
@@ -185,7 +207,7 @@ export async function createTransferBundle(params: {
     throw new Error("At least one tracking number must be selected for transfer.");
   }
 
-  // Validate that none of the documents require movement approval that is pending or unapproved
+  // Validate that none of the documents require approval that is pending or unapproved
   for (const trackingNumber of params.trackingNumbers) {
     const reg = await prisma.registration.findFirst({
       where: {
@@ -203,6 +225,10 @@ export async function createTransferBundle(params: {
           orderBy: { createdAt: "desc" },
           take: 1,
         },
+        documentMovements: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
 
@@ -210,19 +236,34 @@ export async function createTransferBundle(params: {
       throw new Error(`Registration with tracking number ${trackingNumber} not found.`);
     }
 
+    const mov = reg.documentMovements?.[0];
+    const isReceivedFromInbound = Boolean(
+      mov && (mov.bundleId || mov.fromOfficeId || mov.receivedAt || (mov.movementType && mov.movementType !== "INITIAL"))
+    );
+
     const advancePaid = Number(reg.advancePaid ?? 0);
-    const hasAdvanceAmount =
+    const hasApprovedAdvance = !isNaN(advancePaid) && advancePaid > 0 && reg.advancePaymentStatus === "Approved";
+    const latestApproval = reg.movementApprovals?.[0];
+    const hasApprovedMovement = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
+
+    const canTransfer = isReceivedFromInbound || hasApprovedAdvance || (advancePaid <= 0 && hasApprovedMovement);
+
+    const hasRequestedOrPaidAdvance =
       (!isNaN(advancePaid) && advancePaid > 0) ||
       reg.advancePaymentStatus === "Pending Approval" ||
       reg.advancePaymentStatus === "Approved" ||
       reg.advancePaymentSubmitted;
-    const latestApproval = reg.movementApprovals?.[0];
-    const isApproved = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
-
-    const canTransfer = hasAdvanceAmount || isApproved;
 
     if (!canTransfer) {
-      throw new Error(`Movement approval is pending for document ${trackingNumber}. Please approve or reject before transferring.`);
+      if (hasRequestedOrPaidAdvance && reg.advancePaymentStatus !== "Approved") {
+        throw new Error(
+          `Advance payment approval is pending or not approved for document ${trackingNumber}. Please approve advance payment before transferring.`
+        );
+      } else {
+        throw new Error(
+          `Movement approval is pending or not approved for document ${trackingNumber}. Please approve movement request before transferring.`
+        );
+      }
     }
   }
 
