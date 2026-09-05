@@ -48,6 +48,75 @@ export async function getAssignedOfficeMasterOptions(ownerAdminId: string) {
 }
 
 /**
+ * Helper to resolve both AssignedOffice ID and OfficeLocation ID, supporting ID or Office Name / Username lookup.
+ */
+export async function resolveOfficeIdentifiers(officeId: string, ownerAdminId?: string) {
+  if (!officeId) {
+    return {
+      assignedOffice: null,
+      officeLocation: null,
+      assignedOfficeId: null,
+      officeLocationId: null,
+      allOfficeIds: [] as string[],
+      officeName: "",
+    };
+  }
+
+  const db = prisma as any;
+
+  // 1. Check if officeId matches an AssignedOffice directly
+  let assignedOffice = db.assignedOffice
+    ? await db.assignedOffice.findFirst({
+        where: {
+          OR: [{ id: officeId }, { username: officeId }, { email: officeId }],
+          ...(ownerAdminId ? { ownerAdminId } : {}),
+        },
+      })
+    : null;
+
+  // 2. Check if officeId matches an OfficeLocation directly
+  let officeLocation = await prisma.officeLocation.findFirst({
+    where: {
+      OR: [{ id: officeId }, { officeName: officeId }],
+      ...(ownerAdminId ? { ownerAdminId } : {}),
+    },
+  });
+
+  // Cross-match: if we have officeLocation but not assignedOffice, find assignedOffice by username matching officeName
+  if (officeLocation && !assignedOffice && db.assignedOffice) {
+    assignedOffice = await db.assignedOffice.findFirst({
+      where: {
+        username: officeLocation.officeName,
+        ...(ownerAdminId ? { ownerAdminId } : {}),
+      },
+    });
+  }
+
+  // Cross-match: if we have assignedOffice but not officeLocation, find officeLocation by officeName matching username
+  if (assignedOffice && !officeLocation) {
+    officeLocation = await prisma.officeLocation.findFirst({
+      where: {
+        officeName: assignedOffice.username,
+        ...(ownerAdminId ? { ownerAdminId } : {}),
+      },
+    });
+  }
+
+  const allOfficeIds = Array.from(
+    new Set([assignedOffice?.id, officeLocation?.id, officeId].filter(Boolean))
+  ) as string[];
+
+  return {
+    assignedOffice,
+    officeLocation,
+    assignedOfficeId: assignedOffice?.id || officeLocation?.id || officeId,
+    officeLocationId: officeLocation?.id || assignedOffice?.id || officeId,
+    allOfficeIds,
+    officeName: officeLocation?.officeName || assignedOffice?.username || officeId,
+  };
+}
+
+/**
  * Fetch Sub Packages dynamically filtered by Process Type name
  */
 export async function getSubPackagesForProcessType(
@@ -81,8 +150,9 @@ export async function getSubPackagesForProcessType(
   // If officeId is provided, scope fallback to sub-packages assigned to that office only.
   // This prevents showing ALL system sub-processes in the transfer dropdown.
   if (officeId) {
+    const { allOfficeIds } = await resolveOfficeIdentifiers(officeId, ownerAdminId);
     const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
-      where: { assignedOfficeId: officeId },
+      where: { assignedOfficeId: { in: allOfficeIds } },
     });
     const assignedIds: string[] = officeSubPackages.map((sp: any) => sp.subPackageId as string);
     const coreItem = officeSubPackages.find((sp: any) => sp.isCorePackage);
@@ -779,9 +849,11 @@ export async function exportAssignedOfficesData(ownerAdminId: string) {
  * WORKSPACE: Get counts for workspace tabs
  */
 export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdminId: string) {
+  const { allOfficeIds } = await resolveOfficeIdentifiers(officeId, ownerAdminId);
+
   const inboundBundlesCount = await (prisma as any).bundle.count({
     where: {
-      toOfficeId: officeId,
+      toOfficeId: { in: allOfficeIds },
       ownerAdminId,
       status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
     },
@@ -792,7 +864,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       ownerAdminId,
       documentMovements: {
         some: {
-          currentOfficeId: officeId,
+          currentOfficeId: { in: allOfficeIds },
           status: { in: ["Received", "Document In Hand", "In Hand"] },
           currentStatus: { notIn: ["Completed", "Returned", "Rejected"] },
         },
@@ -805,7 +877,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       ownerAdminId,
       documentMovements: {
         some: {
-          currentOfficeId: officeId,
+          currentOfficeId: { in: allOfficeIds },
           currentStatus: "Completed",
         },
       },
@@ -817,7 +889,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       ownerAdminId,
       documentMovements: {
         some: {
-          currentOfficeId: officeId,
+          currentOfficeId: { in: allOfficeIds },
           currentStatus: "Returned",
         },
       },
@@ -829,7 +901,7 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       ownerAdminId,
       documentMovements: {
         some: {
-          currentOfficeId: officeId,
+          currentOfficeId: { in: allOfficeIds },
           currentStatus: "Rejected",
         },
       },
@@ -859,6 +931,8 @@ export async function listWorkspaceDocuments(params: {
   ownerAdminId: string;
   search?: string;
 }) {
+  const { allOfficeIds } = await resolveOfficeIdentifiers(params.officeId, params.ownerAdminId);
+
   const searchWhere =
     params.search && params.search.trim() !== ""
       ? {
@@ -874,7 +948,7 @@ export async function listWorkspaceDocuments(params: {
   if (params.tab === "inbound") {
     const bundles = await (prisma as any).bundle.findMany({
       where: {
-        toOfficeId: params.officeId,
+        toOfficeId: { in: allOfficeIds },
         ownerAdminId: params.ownerAdminId,
         status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
       },
@@ -911,7 +985,7 @@ export async function listWorkspaceDocuments(params: {
         ...searchWhere,
         documentMovements: {
           some: {
-            currentOfficeId: params.officeId,
+            currentOfficeId: { in: allOfficeIds },
             currentStatus: "Completed",
           },
         },
@@ -928,7 +1002,7 @@ export async function listWorkspaceDocuments(params: {
         ...searchWhere,
         documentMovements: {
           some: {
-            currentOfficeId: params.officeId,
+            currentOfficeId: { in: allOfficeIds },
             currentStatus: "Returned",
           },
         },
@@ -945,7 +1019,7 @@ export async function listWorkspaceDocuments(params: {
         ...searchWhere,
         documentMovements: {
           some: {
-            currentOfficeId: params.officeId,
+            currentOfficeId: { in: allOfficeIds },
             currentStatus: "Rejected",
           },
         },
@@ -971,7 +1045,7 @@ export async function listWorkspaceDocuments(params: {
       ...searchWhere,
       documentMovements: {
         some: {
-          currentOfficeId: params.officeId,
+          currentOfficeId: { in: allOfficeIds },
           status: { in: ["Received", "Document In Hand", "In Hand", "HOME"] },
           currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package"] },
         },
@@ -1288,9 +1362,11 @@ export async function listSubPackageItemsForOffice(params: {
     return { coreSubPackageId: null, assignedSubPackages: [], subPackages: [], items: [] };
   }
 
+  const { allOfficeIds } = await resolveOfficeIdentifiers(params.officeId, params.ownerAdminId);
+
   // 1. Fetch office assigned subpackages configuration for this specific office ONLY
   const officeSubPackages = await (prisma as any).assignedOfficeSubPackage.findMany({
-    where: { assignedOfficeId: params.officeId },
+    where: { assignedOfficeId: { in: allOfficeIds } },
   });
 
   const configSubPkgIds: string[] = officeSubPackages.map((sp: any) => sp.subPackageId as string);
@@ -1318,7 +1394,7 @@ export async function listSubPackageItemsForOffice(params: {
   //    subPackageId ensures only active assigned sub-processes are visible.
   const movements = await (prisma as any).subPackageMovement.findMany({
     where: {
-      assignedOfficeId: params.officeId,
+      assignedOfficeId: { in: allOfficeIds },
       ownerAdminId: params.ownerAdminId,
       subPackageId: { in: validSubPkgIds },
     },
