@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AccessDenied } from "@/components/shared/AccessDenied";
 import { HomeDashboard } from "@/features/home/components/HomeDashboard";
 import { resolveOfficeLocationName } from "@/lib/office-location";
@@ -20,10 +21,13 @@ export default async function HomePage() {
   const isSuperAdmin = Boolean(session.user.isSuperAdmin || session.user.role === "Super Admin");
 
   return (
-    <HomeDashboard
-      currentOfficeLocationName={currentOfficeLocationName ?? ""}
-      isSuperAdmin={isSuperAdmin}
-      userPermissions={session.user.permissions || []}
-    />
+    <Suspense fallback={<div className="flex h-64 items-center justify-center text-slate-500 font-semibold">Loading Home Workflow...</div>}>
+      <HomeDashboard
+        currentOfficeLocationName={currentOfficeLocationName ?? ""}
+        initialOfficeLocationId={session.user.officeLocationId ?? ""}
+        isSuperAdmin={isSuperAdmin}
+        userPermissions={session.user.permissions || []}
+      />
+    </Suspense>
   );
 }
