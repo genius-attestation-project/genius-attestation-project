@@ -472,50 +472,11 @@ export function HomeDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Office Selector */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-6 shadow-xs border border-slate-200">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Home Workflow</h1>
-          <p className="text-sm text-slate-500">
-            Enterprise bundle-based document transfer and movement management system
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Building2 className="h-5 w-5 text-blue-600" />
-          <span className="text-sm font-semibold text-slate-700">Office Location:</span>
-          {isSuperAdmin ? (
-            <select
-              value={selectedOfficeId}
-              onChange={(e) => setSelectedOfficeId(e.target.value)}
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">All Offices</option>
-              {offices.map((off) => (
-                <option key={off.id} value={off.id}>
-                  {off.officeName}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-sm font-bold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 shadow-2xs">
-              <span>
-                {offices.find((o) => o.id === selectedOfficeId)?.officeName ||
-                  currentOfficeLocationName ||
-                  (offices[0]?.officeName ?? "Assigned Office")}
-              </span>
-              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                Assigned
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {availableTabs.length > 0 ? (
-        <>
-          {/* Tabs Bar */}
-          <div className="flex border-b border-slate-200 bg-slate-100/80 p-1.5 rounded-2xl">
+      {/* Top Controls: Tabs & Office Selector */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        {/* Tabs Bar */}
+        {availableTabs.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/80 bg-slate-100/80 p-1.5 rounded-2xl shadow-2xs">
             {canViewDocumentInHand && (
               <button
                 onClick={() => setActiveTab("document_in_hand")}
@@ -577,6 +538,44 @@ export function HomeDashboard({
               </button>
             )}
           </div>
+        )}
+
+        {/* Office Location Selector */}
+        <div className="flex items-center gap-3 self-end lg:self-center">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-xs">
+            <Building2 className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Office Location:</span>
+            {isSuperAdmin ? (
+              <select
+                value={selectedOfficeId}
+                onChange={(e) => setSelectedOfficeId(e.target.value)}
+                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">All Offices</option>
+                {offices.map((off) => (
+                  <option key={off.id} value={off.id}>
+                    {off.officeName}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  {offices.find((o) => o.id === selectedOfficeId)?.officeName ||
+                    currentOfficeLocationName ||
+                    (offices[0]?.officeName ?? "Assigned Office")}
+                </span>
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  Assigned
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {availableTabs.length > 0 ? (
+        <>
 
           {/* Main Tab Content */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
