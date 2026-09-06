@@ -46,20 +46,35 @@ export async function GET(request: NextRequest) {
       return jsonError("Forbidden. You do not have permission to view Bundle Movement in Process.", 403);
     }
 
+    let activeOfficeId: string | undefined = undefined;
+    let foundOffice: { id: string; officeName: string } | null = null;
+
     if (officeParam) {
       if (!hasOfficeAccess(session.user, officeParam, "process")) {
         return jsonError("You do not have access to the specified office location.", 403);
       }
 
-      const foundOffice = await prisma.officeLocation.findFirst({
+      foundOffice = await prisma.officeLocation.findFirst({
         where: {
           ownerAdminId,
           OR: [{ id: officeParam }, { officeName: officeParam }],
         },
-        select: { officeName: true },
+        select: { id: true, officeName: true },
       });
       if (foundOffice) {
         officeLocationName = foundOffice.officeName;
+        activeOfficeId = foundOffice.id;
+      }
+    } else if (officeLocationName) {
+      foundOffice = await prisma.officeLocation.findFirst({
+        where: {
+          ownerAdminId,
+          officeName: officeLocationName,
+        },
+        select: { id: true, officeName: true },
+      });
+      if (foundOffice) {
+        activeOfficeId = foundOffice.id;
       }
     }
 
@@ -70,9 +85,17 @@ export async function GET(request: NextRequest) {
     const stats = await getProcessStats(ownerAdminId, officeLocationName, processType);
     const items = await listProcessAssignments(ownerAdminId, officeLocationName, processType, tab, officeLocationName);
 
-    return jsonOk({ items, stats });
+    return jsonOk({
+      items,
+      stats,
+      activeOffice: {
+        id: activeOfficeId || foundOffice?.id,
+        officeName: officeLocationName,
+      },
+    });
   } catch (error) {
     console.error("Failed to fetch process assignments", error);
     return jsonError("Unable to fetch process assignments", 500);
   }
 }
+

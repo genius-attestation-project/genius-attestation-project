@@ -21,6 +21,9 @@ import {
   CheckSquare,
   Square,
   Sparkles,
+  CheckCircle2,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/cn";
@@ -284,6 +287,12 @@ export function AssignedOfficeWorkspaceClient({
     }
   };
 
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+    bundleNumber?: string;
+  } | null>(null);
+
   // Action: Back To Process
   const handleBackToProcess = async () => {
     if (selectedTrackingNumbers.length === 0) return;
@@ -301,14 +310,33 @@ export function AssignedOfficeWorkspaceClient({
         }),
       });
 
+      const payload = await res.json();
       if (res.ok) {
+        const count = payload.count || selectedTrackingNumbers.length;
+        const bundles = payload.bundleNumbers?.join(", ") || "Process Bundle";
+        setSelectedTrackingNumbers([]);
         fetchStats();
         fetchTabData();
+        setNotification({
+          type: "success",
+          message: `Successfully transferred ${count} document(s) back to Process Module via ${bundles}.`,
+          bundleNumber: payload.bundleNumbers?.[0],
+        });
+      } else {
+        setNotification({
+          type: "error",
+          message: payload.message || "Failed to transfer back to process",
+        });
       }
     } catch (err) {
       console.error("Failed to transfer back to process", err);
+      setNotification({
+        type: "error",
+        message: "A network error occurred while transferring documents back to process.",
+      });
     }
   };
+
 
   // Action: Send To In Hand
   const handleSendToInHand = async () => {
@@ -375,6 +403,50 @@ export function AssignedOfficeWorkspaceClient({
           </div>
         </div>
       </div>
+
+      {/* Action Feedback Notification */}
+      {notification && (
+        <div
+          className={cn(
+            "flex items-center justify-between gap-4 rounded-2xl p-4 border shadow-sm transition-all",
+            notification.type === "success"
+              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+              : "bg-rose-50 text-rose-900 border-rose-200"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {notification.type === "success" ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+            )}
+            <div>
+              <p className="text-xs sm:text-sm font-semibold">{notification.message}</p>
+              {notification.bundleNumber && (
+                <p className="text-xs text-emerald-700 mt-0.5 font-mono">
+                  Bundle Ref: {notification.bundleNumber}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {notification.type === "success" && (
+              <Link href="/dashboard/process?tab=inbound">
+                <Button size="sm" className="h-8 gap-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 text-xs font-semibold shadow-xs">
+                  <span>View Process Inbound</span>
+                  <ExternalLink size={13} />
+                </Button>
+              </Link>
+            )}
+            <button
+              onClick={() => setNotification(null)}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-black/5 hover:text-slate-800 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs Navigation */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200/80 pb-2 dark:border-white/10">

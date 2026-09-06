@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatDate, formatBundleNumber, formatTitleCase } from "@/utils/format";
 import { 
   Building2, 
@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   CheckSquare,
   Square,
-  CornerUpLeft
+  CornerUpLeft,
+  ExternalLink
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -65,13 +66,18 @@ type ModalAction =
 type ProcessDashboardProps = {
   userPermissions?: string[];
   isSuperAdmin?: boolean;
+  currentOfficeLocationName?: string;
 };
 
 export function ProcessDashboard({
   userPermissions = [],
   isSuperAdmin = false,
+  currentOfficeLocationName,
 }: ProcessDashboardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlOfficeId = searchParams.get("officeId") || searchParams.get("office") || "";
+  const urlTab = searchParams.get("tab") as ProcessTab | null;
 
   // Permission checks
   const perms = userPermissions;
@@ -94,7 +100,12 @@ export function ProcessDashboard({
     return tabs;
   }, [canViewInHand, canViewInbound, canViewOutbound, canViewBundle]);
 
-  const [activeTab, setActiveTab] = useState<ProcessTab>(() => availableTabs[0] || "in_hand");
+  const [activeTab, setActiveTab] = useState<ProcessTab>(() => {
+    if (urlTab && ["in_hand", "inbound", "outbound", "bundle"].includes(urlTab)) {
+      return urlTab;
+    }
+    return availableTabs[0] || "in_hand";
+  });
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.includes(activeTab)) {
@@ -114,10 +125,15 @@ export function ProcessDashboard({
   // Checkbox multi-selection state
   const [selectedTrackingNumbers, setSelectedTrackingNumbers] = useState<string[]>([]);
 
-  // Assigned Office Login Selector state
-  const [assignedOfficeOptions, setAssignedOfficeOptions] = useState<{ label: string; value: string }[]>([]);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
+  // Process Office Selector state (all process/branch offices)
+  const [processOfficeOptions, setProcessOfficeOptions] = useState<{ label: string; value: string }[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(urlOfficeId);
+  const [activeOfficeInfo, setActiveOfficeInfo] = useState<{ id?: string; officeName?: string } | null>(null);
   const [loadingOffices, setLoadingOffices] = useState(false);
+
+  // Assigned Office Workspace quick-launcher
+  const [assignedOfficeAccounts, setAssignedOfficeAccounts] = useState<{ label: string; value: string }[]>([]);
+  const [selectedAssignedOfficeId, setSelectedAssignedOfficeId] = useState<string>("");
 
   // Document In Hand transfer bar: office-location records only.
   const [destinationOfficeId, setDestinationOfficeId] = useState("");
@@ -187,29 +203,48 @@ export function ProcessDashboard({
     fetchDestinationOffices();
   }, []);
 
-  // Load active assigned office accounts & office locations for selector
+  // Load active process offices & assigned office accounts for selector
   useEffect(() => {
-    async function fetchAssignedOffices() {
+    async function fetchProcessOffices() {
       setLoadingOffices(true);
       try {
-        const res = await fetch("/api/offices/all?processOnly=true");
+        const res = await fetch("/api/offices/all?module=process");
         if (res.ok) {
           const data = await res.json();
-          const rawList = data.offices || data.data || [];
-          const list = rawList.map((o: any) => ({
-            label: formatTitleCase(o.officeName || o.username || o.name || "Process Office"),
+          const globalList = (data.globalOffices || data.offices || []).map((o: any) => ({
+            label: formatTitleCase(o.officeName || o.name || "Process Office"),
             value: o.id,
           }));
-          setAssignedOfficeOptions(list);
+          setProcessOfficeOptions(globalList);
+
+          const assignedList = (data.assignedOffices || []).map((o: any) => ({
+            label: formatTitleCase(o.officeName || o.username || "Assigned Office"),
+            value: o.id,
+          }));
+          setAssignedOfficeAccounts(assignedList);
+
+          // If no office currently selected, set to matching currentOfficeLocationName or first option
+          if (!selectedOfficeId && !urlOfficeId) {
+            if (currentOfficeLocationName) {
+              const match = globalList.find((o: any) => o.label.toLowerCase() === currentOfficeLocationName.toLowerCase());
+              if (match) {
+                setSelectedOfficeId(match.value);
+              } else if (globalList.length > 0) {
+                setSelectedOfficeId(globalList[0].value);
+              }
+            } else if (globalList.length > 0) {
+              setSelectedOfficeId(globalList[0].value);
+            }
+          }
         }
       } catch (e) {
-        console.error("Error fetching assigned offices for selector:", e);
+        console.error("Error fetching process offices for selector:", e);
       } finally {
         setLoadingOffices(false);
       }
     }
-    fetchAssignedOffices();
-  }, []);
+    fetchProcessOffices();
+  }, [currentOfficeLocationName, urlOfficeId]);
 
   async function loadData() {
     setLoading(true);
@@ -227,6 +262,12 @@ export function ProcessDashboard({
 
       setItems(payload.items || []);
       setStats(payload.stats || emptyStats);
+      if (payload.activeOffice) {
+        setActiveOfficeInfo(payload.activeOffice);
+        if (!selectedOfficeId && payload.activeOffice.id) {
+          setSelectedOfficeId(payload.activeOffice.id);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading process data");
     } finally {
@@ -238,6 +279,7 @@ export function ProcessDashboard({
     loadData();
     setSelectedTrackingNumbers([]);
   }, [activeTab, processType, selectedOfficeId]);
+
 
   // Multi-selection helpers
   const allVisibleTrackingNumbers = displayedItems.flatMap((i: any) =>
@@ -386,13 +428,6 @@ export function ProcessDashboard({
     setTimelineOpen(true);
   }
 
-  function handleOfficeLogin() {
-    if (selectedOfficeId) {
-      document.cookie = `activeAssignedOfficeId=${selectedOfficeId}; path=/; max-age=86400; SameSite=Lax`;
-      router.push(`/dashboard/assigned-office/workspace?officeId=${selectedOfficeId}`);
-    }
-  }
-
   const cards = [
     { 
       label: "Document In Hand", 
@@ -464,17 +499,23 @@ export function ProcessDashboard({
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      {/* Top Banner with Header & Assigned Office Login Selector */}
+      {/* Top Banner with Header & Process Office Selector */}
       <section className="relative z-30 rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold tracking-wider text-blue-600">
                 Process Module
               </span>
               <span className="inline-flex items-center rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700">
                 Live Operations
               </span>
+              {activeOfficeInfo?.officeName && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800 border border-blue-200/60 shadow-xs">
+                  <Building2 size={13} className="text-blue-600" />
+                  <span>Office: {activeOfficeInfo.officeName}</span>
+                </span>
+              )}
             </div>
             <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
               Process Module Dashboard
@@ -486,36 +527,63 @@ export function ProcessDashboard({
 
           {/* Structured Controls Section with Explicit Labels */}
           <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-xs sm:flex-row sm:items-end sm:gap-3 shrink-0">
-            {/* Assigned Office Login Selector Group */}
-            <div className="flex flex-col gap-1.5 w-full sm:w-85">
+            {/* Process Office Selector Group */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-60">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Building2 size={14} className="text-blue-600" />
-                <span>Assigned Office</span>
+                <span>Process Office</span>
               </label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <SearchableSelect
-                    options={assignedOfficeOptions}
-                    value={selectedOfficeId}
-                    onChange={setSelectedOfficeId}
-                    placeholder={loadingOffices ? "Loading Assigned Offices..." : "Select Assigned Office"}
-                    groupByCategory={false}
-                    showDescription={false}
-                  />
-                </div>
-                <Button
-                  disabled={!selectedOfficeId || loadingOffices}
-                  onClick={handleOfficeLogin}
-                  className="h-10.5 gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50 shrink-0"
-                >
-                  <Building2 size={16} />
-                  <span>Login</span>
-                </Button>
-              </div>
+              <SearchableSelect
+                options={processOfficeOptions}
+                value={selectedOfficeId}
+                onChange={(val) => {
+                  setSelectedOfficeId(val);
+                  const match = processOfficeOptions.find((o) => o.value === val);
+                  if (match) setActiveOfficeInfo({ id: val, officeName: match.label });
+                }}
+                placeholder={loadingOffices ? "Loading Offices..." : "Select Process Office"}
+                groupByCategory={false}
+                showDescription={false}
+              />
             </div>
 
+            {/* Assigned Office Workspace Quick Jump */}
+            {assignedOfficeAccounts.length > 0 && (
+              <div className="flex flex-col gap-1.5 w-full sm:w-52">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <ExternalLink size={14} className="text-indigo-600" />
+                  <span>Assigned Workspace</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      options={assignedOfficeAccounts}
+                      value={selectedAssignedOfficeId}
+                      onChange={setSelectedAssignedOfficeId}
+                      placeholder="Select Office"
+                      groupByCategory={false}
+                      showDescription={false}
+                    />
+                  </div>
+                  <Button
+                    disabled={!selectedAssignedOfficeId}
+                    onClick={() => {
+                      if (selectedAssignedOfficeId) {
+                        document.cookie = `activeAssignedOfficeId=${selectedAssignedOfficeId}; path=/; max-age=86400; SameSite=Lax`;
+                        router.push(`/dashboard/assigned-office/workspace?officeId=${selectedAssignedOfficeId}`);
+                      }
+                    }}
+                    className="h-10.5 rounded-xl bg-slate-800 px-3 text-xs font-bold text-white hover:bg-slate-900 shrink-0"
+                    title="Open Assigned Office Workspace"
+                  >
+                    <span>Open</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Process Type Filter Group */}
-            <div className="flex flex-col gap-1.5 w-full sm:w-48">
+            <div className="flex flex-col gap-1.5 w-full sm:w-44">
               <label className="text-xs font-bold text-slate-700">
                 Process Type
               </label>
@@ -523,12 +591,12 @@ export function ProcessDashboard({
                 options={availableProcessTypes}
                 value={processType}
                 onChange={setProcessType}
-                placeholder="Filter By Process Type"
+                placeholder="Filter By Type"
               />
             </div>
 
             {/* Priority Filter Group */}
-            <div className="flex flex-col gap-1.5 w-full sm:w-44">
+            <div className="flex flex-col gap-1.5 w-full sm:w-40">
               <label className="text-xs font-bold text-slate-700">
                 Priority
               </label>
@@ -542,6 +610,7 @@ export function ProcessDashboard({
           </div>
         </div>
       </section>
+
 
       {/* KPI Stats Cards */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
