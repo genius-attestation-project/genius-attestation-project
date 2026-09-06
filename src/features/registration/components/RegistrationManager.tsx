@@ -1618,7 +1618,12 @@ export function RegistrationManager({
                         </td>
                         <td className="px-3.5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
-                            {Number(registration.advancePaid || 0) <= 0 && !registration.movementApproved && canRequestMovement && (
+                            {Number(registration.advancePaid || 0) <= 0 &&
+                              !registration.movementApproved &&
+                              registration.movementApprovalStatus !== "Approved" &&
+                              (!registration.trackingStatus ||
+                                ["Registered", "REGISTERED", "Movement Approval Pending", "Movement Approval Rejected"].includes(registration.trackingStatus)) &&
+                              canRequestMovement && (
                               <Button
                                 variant={registration.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
                                 size="sm"
