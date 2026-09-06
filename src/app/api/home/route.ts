@@ -40,13 +40,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (isSuperAdmin) {
-      if (requestedOfficeId === "all" || requestedOfficeId === "ALL" || requestedOfficeId === "") {
-        officeId = undefined;
-      } else if (requestedOfficeId) {
-        officeId = requestedOfficeId;
-      } else {
-        officeId = currentUser.officeLocationId || undefined;
-      }
+      officeId = requestedOfficeId || undefined;
     } else {
       if (requestedOfficeId === "all" || requestedOfficeId === "ALL") {
         return NextResponse.json(

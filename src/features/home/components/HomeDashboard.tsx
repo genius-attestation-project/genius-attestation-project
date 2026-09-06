@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { formatDate, formatBundleNumber } from "@/utils/format";
 import {
   Package,
@@ -37,7 +36,6 @@ import { DestinationOfficeSelect } from "./DestinationOfficeSelect";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
-  initialOfficeLocationId?: string;
   isSuperAdmin?: boolean;
   userPermissions?: string[];
 };
@@ -53,15 +51,9 @@ type TabKey = "document_in_hand" | "inbound" | "outbound" | "history";
 
 export function HomeDashboard({
   currentOfficeLocationName,
-  initialOfficeLocationId = "",
   isSuperAdmin = false,
   userPermissions = [],
 }: HomeDashboardProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlOfficeId = searchParams.get("officeId");
-  const urlTab = searchParams.get("tab") as TabKey | null;
-
   // Permission checks
   const perms = userPermissions;
   const canViewDocumentInHand = isSuperAdmin || perms.includes("home.document_in_hand.view");
@@ -82,12 +74,7 @@ export function HomeDashboard({
     return tabs;
   }, [canViewDocumentInHand, canViewInbound, canViewOutbound, canViewHistory]);
 
-  const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    if (urlTab && ["document_in_hand", "inbound", "outbound", "history"].includes(urlTab)) {
-      return urlTab;
-    }
-    return availableTabs[0] || "document_in_hand";
-  });
+  const [activeTab, setActiveTab] = useState<TabKey>(() => availableTabs[0] || "document_in_hand");
 
   // Keep activeTab synchronized with availableTabs
   useEffect(() => {
@@ -99,16 +86,7 @@ export function HomeDashboard({
   const [offices, setOffices] = useState<OfficeOption[]>([]);
   const [assignedOffices, setAssignedOffices] = useState<OfficeOption[]>([]);
   const [globalOffices, setGlobalOffices] = useState<OfficeOption[]>([]);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(() => {
-    if (urlOfficeId !== null && urlOfficeId !== undefined) {
-      return urlOfficeId === "all" ? "" : urlOfficeId;
-    }
-    if (initialOfficeLocationId) {
-      return initialOfficeLocationId;
-    }
-    return "";
-  });
-  const [officesLoaded, setOfficesLoaded] = useState(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
   const [destinationOfficeId, setDestinationOfficeId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -148,59 +126,24 @@ export function HomeDashboard({
           setAssignedOffices(body.assignedOffices || []);
           setGlobalOffices(body.globalOffices || []);
           if (list.length > 0) {
-            if (urlOfficeId !== null && urlOfficeId !== undefined) {
-              if (urlOfficeId === "all" || urlOfficeId === "") {
-                setSelectedOfficeId("");
-              } else {
-                const match = list.find((o) => o.id === urlOfficeId || o.officeName.toLowerCase() === urlOfficeId.toLowerCase());
-                if (match) {
-                  setSelectedOfficeId(match.id);
-                } else {
-                  setSelectedOfficeId(urlOfficeId);
-                }
-              }
-            } else if (!selectedOfficeId) {
-              const current = list.find(
-                (o: any) => o.officeName.toLowerCase() === currentOfficeLocationName.toLowerCase()
-              );
-              if (current) {
-                setSelectedOfficeId(current.id);
-              } else if (!isSuperAdmin) {
-                setSelectedOfficeId(list[0].id);
-              } else {
-                setSelectedOfficeId(list[0]?.id || "");
-              }
+            const current = list.find(
+              (o: any) => o.officeName.toLowerCase() === currentOfficeLocationName.toLowerCase()
+            );
+            if (current) {
+              setSelectedOfficeId(current.id);
+            } else if (!isSuperAdmin) {
+              setSelectedOfficeId(list[0].id);
+            } else {
+              setSelectedOfficeId("");
             }
           }
         }
       } catch (err) {
         console.error("Failed to load offices", err);
-      } finally {
-        setOfficesLoaded(true);
       }
     }
     loadOffices();
-  }, [currentOfficeLocationName, isSuperAdmin, urlOfficeId]);
-
-  const handleTabChange = (tab: TabKey) => {
-    setActiveTab(tab);
-    const officeParam = selectedOfficeId
-      ? `&officeId=${encodeURIComponent(selectedOfficeId)}`
-      : isSuperAdmin
-      ? "&officeId=all"
-      : "";
-    router.replace(`/dashboard/home?tab=${tab}${officeParam}`, { scroll: false });
-  };
-
-  const handleOfficeChange = (newOfficeId: string) => {
-    setSelectedOfficeId(newOfficeId);
-    const officeParam = newOfficeId
-      ? `&officeId=${encodeURIComponent(newOfficeId)}`
-      : isSuperAdmin
-      ? "&officeId=all"
-      : "";
-    router.replace(`/dashboard/home?tab=${activeTab}${officeParam}`, { scroll: false });
-  };
+  }, [currentOfficeLocationName, isSuperAdmin]);
 
   // Fetch active tab data
   const fetchData = async () => {
@@ -209,11 +152,7 @@ export function HomeDashboard({
     }
     setIsLoading(true);
     try {
-      const officeParam = selectedOfficeId
-        ? `&officeId=${encodeURIComponent(selectedOfficeId)}`
-        : isSuperAdmin
-        ? "&officeId=all"
-        : "";
+      const officeParam = selectedOfficeId ? `&officeId=${selectedOfficeId}` : "";
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
       const res = await fetch(`/api/home?section=${activeTab}${officeParam}${searchParam}`);
       if (res.ok) {
@@ -236,11 +175,11 @@ export function HomeDashboard({
   };
 
   useEffect(() => {
-    if (availableTabs.includes(activeTab) && (officesLoaded || selectedOfficeId)) {
+    if (availableTabs.includes(activeTab)) {
       fetchData();
     }
     setSelectedTrackingNumbers([]);
-  }, [activeTab, selectedOfficeId, searchQuery, availableTabs, officesLoaded]);
+  }, [activeTab, selectedOfficeId, searchQuery, availableTabs]);
 
   const eligibleInHandDocs = useMemo(() => {
     return inHandDocs.filter((doc) => doc.canTransfer);
@@ -540,7 +479,7 @@ export function HomeDashboard({
           <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/80 bg-slate-100/80 p-1.5 rounded-2xl shadow-2xs">
             {canViewDocumentInHand && (
               <button
-                onClick={() => handleTabChange("document_in_hand")}
+                onClick={() => setActiveTab("document_in_hand")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "document_in_hand"
                     ? "bg-white text-blue-600 shadow-xs"
@@ -554,7 +493,7 @@ export function HomeDashboard({
 
             {canViewInbound && (
               <button
-                onClick={() => handleTabChange("inbound")}
+                onClick={() => setActiveTab("inbound")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "inbound"
                     ? "bg-white text-blue-600 shadow-xs"
@@ -573,7 +512,7 @@ export function HomeDashboard({
 
             {canViewOutbound && (
               <button
-                onClick={() => handleTabChange("outbound")}
+                onClick={() => setActiveTab("outbound")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "outbound"
                     ? "bg-white text-blue-600 shadow-xs"
@@ -587,7 +526,7 @@ export function HomeDashboard({
 
             {canViewHistory && (
               <button
-                onClick={() => handleTabChange("history")}
+                onClick={() => setActiveTab("history")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "history"
                     ? "bg-white text-blue-600 shadow-xs"
@@ -609,22 +548,10 @@ export function HomeDashboard({
             {isSuperAdmin ? (
               <select
                 value={selectedOfficeId}
-                onChange={(e) => handleOfficeChange(e.target.value)}
+                onChange={(e) => setSelectedOfficeId(e.target.value)}
                 className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none"
               >
                 <option value="">All Offices</option>
-                {offices.map((off) => (
-                  <option key={off.id} value={off.id}>
-                    {off.officeName}
-                  </option>
-                ))}
-              </select>
-            ) : offices.length > 1 ? (
-              <select
-                value={selectedOfficeId}
-                onChange={(e) => handleOfficeChange(e.target.value)}
-                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none"
-              >
                 {offices.map((off) => (
                   <option key={off.id} value={off.id}>
                     {off.officeName}

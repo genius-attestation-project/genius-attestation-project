@@ -73,7 +73,6 @@ export async function listDocumentInHand(params: {
             OR: [
               ...(params.officeId ? [{ currentOfficeId: params.officeId }] : []),
               { currentOffice: { officeName: { in: officeNamesToMatch } } },
-              { currentOfficeId: null, registration: { regionOfRegistration: { in: officeNamesToMatch } } },
             ],
             status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND"] },
           },
@@ -178,17 +177,6 @@ export async function listDocumentInHand(params: {
       const isVisible = isReceivedFromInbound || hasApprovedAdvance || (advancePaid <= 0 && hasApprovedMovement);
       if (!isVisible) {
         return null;
-      }
-
-      if (officeNamesToMatch.length > 0) {
-        const latestOfficeId = mov ? (mov.currentOfficeId || (mov.bundleId ? null : mov.originOfficeId)) : null;
-        const latestOfficeName = mov?.currentOffice?.officeName || (!mov?.currentOfficeId ? reg.regionOfRegistration : null);
-        const matchesOffice =
-          (latestOfficeId && (officeNamesToMatch.includes(latestOfficeId) || (params.officeId && latestOfficeId === params.officeId))) ||
-          (latestOfficeName && officeNamesToMatch.includes(latestOfficeName));
-        if (!matchesOffice) {
-          return null;
-        }
       }
 
       const hasMovementApprovalPending = !isReceivedFromInbound && !hasApprovedAdvance && !hasApprovedMovement;
