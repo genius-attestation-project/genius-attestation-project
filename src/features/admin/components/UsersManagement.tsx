@@ -12,7 +12,6 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchBar } from "@/components/ui/SearchBar";
 import type {
   DepartmentRow,
@@ -247,18 +246,6 @@ export function UsersManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Users Module"
-        title="Enterprise user management"
-        description="Search, review, and organize users with live role assignment and database-backed access control."
-        actions={
-          <Button onClick={openCreateDrawer}>
-            <Plus size={16} />
-            Add User
-          </Button>
-        }
-      />
-
       {message ? (
         <DashboardCard>
           <p className="text-sm font-semibold text-blue-600">{message}</p>
@@ -289,9 +276,15 @@ export function UsersManagement() {
               onChange={setStatusFilter}
             />
           </div>
-          <p className="text-sm font-semibold text-soft">
-            Showing {filteredUsers.length} of {users.length} users
-          </p>
+          <div className="flex items-center gap-4 justify-between sm:justify-end">
+            <p className="text-sm font-semibold text-soft">
+              Showing {filteredUsers.length} of {users.length} users
+            </p>
+            <Button onClick={openCreateDrawer}>
+              <Plus size={16} />
+              Add User
+            </Button>
+          </div>
         </div>
       </DashboardCard>
 

@@ -10,7 +10,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { OfficeLocationRow } from "@/features/admin/types/rbac.types";
 import { Country } from "country-state-city";
@@ -194,18 +193,6 @@ export function OfficeLocationManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Office Location Module"
-        title="Global office location management"
-        description="Maintain database-backed office names, locations, and timezones in one premium workspace."
-        actions={
-          <Button onClick={openCreateDrawer}>
-            <Plus size={16} />
-            Add Office
-          </Button>
-        }
-      />
-
       {message ? (
         <DashboardCard>
           <p className="text-sm font-semibold text-blue-600">{message}</p>
@@ -218,7 +205,16 @@ export function OfficeLocationManagement() {
         </DashboardCard>
       ) : null}
 
-      <DashboardCard title="Office Directory" description="Real office locations saved in the workspace database.">
+      <DashboardCard 
+        title="Office Directory" 
+        description="Real office locations saved in the workspace database."
+        action={
+          <Button onClick={openCreateDrawer}>
+            <Plus size={16} />
+            Add Office
+          </Button>
+        }
+      >
         {loading ? (
           <div className="grid gap-3">
             {Array.from({ length: 5 }).map((_, index) => (

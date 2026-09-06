@@ -12,7 +12,6 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import type { DepartmentRow } from "@/features/admin/types/rbac.types";
 
 export function DepartmentManagement() {
@@ -145,18 +144,6 @@ export function DepartmentManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Department Module"
-        title="Department management"
-        description="Create and maintain departments for this workspace."
-        actions={
-          <Button onClick={openCreateDrawer}>
-            <Plus size={16} />
-            Add Department
-          </Button>
-        }
-      />
-
       {error ? (
         <DashboardCard>
           <p className="text-sm font-semibold text-rose-600">{error}</p>
@@ -164,9 +151,15 @@ export function DepartmentManagement() {
       ) : null}
 
       <DashboardCard 
-        title="Department Directory" 
-        description="Database-backed departments for this workspace."
-        action={<SearchBar placeholder="Search departments..." onSearch={setSearchQuery} className="w-full sm:min-w-[280px]" />}
+        action={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SearchBar placeholder="Search departments..." onSearch={setSearchQuery} className="w-full sm:max-w-md" />
+            <Button onClick={openCreateDrawer}>
+              <Plus size={16} />
+              Add Department
+            </Button>
+          </div>
+        }
       >
         {loading ? (
           <div className="grid gap-3">

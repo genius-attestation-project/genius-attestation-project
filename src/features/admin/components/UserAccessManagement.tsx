@@ -42,7 +42,6 @@ import { DashboardCard } from "@/components/ui/DashboardCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 type UserAccessItem = {
   id: string;
@@ -1187,29 +1186,50 @@ export function UserAccessManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Admin Management"
-        title="User Access Management"
-        description="Granular per-user authorization: Module-Wise Office Visibility and Detailed Module & Action Permissions."
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant={activeTab === "offices" ? "primary" : "ghost"}
-              onClick={() => setActiveTab("offices")}
-            >
-              <Building2 size={16} />
-              Office Visibility Access
-            </Button>
-            <Button
-              variant={activeTab === "permissions" ? "primary" : "ghost"}
-              onClick={() => setActiveTab("permissions")}
-            >
-              <ShieldCheck size={16} />
-              Module & Action Permissions
-            </Button>
-          </div>
-        }
-      />
+      {/* Tab Navigation & Controls Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-(--border)">
+        <div className="flex gap-6 font-bold">
+          <button
+            type="button"
+            onClick={() => setActiveTab("offices")}
+            className={`pb-3 text-sm transition-colors border-b-2 cursor-pointer ${
+              activeTab === "offices"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-soft hover:text-foreground"
+            }`}
+          >
+            1. Office Visibility Access
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("permissions")}
+            className={`pb-3 text-sm transition-colors border-b-2 cursor-pointer ${
+              activeTab === "permissions"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-soft hover:text-foreground"
+            }`}
+          >
+            2. Module & Action Permissions
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 pb-2.5 sm:pb-3">
+          <Button
+            variant={activeTab === "offices" ? "primary" : "ghost"}
+            onClick={() => setActiveTab("offices")}
+          >
+            <Building2 size={16} />
+            Office Visibility Access
+          </Button>
+          <Button
+            variant={activeTab === "permissions" ? "primary" : "ghost"}
+            onClick={() => setActiveTab("permissions")}
+          >
+            <ShieldCheck size={16} />
+            Module & Action Permissions
+          </Button>
+        </div>
+      </div>
 
       {error ? (
         <DashboardCard>
@@ -1222,32 +1242,6 @@ export function UserAccessManagement() {
           {successMessage}
         </div>
       ) : null}
-
-      {/* Tab Navigation Header */}
-      <div className="flex border-b border-(--border) gap-6 font-bold">
-        <button
-          type="button"
-          onClick={() => setActiveTab("offices")}
-          className={`pb-3 text-sm transition-colors border-b-2 cursor-pointer ${
-            activeTab === "offices"
-              ? "border-blue-600 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-soft hover:text-foreground"
-          }`}
-        >
-          1. Office Visibility Access
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("permissions")}
-          className={`pb-3 text-sm transition-colors border-b-2 cursor-pointer ${
-            activeTab === "permissions"
-              ? "border-blue-600 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-soft hover:text-foreground"
-          }`}
-        >
-          2. Module & Action Permissions
-        </button>
-      </div>
 
       {loading ? (
         <div className="grid gap-4">
