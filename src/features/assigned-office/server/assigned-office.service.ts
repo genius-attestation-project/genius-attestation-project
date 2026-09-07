@@ -2024,9 +2024,10 @@ export async function transferBackToProcess(params: {
           bundleId: groupBundle.id,
           sentAt: now,
           acceptedBy: primaryRecipientId || null,
-          remarks:
+          remarks: (
             params.remarks ||
-            `Transferred back to Process Module (${officeName}) via Bundle ${groupBundle.bundleNumber}`,
+            `Transferred back to Process Module (${officeName}) via Bundle ${groupBundle.bundleNumber}`
+          ).slice(0, 190),
         } as any,
       });
 
@@ -2040,6 +2041,11 @@ export async function transferBackToProcess(params: {
         });
 
         if (tx.documentWorkflowHistory) {
+          const workflowRemarks = (
+            params.remarks ||
+            `Transferred back to Process Office (${officeName}) via Bundle ${groupBundle.bundleNumber} (Authorized: ${recipientNames})`
+          ).slice(0, 190);
+
           await tx.documentWorkflowHistory.create({
             data: {
               documentId: reg.id,
@@ -2047,24 +2053,31 @@ export async function transferBackToProcess(params: {
               workflowStep: "Back To Process Transfer",
               status: "Pending Receive",
               performedBy: params.userName || params.userId,
-              remarks:
-                params.remarks ||
-                `Transferred back to Process Office (${officeName}) via Bundle ${groupBundle.bundleNumber} (Authorized Process users: ${recipientNames})`,
+              remarks: workflowRemarks,
               ownerAdminId: params.ownerAdminId,
             },
           });
         }
 
         if (tx.auditTrail) {
+          const auditDesc = (
+            `Document returned from ${officeName} to Process Module for authorized user(s): ${recipientNames}.`
+          ).slice(0, 190);
+
           await tx.auditTrail.create({
             data: {
               registrationId: reg.id,
               action: "Transferred Back to Process",
               performedBy: params.userName || params.userId,
-              description: `Document returned from ${officeName} Assigned Office to Process Module because ${recipientNames} has Process Module Office Visibility Access for ${officeName}.`,
+              description: auditDesc,
             },
           });
         }
+
+        const movementRemarks = (
+          params.remarks ||
+          `Returned from ${officeName} to Process Module for authorized user(s): ${recipientNames}.`
+        ).slice(0, 190);
 
         await tx.movementHistory.create({
           data: {
@@ -2072,12 +2085,10 @@ export async function transferBackToProcess(params: {
             action: "Back To Process",
             oldStatus: previousStatus,
             newStatus: "Pending Receive",
-            oldOffice: officeName,
-            newOffice: `Process Module (${officeName})`,
+            oldOffice: officeName.slice(0, 190),
+            newOffice: `Process Module (${officeName})`.slice(0, 190),
             performedBy: params.userName || params.userId,
-            remarks:
-              params.remarks ||
-              `Document returned from ${officeName} Assigned Office to Process Module because ${recipientNames} has Process Module Office Visibility Access for ${officeName}.`,
+            remarks: movementRemarks,
           },
         });
       }
