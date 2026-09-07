@@ -1677,9 +1677,118 @@ export async function sendDocumentsToInHand(params: {
 }
 
 /**
+ * Helper to query and validate authorized Process Module recipients for an Assigned Office.
+ * A user is an authorized Process recipient if:
+ * 1. User belongs to the same workspace/tenant (ownerAdminId).
+ * 2. User is active (isActive = true, isLocked = false).
+ * 3. User has Process Module access (process.view, process.inbound.view, etc. or Super Admin).
+ * 4. User has Process Module Office Visibility enabled for the Assigned Office (or is Super Admin).
+ */
+export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
+  assignedOfficeLocIds: string[];
+  ownerAdminId: string;
+  tx?: any;
+}) {
+  const client = params.tx || prisma;
+  const candidateUsers = await client.user.findMany({
+    where: {
+      OR: [
+        { ownerAdminId: params.ownerAdminId },
+        { id: params.ownerAdminId },
+      ],
+      isActive: true,
+      isLocked: false,
+    },
+    include: {
+      role: {
+        include: {
+          rolePermissions: {
+            include: { permission: true },
+          },
+        },
+      },
+      userPermissions: true,
+      officeVisibilities: {
+        where: { moduleKey: "process" },
+      },
+    },
+  });
+
+  const authorizedUsers: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    isSuperAdmin: boolean;
+  }> = [];
+
+  for (const user of candidateUsers) {
+    const isSuperAdmin = Boolean(
+      user.role?.name === "Super Admin" ||
+      (!user.ownerAdminId || user.ownerAdminId === user.id)
+    );
+
+    if (isSuperAdmin) {
+      authorizedUsers.push({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: true,
+      });
+      continue;
+    }
+
+    // 1. Check Process Module Permissions
+    let hasProcessPermission = false;
+    const explicitPerms = (user.userPermissions || []).map((up: any) => up.permissionKey);
+    
+    if (explicitPerms.length > 0) {
+      hasProcessPermission = explicitPerms.some((key: string) =>
+        key === "*" ||
+        key === "process.view" ||
+        key === "process.inbound.view" ||
+        key === "process.inbound.receive" ||
+        key === "process.receive" ||
+        key === "menu.process"
+      );
+    } else if (user.role?.rolePermissions) {
+      const rolePermCodes = user.role.rolePermissions.map((rp: any) => rp.permission?.code);
+      hasProcessPermission = rolePermCodes.some((code: string) =>
+        code === "*" ||
+        code === "process.view" ||
+        code === "process.inbound.view" ||
+        code === "process.inbound.receive" ||
+        code === "process.receive" ||
+        code === "menu.process"
+      );
+    }
+
+    if (!hasProcessPermission) {
+      continue;
+    }
+
+    // 2. Check Process Module Office Visibility for this Assigned Office
+    const hasOfficeVisibility = (user.officeVisibilities || []).some((ov: any) =>
+      params.assignedOfficeLocIds.includes(ov.officeLocationId)
+    );
+
+    if (hasOfficeVisibility) {
+      authorizedUsers.push({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: false,
+      });
+    }
+  }
+
+  return authorizedUsers;
+}
+
+/**
  * WORKSPACE: Transfer documents back to Process Module
- * Deterministically returns each document to the Process Module -> Inbound of the office
- * that originally sent it to this Assigned Office.
+ * Resolves destination strictly according to:
+ * Admin Management -> Roles -> Office Visibility Access -> Process Module -> Assigned Office
+ * + User Authorization & Process Module permissions.
  */
 export async function transferBackToProcess(params: {
   trackingNumbers: string[];
@@ -1691,372 +1800,295 @@ export async function transferBackToProcess(params: {
   remarks?: string;
 }) {
   if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
-    return { success: true, count: 0 };
+    return { success: true, count: 0, bundleNumbers: [] };
   }
 
+  const db = prisma as any;
+
+  // 1. Resolve Assigned Office identifiers & Office Location
+  const office = db.assignedOffice
+    ? await db.assignedOffice.findUnique({
+        where: { id: params.officeId },
+      })
+    : null;
+
+  let sourceOffice = await prisma.officeLocation.findFirst({
+    where: {
+      OR: [
+        { id: params.officeId },
+        ...(office?.username ? [{ officeName: office.username }] : []),
+      ],
+    },
+  });
+
+  if (!office && !sourceOffice) {
+    throw new Error(`Assigned office not found for ID: ${params.officeId}`);
+  }
+
+  const officeName = office ? office.username : sourceOffice!.officeName;
+
+  if (!sourceOffice) {
+    sourceOffice = await prisma.officeLocation.create({
+      data: {
+        id: params.officeId,
+        officeName: officeName,
+        location: "External Processing Office",
+        timezone: "UTC",
+        isProcessOffice: true,
+        ownerAdminId: params.ownerAdminId,
+      },
+    });
+  }
+
+  const allAssignedOfficeLocs = await prisma.officeLocation.findMany({
+    where: {
+      OR: [
+        { id: params.officeId },
+        { officeName: officeName },
+        ...(office?.username ? [{ officeName: office.username }] : []),
+      ],
+    },
+  });
+  const assignedOfficeLocIds = Array.from(
+    new Set([params.officeId, sourceOffice.id, ...allAssignedOfficeLocs.map((l: any) => l.id)])
+  );
+  const assignedOfficeNames = Array.from(
+    new Set([officeName, sourceOffice.officeName, ...(office?.username ? [office.username] : [])])
+  );
+
+  // 2. Query authorized Process recipients via RBAC Office Visibility & Module Permissions
+  const authorizedProcessUsers = await getAuthorizedProcessRecipientsForAssignedOffice({
+    assignedOfficeLocIds,
+    ownerAdminId: params.ownerAdminId,
+  });
+
+  if (authorizedProcessUsers.length === 0) {
+    throw new Error("No authorized Process user is configured for this Assigned Office.");
+  }
+
+  const recipientNames = authorizedProcessUsers.map((u) => u.name || u.email).join(", ");
+  const primaryRecipientId = authorizedProcessUsers[0]?.id;
+
   return prisma.$transaction(async (tx: any) => {
-    const office = await tx.assignedOffice.findUnique({
-      where: { id: params.officeId },
-    });
-
-    let sourceOffice = await tx.officeLocation.findFirst({
-      where: {
-        OR: [
-          { id: params.officeId },
-          ...(office?.username ? [{ officeName: office.username }] : []),
-        ],
-      },
-    });
-
-    if (!office && !sourceOffice) {
-      throw new Error(`Assigned office not found for ID: ${params.officeId}`);
-    }
-
-    const officeName = office ? office.username : sourceOffice!.officeName;
-
-    if (!sourceOffice) {
-      sourceOffice = await tx.officeLocation.create({
-        data: {
-          id: params.officeId,
-          officeName: officeName,
-          location: "External Processing Office",
-          timezone: "UTC",
-          isProcessOffice: true,
-          ownerAdminId: params.ownerAdminId,
-        },
-      });
-    }
-
-    const allAssignedOfficeLocs = await tx.officeLocation.findMany({
-      where: {
-        OR: [
-          { id: params.officeId },
-          { officeName: officeName },
-          ...(office?.username ? [{ officeName: office.username }] : []),
-        ],
-      },
-    });
-    const assignedOfficeLocIds = Array.from(
-      new Set([params.officeId, sourceOffice.id, ...allAssignedOfficeLocs.map((l: any) => l.id)])
-    );
-    const assignedOfficeNames = Array.from(
-      new Set([officeName, sourceOffice.officeName, ...(office?.username ? [office.username] : [])])
-    );
-
-    // Step 1: For each document, deterministically find its original sending office
-    const docRoutingMap = new Map<string, { tNum: string; docMov: any; returnOffice: any; reg: any }>();
+    // 3. Validate selected documents & check idempotency
+    const validTrackingNumbers: string[] = [];
+    const now = new Date();
 
     for (const tNum of params.trackingNumbers) {
+      const reg = await tx.registration.findFirst({
+        where: { trackingNumber: tNum, ownerAdminId: params.ownerAdminId },
+      });
+
+      if (!reg) {
+        throw new Error(`Document ${tNum} does not belong to this tenant.`);
+      }
+
       const docMov = await tx.documentMovement.findFirst({
         where: { trackingNumber: tNum },
-        include: {
-          returnOffice: true,
-          originalProcessOffice: true,
-          fromOffice: true,
-        },
       });
 
-      const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
-
-      let returnOffice: any = null;
-
-      // 1. Most Authoritative: Find the latest Inbound Bundle that brought this document into this Assigned Office
-      const latestInboundBundleItem = await tx.bundleItem.findFirst({
-        where: {
-          trackingNumber: tNum,
-          bundle: {
-            OR: [
-              { toOfficeId: { in: assignedOfficeLocIds } },
-              { toOffice: { officeName: { in: assignedOfficeNames } } },
-            ],
-          },
-        },
-        include: {
-          bundle: {
-            include: { fromOffice: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (latestInboundBundleItem?.bundle?.fromOffice) {
-        const candidate = latestInboundBundleItem.bundle.fromOffice;
-        if (
-          !assignedOfficeLocIds.includes(candidate.id) &&
-          !assignedOfficeNames.includes(candidate.officeName)
-        ) {
-          returnOffice = candidate;
-        }
+      if (!docMov) {
+        throw new Error(`Movement record not found for document ${tNum}.`);
       }
 
-      // 2. Check returnOfficeId on documentMovement if valid and different from this Assigned Office
-      if (
-        !returnOffice &&
-        docMov?.returnOfficeId &&
-        !assignedOfficeLocIds.includes(docMov.returnOfficeId)
-      ) {
-        const found = await tx.officeLocation.findFirst({ where: { id: docMov.returnOfficeId } });
-        if (found && !assignedOfficeNames.includes(found.officeName)) {
-          returnOffice = found;
-        }
+      const isCurrentInAssignedOffice =
+        (docMov.currentOfficeId && assignedOfficeLocIds.includes(docMov.currentOfficeId)) ||
+        (docMov.toOfficeId && assignedOfficeLocIds.includes(docMov.toOfficeId));
+
+      if (!isCurrentInAssignedOffice) {
+        throw new Error(`Document ${tNum} is not currently in the ${officeName} workspace.`);
       }
 
-      // 3. Check fromOfficeId on documentMovement if valid and different from this Assigned Office
-      if (
-        !returnOffice &&
-        docMov?.fromOfficeId &&
-        !assignedOfficeLocIds.includes(docMov.fromOfficeId)
-      ) {
-        const found = await tx.officeLocation.findFirst({ where: { id: docMov.fromOfficeId } });
-        if (found && !assignedOfficeNames.includes(found.officeName)) {
-          returnOffice = found;
-        }
+      // Check for duplicate pending return
+      const isAlreadyPendingReturn =
+        docMov.currentModule === "PROCESS_MODULE" &&
+        docMov.status === "INBOUND" &&
+        docMov.currentStatus === "Pending Receive";
+
+      if (isAlreadyPendingReturn) {
+        // Already returned and pending receive in Process
+        continue;
       }
 
-      // 4. Trace Movement History for the transfer that routed this document to this Assigned Office
-      if (!returnOffice) {
-        const historyEntries = await tx.movementHistory.findMany({
-          where: { trackingNumber: tNum },
-          orderBy: { performedAt: "desc" },
-        });
-
-        for (const h of historyEntries) {
-          const isTargetAssigned =
-            assignedOfficeNames.includes(h.newOffice) ||
-            (h.action && (h.action.includes("Assigned Office") || h.action.includes("Transfer to Assigned Office")));
-
-          if (
-            isTargetAssigned &&
-            h.oldOffice &&
-            !assignedOfficeNames.includes(h.oldOffice)
-          ) {
-            const found = await tx.officeLocation.findFirst({
-              where: { officeName: h.oldOffice, ownerAdminId: params.ownerAdminId },
-            });
-            if (found) {
-              returnOffice = found;
-              break;
-            }
-          }
-        }
-      }
-
-      // 5. Fallback: primary process office for tenant (never Assigned Office itself)
-      if (!returnOffice) {
-        returnOffice = await tx.officeLocation.findFirst({
-          where: {
-            ownerAdminId: params.ownerAdminId,
-            isProcessOffice: true,
-            NOT: [
-              { id: { in: assignedOfficeLocIds } },
-              { officeName: { in: assignedOfficeNames } },
-            ],
-          },
-        });
-      }
-
-      // 6. Last resort: any office in tenant that is not the assigned office
-      if (!returnOffice) {
-        returnOffice = await tx.officeLocation.findFirst({
-          where: {
-            ownerAdminId: params.ownerAdminId,
-            NOT: [
-              { id: { in: assignedOfficeLocIds } },
-              { officeName: { in: assignedOfficeNames } },
-            ],
-          },
-        });
-      }
-
-      if (!returnOffice) {
-        returnOffice = sourceOffice;
-      }
-
-      docRoutingMap.set(tNum, { tNum, docMov, returnOffice, reg });
+      validTrackingNumbers.push(tNum);
     }
 
-    // Step 2: Group documents by destination return office
-    const officeGroups = new Map<string, { returnOffice: any; items: Array<{ tNum: string; docMov: any; reg: any }> }>();
-
-    for (const [, docInfo] of docRoutingMap.entries()) {
-      const destId = docInfo.returnOffice.id;
-      if (!officeGroups.has(destId)) {
-        officeGroups.set(destId, { returnOffice: docInfo.returnOffice, items: [] });
-      }
-      officeGroups.get(destId)!.items.push({ tNum: docInfo.tNum, docMov: docInfo.docMov, reg: docInfo.reg });
+    if (validTrackingNumbers.length === 0) {
+      // All selected documents are already in pending receive state
+      return {
+        success: true,
+        count: 0,
+        bundleNumbers: [],
+        message: "Documents are already transferred back to Process Module.",
+      };
     }
 
-    const createdBundles: string[] = [];
-    const now = new Date();
+    // 4. Create Process Return Bundle
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-    const baseBundleCount = await tx.bundle.count({ where: { ownerAdminId: params.ownerAdminId } });
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const bundleNumber = `BND-PROC-${dateStr}-${randomSuffix}-${randomHex}`;
 
-    // Step 3: For each destination office group, manage bundle and update movements
-    for (const [, group] of officeGroups.entries()) {
-      const destOffice = group.returnOffice;
-      const groupTrackingNumbers = group.items.map((i) => i.tNum);
+    let groupBundle: any = null;
 
-      let groupBundle: any = null;
-
-      // Check if explicit bundleId passed in params and still matches
-      if (params.bundleId) {
-        const found = await tx.bundle.findUnique({
-          where: { id: params.bundleId },
-        });
-        if (found && found.toOfficeId === destOffice.id && found.status === "Pending Receive") {
-          groupBundle = found;
-        }
+    if (params.bundleId) {
+      const found = await tx.bundle.findUnique({
+        where: { id: params.bundleId },
+      });
+      if (found && found.status === "Pending Receive") {
+        groupBundle = found;
       }
+    }
 
-      if (groupBundle) {
-        await tx.bundle.update({
-          where: { id: groupBundle.id },
-          data: {
-            fromOfficeId: sourceOffice.id,
-            toOfficeId: destOffice.id,
-            status: "Pending Receive",
-            updatedAt: now,
-          },
+    if (groupBundle) {
+      await tx.bundle.update({
+        where: { id: groupBundle.id },
+        data: {
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: sourceOffice.id,
+          status: "Pending Receive",
+          updatedAt: now,
+        },
+      });
+
+      for (const tNum of validTrackingNumbers) {
+        const existingItem = await tx.bundleItem.findFirst({
+          where: { bundleId: groupBundle.id, trackingNumber: tNum },
         });
-
-        for (const tNum of groupTrackingNumbers) {
-          const existingItem = await tx.bundleItem.findFirst({
-            where: { bundleId: groupBundle.id, trackingNumber: tNum },
+        if (existingItem) {
+          await tx.bundleItem.update({
+            where: { id: existingItem.id },
+            data: { status: "Pending Receive" },
           });
-          if (existingItem) {
-            await tx.bundleItem.update({
-              where: { id: existingItem.id },
-              data: { status: "Pending Receive" },
-            });
-          } else {
-            await tx.bundleItem.create({
-              data: {
-                bundleId: groupBundle.id,
-                trackingNumber: tNum,
-                status: "Pending Receive",
-              },
-            });
-          }
-        }
-      } else {
-        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-        const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const bundleNumber = `BND-PROC-${dateStr}-${randomSuffix}-${randomHex}`;
-
-        groupBundle = await tx.bundle.create({
-          data: {
-            bundleNumber,
-            fromOfficeId: sourceOffice.id,
-            toOfficeId: destOffice.id,
-            status: "Pending Receive",
-            createdBy: params.userName || params.userId,
-            ownerAdminId: params.ownerAdminId,
-            items: {
-              create: groupTrackingNumbers.map((tNum) => ({
-                trackingNumber: tNum,
-                status: "Pending Receive",
-              })),
+        } else {
+          await tx.bundleItem.create({
+            data: {
+              bundleId: groupBundle.id,
+              trackingNumber: tNum,
+              status: "Pending Receive",
             },
-          },
-        });
+          });
+        }
       }
-
-      createdBundles.push(groupBundle.bundleNumber);
-
-      // Clean up any in-progress SubPackage movements for these tracking numbers
-      if (tx.subPackageMovement) {
-        await tx.subPackageMovement.updateMany({
-          where: {
-            trackingNumber: { in: groupTrackingNumbers },
-            status: "In Progress",
+    } else {
+      groupBundle = await tx.bundle.create({
+        data: {
+          bundleNumber,
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: sourceOffice.id,
+          status: "Pending Receive",
+          createdBy: params.userName || params.userId,
+          ownerAdminId: params.ownerAdminId,
+          items: {
+            create: validTrackingNumbers.map((tNum) => ({
+              trackingNumber: tNum,
+              status: "Pending Receive",
+            })),
           },
-          data: {
-            status: "Returned",
-            returnedAt: now,
-          },
-        });
-      }
+        },
+      });
+    }
 
-      // Step 4: Update document movements for documents in this group
-      for (const item of group.items) {
-        const tNum = item.tNum;
-        const reg = item.reg;
-        const previousStatus = item.docMov?.currentStatus || item.docMov?.status || "Document In Hand";
+    // 5. Clean up any in-progress SubPackage movements for these tracking numbers
+    if (tx.subPackageMovement) {
+      await tx.subPackageMovement.updateMany({
+        where: {
+          trackingNumber: { in: validTrackingNumbers },
+          status: "In Progress",
+        },
+        data: {
+          status: "Returned",
+          returnedAt: now,
+        },
+      });
+    }
 
-        await tx.documentMovement.updateMany({
+    // 6. Update Document Movements, Registrations, Workflow History, Audit Trail, and Movement History
+    for (const tNum of validTrackingNumbers) {
+      const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
+      const docMov = await tx.documentMovement.findFirst({ where: { trackingNumber: tNum } });
+      const previousStatus = docMov?.currentStatus || docMov?.status || "Document In Hand";
+
+      await tx.documentMovement.updateMany({
+        where: { trackingNumber: tNum },
+        data: {
+          fromModule: "ASSIGNED_OFFICE",
+          toModule: "PROCESS_MODULE",
+          currentModule: "PROCESS_MODULE",
+          fromOfficeId: sourceOffice.id,
+          toOfficeId: sourceOffice.id,
+          currentOfficeId: sourceOffice.id,
+          status: "INBOUND",
+          currentStatus: "Pending Receive",
+          movementType: "BACK_TO_PROCESS",
+          bundleId: groupBundle.id,
+          sentAt: now,
+          acceptedBy: primaryRecipientId || null,
+          remarks:
+            params.remarks ||
+            `Transferred back to Process Module (${officeName}) via Bundle ${groupBundle.bundleNumber}`,
+        } as any,
+      });
+
+      if (reg) {
+        await tx.registration.update({
           where: { trackingNumber: tNum },
           data: {
-            fromModule: "ASSIGNED_OFFICE",
-            toModule: "PROCESS_MODULE",
-            currentModule: "PROCESS_MODULE",
-            fromOfficeId: sourceOffice.id,
-            toOfficeId: destOffice.id,
-            currentOfficeId: destOffice.id,
-            status: "INBOUND",
-            currentStatus: "Pending Receive",
-            bundleId: groupBundle.id,
-            sentAt: new Date(),
-          } as any,
+            trackingStatus: "In Transfer",
+            bmStatus: "Transferred",
+          },
         });
 
-        if (reg) {
-          await tx.registration.update({
-            where: { trackingNumber: tNum },
+        if (tx.documentWorkflowHistory) {
+          await tx.documentWorkflowHistory.create({
             data: {
-              trackingStatus: "In Transfer",
-              bmStatus: "Transferred",
-            },
-          });
-
-          if (tx.documentWorkflowHistory) {
-            await tx.documentWorkflowHistory.create({
-              data: {
-                documentId: reg.id,
-                trackingNumber: tNum,
-                workflowStep: "Back To Process Transfer",
-                status: "Pending Receive",
-                performedBy: params.userName || params.userId,
-                remarks:
-                  params.remarks ||
-                  `Transferred back to Process Office (${destOffice.officeName}) via Bundle ${groupBundle.bundleNumber}`,
-                ownerAdminId: params.ownerAdminId,
-              },
-            });
-          }
-
-          if (tx.auditTrail) {
-            await tx.auditTrail.create({
-              data: {
-                registrationId: reg.id,
-                action: "Transferred Back to Process",
-                performedBy: params.userName || params.userId,
-                description: `Document transferred back from ${sourceOffice.officeName || officeName} to ${destOffice.officeName} via bundle ${groupBundle.bundleNumber}.`,
-              },
-            });
-          }
-
-          await tx.movementHistory.create({
-            data: {
+              documentId: reg.id,
               trackingNumber: tNum,
-              action: "Back To Process",
-              oldStatus: previousStatus,
-              newStatus: "Pending Receive",
-              oldOffice: sourceOffice.officeName || officeName || "Assigned Office",
-              newOffice: destOffice.officeName || "Process Office",
+              workflowStep: "Back To Process Transfer",
+              status: "Pending Receive",
               performedBy: params.userName || params.userId,
               remarks:
                 params.remarks ||
-                `Transferred back to ${destOffice.officeName} via Bundle ${groupBundle.bundleNumber}`,
+                `Transferred back to Process Office (${officeName}) via Bundle ${groupBundle.bundleNumber} (Authorized Process users: ${recipientNames})`,
+              ownerAdminId: params.ownerAdminId,
             },
           });
         }
+
+        if (tx.auditTrail) {
+          await tx.auditTrail.create({
+            data: {
+              registrationId: reg.id,
+              action: "Transferred Back to Process",
+              performedBy: params.userName || params.userId,
+              description: `Document returned from ${officeName} Assigned Office to Process Module because ${recipientNames} has Process Module Office Visibility Access for ${officeName}.`,
+            },
+          });
+        }
+
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber: tNum,
+            action: "Back To Process",
+            oldStatus: previousStatus,
+            newStatus: "Pending Receive",
+            oldOffice: officeName,
+            newOffice: `Process Module (${officeName})`,
+            performedBy: params.userName || params.userId,
+            remarks:
+              params.remarks ||
+              `Document returned from ${officeName} Assigned Office to Process Module because ${recipientNames} has Process Module Office Visibility Access for ${officeName}.`,
+          },
+        });
       }
     }
 
     return {
       success: true,
-      bundleNumbers: createdBundles,
-      count: params.trackingNumbers.length,
+      bundleNumbers: [groupBundle.bundleNumber],
+      bundleId: groupBundle.id,
+      count: validTrackingNumbers.length,
+      authorizedRecipients: recipientNames,
     };
   }, { maxWait: 20000, timeout: 60000 });
 }
