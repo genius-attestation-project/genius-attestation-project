@@ -946,7 +946,8 @@ export async function listWorkspaceDocuments(params: {
       : {};
 
   if (params.tab === "inbound") {
-    const bundles = await (prisma as any).bundle.findMany({
+    // Inbound to Assigned Office must only include bundles directed to this Assigned Office
+    const rawBundles = await (prisma as any).bundle.findMany({
       where: {
         toOfficeId: { in: allOfficeIds },
         ownerAdminId: params.ownerAdminId,
@@ -961,13 +962,32 @@ export async function listWorkspaceDocuments(params: {
     });
 
     const trackingNumbers: string[] = Array.from(
-      new Set(bundles.flatMap((b: any) => b.items.map((i: any) => i.trackingNumber as string)))
+      new Set(rawBundles.flatMap((b: any) => b.items.map((i: any) => i.trackingNumber as string)))
     );
 
-    const registrations = await prisma.registration.findMany({
-      where: { trackingNumber: { in: trackingNumbers } },
-    });
+    const [registrations, activeProcessReturnMovs] = await Promise.all([
+      prisma.registration.findMany({
+        where: { trackingNumber: { in: trackingNumbers } },
+      }),
+      prisma.documentMovement.findMany({
+        where: {
+          trackingNumber: { in: trackingNumbers },
+          currentModule: "PROCESS_MODULE",
+          toModule: "PROCESS_MODULE",
+          movementType: "BACK_TO_PROCESS",
+          status: "INBOUND",
+        },
+        select: { trackingNumber: true },
+      }),
+    ]);
+
+    const processReturnSet = new Set(activeProcessReturnMovs.map((m) => m.trackingNumber));
     const regMap = new Map(registrations.map((r) => [r.trackingNumber, r]));
+
+    // Strictly exclude any bundles whose items are active Back to Process returns
+    const bundles = rawBundles.filter((b: any) =>
+      !b.items.some((i: any) => processReturnSet.has(i.trackingNumber))
+    );
 
     return bundles.map((b: any) => ({
       ...b,
@@ -1710,6 +1730,7 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
       userPermissions: true,
       officeVisibilities: {
         where: { moduleKey: "process" },
+        include: { officeLocation: true },
       },
     },
   });
@@ -1719,6 +1740,8 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
     name: string | null;
     email: string;
     isSuperAdmin: boolean;
+    officeLocationId?: string | null;
+    officeLocationName?: string | null;
   }> = [];
 
   for (const user of candidateUsers) {
@@ -1727,21 +1750,13 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
       (!user.ownerAdminId || user.ownerAdminId === user.id)
     );
 
-    if (isSuperAdmin) {
-      authorizedUsers.push({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        isSuperAdmin: true,
-      });
-      continue;
-    }
-
     // 1. Check Process Module Permissions
     let hasProcessPermission = false;
     const explicitPerms = (user.userPermissions || []).map((up: any) => up.permissionKey);
     
-    if (explicitPerms.length > 0) {
+    if (isSuperAdmin) {
+      hasProcessPermission = true;
+    } else if (explicitPerms.length > 0) {
       hasProcessPermission = explicitPerms.some((key: string) =>
         key === "*" ||
         key === "process.view" ||
@@ -1776,10 +1791,15 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
         id: user.id,
         name: user.name,
         email: user.email,
-        isSuperAdmin: false,
+        isSuperAdmin: isSuperAdmin,
+        officeLocationId: user.officeLocationId,
+        officeLocationName: user.officeLocationName,
       });
     }
   }
+
+  // Sort so non-superadmin users with explicit role/office visibility take precedence over workspace owner
+  authorizedUsers.sort((a, b) => (a.isSuperAdmin === b.isSuperAdmin ? 0 : a.isSuperAdmin ? 1 : -1));
 
   return authorizedUsers;
 }
@@ -1866,8 +1886,9 @@ export async function transferBackToProcess(params: {
     throw new Error("No authorized Process user is configured for this Assigned Office.");
   }
 
+  const primaryRecipient = authorizedProcessUsers[0];
   const recipientNames = authorizedProcessUsers.map((u) => u.name || u.email).join(", ");
-  const primaryRecipientId = authorizedProcessUsers[0]?.id;
+  const primaryRecipientId = primaryRecipient.id;
 
   return prisma.$transaction(async (tx: any) => {
     // 3. Validate selected documents & check idempotency
@@ -1923,7 +1944,64 @@ export async function transferBackToProcess(params: {
       };
     }
 
-    // 4. Create Process Return Bundle
+    // 4. Resolve DESTINATION Process Office
+    // Must be a valid Process / Branch Office Location, and NEVER the source Assigned Office!
+    let destinationOffice: any = null;
+
+    if (primaryRecipient.officeLocationId && !assignedOfficeLocIds.includes(primaryRecipient.officeLocationId)) {
+      destinationOffice = await tx.officeLocation.findFirst({
+        where: { id: primaryRecipient.officeLocationId },
+      });
+    }
+
+    if (!destinationOffice) {
+      // Check document's originalProcessOfficeId or originOfficeId
+      const sampleMov = await tx.documentMovement.findFirst({
+        where: { trackingNumber: validTrackingNumbers[0] },
+      });
+      const candidateDocOfficeId = sampleMov?.originalProcessOfficeId || sampleMov?.originOfficeId;
+      if (candidateDocOfficeId && !assignedOfficeLocIds.includes(candidateDocOfficeId)) {
+        destinationOffice = await tx.officeLocation.findFirst({
+          where: { id: candidateDocOfficeId },
+        });
+      }
+    }
+
+    if (!destinationOffice) {
+      // Find any non-assigned process/branch office in the tenant
+      destinationOffice = await tx.officeLocation.findFirst({
+        where: {
+          ownerAdminId: params.ownerAdminId,
+          id: { notIn: assignedOfficeLocIds },
+        },
+      });
+    }
+
+    if (!destinationOffice) {
+      // Fallback: create or retrieve a dedicated Process Operations office for the tenant
+      destinationOffice = await tx.officeLocation.findFirst({
+        where: {
+          ownerAdminId: params.ownerAdminId,
+          officeName: "Process Operations",
+        },
+      });
+      if (!destinationOffice) {
+        destinationOffice = await tx.officeLocation.create({
+          data: {
+            officeName: "Process Operations",
+            location: "Central Operations",
+            timezone: "Asia/Kolkata",
+            isProcessOffice: true,
+            ownerAdminId: params.ownerAdminId,
+          },
+        });
+      }
+    }
+
+    const destinationOfficeId = destinationOffice.id;
+    const destinationOfficeName = destinationOffice.officeName;
+
+    // 5. Create / Update Process Return Bundle
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -1945,7 +2023,7 @@ export async function transferBackToProcess(params: {
         where: { id: groupBundle.id },
         data: {
           fromOfficeId: sourceOffice.id,
-          toOfficeId: sourceOffice.id,
+          toOfficeId: destinationOfficeId,
           status: "Pending Receive",
           updatedAt: now,
         },
@@ -1975,7 +2053,7 @@ export async function transferBackToProcess(params: {
         data: {
           bundleNumber,
           fromOfficeId: sourceOffice.id,
-          toOfficeId: sourceOffice.id,
+          toOfficeId: destinationOfficeId,
           status: "Pending Receive",
           createdBy: params.userName || params.userId,
           ownerAdminId: params.ownerAdminId,
@@ -1989,7 +2067,7 @@ export async function transferBackToProcess(params: {
       });
     }
 
-    // 5. Clean up any in-progress SubPackage movements for these tracking numbers
+    // 6. Clean up any in-progress SubPackage movements for these tracking numbers
     if (tx.subPackageMovement) {
       await tx.subPackageMovement.updateMany({
         where: {
@@ -2003,7 +2081,7 @@ export async function transferBackToProcess(params: {
       });
     }
 
-    // 6. Update Document Movements, Registrations, Workflow History, Audit Trail, and Movement History
+    // 7. Update Document Movements, Registrations, Workflow History, Audit Trail, and Movement History
     for (const tNum of validTrackingNumbers) {
       const reg = await tx.registration.findUnique({ where: { trackingNumber: tNum } });
       const docMov = await tx.documentMovement.findFirst({ where: { trackingNumber: tNum } });
@@ -2016,7 +2094,7 @@ export async function transferBackToProcess(params: {
           toModule: "PROCESS_MODULE",
           currentModule: "PROCESS_MODULE",
           fromOfficeId: sourceOffice.id,
-          toOfficeId: sourceOffice.id,
+          toOfficeId: destinationOfficeId,
           currentOfficeId: sourceOffice.id,
           status: "INBOUND",
           currentStatus: "Pending Receive",
@@ -2026,7 +2104,7 @@ export async function transferBackToProcess(params: {
           acceptedBy: primaryRecipientId || null,
           remarks: (
             params.remarks ||
-            `Transferred back to Process Module (${officeName}) via Bundle ${groupBundle.bundleNumber}`
+            `Transferred back to Process Module (${destinationOfficeName}) via Bundle ${groupBundle.bundleNumber}`
           ).slice(0, 190),
         } as any,
       });
@@ -2043,7 +2121,7 @@ export async function transferBackToProcess(params: {
         if (tx.documentWorkflowHistory) {
           const workflowRemarks = (
             params.remarks ||
-            `Transferred back to Process Office (${officeName}) via Bundle ${groupBundle.bundleNumber} (Authorized: ${recipientNames})`
+            `Transferred back to Process Office (${destinationOfficeName}) via Bundle ${groupBundle.bundleNumber} (Authorized: ${recipientNames})`
           ).slice(0, 190);
 
           await tx.documentWorkflowHistory.create({
@@ -2061,7 +2139,7 @@ export async function transferBackToProcess(params: {
 
         if (tx.auditTrail) {
           const auditDesc = (
-            `Document returned from ${officeName} to Process Module for authorized user(s): ${recipientNames}.`
+            `Document returned from ${officeName} to Process Module (${destinationOfficeName}) for authorized user(s): ${recipientNames}.`
           ).slice(0, 190);
 
           await tx.auditTrail.create({
@@ -2076,7 +2154,7 @@ export async function transferBackToProcess(params: {
 
         const movementRemarks = (
           params.remarks ||
-          `Returned from ${officeName} to Process Module for authorized user(s): ${recipientNames}.`
+          `Returned from ${officeName} to Process Module (${destinationOfficeName}) for authorized user(s): ${recipientNames}.`
         ).slice(0, 190);
 
         await tx.movementHistory.create({
@@ -2086,7 +2164,7 @@ export async function transferBackToProcess(params: {
             oldStatus: previousStatus,
             newStatus: "Pending Receive",
             oldOffice: officeName.slice(0, 190),
-            newOffice: `Process Module (${officeName})`.slice(0, 190),
+            newOffice: destinationOfficeName.slice(0, 190),
             performedBy: params.userName || params.userId,
             remarks: movementRemarks,
           },
@@ -2099,6 +2177,7 @@ export async function transferBackToProcess(params: {
       bundleNumbers: [groupBundle.bundleNumber],
       bundleId: groupBundle.id,
       count: validTrackingNumbers.length,
+      destinationOffice: destinationOfficeName,
       authorizedRecipients: recipientNames,
     };
   }, { maxWait: 20000, timeout: 60000 });

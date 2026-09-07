@@ -1,361 +1,362 @@
 import { prisma } from "../src/lib/prisma";
-import { transferBackToProcess } from "../src/features/assigned-office/server/assigned-office.service";
-import { processBulkMove, listProcessAssignments } from "../src/features/process/server/process.service";
+import {
+  transferBackToProcess,
+  listWorkspaceDocuments,
+  receiveBundleDocuments,
+  getAuthorizedProcessRecipientsForAssignedOffice,
+} from "../src/features/assigned-office/server/assigned-office.service";
+import {
+  processBulkMove,
+  listProcessAssignments,
+  transferProcessDocumentsToHome,
+} from "../src/features/process/server/process.service";
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 }
 
-async function runTests() {
+async function runTestMatrix() {
   console.log("=================================================================");
-  console.log("STARTING BACK TO PROCESS END-TO-END AUTOMATED TEST SUITE");
+  console.log("STARTING 11-TEST MATRIX FOR BACK TO PROCESS DESTINATION MAPPING");
   console.log("=================================================================\n");
 
-  let passedTests = 0;
-  let totalTests = 5;
+  const results: Array<{ test: string; result: "PASS" | "FAIL"; evidence: string }> = [];
 
-  let tNum1 = "";
-  let tNum2 = "";
-  let tNum5 = "";
-
-  // Find a valid admin/user in the DB
-  const validUser = await prisma.user.findFirst();
-  if (!validUser) {
-    throw new Error("No user found in database for test execution");
-  }
-  const TEST_USER = validUser.id;
-  const TEST_OWNER = validUser.ownerAdminId || validUser.id;
-
-  // Clean up any stale test records from previous failed runs
-  await prisma.officeLocation.deleteMany({ where: { id: { contains: "non_existent_office" } } }).catch(() => {});
-
-  // Setup Unique Test Offices
-  const officeA = await prisma.officeLocation.create({
+  // Setup unique test tenant and offices
+  const OWNER_ID = uid("owner");
+  const adminUser = await prisma.user.create({
     data: {
-      officeName: uid("TestProcA"),
-      location: "Office A Location",
-      timezone: "UTC",
-      isProcessOffice: true,
-      ownerAdminId: TEST_OWNER,
+      id: OWNER_ID,
+      email: `${uid("admin")}@test.com`,
+      name: "Tenant Admin",
+      role: {
+        create: {
+          name: "Tenant Admin",
+          description: "Tenant Admin",
+        },
+      },
     },
   });
 
-  const officeB = await prisma.officeLocation.create({
+  // Create Process Office (Destination)
+  const processOffice = await prisma.officeLocation.create({
     data: {
-      officeName: uid("TestProcB"),
-      location: "Office B Location",
+      officeName: uid("ProcOffice"),
+      location: "Process Hub",
       timezone: "UTC",
       isProcessOffice: true,
-      ownerAdminId: TEST_OWNER,
+      ownerAdminId: OWNER_ID,
     },
   });
 
-  const assignedOfficeC = await (prisma as any).assignedOffice.create({
+  // Create Assigned Office (Source)
+  const assignedOffice = await (prisma as any).assignedOffice.create({
     data: {
-      username: uid("TestAssignedC"),
+      username: uid("AssignedOffice"),
       email: `${uid("assigned")}@test.com`,
       passwordHash: "hash",
       status: true,
-      ownerAdminId: TEST_OWNER,
+      ownerAdminId: OWNER_ID,
     },
   });
 
-  const assignedOfficeCLoc = await prisma.officeLocation.create({
+  const assignedOfficeLoc = await prisma.officeLocation.create({
     data: {
-      id: assignedOfficeC.id,
-      officeName: assignedOfficeC.username,
+      id: assignedOffice.id,
+      officeName: assignedOffice.username,
       location: "External Processing Office",
       timezone: "UTC",
       isProcessOffice: true,
-      ownerAdminId: TEST_OWNER,
+      ownerAdminId: OWNER_ID,
     },
   });
 
-  console.log(`Created test offices:
-- Office A (Process): ${officeA.id} (${officeA.officeName})
-- Office B (Process): ${officeB.id} (${officeB.officeName})
-- Office C (Assigned): ${assignedOfficeC.id} (${assignedOfficeC.username})\n`);
+  // Create Authorized Process User (Amal)
+  // Process Module permission enabled + Process Module Office Visibility enabled for assignedOfficeLoc
+  const amalUser = await prisma.user.create({
+    data: {
+      email: `${uid("amal")}@test.com`,
+      name: "Amal",
+      ownerAdminId: OWNER_ID,
+      officeLocationId: processOffice.id,
+      officeLocationName: processOffice.officeName,
+      userPermissions: {
+        create: [
+          { permissionKey: "process.view" },
+          { permissionKey: "process.inbound.view" },
+          { permissionKey: "process.receive" },
+        ],
+      },
+      officeVisibilities: {
+        create: [
+          { moduleKey: "process", officeLocationId: assignedOfficeLoc.id, createdBy: OWNER_ID },
+          { moduleKey: "process", officeLocationId: processOffice.id, createdBy: OWNER_ID },
+        ],
+      },
+    },
+  });
 
-  try {
-    // =========================================================================
-    // TEST 1: Normal Process Transfer (Office A -> Office C -> Back to Office A)
-    // =========================================================================
-    console.log("--- TEST 1: Normal Process Transfer (Office A -> Assigned Office C -> Back to Office A) ---");
-    tNum1 = uid("T1");
-    const reg1 = await prisma.registration.create({
+  // Helper to create test document in Assigned Office Document In Hand
+  async function createDocInAssignedOfficeInHand(trackingNumber: string) {
+    const reg = await prisma.registration.create({
       data: {
-        trackingNumber: tNum1,
-        customerName: "Test Customer 1",
-        mobile: "+911111111111",
-        regionOfRegistration: officeA.officeName,
-        trackingStatus: "Document In Hand",
+        trackingNumber,
+        customerName: `Customer ${trackingNumber}`,
+        mobile: "+919999999999",
+        regionOfRegistration: processOffice.officeName,
+        trackingStatus: "In Transfer",
         bmStatus: "Received",
-        ownerAdminId: TEST_OWNER,
-        createdBy: TEST_USER,
+        ownerAdminId: OWNER_ID,
+        createdBy: OWNER_ID,
       },
     });
 
-    // Create Inbound Bundle from Office A to Assigned Office C
-    const bundleAC = await prisma.bundle.create({
+    const bundle = await prisma.bundle.create({
       data: {
-        bundleNumber: uid("BND-AC"),
-        fromOfficeId: officeA.id,
-        toOfficeId: assignedOfficeCLoc.id,
+        bundleNumber: uid("BND-IN"),
+        fromOfficeId: processOffice.id,
+        toOfficeId: assignedOfficeLoc.id,
         status: "Received",
-        ownerAdminId: TEST_OWNER,
+        ownerAdminId: OWNER_ID,
         items: {
-          create: [{ trackingNumber: tNum1, status: "Received" }],
+          create: [{ trackingNumber, status: "Received" }],
         },
       },
     });
 
-    // Create Document Movement in Assigned Office C
-    await prisma.documentMovement.create({
+    const mov = await prisma.documentMovement.create({
       data: {
-        trackingNumber: tNum1,
-        registrationId: reg1.id,
-        fromOfficeId: officeA.id,
-        toOfficeId: assignedOfficeCLoc.id,
-        currentOfficeId: assignedOfficeCLoc.id,
+        trackingNumber,
+        registrationId: reg.id,
+        fromOfficeId: processOffice.id,
+        toOfficeId: assignedOfficeLoc.id,
+        currentOfficeId: assignedOfficeLoc.id,
+        originalProcessOfficeId: processOffice.id,
         fromModule: "PROCESS_MODULE",
         toModule: "ASSIGNED_OFFICE",
         currentModule: "ASSIGNED_OFFICE",
         status: "IN_HAND",
         currentStatus: "Document In Hand",
-        bundleId: bundleAC.id,
+        bundleId: bundle.id,
       },
     });
 
-    // Execute transferBackToProcess from Office C
+    return { reg, bundle, mov };
+  }
+
+  try {
+    // -------------------------------------------------------------------------
+    // TEST 1: Direct Assigned Office Login -> Back to Process -> Process Inbound
+    // -------------------------------------------------------------------------
+    console.log("Running Test 1...");
+    const t1 = uid("DOC1");
+    await createDocInAssignedOfficeInHand(t1);
+
     const res1 = await transferBackToProcess({
-      trackingNumbers: [tNum1],
-      officeId: assignedOfficeC.id,
-      userId: TEST_USER,
-      userName: "Test Tester",
-      ownerAdminId: TEST_OWNER,
-      remarks: "Returning doc 1 back to process",
+      trackingNumbers: [t1],
+      officeId: assignedOffice.id,
+      userId: assignedOffice.id, // Direct assigned office account login
+      userName: assignedOffice.username,
+      ownerAdminId: OWNER_ID,
     });
 
-    console.log("Test 1 Result:", res1);
-
-    const mov1After = await prisma.documentMovement.findFirst({
-      where: { trackingNumber: tNum1 },
-      include: { toOffice: true, fromOffice: true, bundle: true },
+    const mov1 = await prisma.documentMovement.findFirst({
+      where: { trackingNumber: t1 },
+      include: { bundle: true },
     });
+
+    const assignedInbound1 = await listWorkspaceDocuments({
+      officeId: assignedOffice.id,
+      tab: "inbound",
+      ownerAdminId: OWNER_ID,
+    });
+    const assignedHasDoc1 = (assignedInbound1 as any[]).some((b: any) =>
+      b.items?.some((i: any) => i.trackingNumber === t1)
+    );
+
+    const procInbound1 = await listProcessAssignments(OWNER_ID, processOffice.officeName, undefined, "inbound");
+    const procHasDoc1 = (procInbound1 as any[]).some((b: any) =>
+      b.items?.some((i: any) => i.trackingNumber === t1) || b.trackingNumber === t1
+    );
 
     if (
       res1.success &&
-      mov1After?.toOfficeId === officeA.id &&
-      mov1After?.currentOfficeId === officeA.id &&
-      mov1After?.status === "INBOUND" &&
-      mov1After?.currentModule === "PROCESS_MODULE"
+      mov1?.toOfficeId === processOffice.id &&
+      mov1?.currentModule === "PROCESS_MODULE" &&
+      mov1?.status === "INBOUND" &&
+      mov1?.bundle?.toOfficeId === processOffice.id &&
+      !assignedHasDoc1 &&
+      procHasDoc1
     ) {
-      console.log(`[PASS] Test 1: Document correctly routed back to Office A (${officeA.officeName}).\n`);
-      passedTests++;
+      results.push({
+        test: "Test 1: Direct Assigned Office Login",
+        result: "PASS",
+        evidence: `Bundle toOfficeId=${mov1?.bundle?.toOfficeId} (Process Office), not Assigned Office. Found in Process Inbound: true, Assigned Inbound: false`,
+      });
     } else {
-      console.error(`[FAIL] Test 1 Failed: Expected toOfficeId=${officeA.id}, got=${mov1After?.toOfficeId}\n`);
+      results.push({
+        test: "Test 1: Direct Assigned Office Login",
+        result: "FAIL",
+        evidence: `mov.toOfficeId=${mov1?.toOfficeId}, assignedHasDoc1=${assignedHasDoc1}, procHasDoc1=${procHasDoc1}`,
+      });
     }
 
-    // =========================================================================
-    // TEST 2: Multiple Process Transfers (Office A -> Office B -> Assigned Office C -> Back to Office B)
-    // =========================================================================
-    console.log("--- TEST 2: Multiple Transfers (Office A -> Office B -> Office C -> Back to Office B strictly) ---");
-    tNum2 = uid("T2");
-    const reg2 = await prisma.registration.create({
-      data: {
-        trackingNumber: tNum2,
-        customerName: "Test Customer 2",
-        mobile: "+912222222222",
-        regionOfRegistration: officeA.officeName,
-        trackingStatus: "Document In Hand",
-        bmStatus: "Received",
-        ownerAdminId: TEST_OWNER,
-        createdBy: TEST_USER,
-      },
-    });
+    // -------------------------------------------------------------------------
+    // TEST 2: Authorized User (Amal) opens workspace -> Back to Process -> Amal's Process Inbound
+    // -------------------------------------------------------------------------
+    console.log("Running Test 2...");
+    const t2 = uid("DOC2");
+    await createDocInAssignedOfficeInHand(t2);
 
-    // First leg: A -> B
-    await prisma.bundle.create({
-      data: {
-        bundleNumber: uid("BND-AB"),
-        fromOfficeId: officeA.id,
-        toOfficeId: officeB.id,
-        status: "Received",
-        ownerAdminId: TEST_OWNER,
-        items: {
-          create: [{ trackingNumber: tNum2, status: "Received" }],
-        },
-      },
-    });
-
-    await prisma.movementHistory.create({
-      data: {
-        trackingNumber: tNum2,
-        action: "Received Document",
-        oldStatus: "Pending Receive",
-        newStatus: "IN_HAND",
-        oldOffice: officeA.officeName,
-        newOffice: officeB.officeName,
-        performedBy: "Test User",
-      },
-    });
-
-    // Second leg: B -> C
-    const bundleBC = await prisma.bundle.create({
-      data: {
-        bundleNumber: uid("BND-BC"),
-        fromOfficeId: officeB.id,
-        toOfficeId: assignedOfficeCLoc.id,
-        status: "Received",
-        ownerAdminId: TEST_OWNER,
-        items: {
-          create: [{ trackingNumber: tNum2, status: "Received" }],
-        },
-      },
-    });
-
-    await prisma.documentMovement.create({
-      data: {
-        trackingNumber: tNum2,
-        registrationId: reg2.id,
-        fromOfficeId: officeB.id,
-        toOfficeId: assignedOfficeCLoc.id,
-        currentOfficeId: assignedOfficeCLoc.id,
-        fromModule: "PROCESS_MODULE",
-        toModule: "ASSIGNED_OFFICE",
-        currentModule: "ASSIGNED_OFFICE",
-        status: "IN_HAND",
-        currentStatus: "Document In Hand",
-        bundleId: bundleBC.id,
-      },
-    });
-
-    // Execute transferBackToProcess from Office C
     const res2 = await transferBackToProcess({
-      trackingNumbers: [tNum2],
-      officeId: assignedOfficeC.id,
-      userId: TEST_USER,
-      userName: "Test Tester",
-      ownerAdminId: TEST_OWNER,
-      remarks: "Returning doc 2 back to Office B",
+      trackingNumbers: [t2],
+      officeId: assignedOffice.id,
+      userId: amalUser.id,
+      userName: amalUser.name || "Amal",
+      ownerAdminId: OWNER_ID,
     });
 
-    console.log("Test 2 Result:", res2);
-
-    const mov2After = await prisma.documentMovement.findFirst({
-      where: { trackingNumber: tNum2 },
-      include: { toOffice: true, fromOffice: true },
+    const mov2 = await prisma.documentMovement.findFirst({
+      where: { trackingNumber: t2 },
+      include: { bundle: true },
     });
 
     if (
       res2.success &&
-      mov2After?.toOfficeId === officeB.id &&
-      mov2After?.toOfficeId !== officeA.id &&
-      mov2After?.status === "INBOUND" &&
-      mov2After?.currentModule === "PROCESS_MODULE"
+      mov2?.acceptedBy === amalUser.id &&
+      mov2?.toOfficeId === processOffice.id &&
+      mov2?.currentModule === "PROCESS_MODULE"
     ) {
-      console.log(`[PASS] Test 2: Document correctly returned strictly to Office B (${officeB.officeName}), NOT Office A.\n`);
-      passedTests++;
+      results.push({
+        test: "Test 2: Authorized User Opens Workspace",
+        result: "PASS",
+        evidence: `Accepted by authorized user Amal (${amalUser.id}), routed to Process Office (${processOffice.officeName}).`,
+      });
     } else {
-      console.error(`[FAIL] Test 2 Failed: Expected toOfficeId=${officeB.id}, got=${mov2After?.toOfficeId}\n`);
+      results.push({
+        test: "Test 2: Authorized User Opens Workspace",
+        result: "FAIL",
+        evidence: `acceptedBy=${mov2?.acceptedBy}, expected=${amalUser.id}`,
+      });
     }
 
-    // =========================================================================
-    // TEST 3: Process Module RECEIVE Handler
-    // =========================================================================
-    console.log("--- TEST 3: Receive after Return in Process Module ---");
-    // Receive doc 2 at Office B
-    const res3 = await processBulkMove({
-      trackingNumbers: [tNum2],
-      action: "RECEIVE",
-      userId: TEST_USER,
-      ownerAdminId: TEST_OWNER,
-      remarks: "Received back in Office B Process Module",
-      officeLocationName: officeB.officeName,
-    });
-
-    console.log("Test 3 Result:", res3);
-
-    const mov2Received = await prisma.documentMovement.findFirst({
-      where: { trackingNumber: tNum2 },
-      include: { toOffice: true, bundle: true },
-    });
-
-    const reg2Received = await prisma.registration.findUnique({
-      where: { trackingNumber: tNum2 },
-    });
-
-    const history2 = await prisma.movementHistory.findFirst({
-      where: { trackingNumber: tNum2, action: "Received Document" },
-      orderBy: { performedAt: "desc" },
-    });
-
-    const audit2 = await prisma.auditTrail.findFirst({
-      where: { registrationId: reg2.id, action: "Document received in process" },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (
-      res3.success &&
-      mov2Received?.status === "IN_HAND" &&
-      mov2Received?.currentStatus === "Document In Hand" &&
-      mov2Received?.currentOfficeId === officeB.id &&
-      reg2Received?.trackingStatus === "Document In Hand" &&
-      reg2Received?.bmStatus === "Received" &&
-      history2 !== null &&
-      audit2 !== null
-    ) {
-      console.log(`[PASS] Test 3: Receive successfully moved document to IN_HAND at Office B with full audit trail.\n`);
-      passedTests++;
-    } else {
-      console.error(`[FAIL] Test 3 Failed: Status=${mov2Received?.status}, RegStatus=${reg2Received?.trackingStatus}\n`);
-    }
-
-    // =========================================================================
-    // TEST 4: Problem Documents 6565 & 4444 in Malappuram Inbound
-    // =========================================================================
-    console.log("--- TEST 4: Verification of Problem Documents 6565 & 4444 in Malappuram Inbound ---");
-    const malappuramOwner = "96dd9c33-7608-11f1-b655-52dd4f552161";
-
-    const inboundBundles = await listProcessAssignments(malappuramOwner, "Malappuram", undefined, "inbound");
-    const foundBundle = inboundBundles.find((b: any) => b.bundleNumber === "BND-PROC-20260905-0013");
-    const foundTrackingNumbers = (foundBundle as any)?.items?.map((i: any) => i.trackingNumber) || [];
-
-    const has6565 = foundTrackingNumbers.includes("6565");
-    const has4444 = foundTrackingNumbers.includes("4444");
-
-    if (foundBundle && has6565 && has4444) {
-      console.log(`[PASS] Test 4: Documents 6565 and 4444 are confirmed visible in Malappuram Process Module Inbound (Bundle: ${foundBundle.bundleNumber}).\n`);
-      passedTests++;
-    } else {
-      console.error(`[FAIL] Test 4 Failed: Found Bundle: ${!!foundBundle}, Has 6565: ${has6565}, Has 4444: ${has4444}\n`);
-    }
-
-    // =========================================================================
-    // TEST 5: Transaction Failure Safety
-    // =========================================================================
-    console.log("--- TEST 5: Transaction Safety on Failure ---");
-    tNum5 = uid("T5");
-    const reg5 = await prisma.registration.create({
+    // -------------------------------------------------------------------------
+    // TEST 3: Process Permission Missing
+    // -------------------------------------------------------------------------
+    console.log("Running Test 3...");
+    const noPermUser = await prisma.user.create({
       data: {
-        trackingNumber: tNum5,
-        customerName: "Test Customer 5",
-        mobile: "+915555555555",
-        regionOfRegistration: officeA.officeName,
-        trackingStatus: "Document In Hand",
-        bmStatus: "Received",
-        ownerAdminId: TEST_OWNER,
-        createdBy: TEST_USER,
+        email: `${uid("noperm")}@test.com`,
+        name: "No Perm User",
+        ownerAdminId: OWNER_ID,
+        officeVisibilities: {
+          create: [{ moduleKey: "process", officeLocationId: assignedOfficeLoc.id, createdBy: OWNER_ID }],
+        },
       },
     });
 
+    const authUsersNoPerm = await getAuthorizedProcessRecipientsForAssignedOffice({
+      assignedOfficeLocIds: [assignedOfficeLoc.id],
+      ownerAdminId: OWNER_ID,
+    });
+    const isNoPermIncluded = authUsersNoPerm.some((u) => u.id === noPermUser.id);
+
+    if (!isNoPermIncluded) {
+      results.push({
+        test: "Test 3: Process Permission Missing",
+        result: "PASS",
+        evidence: `User without Process Module permissions is successfully excluded from authorized recipients.`,
+      });
+    } else {
+      results.push({
+        test: "Test 3: Process Permission Missing",
+        result: "FAIL",
+        evidence: `User without permissions was incorrectly included in authorized recipients.`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 4: Office Visibility Missing
+    // -------------------------------------------------------------------------
+    console.log("Running Test 4...");
+    const noVisUser = await prisma.user.create({
+      data: {
+        email: `${uid("novis")}@test.com`,
+        name: "No Vis User",
+        ownerAdminId: OWNER_ID,
+        userPermissions: {
+          create: [{ permissionKey: "process.view" }],
+        },
+        officeVisibilities: {
+          create: [{ moduleKey: "process", officeLocationId: processOffice.id, createdBy: OWNER_ID }],
+        },
+      },
+    });
+
+    const authUsersNoVis = await getAuthorizedProcessRecipientsForAssignedOffice({
+      assignedOfficeLocIds: [assignedOfficeLoc.id],
+      ownerAdminId: OWNER_ID,
+    });
+    const isNoVisIncluded = authUsersNoVis.some((u) => u.id === noVisUser.id);
+
+    if (!isNoVisIncluded) {
+      results.push({
+        test: "Test 4: Office Visibility Missing",
+        result: "PASS",
+        evidence: `User without Assigned Office visibility in Process Module is successfully excluded.`,
+      });
+    } else {
+      results.push({
+        test: "Test 4: Office Visibility Missing",
+        result: "FAIL",
+        evidence: `User without office visibility was incorrectly included.`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 5: No Authorized User -> Safe Failure
+    // -------------------------------------------------------------------------
+    console.log("Running Test 5...");
+    const isolatedAssignedOffice = await (prisma as any).assignedOffice.create({
+      data: {
+        username: uid("IsolatedOffice"),
+        email: `${uid("isolated")}@test.com`,
+        passwordHash: "hash",
+        status: true,
+        ownerAdminId: OWNER_ID,
+      },
+    });
+    const isolatedAssignedLoc = await prisma.officeLocation.create({
+      data: {
+        id: isolatedAssignedOffice.id,
+        officeName: isolatedAssignedOffice.username,
+        location: "External Processing Office",
+        timezone: "UTC",
+        isProcessOffice: true,
+        ownerAdminId: OWNER_ID,
+      },
+    });
+
+    const t5 = uid("DOC5");
+    const reg5 = await prisma.registration.create({
+      data: {
+        trackingNumber: t5,
+        customerName: "Doc 5",
+        mobile: "+919999999999",
+        regionOfRegistration: processOffice.officeName,
+        trackingStatus: "In Transfer",
+        bmStatus: "Received",
+        ownerAdminId: OWNER_ID,
+        createdBy: OWNER_ID,
+      },
+    });
     await prisma.documentMovement.create({
       data: {
-        trackingNumber: tNum5,
+        trackingNumber: t5,
         registrationId: reg5.id,
-        fromOfficeId: officeA.id,
-        toOfficeId: assignedOfficeCLoc.id,
-        currentOfficeId: assignedOfficeCLoc.id,
+        fromOfficeId: processOffice.id,
+        toOfficeId: isolatedAssignedLoc.id,
+        currentOfficeId: isolatedAssignedLoc.id,
         fromModule: "PROCESS_MODULE",
         toModule: "ASSIGNED_OFFICE",
         currentModule: "ASSIGNED_OFFICE",
@@ -364,68 +365,349 @@ async function runTests() {
       },
     });
 
-    let caughtError: any = null;
-    const invalidOfficeId = uid("non_existent_office");
-
+    let test5Error: string | null = null;
     try {
-      // Intentionally passing invalid officeId that will fail source lookup inside transaction
       await transferBackToProcess({
-        trackingNumbers: [tNum5],
-        officeId: invalidOfficeId,
-        userId: TEST_USER,
-        ownerAdminId: TEST_OWNER,
+        trackingNumbers: [t5],
+        officeId: isolatedAssignedOffice.id,
+        userId: isolatedAssignedOffice.id,
+        ownerAdminId: OWNER_ID,
       });
     } catch (err: any) {
-      caughtError = err;
-      console.log("Test 5 successfully caught expected error:", err.message);
+      test5Error = err.message;
     }
 
-    const mov5After = await prisma.documentMovement.findFirst({ where: { trackingNumber: tNum5 } });
-    const bundleItem5 = await prisma.bundleItem.findFirst({ where: { trackingNumber: tNum5 } });
-    const history5 = await prisma.movementHistory.findFirst({ where: { trackingNumber: tNum5, action: "Back To Process" } });
-
-    console.log(`Test 5 Checks: caughtError=${!!caughtError}, status=${mov5After?.status}, bundleItemExists=${!!bundleItem5}, historyExists=${!!history5}`);
+    const mov5After = await prisma.documentMovement.findFirst({ where: { trackingNumber: t5 } });
 
     if (
-      caughtError &&
+      test5Error === "No authorized Process user is configured for this Assigned Office." &&
       mov5After?.status === "IN_HAND" &&
-      mov5After?.currentModule === "ASSIGNED_OFFICE" &&
-      bundleItem5 === null &&
-      history5 === null
+      mov5After?.currentModule === "ASSIGNED_OFFICE"
     ) {
-      console.log(`[PASS] Test 5: Atomic rollback verified. Document remained in IN_HAND and no bundle items/history were created.\n`);
-      passedTests++;
+      results.push({
+        test: "Test 5: No Authorized User",
+        result: "PASS",
+        evidence: `Safely threw '${test5Error}' and document remained untouched in Assigned Office Document In Hand.`,
+      });
     } else {
-      console.error(`[FAIL] Test 5 Failed: Rollback did not restore original state.\n`);
+      results.push({
+        test: "Test 5: No Authorized User",
+        result: "FAIL",
+        evidence: `Error=${test5Error}, mov.status=${mov5After?.status}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 6: Process Receive -> Document In Hand
+    // -------------------------------------------------------------------------
+    console.log("Running Test 6...");
+    const res6 = await processBulkMove({
+      trackingNumbers: [t1],
+      action: "RECEIVE",
+      userId: amalUser.id,
+      ownerAdminId: OWNER_ID,
+      officeLocationName: processOffice.officeName,
+    });
+
+    const mov1Received = await prisma.documentMovement.findFirst({
+      where: { trackingNumber: t1 },
+    });
+    const reg1Received = await prisma.registration.findUnique({
+      where: { trackingNumber: t1 },
+    });
+
+    if (
+      res6.success &&
+      mov1Received?.status === "IN_HAND" &&
+      mov1Received?.currentStatus === "Document In Hand" &&
+      mov1Received?.currentOfficeId === processOffice.id &&
+      reg1Received?.trackingStatus === "Document In Hand"
+    ) {
+      results.push({
+        test: "Test 6: Process Receive",
+        result: "PASS",
+        evidence: `Document successfully transitioned from Process Inbound to Process Document In Hand at ${processOffice.officeName}.`,
+      });
+    } else {
+      results.push({
+        test: "Test 6: Process Receive",
+        result: "FAIL",
+        evidence: `status=${mov1Received?.status}, currentOfficeId=${mov1Received?.currentOfficeId}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 7: Verify Assigned Office Inbound does NOT contain returned document
+    // -------------------------------------------------------------------------
+    console.log("Running Test 7...");
+    const assignedInboundCheck = await listWorkspaceDocuments({
+      officeId: assignedOffice.id,
+      tab: "inbound",
+      ownerAdminId: OWNER_ID,
+    });
+    const hasDoc1OrDoc2 = (assignedInboundCheck as any[]).some((b: any) =>
+      b.items?.some((i: any) => i.trackingNumber === t1 || i.trackingNumber === t2)
+    );
+
+    if (!hasDoc1OrDoc2) {
+      results.push({
+        test: "Test 7: Verify Assigned Office Inbound",
+        result: "PASS",
+        evidence: `Assigned Office Inbound strictly does not show returned documents.`,
+      });
+    } else {
+      results.push({
+        test: "Test 7: Verify Assigned Office Inbound",
+        result: "FAIL",
+        evidence: `Returned documents appeared in Assigned Office Inbound!`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 8: Multiple Documents Selection (e.g. 6565 and 444)
+    // -------------------------------------------------------------------------
+    console.log("Running Test 8...");
+    const t8A = uid("6565");
+    const t8B = uid("444");
+    await createDocInAssignedOfficeInHand(t8A);
+    await createDocInAssignedOfficeInHand(t8B);
+
+    const res8 = await transferBackToProcess({
+      trackingNumbers: [t8A, t8B],
+      officeId: assignedOffice.id,
+      userId: assignedOffice.id,
+      ownerAdminId: OWNER_ID,
+    });
+
+    const mov8A = await prisma.documentMovement.findFirst({ where: { trackingNumber: t8A } });
+    const mov8B = await prisma.documentMovement.findFirst({ where: { trackingNumber: t8B } });
+
+    if (
+      res8.success &&
+      res8.count === 2 &&
+      mov8A?.bundleId === mov8B?.bundleId &&
+      mov8A?.toOfficeId === processOffice.id &&
+      mov8B?.toOfficeId === processOffice.id
+    ) {
+      results.push({
+        test: "Test 8: Multiple Documents",
+        result: "PASS",
+        evidence: `Both documents bundled together (${res8.bundleNumbers?.[0]}) and mapped to Process Office (${processOffice.officeName}).`,
+      });
+    } else {
+      results.push({
+        test: "Test 8: Multiple Documents",
+        result: "FAIL",
+        evidence: `count=${res8.count}, bundleA=${mov8A?.bundleId}, bundleB=${mov8B?.bundleId}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 9: Duplicate Click / Idempotency Protection
+    // -------------------------------------------------------------------------
+    console.log("Running Test 9...");
+    const res9 = await transferBackToProcess({
+      trackingNumbers: [t8A, t8B],
+      officeId: assignedOffice.id,
+      userId: assignedOffice.id,
+      ownerAdminId: OWNER_ID,
+    });
+
+    const activeMovementsFor8A = await prisma.documentMovement.count({
+      where: { trackingNumber: t8A, status: "INBOUND" },
+    });
+
+    if (res9.count === 0 && activeMovementsFor8A === 1) {
+      results.push({
+        test: "Test 9: Duplicate Click Protection",
+        result: "PASS",
+        evidence: `Idempotency verified: re-submitting returned count=0 and active inbound records remained exactly 1.`,
+      });
+    } else {
+      results.push({
+        test: "Test 9: Duplicate Click Protection",
+        result: "FAIL",
+        evidence: `res9.count=${res9.count}, activeMovements=${activeMovementsFor8A}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 10: Home Workflow Regression Check
+    // -------------------------------------------------------------------------
+    console.log("Running Test 10...");
+    const t10 = uid("HOME_DOC");
+    const reg10 = await prisma.registration.create({
+      data: {
+        trackingNumber: t10,
+        customerName: "Home Reg Customer",
+        mobile: "+918888888888",
+        regionOfRegistration: processOffice.officeName,
+        trackingStatus: "Document In Hand",
+        bmStatus: "Received",
+        ownerAdminId: OWNER_ID,
+        createdBy: OWNER_ID,
+      },
+    });
+    await prisma.documentMovement.create({
+      data: {
+        trackingNumber: t10,
+        registrationId: reg10.id,
+        fromOfficeId: processOffice.id,
+        toOfficeId: processOffice.id,
+        currentOfficeId: processOffice.id,
+        fromModule: "PROCESS_MODULE",
+        toModule: "PROCESS_MODULE",
+        currentModule: "PROCESS_MODULE",
+        status: "IN_HAND",
+        currentStatus: "Document In Hand",
+      },
+    });
+
+    const homeTransfer = await transferProcessDocumentsToHome({
+      trackingNumbers: [t10],
+      toOfficeId: processOffice.id,
+      userId: OWNER_ID,
+      ownerAdminId: OWNER_ID,
+    });
+
+    const mov10After = await prisma.documentMovement.findFirst({ where: { trackingNumber: t10 } });
+
+    if (homeTransfer.success && mov10After?.toModule === "HOME" && mov10After?.currentModule === "HOME") {
+      results.push({
+        test: "Test 10: Home Regression Check",
+        result: "PASS",
+        evidence: `Home transfer completed successfully without interference.`,
+      });
+    } else {
+      results.push({
+        test: "Test 10: Home Regression Check",
+        result: "FAIL",
+        evidence: `toModule=${mov10After?.toModule}`,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 11: Assigned Office Regression Check (Inbound -> Receive -> In Hand)
+    // -------------------------------------------------------------------------
+    console.log("Running Test 11...");
+    const t11 = uid("AO_DOC");
+    const reg11 = await prisma.registration.create({
+      data: {
+        trackingNumber: t11,
+        customerName: "AO Normal Customer",
+        mobile: "+917777777777",
+        regionOfRegistration: processOffice.officeName,
+        trackingStatus: "In Transfer",
+        bmStatus: "Pending",
+        ownerAdminId: OWNER_ID,
+        createdBy: OWNER_ID,
+      },
+    });
+
+    const bundle11 = await prisma.bundle.create({
+      data: {
+        bundleNumber: uid("BND-NORMAL-AO"),
+        fromOfficeId: processOffice.id,
+        toOfficeId: assignedOfficeLoc.id,
+        status: "Pending Receive",
+        ownerAdminId: OWNER_ID,
+        items: {
+          create: [{ trackingNumber: t11, status: "Pending Receive" }],
+        },
+      },
+    });
+
+    await prisma.documentMovement.create({
+      data: {
+        trackingNumber: t11,
+        registrationId: reg11.id,
+        fromOfficeId: processOffice.id,
+        toOfficeId: assignedOfficeLoc.id,
+        currentOfficeId: processOffice.id,
+        fromModule: "PROCESS_MODULE",
+        toModule: "ASSIGNED_OFFICE",
+        currentModule: "ASSIGNED_OFFICE",
+        status: "INBOUND",
+        currentStatus: "Pending Receive",
+        bundleId: bundle11.id,
+      },
+    });
+
+    const aoInboundList = await listWorkspaceDocuments({
+      officeId: assignedOffice.id,
+      tab: "inbound",
+      ownerAdminId: OWNER_ID,
+    });
+    const hasAoInbound = (aoInboundList as any[]).some((b: any) =>
+      b.items?.some((i: any) => i.trackingNumber === t11)
+    );
+
+    const receiveAo = await receiveBundleDocuments({
+      bundleId: bundle11.id,
+      selectedTrackingNumbers: [t11],
+      officeId: assignedOffice.id,
+      userId: assignedOffice.id,
+      ownerAdminId: OWNER_ID,
+    });
+
+    const mov11After = await prisma.documentMovement.findFirst({ where: { trackingNumber: t11 } });
+    const aoInHandList = await listWorkspaceDocuments({
+      officeId: assignedOffice.id,
+      tab: "in_hand",
+      ownerAdminId: OWNER_ID,
+    });
+    const hasAoInHand = (aoInHandList as any[]).some((d: any) => d.trackingNumber === t11);
+
+    if (hasAoInbound && receiveAo.success && mov11After?.status === "Received" && hasAoInHand) {
+      results.push({
+        test: "Test 11: Assigned Office Regression Check",
+        result: "PASS",
+        evidence: `Assigned Office Inbound -> Receive -> Document In Hand works cleanly.`,
+      });
+    } else {
+      results.push({
+        test: "Test 11: Assigned Office Regression Check",
+        result: "FAIL",
+        evidence: `hasInbound=${hasAoInbound}, status=${mov11After?.status}, hasInHand=${hasAoInHand}`,
+      });
     }
 
   } finally {
-    // Clean up test data
-    console.log("Cleaning up test data created for temporary suite...");
-    const testTrackingNumbers = [tNum1, tNum2, tNum5].filter(Boolean);
-    await prisma.documentWorkflowHistory.deleteMany({ where: { trackingNumber: { in: testTrackingNumbers } } }).catch(() => {});
-    await prisma.movementHistory.deleteMany({ where: { trackingNumber: { in: testTrackingNumbers } } }).catch(() => {});
-    await prisma.auditTrail.deleteMany({ where: { registration: { trackingNumber: { in: testTrackingNumbers } } } }).catch(() => {});
-    await prisma.bundleItem.deleteMany({ where: { trackingNumber: { in: testTrackingNumbers } } }).catch(() => {});
-    await prisma.documentMovement.deleteMany({ where: { trackingNumber: { in: testTrackingNumbers } } }).catch(() => {});
-    await prisma.registration.deleteMany({ where: { trackingNumber: { in: testTrackingNumbers } } }).catch(() => {});
-    await (prisma as any).assignedOfficeSubPackage?.deleteMany({ where: { assignedOfficeId: assignedOfficeC.id } }).catch(() => {});
-    await (prisma as any).assignedOfficeProcessType?.deleteMany({ where: { assignedOfficeId: assignedOfficeC.id } }).catch(() => {});
-    await (prisma as any).assignedOffice.deleteMany({ where: { id: assignedOfficeC.id } }).catch(() => {});
-    await prisma.officeLocation.deleteMany({ where: { id: { in: [officeA.id, officeB.id, assignedOfficeCLoc.id] } } }).catch(() => {});
+    // Cleanup created tenant test data
+    console.log("\nCleaning up test matrix tenant data...");
+    await prisma.movementHistory.deleteMany({ where: { trackingNumber: { startsWith: "DOC" } } }).catch(() => {});
+    await prisma.documentWorkflowHistory.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await prisma.auditTrail.deleteMany({ where: { registration: { ownerAdminId: OWNER_ID } } }).catch(() => {});
+    await prisma.bundleItem.deleteMany({ where: { bundle: { ownerAdminId: OWNER_ID } } }).catch(() => {});
+    await prisma.bundle.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await prisma.documentMovement.deleteMany({ where: { registration: { ownerAdminId: OWNER_ID } } }).catch(() => {});
+    await prisma.registration.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await prisma.userOfficeVisibility.deleteMany({ where: { createdBy: OWNER_ID } }).catch(() => {});
+    await prisma.userPermission.deleteMany({ where: { user: { ownerAdminId: OWNER_ID } } }).catch(() => {});
+    await prisma.user.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await (prisma as any).assignedOffice.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await prisma.officeLocation.deleteMany({ where: { ownerAdminId: OWNER_ID } }).catch(() => {});
+    await prisma.user.delete({ where: { id: OWNER_ID } }).catch(() => {});
   }
 
-  console.log("=================================================================");
-  console.log(`TEST RESULTS: ${passedTests}/${totalTests} TESTS PASSED`);
-  console.log("=================================================================");
-  if (passedTests !== totalTests) {
+  console.log("\n=================================================================");
+  console.log("FINAL TEST MATRIX RESULTS");
+  console.log("=================================================================\n");
+  console.table(results);
+
+  const allPassed = results.every((r) => r.result === "PASS");
+  if (!allPassed) {
+    console.error("Some tests failed!");
     process.exit(1);
+  } else {
+    console.log("ALL 11 TESTS PASSED SUCCESSFULLY!");
   }
 }
 
-runTests()
+runTestMatrix()
   .catch((err) => {
-    console.error("Test Suite Error:", err);
+    console.error("Test Suite Fatal Error:", err);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+
