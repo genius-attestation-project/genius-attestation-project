@@ -856,22 +856,6 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       toOfficeId: { in: allOfficeIds },
       ownerAdminId,
       status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
-      NOT: {
-        OR: [
-          { bundleNumber: { startsWith: "BND-PROC-" } },
-          {
-            movements: {
-              some: {
-                OR: [
-                  { movementType: "BACK_TO_PROCESS" },
-                  { currentModule: "PROCESS_MODULE" },
-                  { toModule: "PROCESS_MODULE" },
-                ],
-              },
-            },
-          },
-        ],
-      },
     },
   });
 
@@ -881,9 +865,8 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
       documentMovements: {
         some: {
           currentOfficeId: { in: allOfficeIds },
-          currentModule: { not: "PROCESS_MODULE" },
           status: { in: ["Received", "Document In Hand", "In Hand"] },
-          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "Pending Receive"] },
+          currentStatus: { notIn: ["Completed", "Returned", "Rejected"] },
         },
       },
     },
@@ -968,22 +951,6 @@ export async function listWorkspaceDocuments(params: {
         toOfficeId: { in: allOfficeIds },
         ownerAdminId: params.ownerAdminId,
         status: { in: ["Pending Receive", "Partially Received", "INBOUND_PENDING"] },
-        NOT: {
-          OR: [
-            { bundleNumber: { startsWith: "BND-PROC-" } },
-            {
-              movements: {
-                some: {
-                  OR: [
-                    { movementType: "BACK_TO_PROCESS" },
-                    { currentModule: "PROCESS_MODULE" },
-                    { toModule: "PROCESS_MODULE" },
-                  ],
-                },
-              },
-            },
-          ],
-        },
       },
       include: {
         fromOffice: true,
@@ -1072,7 +1039,6 @@ export async function listWorkspaceDocuments(params: {
 
   // Default: 'in_hand'
   // Excludes documents transferred to a Sub Package (currentStatus = "In Sub Package")
-  // and documents currently returned to Process Module (currentModule = "PROCESS_MODULE" or currentStatus = "Pending Receive")
   return prisma.registration.findMany({
     where: {
       ownerAdminId: params.ownerAdminId,
@@ -1080,9 +1046,8 @@ export async function listWorkspaceDocuments(params: {
       documentMovements: {
         some: {
           currentOfficeId: { in: allOfficeIds },
-          currentModule: { not: "PROCESS_MODULE" },
           status: { in: ["Received", "Document In Hand", "In Hand", "HOME"] },
-          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package", "Pending Receive"] },
+          currentStatus: { notIn: ["Completed", "Returned", "Rejected", "In Sub Package"] },
         },
       },
     },
@@ -1109,10 +1074,6 @@ export async function receiveBundleDocuments(params: {
     });
 
     if (!bundle) throw new Error("Bundle not found.");
-
-    if (bundle.bundleNumber && bundle.bundleNumber.startsWith("BND-PROC-")) {
-      throw new Error("Process Return bundles cannot be received by Assigned Office.");
-    }
 
     const totalItems = bundle.items.length;
     const selectedSet = new Set(params.selectedTrackingNumbers);
@@ -1748,11 +1709,7 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
       },
       userPermissions: true,
       officeVisibilities: {
-        where: {
-          moduleKey: {
-            in: ["process", "Process Module", "process_module", "PROCESS", "global"],
-          },
-        },
+        where: { moduleKey: "process" },
       },
     },
   });
@@ -1770,6 +1727,16 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
       (!user.ownerAdminId || user.ownerAdminId === user.id)
     );
 
+    if (isSuperAdmin) {
+      authorizedUsers.push({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: true,
+      });
+      continue;
+    }
+
     // 1. Check Process Module Permissions
     let hasProcessPermission = false;
     const explicitPerms = (user.userPermissions || []).map((up: any) => up.permissionKey);
@@ -1777,26 +1744,22 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
     if (explicitPerms.length > 0) {
       hasProcessPermission = explicitPerms.some((key: string) =>
         key === "*" ||
-        key.toLowerCase().startsWith("process") ||
-        key === "menu.process" ||
         key === "process.view" ||
         key === "process.inbound.view" ||
         key === "process.inbound.receive" ||
-        key === "process.receive"
+        key === "process.receive" ||
+        key === "menu.process"
       );
     } else if (user.role?.rolePermissions) {
       const rolePermCodes = user.role.rolePermissions.map((rp: any) => rp.permission?.code);
       hasProcessPermission = rolePermCodes.some((code: string) =>
         code === "*" ||
-        code.toLowerCase().startsWith("process") ||
-        code === "menu.process" ||
         code === "process.view" ||
         code === "process.inbound.view" ||
         code === "process.inbound.receive" ||
-        code === "process.receive"
+        code === "process.receive" ||
+        code === "menu.process"
       );
-    } else if (isSuperAdmin) {
-      hasProcessPermission = true;
     }
 
     if (!hasProcessPermission) {
@@ -1813,16 +1776,10 @@ export async function getAuthorizedProcessRecipientsForAssignedOffice(params: {
         id: user.id,
         name: user.name,
         email: user.email,
-        isSuperAdmin,
+        isSuperAdmin: false,
       });
     }
   }
-
-  // Sort so dedicated Process specialists take precedence over Super Admins
-  authorizedUsers.sort((a, b) => {
-    if (a.isSuperAdmin === b.isSuperAdmin) return 0;
-    return a.isSuperAdmin ? 1 : -1;
-  });
 
   return authorizedUsers;
 }
