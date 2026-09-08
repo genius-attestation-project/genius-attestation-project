@@ -1496,7 +1496,6 @@ export function RegistrationManager({
                       <th className="px-3.5 py-3 min-w-32.5">Document Type</th>
                       <th className="px-3.5 py-3 text-center">Status</th>
                       <th className="px-3.5 py-3 text-center">Payment Status</th>
-                      <th className="px-3.5 py-3 text-center">Approval Status</th>
                       <th className="px-3.5 py-3 text-center">Created Date</th>
                       <th className="px-3.5 py-3 text-right">Actions</th>
                     </tr>
@@ -1578,17 +1577,6 @@ export function RegistrationManager({
                               : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
                           }`}>
                             {registration.paymentStatus || "Unpaid"}
-                          </span>
-                        </td>
-                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                            registration.approvalStatus === "Approved"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                              : registration.approvalStatus === "Pending"
-                              ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                              : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                          }`}>
-                            {registration.approvalStatus || "Pending"}
                           </span>
                         </td>
                         <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
