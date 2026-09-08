@@ -1860,6 +1860,7 @@ export async function transferBackToProcess(params: {
     });
   }
 
+  const officeInfo = await resolveOfficeIdentifiers(params.officeId, params.ownerAdminId);
   const allAssignedOfficeLocs = await prisma.officeLocation.findMany({
     where: {
       OR: [
@@ -1870,7 +1871,12 @@ export async function transferBackToProcess(params: {
     },
   });
   const assignedOfficeLocIds = Array.from(
-    new Set([params.officeId, sourceOffice.id, ...allAssignedOfficeLocs.map((l: any) => l.id)])
+    new Set([
+      params.officeId,
+      sourceOffice.id,
+      ...allAssignedOfficeLocs.map((l: any) => l.id),
+      ...officeInfo.allOfficeIds,
+    ])
   );
   const assignedOfficeNames = Array.from(
     new Set([officeName, sourceOffice.officeName, ...(office?.username ? [office.username] : [])])

@@ -86,7 +86,6 @@ export function ProcessDashboard({
   const canPerformActions = isSuperAdmin || perms.includes("process.document_in_hand.actions") || perms.includes("process.move") || perms.includes("process.create") || perms.includes("process.edit");
   const canViewInbound = isSuperAdmin || perms.includes("process.inbound.view");
   const canReceiveInbound = isSuperAdmin || perms.includes("process.inbound.receive") || perms.includes("process.receive");
-  const canReturnInbound = isSuperAdmin || perms.includes("process.inbound.return") || perms.includes("process.return");
   const canViewOutbound = isSuperAdmin || perms.includes("process.outbound.view");
   const canRetrieveOutbound = isSuperAdmin || perms.includes("process.outbound.retrieve") || perms.includes("process.retrieve") || perms.includes("document_movement.retrieve");
   const canViewBundle = isSuperAdmin || perms.includes("process.bundle_movement.view");
@@ -744,28 +743,15 @@ export function ProcessDashboard({
             )}
 
             {activeTab === "inbound" && (
-              <>
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
-                  disabled={selectedTrackingNumbers.length === 0 || isReceiving}
-                  onClick={() => receiveSelectedDocuments(selectedTrackingNumbers)}
-                >
-                  <CheckCheck size={14} />
-                  {isReceiving ? "Receiving..." : `Receive Selected (${selectedTrackingNumbers.length})`}
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold gap-1.5"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={() => openBulkMovementModal("RETURN")}
-                >
-                  <RotateCcw size={14} />
-                  Return Selected
-                </Button>
-              </>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
+                disabled={selectedTrackingNumbers.length === 0 || isReceiving}
+                onClick={() => receiveSelectedDocuments(selectedTrackingNumbers)}
+              >
+                <CheckCheck size={14} />
+                {isReceiving ? "Receiving..." : `Receive Selected (${selectedTrackingNumbers.length})`}
+              </Button>
             )}
           </div>
         </div>
@@ -941,14 +927,6 @@ export function ProcessDashboard({
                                 onClick={() => openReceiveSelection(item)}
                               >
                                 Receive
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                                onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
-                              >
-                                Return
                               </Button>
                             </div>
                           </td>

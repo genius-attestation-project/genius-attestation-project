@@ -511,18 +511,18 @@ export function AssignedOfficeWorkspaceClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="secondary"
+              disabled={selectedTrackingNumbers.length === 0}
+              onClick={handleBackToProcess}
+              className="gap-2 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white"
+            >
+              <ArrowRightLeft size={16} />
+              Back To Process
+            </Button>
+
             {activeTab === "in_hand" ? (
               <>
-                <Button
-                  variant="secondary"
-                  disabled={selectedTrackingNumbers.length === 0}
-                  onClick={handleBackToProcess}
-                  className="gap-2 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white"
-                >
-                  <ArrowRightLeft size={16} />
-                  Back To Process
-                </Button>
-
                 {/* Sub Process Dropdown */}
                 <div className="w-56 sm:w-64 min-w-50">
                   <SearchableSelect
