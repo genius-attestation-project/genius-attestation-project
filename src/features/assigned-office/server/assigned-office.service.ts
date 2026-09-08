@@ -1429,40 +1429,115 @@ export async function transferToSubPackage(params: {
   userName?: string;
   ownerAdminId: string;
 }) {
-  return prisma.$transaction(async (tx: any) => {
-    let targetOffice = await tx.officeLocation.findFirst({
-      where: { OR: [{ id: params.officeId }, { officeName: params.officeId }] },
-    });
+  if (!params.items || !Array.isArray(params.items) || params.items.length === 0) {
+    throw new Error("No documents provided for transfer.");
+  }
 
-    if (!targetOffice) {
-      const ao = await tx.assignedOffice.findUnique({ where: { id: params.officeId } });
-      if (ao) {
-        targetOffice = await tx.officeLocation.findFirst({
-          where: { officeName: ao.username, ownerAdminId: params.ownerAdminId },
-        });
-        if (!targetOffice) {
-          targetOffice = await tx.officeLocation.create({
-            data: {
-              id: params.officeId,
-              officeName: ao.username,
-              location: "External Processing Office",
-              timezone: "UTC",
-              isProcessOffice: true,
-              ownerAdminId: params.ownerAdminId,
-            },
-          });
-        }
+  const { allOfficeIds, officeLocation } = await resolveOfficeIdentifiers(params.officeId, params.ownerAdminId);
+  const resolvedOfficeId = officeLocation?.id || params.officeId;
+
+  return prisma.$transaction(async (tx: any) => {
+    // 1. Validate distinct sub-processes exist and are active
+    const distinctSubPackageIds = Array.from(new Set(params.items.map((i) => i.subPackageId)));
+    const subPackages = await tx.subPackage.findMany({
+      where: { id: { in: distinctSubPackageIds }, isActive: true },
+    });
+    if (subPackages.length !== distinctSubPackageIds.length) {
+      throw new Error("One or more selected Sub Processes are invalid or inactive.");
+    }
+    const subPackageMap = new Map<string, any>(subPackages.map((sp: any) => [sp.id, sp]));
+
+    // 2. Validate sub-processes are assigned to this office
+    const officeMappings = await (tx as any).assignedOfficeSubPackage.findMany({
+      where: {
+        assignedOfficeId: { in: allOfficeIds },
+        subPackageId: { in: distinctSubPackageIds },
+      },
+    });
+    const assignedSubPkgSet = new Set(officeMappings.map((m: any) => m.subPackageId));
+    for (const spId of distinctSubPackageIds) {
+      if (!assignedSubPkgSet.has(spId)) {
+        const spName = (subPackageMap.get(spId) as any)?.name || spId;
+        throw new Error(`Sub Process "${spName}" is not assigned to this office.`);
       }
     }
 
-    const resolvedOfficeId = targetOffice?.id || params.officeId;
+    // 3. Pre-validate ALL documents before performing any writes (all-or-nothing atomicity)
+    const trackingNumbers = params.items.map((i) => i.trackingNumber);
+    const registrations = await tx.registration.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+    });
+    const regMap = new Map<string, any>(registrations.map((r: any) => [r.trackingNumber, r]));
+
+    const movements = await tx.documentMovement.findMany({
+      where: {
+        trackingNumber: { in: trackingNumbers },
+        currentOfficeId: { in: allOfficeIds },
+      },
+    });
+    const docMovementMap = new Map<string, any>(movements.map((m: any) => [m.trackingNumber, m]));
+
+    const activeSubMovements = await (tx as any).subPackageMovement.findMany({
+      where: {
+        trackingNumber: { in: trackingNumbers },
+        status: "In Progress",
+      },
+    });
+    const activeSubMovSet = new Set(activeSubMovements.map((m: any) => m.trackingNumber));
 
     for (const item of params.items) {
-      const reg = await tx.registration.findUnique({
-        where: { trackingNumber: item.trackingNumber },
-      });
+      const reg = regMap.get(item.trackingNumber);
+      if (!reg || (reg.ownerAdminId && reg.ownerAdminId !== params.ownerAdminId)) {
+        throw new Error(`Document #${item.trackingNumber} not found or unauthorized.`);
+      }
 
-      if (!reg) continue;
+      const docMovement = docMovementMap.get(item.trackingNumber);
+      if (!docMovement) {
+        throw new Error(`Document #${item.trackingNumber} is not located in this office workspace.`);
+      }
+
+      if (activeSubMovSet.has(item.trackingNumber)) {
+        throw new Error(`Document #${item.trackingNumber} is already in progress in another Sub Process.`);
+      }
+
+      if (docMovement.status === "INBOUND" || docMovement.currentStatus === "Pending Receive") {
+        throw new Error(`Document #${item.trackingNumber} has an active transfer in progress.`);
+      }
+
+      if (docMovement.currentStatus === "In Sub Package") {
+        throw new Error(`Document #${item.trackingNumber} is already transferred to a Sub Process.`);
+      }
+
+      const isCompleted = docMovement.currentStatus === "Completed";
+      const isReturned = docMovement.currentStatus === "Returned";
+      const isRejected = docMovement.currentStatus === "Rejected";
+      const isInHand =
+        !isCompleted &&
+        !isReturned &&
+        !isRejected &&
+        ["Received", "Document In Hand", "In Hand", "HOME"].includes(docMovement.status);
+
+      if (!isCompleted && !isReturned && !isRejected && !isInHand) {
+        throw new Error(
+          `Document #${item.trackingNumber} is not in a transferable state (current status: ${docMovement.currentStatus || docMovement.status}).`
+        );
+      }
+    }
+
+    // 4. Perform atomic writes for all validated documents
+    for (const item of params.items) {
+      const reg = regMap.get(item.trackingNumber)!;
+      const docMovement = docMovementMap.get(item.trackingNumber)!;
+      const subPackage = subPackageMap.get(item.subPackageId) as any;
+
+      const sourceSection =
+        docMovement.currentStatus === "Completed"
+          ? "Document Complete"
+          : docMovement.currentStatus === "Returned"
+          ? "Document Return"
+          : docMovement.currentStatus === "Rejected"
+          ? "Rejected"
+          : "Document In Hand";
 
       // Create sub package movement record
       await tx.subPackageMovement.create({
@@ -1477,18 +1552,18 @@ export async function transferToSubPackage(params: {
         },
       });
 
-      // Update DocumentMovement to reflect the transfer out of Document In Hand.
-      // Setting currentStatus = "In Sub Package" causes the in_hand query to
-      // exclude this document immediately after a successful transfer.
+      // Update DocumentMovement to reflect transfer out of current tab
       await tx.documentMovement.updateMany({
         where: {
           trackingNumber: item.trackingNumber,
+          currentOfficeId: { in: allOfficeIds },
         },
         data: {
           currentStatus: "In Sub Package",
         },
       });
 
+      // DocumentWorkflowHistory
       await tx.documentWorkflowHistory.create({
         data: {
           documentId: reg.id,
@@ -1496,17 +1571,18 @@ export async function transferToSubPackage(params: {
           workflowStep: "Sub Package Transfer",
           status: "In Progress",
           performedBy: params.userName || params.userId,
-          remarks: `Assigned to Sub Package ID: ${item.subPackageId}`,
+          remarks: `Transferred from ${sourceSection} to Sub Process: ${subPackage.name}`,
           ownerAdminId: params.ownerAdminId,
         },
       });
 
+      // AuditTrail
       await tx.auditTrail.create({
         data: {
           registrationId: reg.id,
           action: "SUB_PACKAGE_TRANSFER",
           performedBy: params.userName || params.userId,
-          description: `Transferred to Sub Package ID ${item.subPackageId}`,
+          description: `Transferred from ${sourceSection} to Sub Process: ${subPackage.name}`,
         },
       });
     }

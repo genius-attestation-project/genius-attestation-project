@@ -104,6 +104,7 @@ export function AssignedOfficeWorkspaceClient({
   const fetchTabData = useCallback(async () => {
     setLoading(true);
     setSelectedTrackingNumbers([]);
+    setSelectedSubPackageId("");
     try {
       const res = await fetch(
         `/api/assigned-office/workspace?officeId=${officeId}&tab=${activeTab}&search=${encodeURIComponent(
@@ -522,30 +523,7 @@ export function AssignedOfficeWorkspaceClient({
               Back To Process
             </Button>
 
-            {activeTab === "in_hand" ? (
-              <>
-                {/* Sub Process Dropdown */}
-                <div className="w-56 sm:w-64 min-w-50">
-                  <SearchableSelect
-                    options={subProcessOptions}
-                    value={selectedSubPackageId}
-                    onChange={setSelectedSubPackageId}
-                    placeholder="Select Sub Process"
-                    groupByCategory={false}
-                  />
-                </div>
-
-                {/* Transfer Button */}
-                <Button
-                  disabled={selectedTrackingNumbers.length === 0 || !selectedSubPackageId || transferring}
-                  onClick={handleTransferToSubPackageSubmit}
-                  className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md font-semibold text-xs cursor-pointer disabled:opacity-50"
-                >
-                  <Send size={16} />
-                  {transferring ? "Transferring..." : "Transfer To Sub Process"}
-                </Button>
-              </>
-            ) : (
+            {activeTab !== "in_hand" && (
               <Button
                 disabled={selectedTrackingNumbers.length === 0}
                 onClick={handleSendToInHand}
@@ -555,6 +533,27 @@ export function AssignedOfficeWorkspaceClient({
                 Send To In Hand
               </Button>
             )}
+
+            {/* Sub Process Dropdown */}
+            <div className="w-56 sm:w-64 min-w-50">
+              <SearchableSelect
+                options={subProcessOptions}
+                value={selectedSubPackageId}
+                onChange={setSelectedSubPackageId}
+                placeholder="Select Sub Process"
+                groupByCategory={false}
+              />
+            </div>
+
+            {/* Transfer Button */}
+            <Button
+              disabled={selectedTrackingNumbers.length === 0 || !selectedSubPackageId || transferring}
+              onClick={handleTransferToSubPackageSubmit}
+              className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md font-semibold text-xs cursor-pointer disabled:opacity-50"
+            >
+              <Send size={16} />
+              {transferring ? "Transferring..." : "Transfer To Sub Process"}
+            </Button>
           </div>
         </div>
       )}
