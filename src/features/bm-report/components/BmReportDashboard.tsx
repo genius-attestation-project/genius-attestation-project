@@ -113,9 +113,6 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               BM Location Tracking
             </h1>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Track the exact location and current section of registered documents
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

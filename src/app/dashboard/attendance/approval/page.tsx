@@ -1,6 +1,3 @@
-import { redirect } from "next/navigation";
-
-import { PageHeader } from "@/components/ui/PageHeader";
 import { AccessDenied } from "@/components/shared/AccessDenied";
 import { AttendanceApprovalTable } from "@/features/attendance/components/AttendanceApprovalTable";
 import { requireAuth } from "@/middleware/auth.middleware";
@@ -25,11 +22,6 @@ export default async function AttendanceApprovalPage() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Attendance Module"
-        title="Attendance Approval"
-        description="Review, approve, or reject submitted attendance records. Delayed approvals are fully supported."
-      />
       <AttendanceApprovalTable />
     </div>
   );

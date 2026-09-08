@@ -1142,38 +1142,16 @@ export function RegistrationManager({
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-              Revenue Registration
-            </p>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Registration console</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
-              Create, search, approve, and track registrations with manual tracking numbers.
-            </p>
-            {currentOfficeLocationName ? (
-              <p className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                Region auto-routes from your office: {currentOfficeLocationName}
-              </p>
-            ) : (
-              <p className="mt-3 text-xs font-semibold text-amber-700">
-                No office location is assigned to this user yet, so new registrations cannot be saved.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {hasImportPermission && (
-              <Button variant="secondary" onClick={() => setIsImportWizardOpen(true)}>
-                <FileSpreadsheet size={18} className="mr-2" /> Import
-              </Button>
-            )}
-            <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
-              <Plus size={18} /> Add Registration
-            </Button>
-          </div>
-        </div>
-      </section>
+      <div className="flex items-center justify-end gap-2">
+        {hasImportPermission && (
+          <Button variant="secondary" onClick={() => setIsImportWizardOpen(true)}>
+            <FileSpreadsheet size={18} className="mr-2" /> Import
+          </Button>
+        )}
+        <Button onClick={openCreate} disabled={!currentOfficeLocationName}>
+          <Plus size={18} /> Add Registration
+        </Button>
+      </div>
 
       {!currentOfficeLocationName ? (
         <p className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700">

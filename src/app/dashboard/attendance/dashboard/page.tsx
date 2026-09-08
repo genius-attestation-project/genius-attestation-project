@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/ui/PageHeader";
 import { AttendanceDashboard } from "@/features/attendance/components/AttendanceDashboard";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { requireAuth } from "@/middleware/auth.middleware";
@@ -13,11 +12,6 @@ export default async function AttendanceDashboardPage() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Attendance Module"
-        title="Attendance Dashboard"
-        description="Real-time overview of today's attendance, approvals, and workforce presence."
-      />
       <AttendanceDashboard canViewAll={canViewAll} />
     </div>
   );

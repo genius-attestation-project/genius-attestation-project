@@ -1,6 +1,5 @@
 
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SalaryManagement } from "@/features/salary/components/SalaryManagement";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { requireAuth } from "@/middleware/auth.middleware";
@@ -21,11 +20,6 @@ export default async function SalaryMonthlyPayrollPage() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Salary Module"
-        title="Monthly Payroll"
-        description="Generate payroll snapshots and approve them when the month is ready to close."
-      />
       <SalaryManagement mode="payroll" />
     </div>
   );

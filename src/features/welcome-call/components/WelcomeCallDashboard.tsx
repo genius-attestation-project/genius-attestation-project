@@ -216,24 +216,15 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-[32px] border border-blue-100 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_44%),linear-gradient(135deg,_#ffffff,_#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Welcome Call</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">Daily client call desk</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Live registrations from yesterday land here automatically so your office can complete onboarding calls without duplicate entry.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-blue-200 bg-white/90 px-4 py-3 text-right shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Current Office</p>
-            <p className="mt-2 text-lg font-bold text-slate-900">{currentOfficeLocationName || "Unassigned"}</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Queue date: {queueDate ? formatQueueDate(queueDate) : "-"}
-            </p>
-          </div>
+      <div className="flex items-center justify-end">
+        <div className="rounded-2xl border border-blue-200 bg-white/90 px-4 py-3 text-right shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Current Office</p>
+          <p className="mt-1 text-base font-bold text-slate-900">{currentOfficeLocationName || "Unassigned"}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Queue date: {queueDate ? formatQueueDate(queueDate) : "-"}
+          </p>
         </div>
-      </section>
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (

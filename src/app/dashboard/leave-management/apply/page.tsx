@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/ui/PageHeader";
 import { AccessDenied } from "@/components/shared/AccessDenied";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { ApplyLeaveManagement } from "@/features/leave/components/ApplyLeaveManagement";
@@ -12,7 +11,6 @@ export default async function ApplyLeavePage() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader eyebrow="Leave Management" title="Apply Leave" description="Submit a leave request for approval." />
       <ApplyLeaveManagement />
     </div>
   );

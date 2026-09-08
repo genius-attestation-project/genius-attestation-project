@@ -468,9 +468,6 @@ export function ReadyForDeliveryDashboard({
             <h1 className="text-xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white">
               READY FOR DELIVERY LIST!!
             </h1>
-            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-              Office-wise Grouped Document Delivery Queue
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

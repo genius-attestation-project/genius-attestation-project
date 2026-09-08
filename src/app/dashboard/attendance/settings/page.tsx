@@ -1,5 +1,4 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { AttendanceSettingsForm } from "@/features/attendance/components/AttendanceSettingsForm";
 import { requireAuth } from "@/middleware/auth.middleware";
 import { hasPermission } from "@/features/admin/server/rbac.service";
@@ -42,11 +41,6 @@ export default async function AttendanceSettingsPage() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Attendance Module"
-        title="Attendance Settings"
-        description="Configure expected check-in and check-out times per user for late detection."
-      />
       <AttendanceSettingsForm users={users} />
     </div>
   );

@@ -697,14 +697,6 @@ export function PendingApprovalDashboard() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="overflow-hidden rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#dbeafe)] p-6 shadow-(--shadow-card) sm:p-8 dark:border-blue-900/40 dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_42%),linear-gradient(135deg,#0f172a,#1e293b)]">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Lead & Financial Approvals</p>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pending Approval</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Review enterprise approval requests for advance payment approvals, advance details management, corporate details, restricted lead status changes, and follow-ups.
-        </p>
-      </section>
-
       <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5 dark:bg-white/5">
         {permittedTabs.length === 0 ? (
           <p className="text-xs font-semibold text-soft py-2">You do not have permission to view any approval queues.</p>

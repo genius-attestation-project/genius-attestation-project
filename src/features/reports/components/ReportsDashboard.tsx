@@ -5,9 +5,8 @@ import { ReportFilterProvider } from "../context/ReportFilterContext";
 import GlobalFilterBar from "./GlobalFilterBar";
 import ExecutiveSummary from "./ExecutiveSummary";
 import DetailedReports from "./DetailedReports";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Download, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 
 export default function ReportsDashboard() {
   const [viewMode, setViewMode] = useState<"executive" | "detailed">("executive");
@@ -19,16 +18,10 @@ export default function ReportsDashboard() {
   return (
     <ReportFilterProvider>
       <div className="space-y-6">
-        <div className="flex justify-between items-center print:hidden">
-          <PageHeader 
-            title="Reports & Analytics" 
-            description="Centralized data reporting and visualization" 
-          />
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={handlePrint} className="flex items-center gap-2">
-              <Printer className="w-4 h-4" /> Print / Save as PDF
-            </Button>
-          </div>
+        <div className="flex justify-end items-center print:hidden">
+          <Button variant="secondary" onClick={handlePrint} className="flex items-center gap-2">
+            <Printer className="w-4 h-4" /> Print / Save as PDF
+          </Button>
         </div>
 
         <div className="print:hidden">

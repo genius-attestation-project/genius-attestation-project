@@ -499,8 +499,8 @@ export function ProcessDashboard({
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Top Banner with Header & Process Office Selector */}
-      <section className="relative z-30 rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-6 shadow-(--shadow-card) sm:p-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+      <section className="relative z-30 rounded-4xl border border-blue-100 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_42%),linear-gradient(135deg,#ffffff,#eff6ff)] p-4 shadow-(--shadow-card) sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-bold tracking-wider text-blue-600">
@@ -516,12 +516,6 @@ export function ProcessDashboard({
                 </span>
               )}
             </div>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
-              Process Module Dashboard
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage document processing workflows. Receive from Assigned Office, transfer to BM Report or Assigned Office, and track movement history.
-            </p>
           </div>
 
           {/* Structured Controls Section with Explicit Labels */}
