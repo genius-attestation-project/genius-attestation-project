@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   X,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/cn";
@@ -645,12 +646,14 @@ export function AssignedOfficeWorkspaceClient({
                     <th className="p-4">SL No</th>
                     {activeTab === "history" ? (
                       <>
-                        <th className="p-4">Tracking Number</th>
+                        <th className="p-4">Bundle Number</th>
                         <th className="p-4">Step</th>
                         <th className="p-4">Status</th>
                         <th className="p-4">Performed By</th>
                         <th className="p-4">Date</th>
                         <th className="p-4">Remarks</th>
+                        <th className="p-4 text-center">Documents</th>
+                        <th className="p-4 text-right">Actions</th>
                       </>
                     ) : (
                       <>
@@ -675,25 +678,67 @@ export function AssignedOfficeWorkspaceClient({
                   ) : (
                     items.map((row: any, index: number) => {
                       if (activeTab === "history") {
+                        const activeCount = row.activeRemainingCount ?? row.items?.length ?? 0;
+                        const totalCount = row.totalDocuments ?? row.items?.length ?? 0;
                         return (
-                          <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5">
+                          <tr key={row.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors">
                             <td className="p-4 font-semibold text-slate-500">{index + 1}</td>
-                            <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
-                              {row.trackingNumber}
+                            <td className="p-4">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewBundle(row)}
+                                className="font-mono font-bold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 text-left"
+                              >
+                                {formatBundleNumber(row.bundleNumber)}
+                              </button>
                             </td>
                             <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
-                              {row.workflowStep}
+                              {row.workflowStep || "Transferred to Process"}
                             </td>
                             <td className="p-4">
-                              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                                {row.status}
+                              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                {row.status || "In Transit"}
                               </span>
                             </td>
-                            <td className="p-4 text-xs">{row.performedBy || "System"}</td>
-                            <td className="p-4 text-xs text-slate-500">
-                              {new Date(row.performedAt).toLocaleString()}
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {row.performedBy || "System"}
                             </td>
-                            <td className="p-4 text-xs text-slate-500">{row.remarks || "-"}</td>
+                            <td className="p-4 text-xs text-slate-500">
+                              {new Date(row.performedAt || row.createdAt).toLocaleString()}
+                            </td>
+                            <td className="p-4 text-xs text-slate-500 max-w-[200px] truncate" title={row.remarks || ""}>
+                              {row.remarks || "-"}
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                                {activeCount}
+                                {totalCount !== activeCount && (
+                                  <span className="text-[10px] text-slate-400">/{totalCount}</span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setPreviewBundle(row)}
+                                  className="gap-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-300"
+                                >
+                                  <Eye size={14} /> View Bundle
+                                </Button>
+                                {activeCount > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => setRetrieveItem(row)}
+                                    className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200 dark:border-blue-900/50 dark:hover:bg-blue-950/30"
+                                  >
+                                    <RotateCcw size={14} /> Retrieve
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         );
                       }
@@ -923,23 +968,29 @@ export function AssignedOfficeWorkspaceClient({
       <RetrieveConfirmationModal
         open={Boolean(retrieveItem)}
         onClose={() => setRetrieveItem(null)}
-        itemTitle={retrieveItem?.trackingNumber}
-        onConfirm={async (reason) => {
+        itemTitle={retrieveItem?.bundleNumber || retrieveItem?.trackingNumber}
+        documentCount={retrieveItem?.items?.length || (retrieveItem ? 1 : 0)}
+        documentDetails={retrieveItem?.items || (retrieveItem ? [retrieveItem] : [])}
+        onConfirmSelection={async (trackingNumbers) => {
           if (!retrieveItem) return;
+          const bundleId = retrieveItem.bundleId || (retrieveItem.bundleNumber ? retrieveItem.id : undefined);
           const res = await fetch("/api/document-movement/retrieve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              trackingNumbers: [retrieveItem.trackingNumber],
-              reason,
+              bundleId,
+              trackingNumbers: trackingNumbers && trackingNumbers.length > 0
+                ? trackingNumbers
+                : retrieveItem.trackingNumber
+                  ? [retrieveItem.trackingNumber]
+                  : undefined,
+              action: "RETRIEVE",
             }),
           });
           const json = await res.json();
           if (!res.ok) {
-            alert(json.error || "Failed to retrieve document.");
-            return;
+            throw new Error(json.message || json.error || "Failed to retrieve document.");
           }
-          alert(json.message || "Document retrieved successfully.");
           setRetrieveItem(null);
           await fetchTabData();
           await fetchStats();

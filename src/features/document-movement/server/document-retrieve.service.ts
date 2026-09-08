@@ -59,10 +59,10 @@ export async function retrieveOutboundDocuments(
       }
 
       // Filter unreceived items in the bundle
-      let unreceivedItems = bundle.items.filter((item: any) => item.status !== "Received");
+      let unreceivedItems = bundle.items.filter((item: any) => item.status !== "Received" && item.status !== "Retrieved");
 
       if (unreceivedItems.length === 0) {
-        throw new Error("Cannot retrieve bundle. All documents have already been received by the destination office.");
+        throw new Error("Cannot retrieve bundle. All documents have already been received or retrieved.");
       }
 
       // If specific tracking numbers are provided alongside bundleId, restrict
@@ -71,7 +71,7 @@ export async function retrieveOutboundDocuments(
         const requestedSet = new Set(params.trackingNumbers);
         unreceivedItems = unreceivedItems.filter((item: any) => requestedSet.has(item.trackingNumber));
         if (unreceivedItems.length === 0) {
-          throw new Error("None of the selected documents are eligible for retrieval.");
+          throw new Error("None of the selected documents are eligible for retrieval (they may have already been received or retrieved).");
         }
       }
 
@@ -144,9 +144,10 @@ export async function retrieveOutboundDocuments(
         // Guard: skip only if the document was sent to another office and already received by that destination office
         const isReceivedAtOtherOffice =
           movement.toOfficeId &&
-          movement.toOfficeId !== userOfficeId &&
-          movement.status === "Received" &&
-          movement.currentStatus === "Received";
+          movement.toOfficeId !== (bundle?.fromOfficeId || userOfficeId) &&
+          (movement.status === "Received" || movement.currentStatus === "Document In Hand" || movement.currentStatus === "In Hand") &&
+          movement.fromOfficeId !== movement.toOfficeId &&
+          movement.currentOfficeId === movement.toOfficeId;
 
         if (isReceivedAtOtherOffice) {
           console.log(`[DEBUG Retrieve Service] Skipped #${trackingNumber} because it was received by destination office ${movement.toOfficeId}`);
@@ -160,7 +161,7 @@ export async function retrieveOutboundDocuments(
 
       // 1. Update BundleItem if item belongs to a bundle
       await tx.bundleItem.updateMany({
-        where: { trackingNumber, status: { not: "Received" } },
+        where: { trackingNumber, status: { notIn: ["Received", "Retrieved"] } },
         data: {
           status: "Retrieved",
         },
@@ -187,14 +188,21 @@ export async function retrieveOutboundDocuments(
       });
 
       // 3. Restore the document to the module and office it was transferred from.
+      const isAssignedOffice = movement.fromModule === "ASSIGNED_OFFICE";
       const isProcessModule =
-        movement.fromModule === "PROCESS_MODULE" ||
-        Boolean(bundle?.bundleNumber?.startsWith("PROC-")) ||
-        Boolean(bundle?.bundleNumber?.startsWith("BND-OFFICE-")) ||
-        Boolean(bundle?.bundleNumber?.startsWith("HOME-PROC-"));
+        !isAssignedOffice && (
+          movement.fromModule === "PROCESS_MODULE" ||
+          Boolean(bundle?.bundleNumber?.startsWith("PROC-")) ||
+          Boolean(bundle?.bundleNumber?.startsWith("BND-OFFICE-")) ||
+          Boolean(bundle?.bundleNumber?.startsWith("HOME-PROC-"))
+        );
 
-      const targetModule = isProcessModule ? "PROCESS_MODULE" : "HOME";
-      const targetStatus = isProcessModule ? "IN_HAND" : "HOME";
+      const targetModule = isAssignedOffice
+        ? "ASSIGNED_OFFICE"
+        : (isProcessModule ? "PROCESS_MODULE" : "HOME");
+      const targetStatus = isAssignedOffice
+        ? "Document In Hand"
+        : (isProcessModule ? "IN_HAND" : "HOME");
       const previousOfficeId = movement.fromOfficeId || bundle?.fromOfficeId || userOfficeId;
 
       const updatedMovement = await tx.documentMovement.update({
@@ -208,6 +216,7 @@ export async function retrieveOutboundDocuments(
           fromOfficeId: previousOfficeId,
           status: targetStatus,
           currentStatus: "Document In Hand",
+          movementType: isAssignedOffice ? "RETRIEVE" : movement.movementType,
           remarks: reason || `Retrieved by ${userOfficeName}`,
         },
       });

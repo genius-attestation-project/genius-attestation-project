@@ -908,9 +908,20 @@ export async function getAssignedOfficeWorkspaceStats(officeId: string, ownerAdm
     },
   });
 
-  const historyCount = await (prisma as any).documentWorkflowHistory.count({
-    where: { ownerAdminId },
+  const rawHistoryBundles = await (prisma as any).bundle.findMany({
+    where: {
+      fromOfficeId: { in: allOfficeIds },
+      ownerAdminId,
+      status: { notIn: ["Received", "Retrieved", "Cancelled", "Completed"] },
+    },
+    include: {
+      items: true,
+    },
   });
+
+  const historyCount = rawHistoryBundles.filter((b: any) =>
+    b.items.some((item: any) => item.status !== "Received" && item.status !== "Retrieved" && item.status !== "Completed")
+  ).length;
 
   return {
     inboundCount: inboundBundlesCount,
@@ -1050,11 +1061,144 @@ export async function listWorkspaceDocuments(params: {
   }
 
   if (params.tab === "history") {
-    return (prisma as any).documentWorkflowHistory.findMany({
-      where: { ownerAdminId: params.ownerAdminId },
-      orderBy: { performedAt: "desc" },
-      take: 100,
+    const rawBundles = await (prisma as any).bundle.findMany({
+      where: {
+        fromOfficeId: { in: allOfficeIds },
+        ownerAdminId: params.ownerAdminId,
+      },
+      include: {
+        fromOffice: true,
+        toOffice: true,
+        items: true,
+        movements: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
+
+    const trackingNumbers: string[] = Array.from(
+      new Set(rawBundles.flatMap((b: any) => b.items.map((i: any) => i.trackingNumber as string)))
+    );
+
+    const [registrations, movements] = await Promise.all([
+      prisma.registration.findMany({
+        where: { trackingNumber: { in: trackingNumbers } },
+      }),
+      prisma.documentMovement.findMany({
+        where: { trackingNumber: { in: trackingNumbers } },
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
+
+    const regMap = new Map(registrations.map((r) => [r.trackingNumber, r]));
+    const movMap = new Map<string, any>();
+    for (const mov of movements) {
+      if (!movMap.has(mov.trackingNumber)) {
+        movMap.set(mov.trackingNumber, mov);
+      }
+    }
+
+    const filteredBundles: any[] = [];
+
+    for (const b of rawBundles) {
+      // An item is actively in-transit / unreceived if:
+      // 1. Bundle item status is not "Received" and not "Retrieved" and not "Completed"
+      // 2. DocumentMovement does not show it has already been received at the destination office or retrieved back
+      const activeItems = b.items.filter((item: any) => {
+        if (item.status === "Received" || item.status === "Retrieved" || item.status === "Completed") {
+          return false;
+        }
+        const mov = movMap.get(item.trackingNumber);
+        if (mov) {
+          // If destination office received it into their in-hand
+          const isReceivedAtDest =
+            mov.currentOfficeId === b.toOfficeId &&
+            (mov.status === "Received" || mov.currentStatus === "Document In Hand" || mov.currentStatus === "In Hand");
+          if (isReceivedAtDest) return false;
+
+          // If sender office already retrieved it back into in-hand
+          const isRetrievedBySender =
+            allOfficeIds.includes(mov.currentOfficeId) &&
+            (mov.status === "Document In Hand" || mov.currentStatus === "Document In Hand") &&
+            mov.status !== "INBOUND";
+          if (isRetrievedBySender) return false;
+        }
+        return true;
+      });
+
+      // Disappearance rule: If no active documents remain in this bundle, do not show it in active History
+      if (activeItems.length === 0) {
+        continue;
+      }
+
+      const bundleMovement = b.movements?.[0];
+      const workflowStep =
+        bundleMovement?.movementType === "BACK_TO_PROCESS"
+          ? "Back to Process"
+          : bundleMovement?.movementType || `Transferred to ${b.toOffice?.officeName || "Process"}`;
+
+      const enrichedActiveItems = activeItems.map((item: any) => {
+        const reg = regMap.get(item.trackingNumber);
+        return {
+          ...item,
+          registration: reg || null,
+          customerName: reg?.customerName || (reg as any)?.clientName || null,
+          documentType: reg?.documentType || null,
+          processType: reg?.processType || reg?.externalProcess || null,
+          createdAt: reg?.createdAt || item.createdAt,
+        };
+      });
+
+      const enrichedBundle = {
+        id: b.id,
+        bundleId: b.id,
+        bundleNumber: b.bundleNumber,
+        fromOfficeId: b.fromOfficeId,
+        fromOffice: b.fromOffice,
+        toOfficeId: b.toOfficeId,
+        toOffice: b.toOffice,
+        status: b.status,
+        workflowStep,
+        performedBy: b.createdBy || bundleMovement?.performedBy || "System",
+        performedAt: b.createdAt,
+        createdAt: b.createdAt,
+        remarks: bundleMovement?.remarks || `Transferred to ${b.toOffice?.officeName || "Process"}`,
+        totalDocuments: b.items.length,
+        activeRemainingCount: activeItems.length,
+        items: enrichedActiveItems,
+        allItems: b.items,
+      };
+
+      // Search filter if provided
+      if (params.search && params.search.trim()) {
+        const q = params.search.trim().toLowerCase();
+        const matchesBundle =
+          b.bundleNumber.toLowerCase().includes(q) ||
+          (b.toOffice?.officeName && b.toOffice.officeName.toLowerCase().includes(q)) ||
+          workflowStep.toLowerCase().includes(q) ||
+          (b.createdBy && b.createdBy.toLowerCase().includes(q));
+
+        const matchesItem = enrichedActiveItems.some((item: any) => {
+          const reg = item.registration;
+          return (
+            item.trackingNumber.toLowerCase().includes(q) ||
+            (reg?.customerName && reg.customerName.toLowerCase().includes(q)) ||
+            (reg?.documentType && reg.documentType.toLowerCase().includes(q)) ||
+            (reg?.processType && reg.processType.toLowerCase().includes(q))
+          );
+        });
+
+        if (!matchesBundle && !matchesItem) {
+          continue;
+        }
+      }
+
+      filteredBundles.push(enrichedBundle);
+    }
+
+    return filteredBundles;
   }
 
   // Default: 'in_hand'
