@@ -34,7 +34,6 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 type AnalyticsCards = {
   totalLobLeads: number;
@@ -403,22 +402,15 @@ export function LobAnalyticsDashboard() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Lead Management"
-        title="LOB Analytics"
-        description="Enterprise-style visibility into leads that moved into Loss of Business, including transition sources, service impact, geographic trends, and recovery potential."
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-200">
-              Auto-refresh every 30s
-            </div>
-            <Button onClick={() => void fetchAll()} variant="secondary">
-              <RefreshCw size={15} />
-              Refresh
-            </Button>
-          </div>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-200">
+          Auto-refresh every 30s
+        </div>
+        <Button onClick={() => void fetchAll()} variant="secondary">
+          <RefreshCw size={15} />
+          Refresh
+        </Button>
+      </div>
 
       {error ? (
         <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

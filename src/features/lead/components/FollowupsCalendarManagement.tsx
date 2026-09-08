@@ -27,7 +27,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Textarea } from "@/components/ui/Textarea";
 import { FollowupDateTimePicker } from "@/features/lead/components/FollowupDateTimePicker";
 import { LeadForm } from "@/features/lead/components/LeadForm";
@@ -457,17 +456,12 @@ export function FollowupsCalendarManagement() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Lead Management"
-        title="Followups"
-        description="Modern CRM scheduling for live lead followups with reminders, snooze controls, completion notes, and timeline history."
-        actions={
-          <Button variant="secondary" onClick={() => void refreshCalendarData(activeFilter)}>
-            <RefreshCw size={16} />
-            Refresh
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-end">
+        <Button variant="secondary" onClick={() => void refreshCalendarData(activeFilter)}>
+          <RefreshCw size={16} />
+          Refresh
+        </Button>
+      </div>
 
       {notificationItem ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-blue-200 bg-linear-to-r from-blue-50 to-cyan-50 px-5 py-4 shadow-sm">

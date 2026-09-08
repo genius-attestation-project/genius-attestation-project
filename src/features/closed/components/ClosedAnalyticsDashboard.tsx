@@ -37,7 +37,6 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 type DateRangeFilter = "today" | "week" | "month" | "all";
 type TrendInterval = "daily" | "weekly" | "monthly";
@@ -398,22 +397,15 @@ export function ClosedAnalyticsDashboard() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Lead Management"
-        title="Closed Leads Analytics"
-        description="Track closed lead performance with revenue, trend visibility, transition analysis, and timeline activity from the live CRM database."
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
-              Auto-refresh every 30s
-            </div>
-            <Button onClick={() => void fetchAll()} variant="secondary">
-              <RefreshCw size={15} />
-              Refresh
-            </Button>
-          </div>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+          Auto-refresh every 30s
+        </div>
+        <Button onClick={() => void fetchAll()} variant="secondary">
+          <RefreshCw size={15} />
+          Refresh
+        </Button>
+      </div>
 
       {error ? (
         <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

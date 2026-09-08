@@ -122,9 +122,6 @@ export const AccountPanelDashboard: React.FC = () => {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Showing financial accounts assigned to your current office location. Click any leaf account to add a transaction.
-              </p>
             </div>
           </div>
         </div>

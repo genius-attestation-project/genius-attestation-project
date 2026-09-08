@@ -70,9 +70,6 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
           <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
             Accounts Statements
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Unified financial report of cash & non-cash advances, credit accounts, and debit expenditures.
-          </p>
         </div>
 
         {hasSearched && (

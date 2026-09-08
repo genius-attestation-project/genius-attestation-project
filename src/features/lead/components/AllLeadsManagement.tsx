@@ -11,7 +11,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { LeadForm } from "@/features/lead/components/LeadForm";
 import { defaultLeadValues, leadStatuses, type LeadFormValues } from "@/features/lead/data/lead.data";
@@ -41,8 +40,8 @@ function toLocalDateTimeInput(value: string | null) {
 }
 
 export function AllLeadsManagement({
-  title = "All Leads",
-  description = "Manage every lead record from one clean CRM workspace with fast filtering, structured details, and a modern lead creation form.",
+  title: _title = "All Leads",
+  description: _description = "Manage every lead record from one clean CRM workspace with fast filtering, structured details, and a modern lead creation form.",
   endpoint = "/api/leads",
   showAddLead = true,
   allowStatusFilter = true,
@@ -471,19 +470,14 @@ export function AllLeadsManagement({
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <PageHeader
-        eyebrow="Lead Management"
-        title={title}
-        description={description}
-        actions={
-          showAddLead ? (
-            <Button onClick={() => setIsDrawerOpen(true)}>
-              <Plus size={16} />
-              Add Lead
-            </Button>
-          ) : undefined
-        }
-      />
+      {showAddLead && (
+        <div className="flex items-center justify-end">
+          <Button onClick={() => setIsDrawerOpen(true)}>
+            <Plus size={16} />
+            Add Lead
+          </Button>
+        </div>
+      )}
 
       <DashboardCard>
         <div className="grid gap-4">

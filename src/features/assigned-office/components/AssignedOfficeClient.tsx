@@ -439,41 +439,27 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
 
   return (
     <div className="space-y-6 w-full pb-12">
-      {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5 dark:border-white/10">
-        <div>
-          <div className="flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Assigned Office
-            </h1>
-          </div>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Manage external processing offices, credentials, process type mappings, main process, and workspace permissions.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {permissions["assigned_office.export"] && (
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              className="gap-2 rounded-xl border-slate-300 dark:border-white/15"
-            >
-              <Download size={16} />
-              Export Excel
-            </Button>
-          )}
-
-          {/* ALWAYS VISIBLE CREATE BUTTON */}
+      {/* Top Action Bar */}
+      <div className="flex items-center justify-end gap-3">
+        {permissions["assigned_office.export"] && (
           <Button
-            onClick={handleOpenCreate}
-            className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+            variant="secondary"
+            onClick={handleExport}
+            className="gap-2 rounded-xl border-slate-300 dark:border-white/15"
           >
-            <Plus size={18} />
-            + Create Assigned Office
+            <Download size={16} />
+            Export Excel
           </Button>
-        </div>
+        )}
+
+        {/* ALWAYS VISIBLE CREATE BUTTON */}
+        <Button
+          onClick={handleOpenCreate}
+          className="gap-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+        >
+          <Plus size={18} />
+          + Create Assigned Office
+        </Button>
       </div>
 
       {/* Filters Bar */}
