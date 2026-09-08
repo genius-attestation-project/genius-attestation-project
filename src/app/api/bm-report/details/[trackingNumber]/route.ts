@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { getDocumentMovementDetails } from "@/features/bm-report/server/bm-tracking.service";
+import {
+  getDocumentMovementDetails,
+  getBmReportOfficeScope,
+} from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET(
@@ -18,12 +21,23 @@ export async function GET(
       return jsonError("No owner admin ID found.", 401);
     }
 
+    const { isSuperAdmin, allowedOfficeNames } = getBmReportOfficeScope(session?.user);
+
     const { trackingNumber } = await context.params;
     if (!trackingNumber) {
       return jsonError("Tracking number is required.", 400);
     }
 
-    const details = await getDocumentMovementDetails(ownerAdminId, trackingNumber);
+    const details = await getDocumentMovementDetails(
+      ownerAdminId,
+      trackingNumber,
+      allowedOfficeNames,
+      isSuperAdmin
+    );
+
+    if (!details) {
+      return jsonError("Document not found or access denied.", 404);
+    }
 
     return jsonOk({ details });
   } catch (error: any) {

@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { getBmLocationTrackingData } from "@/features/bm-report/server/bm-tracking.service";
+import {
+  getBmLocationTrackingData,
+  getBmReportOfficeScope,
+} from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET(request: NextRequest) {
@@ -15,9 +18,13 @@ export async function GET(request: NextRequest) {
       return jsonError("No owner admin ID found.", 401);
     }
 
+    const { isSuperAdmin, allowedOfficeNames } = getBmReportOfficeScope(session?.user);
+
     const sections = await getBmLocationTrackingData({
       ownerAdminId,
       tab: "in_hand",
+      allowedOfficeNames,
+      isSuperAdmin,
     });
 
     const totalDocuments = sections.reduce((sum, sec) => sum + sec.documents.length, 0);

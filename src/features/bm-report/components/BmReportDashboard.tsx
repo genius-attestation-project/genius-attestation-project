@@ -46,13 +46,18 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
         const data = await res.json();
         if (data.offices && Array.isArray(data.offices)) {
           setOffices(data.offices);
-          if (data.offices.length > 0 && selectedOffice === "all") {
-            // Set default office to user's current office if present, otherwise all
+          if (data.offices.length === 1) {
+            setSelectedOffice(data.offices[0]);
+          } else if (data.offices.length === 0) {
+            setSelectedOffice("");
+          } else if (data.offices.length > 1) {
             const match = data.offices.find(
               (o: string) => o.toLowerCase() === currentOfficeLocationName?.toLowerCase()
             );
             if (match) {
               setSelectedOffice(match);
+            } else if (selectedOffice !== "all" && !data.offices.includes(selectedOffice)) {
+              setSelectedOffice("all");
             }
           }
         }
@@ -140,14 +145,23 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             <select
               value={selectedOffice}
               onChange={(e) => setSelectedOffice(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400"
+              disabled={offices.length === 0}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 disabled:opacity-60"
             >
-              <option value="all">All Registration Offices</option>
-              {offices.map((office) => (
-                <option key={office} value={office}>
-                  {office}
-                </option>
-              ))}
+              {offices.length === 0 ? (
+                <option value="">No authorized offices</option>
+              ) : (
+                <>
+                  {offices.length > 1 && (
+                    <option value="all">All Registration Offices</option>
+                  )}
+                  {offices.map((office) => (
+                    <option key={office} value={office}>
+                      {office}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
         </div>

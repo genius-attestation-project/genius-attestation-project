@@ -22,8 +22,74 @@ export type BmLocationSection = {
   documents: BmDocumentRow[];
 };
 
-export async function getRegistrationOffices(ownerAdminId: string) {
-  // Fetch office locations where isProcessOffice is not true and not external process/sub-package
+export function getBmReportOfficeScope(user: any): {
+  isSuperAdmin: boolean;
+  allowedOfficeNames: string[] | null;
+  allowedOfficeIds: string[] | null;
+} {
+  if (!user) {
+    return {
+      isSuperAdmin: false,
+      allowedOfficeNames: [],
+      allowedOfficeIds: [],
+    };
+  }
+
+  const isSuperAdmin = Boolean(
+    user.isSuperAdmin ||
+    user.role === "Super Admin" ||
+    (Array.isArray(user.roles) && user.roles.includes("Super Admin")) ||
+    user.allowedOfficeIds === null ||
+    user.allowedOfficeNames === null
+  );
+
+  if (isSuperAdmin) {
+    return {
+      isSuperAdmin: true,
+      allowedOfficeNames: null,
+      allowedOfficeIds: null,
+    };
+  }
+
+  // Check module-specific Office Visibility Access for "bm_report"
+  if (user.moduleOfficeVisibilities !== null && user.moduleOfficeVisibilities !== undefined) {
+    const bmConfig = user.moduleOfficeVisibilities["bm_report"];
+    if (!bmConfig || (bmConfig.officeIds?.length === 0 && bmConfig.officeNames?.length === 0)) {
+      return {
+        isSuperAdmin: false,
+        allowedOfficeNames: [],
+        allowedOfficeIds: [],
+      };
+    }
+    return {
+      isSuperAdmin: false,
+      allowedOfficeNames: Array.isArray(bmConfig.officeNames) ? bmConfig.officeNames : [],
+      allowedOfficeIds: Array.isArray(bmConfig.officeIds) ? bmConfig.officeIds : [],
+    };
+  }
+
+  // Fallback to user-level allowed offices if moduleOfficeVisibilities is not configured
+  return {
+    isSuperAdmin: false,
+    allowedOfficeNames: Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [],
+    allowedOfficeIds: Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [],
+  };
+}
+
+export async function getRegistrationOffices(
+  ownerAdminId: string,
+  allowedOfficeNames?: string[] | null,
+  isSuperAdmin?: boolean
+) {
+  // If non-Super Admin with explicit allowed offices, return strictly the authorized offices
+  if (!isSuperAdmin && allowedOfficeNames !== null && allowedOfficeNames !== undefined) {
+    if (allowedOfficeNames.length === 0) {
+      return [];
+    }
+    return [...allowedOfficeNames].sort((a, b) => a.localeCompare(b));
+  }
+
+  // Super Admin / Unrestricted Global Access: fetch all registration offices in workspace
   const offices = await prisma.officeLocation.findMany({
     where: {
       ownerAdminId,
@@ -57,7 +123,7 @@ export async function getRegistrationOffices(ownerAdminId: string) {
     }
   });
 
-  return Array.from(setOfNames).sort();
+  return Array.from(setOfNames).sort((a, b) => a.localeCompare(b));
 }
 
 export async function getBmLocationTrackingData(params: {
@@ -65,15 +131,40 @@ export async function getBmLocationTrackingData(params: {
   registrationOffice?: string;
   tab: BmTrackingTab;
   search?: string;
+  allowedOfficeNames?: string[] | null;
+  isSuperAdmin?: boolean;
 }) {
-  const { ownerAdminId, registrationOffice, tab, search } = params;
+  const { ownerAdminId, registrationOffice, tab, search, allowedOfficeNames, isSuperAdmin } = params;
 
   const whereClause: any = {
     ownerAdminId,
   };
 
-  if (registrationOffice && registrationOffice !== "all" && registrationOffice.trim() !== "") {
-    whereClause.regionOfRegistration = registrationOffice;
+  // Enforce Office Visibility Access for non-Super Admin
+  if (!isSuperAdmin && allowedOfficeNames !== null && allowedOfficeNames !== undefined) {
+    if (allowedOfficeNames.length === 0) {
+      // 0 allowed offices: user has no access to any office data in BM Report
+      return [];
+    }
+
+    if (registrationOffice && registrationOffice !== "all" && registrationOffice.trim() !== "") {
+      const match = allowedOfficeNames.find(
+        (name) => name.trim().toLowerCase() === registrationOffice.trim().toLowerCase()
+      );
+      if (!match) {
+        // User requested an office they are not authorized for
+        return [];
+      }
+      whereClause.regionOfRegistration = match;
+    } else {
+      // "all" or omitted: scope query strictly to all permitted offices
+      whereClause.regionOfRegistration = { in: allowedOfficeNames };
+    }
+  } else {
+    // Super Admin / Unrestricted Global Access
+    if (registrationOffice && registrationOffice !== "all" && registrationOffice.trim() !== "") {
+      whereClause.regionOfRegistration = registrationOffice;
+    }
   }
 
   if (search && search.trim() !== "") {
@@ -196,9 +287,27 @@ export async function getBmLocationTrackingData(params: {
   return sections;
 }
 
-export async function getDocumentMovementDetails(ownerAdminId: string, trackingNumber: string) {
+export async function getDocumentMovementDetails(
+  ownerAdminId: string,
+  trackingNumber: string,
+  allowedOfficeNames?: string[] | null,
+  isSuperAdmin?: boolean
+) {
+  const whereClause: any = {
+    trackingNumber,
+    ownerAdminId,
+  };
+
+  // Enforce Office Visibility Access for non-Super Admin
+  if (!isSuperAdmin && allowedOfficeNames !== null && allowedOfficeNames !== undefined) {
+    if (allowedOfficeNames.length === 0) {
+      return null;
+    }
+    whereClause.regionOfRegistration = { in: allowedOfficeNames };
+  }
+
   const registration = await prisma.registration.findFirst({
-    where: { trackingNumber, ownerAdminId },
+    where: whereClause,
     include: {
       documentMovements: {
         include: {

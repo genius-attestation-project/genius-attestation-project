@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
-import { getBmLocationTrackingData, type BmTrackingTab } from "@/features/bm-report/server/bm-tracking.service";
+import {
+  getBmLocationTrackingData,
+  getBmReportOfficeScope,
+  type BmTrackingTab,
+} from "@/features/bm-report/server/bm-tracking.service";
 import { jsonError } from "@/utils/response";
 
 export async function GET(request: NextRequest) {
@@ -15,17 +19,37 @@ export async function GET(request: NextRequest) {
       return jsonError("No owner admin ID found.", 401);
     }
 
+    const { isSuperAdmin, allowedOfficeNames } = getBmReportOfficeScope(session?.user);
+
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") ?? "csv";
     const registrationOffice = searchParams.get("registrationOffice") ?? undefined;
     const tab = (searchParams.get("tab") as BmTrackingTab) || "in_hand";
     const search = searchParams.get("search") ?? undefined;
 
+    // Backend security enforcement against unauthorized office exports
+    if (
+      !isSuperAdmin &&
+      allowedOfficeNames !== null &&
+      registrationOffice &&
+      registrationOffice !== "all" &&
+      registrationOffice.trim() !== ""
+    ) {
+      const isAllowed = allowedOfficeNames.some(
+        (name) => name.trim().toLowerCase() === registrationOffice.trim().toLowerCase()
+      );
+      if (!isAllowed) {
+        return jsonError("Access to the requested registration office is forbidden.", 403);
+      }
+    }
+
     const sections = await getBmLocationTrackingData({
       ownerAdminId,
       registrationOffice,
       tab,
       search,
+      allowedOfficeNames,
+      isSuperAdmin,
     });
 
     const allDocuments = sections.flatMap((sec) =>
