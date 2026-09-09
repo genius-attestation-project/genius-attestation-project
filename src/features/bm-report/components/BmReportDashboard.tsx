@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   FileSearch,
   Search,
@@ -31,12 +31,14 @@ const TABS: Array<{ id: BmTrackingTab; label: string; icon: any }> = [
 
 export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboardProps) {
   const [offices, setOffices] = useState<string[]>([]);
-  const [selectedOffice, setSelectedOffice] = useState<string>("all");
+  const [selectedOffice, setSelectedOffice] = useState<string>("");
+  const [isOfficesLoaded, setIsOfficesLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<BmTrackingTab>("in_hand");
   const [searchQuery, setSearchQuery] = useState("");
   const [sections, setSections] = useState<BmLocationSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTrackingNumber, setSelectedTrackingNumber] = useState<string | null>(null);
+  const hasUserSelectedRef = useRef(false);
 
   // Fetch list of Registration Offices
   const fetchOffices = useCallback(async () => {
@@ -46,26 +48,50 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
         const data = await res.json();
         if (data.offices && Array.isArray(data.offices)) {
           setOffices(data.offices);
-          if (data.offices.length === 1) {
-            setSelectedOffice(data.offices[0]);
-          } else if (data.offices.length === 0) {
-            setSelectedOffice("");
-          } else if (data.offices.length > 1) {
+          setSelectedOffice((prevSelected) => {
+            // Priority 1: User explicitly selected an office - keep user selection if still permitted
+            if (
+              hasUserSelectedRef.current &&
+              prevSelected &&
+              (data.offices.includes(prevSelected) || (prevSelected === "all" && data.offices.length > 1))
+            ) {
+              return prevSelected;
+            }
+
+            // Priority 2: If 0 permitted offices
+            if (data.offices.length === 0) {
+              return "";
+            }
+
+            // Priority 3: If exactly 1 permitted office
+            if (data.offices.length === 1) {
+              return data.offices[0];
+            }
+
+            // If prevSelected is already a valid permitted office, preserve it
+            if (prevSelected && prevSelected !== "all" && data.offices.includes(prevSelected)) {
+              return prevSelected;
+            }
+
+            // Priority 4: Initial fallback to current/default office if permitted
             const match = data.offices.find(
               (o: string) => o.toLowerCase() === currentOfficeLocationName?.toLowerCase()
             );
             if (match) {
-              setSelectedOffice(match);
-            } else if (selectedOffice !== "all" && !data.offices.includes(selectedOffice)) {
-              setSelectedOffice("all");
+              return match;
             }
-          }
+
+            // Priority 5: Fallback to "all" when multiple offices are permitted
+            return "all";
+          });
         }
       }
     } catch (err) {
       console.error("Failed to load registration offices", err);
+    } finally {
+      setIsOfficesLoaded(true);
     }
-  }, [currentOfficeLocationName, selectedOffice]);
+  }, [currentOfficeLocationName]);
 
   // Fetch sections data for selected office, tab, and search
   const fetchTrackingData = useCallback(async () => {
@@ -100,8 +126,10 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   }, [fetchOffices]);
 
   useEffect(() => {
-    fetchTrackingData();
-  }, [fetchTrackingData]);
+    if (isOfficesLoaded) {
+      fetchTrackingData();
+    }
+  }, [isOfficesLoaded, fetchTrackingData]);
 
   // Total count of documents across all current sections
   const totalDocuments = sections.reduce((acc, sec) => acc + (sec.documents?.length || 0), 0);
@@ -144,7 +172,10 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <select
               value={selectedOffice}
-              onChange={(e) => setSelectedOffice(e.target.value)}
+              onChange={(e) => {
+                hasUserSelectedRef.current = true;
+                setSelectedOffice(e.target.value);
+              }}
               disabled={offices.length === 0}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-8 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 disabled:opacity-60"
             >
