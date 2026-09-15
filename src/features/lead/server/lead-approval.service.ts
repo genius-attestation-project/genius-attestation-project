@@ -8,8 +8,6 @@ import type {
 } from "@/features/lead/types/lead-approval.types";
 
 const approvalRequiredStatuses = new Set<LeadStatus>([
-  LeadStatus.Potential_Qualified,
-  LeadStatus.Closed,
   LeadStatus.LOB,
 ]);
 

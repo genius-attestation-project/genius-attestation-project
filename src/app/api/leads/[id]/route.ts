@@ -1,6 +1,7 @@
 import { deleteLead, getLeadById, updateLead } from "@/features/lead/server/lead.service";
 import { leadInputSchema } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
+import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -31,6 +32,9 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 }
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiPermission("leads.edit");
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -46,7 +50,14 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     const changedBy = session?.user?.name ?? session?.user?.email ?? undefined;
     const changedByUserId = session?.user?.id;
-    const result = await updateLead(ownerAdminId, id, parsed.data, changedBy, changedByUserId);
+    const result = await updateLead(
+      ownerAdminId,
+      id,
+      parsed.data,
+      changedBy,
+      changedByUserId,
+      session?.user,
+    );
 
     if (!result) {
       return jsonError("Lead not found.", 404);
@@ -54,6 +65,12 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     return jsonOk(result);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "You do not have permission to edit leads outside your permitted scope."
+    ) {
+      return jsonError(error.message, 403);
+    }
     if (error instanceof Error && error.message === "Assigned user not found.") {
       return jsonError(error.message, 400);
     }

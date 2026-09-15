@@ -826,64 +826,10 @@ async function generateLeadCode() {
   return `LD${datePrefix}${String(nextValue).padStart(3, "0")}`;
 }
 
-export async function listLeads(user: any, ownerAdminId: string, params: {
-  page?: number;
-  pageSize?: number;
-  query?: string;
-  status?: string;
-  service?: string;
-  assignedUserId?: string;
-  createdById?: string;
-  country?: string;
-  state?: string;
-  source?: string;
-  followupDate?: string;
-  officeLocationId?: string;
-  fromDate?: string;
-  toDate?: string;
-}): Promise<LeadListResponse> {
-  const page = Math.max(1, params.page ?? 1);
-  const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 5000));
-  const status = parseLeadStatus(params.status);
-  const query = params.query?.trim();
-  const service = params.service?.trim();
-  const assignedUserId = params.assignedUserId?.trim();
-  const createdById = params.createdById?.trim();
-  const country = params.country?.trim();
-  const state = params.state?.trim();
-  const source = params.source?.trim();
-  const followupDate = params.followupDate?.trim();
-  const officeLocationId = params.officeLocationId?.trim();
-  const fromDate = params.fromDate?.trim();
-  const toDate = params.toDate?.trim();
-  const createdAt: Prisma.DateTimeFilter = {};
-  const nextFollowupAt: Prisma.DateTimeNullableFilter = {};
-
-  if (fromDate) {
-    const parsed = new Date(`${fromDate}T00:00:00`);
-    if (!Number.isNaN(parsed.getTime())) {
-      createdAt.gte = parsed;
-    }
-  }
-
-  if (toDate) {
-    const parsed = new Date(`${toDate}T00:00:00`);
-    if (!Number.isNaN(parsed.getTime())) {
-      parsed.setDate(parsed.getDate() + 1);
-      createdAt.lt = parsed;
-    }
-  }
-
-  if (followupDate) {
-    const parsed = new Date(`${followupDate}T00:00:00`);
-    if (!Number.isNaN(parsed.getTime())) {
-      const end = new Date(parsed);
-      end.setDate(end.getDate() + 1);
-      nextFollowupAt.gte = parsed;
-      nextFollowupAt.lt = end;
-    }
-  }
-
+export function getLeadAccessFilter(user: any): {
+  leadVisibilityFilter: Prisma.LeadWhereInput;
+  officeCondition: Prisma.LeadWhereInput;
+} {
   let leadVisibilityFilter: Prisma.LeadWhereInput = {};
 
   const isSuperAdmin = user?.isSuperAdmin === true;
@@ -942,6 +888,69 @@ export async function listLeads(user: any, ownerAdminId: string, params: {
       }
     }
   }
+
+  return { leadVisibilityFilter, officeCondition };
+}
+
+export async function listLeads(user: any, ownerAdminId: string, params: {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  status?: string;
+  service?: string;
+  assignedUserId?: string;
+  createdById?: string;
+  country?: string;
+  state?: string;
+  source?: string;
+  followupDate?: string;
+  officeLocationId?: string;
+  fromDate?: string;
+  toDate?: string;
+}): Promise<LeadListResponse> {
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 5000));
+  const status = parseLeadStatus(params.status);
+  const query = params.query?.trim();
+  const service = params.service?.trim();
+  const assignedUserId = params.assignedUserId?.trim();
+  const createdById = params.createdById?.trim();
+  const country = params.country?.trim();
+  const state = params.state?.trim();
+  const source = params.source?.trim();
+  const followupDate = params.followupDate?.trim();
+  const officeLocationId = params.officeLocationId?.trim();
+  const fromDate = params.fromDate?.trim();
+  const toDate = params.toDate?.trim();
+  const createdAt: Prisma.DateTimeFilter = {};
+  const nextFollowupAt: Prisma.DateTimeNullableFilter = {};
+
+  if (fromDate) {
+    const parsed = new Date(`${fromDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      createdAt.gte = parsed;
+    }
+  }
+
+  if (toDate) {
+    const parsed = new Date(`${toDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      parsed.setDate(parsed.getDate() + 1);
+      createdAt.lt = parsed;
+    }
+  }
+
+  if (followupDate) {
+    const parsed = new Date(`${followupDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      const end = new Date(parsed);
+      end.setDate(end.getDate() + 1);
+      nextFollowupAt.gte = parsed;
+      nextFollowupAt.lt = end;
+    }
+  }
+
+  const { leadVisibilityFilter, officeCondition } = getLeadAccessFilter(user);
 
   const where: Prisma.LeadWhereInput = {
     ownerAdminId,
@@ -1118,6 +1127,7 @@ export async function updateLead(
   input: LeadInput,
   changedBy?: string,
   changedByUserId?: string,
+  user?: any,
 ) {
   if (changedByUserId) {
     const lockState = await getUserLockState(changedByUserId);
@@ -1150,6 +1160,22 @@ export async function updateLead(
 
   if (!existingLead) {
     return null;
+  }
+
+  if (user && !user.isSuperAdmin) {
+    const { leadVisibilityFilter, officeCondition } = getLeadAccessFilter(user);
+    const inScope = await prisma.lead.findFirst({
+      where: {
+        id: existingLead.id,
+        ...leadVisibilityFilter,
+        ...officeCondition,
+      },
+      select: { id: true },
+    });
+
+    if (!inScope) {
+      throw new Error("You do not have permission to edit leads outside your permitted scope.");
+    }
   }
 
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
