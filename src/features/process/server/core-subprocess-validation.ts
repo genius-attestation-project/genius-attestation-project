@@ -57,12 +57,21 @@ export async function verifyMainProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // 1. Check if any sub-package movement for this tracking number is pending or in progress
+  // 1. Check if any sub-package movement for this tracking number is actively pending or in progress
   const pendingSubMovements = await (prisma as any).subPackageMovement.findMany({
     where: {
       trackingNumber: registration.trackingNumber,
       ownerAdminId,
-      status: { notIn: ["Completed", "COMPLETED"] },
+      status: {
+        in: [
+          "In Progress",
+          "IN_PROGRESS",
+          "Pending",
+          "PENDING",
+          "In Sub Package",
+          "IN_SUB_PACKAGE",
+        ],
+      },
     },
   });
 
@@ -74,7 +83,18 @@ export async function verifyMainProcessCompleted(
     };
   }
 
-  // 2. Query Master Configuration for configured sub-packages
+  // 2. Query completed sub-package movements
+  const completedSubMovements = await (prisma as any).subPackageMovement.findMany({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      ownerAdminId,
+      status: { in: ["Completed", "COMPLETED"] },
+    },
+    select: { subPackageId: true },
+  });
+  const completedSubPkgIds = new Set(completedSubMovements.map((m: any) => m.subPackageId));
+
+  // 3. Query Master Configuration for configured sub-packages
   if (processTypeName) {
     const masterProcessType = await prisma.masterData.findFirst({
       where: {
@@ -88,33 +108,18 @@ export async function verifyMainProcessCompleted(
     });
 
     if (masterProcessType) {
-      const completedSubMovements = await (prisma as any).subPackageMovement.findMany({
-        where: {
-          trackingNumber: registration.trackingNumber,
-          ownerAdminId,
-          status: { in: ["Completed", "COMPLETED"] },
-        },
-        select: { subPackageId: true },
-      });
-
-      const completedSubPkgIds = new Set(completedSubMovements.map((m: any) => m.subPackageId));
-
-      if (masterProcessType.coreSubPackageId && !completedSubPkgIds.has(masterProcessType.coreSubPackageId)) {
+      // 3a. If coreSubPackageId is defined and completed
+      if (masterProcessType.coreSubPackageId && completedSubPkgIds.has(masterProcessType.coreSubPackageId)) {
         return {
-          isCompleted: false,
+          isCompleted: true,
           processType: processTypeName,
-          message: `Main core process is not completed.`,
+          coreSubPackageId: masterProcessType.coreSubPackageId,
         };
       }
 
-      const totalSubMovementsCount = await (prisma as any).subPackageMovement.count({
-        where: {
-          trackingNumber: registration.trackingNumber,
-          ownerAdminId,
-        },
-      });
-
-      if (totalSubMovementsCount > 0 && completedSubMovements.length >= totalSubMovementsCount) {
+      // 3b. If all configured sub-packages are completed (and at least one exists)
+      const configuredIds = masterProcessType.subPackages.map((sp: any) => sp.id);
+      if (configuredIds.length > 0 && configuredIds.every((id: string) => completedSubPkgIds.has(id))) {
         return {
           isCompleted: true,
           processType: processTypeName,
@@ -123,7 +128,15 @@ export async function verifyMainProcessCompleted(
     }
   }
 
-  // 3. Check overall document movement / assignment status
+  // 4. Fallback for subpackage movements: if any completed subpackage movements exist and none are pending
+  if (completedSubMovements.length > 0 && pendingSubMovements.length === 0) {
+    return {
+      isCompleted: true,
+      processType: processTypeName || null,
+    };
+  }
+
+  // 5. Check overall document movement / assignment status
   const isDocMovCompleted = registration.documentMovements.some(
     (mov) =>
       mov.status === "COMPLETED" ||
@@ -149,15 +162,20 @@ export async function verifyMainProcessCompleted(
     };
   }
 
-  // 4. Fallback check for completed subpackage movements
-  const totalSubMovs = await (prisma as any).subPackageMovement.count({
-    where: { trackingNumber: registration.trackingNumber, ownerAdminId },
-  });
-  const completedSubMovs = await (prisma as any).subPackageMovement.count({
-    where: { trackingNumber: registration.trackingNumber, ownerAdminId, status: { in: ["Completed", "COMPLETED"] } },
+  // 6. Check Movement History for completed sub-package or completed process
+  const completedInHistory = await prisma.movementHistory.findFirst({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      OR: [
+        { action: "Sub Package Completed" },
+        { action: "Marked as COMPLETED" },
+        { newStatus: "Completed" },
+        { newStatus: "COMPLETED" },
+      ],
+    },
   });
 
-  if (totalSubMovs > 0 && totalSubMovs === completedSubMovs) {
+  if (completedInHistory && pendingSubMovements.length === 0) {
     return {
       isCompleted: true,
       processType: processTypeName || null,

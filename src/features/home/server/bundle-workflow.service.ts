@@ -646,12 +646,20 @@ export async function receiveBundle(params: {
         const hasCompletedMainProcess = mainProcessCheckMap.get(item.trackingNumber) ?? false;
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
+        const receivingOfficeId = bundle.toOfficeId || bundle.toOffice?.id || "";
         const deliveryLocation = reg?.deliveryLocation || "";
 
+        // Office matching: matches either office name or office ID
+        const isOfficeMatch = Boolean(
+          deliveryLocation &&
+          (
+            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()) ||
+            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.trim().toLowerCase())
+          )
+        );
+
         // Document moves to Ready For Delivery ONLY when ALL processing is complete AND receiving office matches deliveryLocation
-        const isReadyForDeliveryAutoRoute =
-          hasCompletedMainProcess &&
-          Boolean(receivingOfficeName && deliveryLocation && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase());
+        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isOfficeMatch;
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
@@ -833,7 +841,7 @@ export async function receiveBundle(params: {
         remainingCount: unreceivedItems.length,
       };
     }
-  }, { timeout: 20000 });
+  }, { maxWait: 20000, timeout: 60000 });
 }
 
 export async function getMovementHistory(params: {

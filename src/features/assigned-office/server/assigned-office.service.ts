@@ -1288,12 +1288,20 @@ export async function receiveBundleDocuments(params: {
 
         const resolvedOfficeId = targetOffice?.id || params.officeId;
         const receivingOfficeName = targetOffice?.officeName || params.officeId;
+        const receivingOfficeId = targetOffice?.id || params.officeId;
         const deliveryLocation = reg?.deliveryLocation || "";
 
+        // Office matching: matches either office name or office ID
+        const isOfficeMatch = Boolean(
+          deliveryLocation &&
+          (
+            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()) ||
+            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.trim().toLowerCase())
+          )
+        );
+
         // Document moves to Ready For Delivery ONLY when ALL processing is complete AND receiving office matches deliveryLocation
-        const isReadyForDeliveryAutoRoute =
-          hasCompletedMainProcess &&
-          Boolean(receivingOfficeName && deliveryLocation && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase());
+        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isOfficeMatch;
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
