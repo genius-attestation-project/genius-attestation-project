@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/middleware/auth.middleware";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 import {
   getCorporateDetail,
   updateCorporateDetail,
@@ -12,10 +13,40 @@ export async function GET(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission("dashboard.view", `/api/master-data/corporate-details/${id}`);
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const hasMasterConfig =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.corporate_details.view") ||
+      hasPermission(session.user, "master_configuration.view") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    const hasLeadCreateOrEdit =
+      hasPermission(session.user, "leads.create") ||
+      hasPermission(session.user, "leads.edit");
+
+    const hasRevenueRegistration =
+      hasPermission(session.user, "revenue_registration.view") ||
+      hasPermission(session.user, "revenue_registration.create") ||
+      hasPermission(session.user, "revenue_registration.edit");
+
+    const isLookupConsumer =
+      !hasMasterConfig &&
+      (hasLeadCreateOrEdit ||
+        hasRevenueRegistration ||
+        hasPermission(session.user, "dashboard.view"));
+
+    if (!hasMasterConfig && !isLookupConsumer) {
+      return NextResponse.json(
+        { message: "Forbidden. Access to corporate details is restricted." },
+        { status: 403 }
+      );
+    }
+
     const item = await getCorporateDetail(session.user.ownerAdminId!, id);
     if (!item) return NextResponse.json({ message: "Not found." }, { status: 404 });
     return NextResponse.json(item);
@@ -30,10 +61,24 @@ export async function PUT(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission("dashboard.view", `/api/master-data/corporate-details/${id}`);
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const canEdit =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.corporate_details.edit") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    if (!canEdit) {
+      return NextResponse.json(
+        { message: "Forbidden. You do not have permission to edit corporate details." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const updated = await updateCorporateDetail(
       session.user.ownerAdminId!,
@@ -53,10 +98,24 @@ export async function DELETE(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission("dashboard.view", `/api/master-data/corporate-details/${id}`);
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const canDelete =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.corporate_details.delete") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { message: "Forbidden. You do not have permission to delete corporate details." },
+        { status: 403 }
+      );
+    }
+
     await deleteCorporateDetail(session.user.ownerAdminId!, id);
     return NextResponse.json({ message: "Record deleted." });
   } catch (error: any) {

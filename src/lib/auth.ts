@@ -161,7 +161,7 @@ const providers = [
     : []),
 ];
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   ...authConfig,
   session: { strategy: "jwt" },
   secret: env.authSecret,
@@ -476,6 +476,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export const handlers = nextAuth.handlers;
+export const signIn = nextAuth.signIn;
+export const signOut = nextAuth.signOut;
+export const auth: typeof nextAuth.auth = ((...args: any[]) => {
+  if ((globalThis as any).__TEST_SESSION__ !== undefined) {
+    return Promise.resolve((globalThis as any).__TEST_SESSION__);
+  }
+  return (nextAuth.auth as any)(...args);
+}) as any;
 
 export async function getCurrentUser() {
   const session = await auth();

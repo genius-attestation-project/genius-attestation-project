@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/middleware/auth.middleware";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 const normalizeName = (str: string) => str.replace(/\s+/g, "").toLowerCase();
 
@@ -12,12 +13,34 @@ const normalizeName = (str: string) => str.replace(/\s+/g, "").toLowerCase();
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePermission(
-      "master_configuration.view",
-      "/api/master-data/payment-mode"
-    );
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const hasMasterConfig =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.payment_mode.view") ||
+      hasPermission(session.user, "master_configuration.view") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    const hasRevenueRegistration =
+      hasPermission(session.user, "revenue_registration.view") ||
+      hasPermission(session.user, "revenue_registration.create") ||
+      hasPermission(session.user, "revenue_registration.edit") ||
+      hasPermission(session.user, "revenue.view") ||
+      hasPermission(session.user, "revenue.create") ||
+      hasPermission(session.user, "revenue.edit") ||
+      hasPermission(session.user, "account_panel.view");
+
+    const isLookupConsumer = !hasMasterConfig && hasRevenueRegistration;
+
+    if (!hasMasterConfig && !isLookupConsumer) {
+      return NextResponse.json(
+        { message: "Forbidden. Access to payment modes is restricted." },
+        { status: 403 }
+      );
     }
     const ownerAdminId = session.user.ownerAdminId!;
 
@@ -36,7 +59,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Status filtering
-    if (activeOnly || statusFilter === "Active") {
+    if (isLookupConsumer || activeOnly || statusFilter === "Active") {
       where.status = "Active";
     } else if (statusFilter === "Inactive") {
       where.status = "Inactive";
@@ -101,12 +124,22 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await requirePermission(
-      "master_configuration.view",
-      "/api/master-data/payment-mode"
-    );
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const canCreate =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.payment_mode.create") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    if (!canCreate) {
+      return NextResponse.json(
+        { message: "Forbidden. You do not have permission to create payment modes." },
+        { status: 403 }
+      );
     }
     const ownerAdminId = session.user.ownerAdminId!;
     const userId = session.user.id;

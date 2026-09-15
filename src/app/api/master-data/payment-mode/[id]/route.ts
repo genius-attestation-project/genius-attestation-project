@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/middleware/auth.middleware";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 /**
  * GET /api/master-data/payment-mode/[id]
@@ -12,13 +13,34 @@ export async function GET(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission(
-      "master_configuration.view",
-      `/api/master-data/payment-mode/${id}`
-    );
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const hasMasterConfig =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.payment_mode.view") ||
+      hasPermission(session.user, "master_configuration.view") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    const hasRevenueRegistration =
+      hasPermission(session.user, "revenue_registration.view") ||
+      hasPermission(session.user, "revenue_registration.create") ||
+      hasPermission(session.user, "revenue_registration.edit") ||
+      hasPermission(session.user, "revenue.view") ||
+      hasPermission(session.user, "revenue.create") ||
+      hasPermission(session.user, "revenue.edit") ||
+      hasPermission(session.user, "account_panel.view");
+
+    if (!hasMasterConfig && !hasRevenueRegistration) {
+      return NextResponse.json(
+        { message: "Forbidden. Access to this payment mode is restricted." },
+        { status: 403 }
+      );
+    }
+
     const ownerAdminId = session.user.ownerAdminId!;
 
     const item = await prisma.paymentMode.findFirst({
@@ -58,13 +80,24 @@ export async function PUT(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission(
-      "master_configuration.view",
-      `/api/master-data/payment-mode/${id}`
-    );
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const canEdit =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.payment_mode.edit") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    if (!canEdit) {
+      return NextResponse.json(
+        { message: "Forbidden. You do not have permission to edit payment modes." },
+        { status: 403 }
+      );
+    }
+
     const ownerAdminId = session.user.ownerAdminId!;
     const userId = session.user.id;
     const userName =
@@ -121,55 +154,77 @@ export async function PUT(
       }
     }
 
-    if (description !== undefined) {
-      const trimmedDesc = (description || "").trim() || null;
-      updateData.description = trimmedDesc;
-      if (trimmedDesc !== existing.description) {
-        auditDetails.push("Description updated.");
-      }
+    if (description !== undefined && description !== existing.description) {
+      updateData.description = description ? description.trim() : null;
+      auditDetails.push("Description was updated.");
     }
 
-    if (status !== undefined) {
-      const validStatus = status === "Inactive" ? "Inactive" : "Active";
-      if (validStatus !== existing.status) {
-        updateData.status = validStatus;
-        auditDetails.push(
-          `Status changed from "${existing.status}" to "${validStatus}".`
+    if (status !== undefined && status !== existing.status) {
+      if (!["Active", "Inactive"].includes(status)) {
+        return NextResponse.json(
+          { message: "Status must be Active or Inactive." },
+          { status: 400 }
         );
       }
+      updateData.status = status;
+      auditDetails.push(
+        `Status changed from "${existing.status}" to "${status}".`
+      );
     }
 
-    if (displayOrder !== undefined && typeof displayOrder === "number") {
-      updateData.displayOrder = displayOrder;
+    if (
+      displayOrder !== undefined &&
+      displayOrder !== existing.displayOrder
+    ) {
+      const parsedOrder = parseInt(displayOrder);
+      if (isNaN(parsedOrder) || parsedOrder < 0) {
+        return NextResponse.json(
+          { message: "Display Order must be a positive integer." },
+          { status: 400 }
+        );
+      }
+      updateData.displayOrder = parsedOrder;
+      auditDetails.push(
+        `Display Order changed from ${existing.displayOrder} to ${parsedOrder}.`
+      );
     }
 
-    const updated = await prisma.paymentMode.update({
-      where: { id },
-      data: updateData,
-    });
-
-    // Determine audit action
-    let action = "UPDATED";
-    if (updateData.status === "Active" && existing.status === "Inactive") {
-      action = "ACTIVATED";
-    } else if (updateData.status === "Inactive" && existing.status === "Active") {
-      action = "DEACTIVATED";
-    }
-
-    if (auditDetails.length > 0) {
-      await prisma.paymentModeAuditLog.create({
-        data: {
-          paymentModeId: id,
-          action,
-          performedBy: userId,
-          performedByName: userName,
-          details: auditDetails.join(" "),
-          ownerAdminId,
-        },
+    // If nothing changed, return existing
+    if (Object.keys(updateData).length === 1) {
+      return NextResponse.json({
+        item: { ...existing, name: existing.paymentModeName },
+        message: "No changes detected.",
       });
     }
 
-    return NextResponse.json({ item: { ...updated, name: updated.paymentModeName } });
+    // Perform update + create audit logs inside transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.paymentMode.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // Write an audit log entry for each recorded change
+      if (auditDetails.length > 0) {
+        await tx.paymentModeAuditLog.createMany({
+          data: auditDetails.map((details) => ({
+            paymentModeId: id,
+            action: "UPDATE",
+            details,
+            performedBy: userId,
+            performedByName: userName,
+            ownerAdminId,
+          })),
+        });
+      }
+
+      return res;
+    });
+
+    return NextResponse.json({
+      item: { ...updated, name: updated.paymentModeName },
+      message: "Payment Mode updated successfully.",
+    });
   } catch (error: any) {
     console.error(`[PUT /api/master-data/payment-mode/${id}] Error:`, error);
     if (error.code === "P2002") {
@@ -195,13 +250,24 @@ export async function DELETE(
 ) {
   const { id } = await context.params;
   try {
-    const session = await requirePermission(
-      "master_configuration.view",
-      `/api/master-data/payment-mode/${id}`
-    );
-    if (!session) {
+    const session = await auth();
+    if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
+
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+    const canDelete =
+      isSuperAdmin ||
+      hasPermission(session.user, "master_configuration.payment_mode.delete") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { message: "Forbidden. You do not have permission to delete payment modes." },
+        { status: 403 }
+      );
+    }
+
     const ownerAdminId = session.user.ownerAdminId!;
     const userId = session.user.id;
     const userName =
@@ -220,25 +286,25 @@ export async function DELETE(
       );
     }
 
-    // Soft delete
-    await prisma.paymentMode.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        deletedBy: userName,
-        updatedBy: userName,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentMode.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: userName,
+        },
+      });
 
-    await prisma.paymentModeAuditLog.create({
-      data: {
-        paymentModeId: id,
-        action: "DELETED",
-        performedBy: userId,
-        performedByName: userName,
-        details: `Payment Mode "${existing.paymentModeName}" deleted.`,
-        ownerAdminId,
-      },
+      await tx.paymentModeAuditLog.create({
+        data: {
+          paymentModeId: id,
+          action: "DELETE",
+          details: `Payment Mode "${existing.paymentModeName}" was deleted by ${userName}.`,
+          performedBy: userId,
+          performedByName: userName,
+          ownerAdminId,
+        },
+      });
     });
 
     return NextResponse.json({ message: "Payment Mode deleted successfully." });

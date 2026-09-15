@@ -34,6 +34,60 @@ function getMasterDataPermissionKey(slug: string, action: "view" | "create" | "e
   }
 }
 
+/**
+ * Determines whether a user without direct Master Configuration management permissions
+ * is authorized to consume read-only active lookup/reference data for a given master type.
+ */
+function isAuthorizedMasterDataLookupConsumer(user: any, slug: string): boolean {
+  const normalized = slug.toLowerCase().replace(/_/g, "-");
+
+  // Lead Management consumers
+  const hasLeadCreateOrEdit = hasPermission(user, "leads.create") || hasPermission(user, "leads.edit");
+  const hasAssignLeads = hasPermission(user, "assigned_leads.view");
+
+  // Revenue Registration consumers
+  const hasRevenueRegistration =
+    hasPermission(user, "revenue_registration.view") ||
+    hasPermission(user, "revenue_registration.create") ||
+    hasPermission(user, "revenue_registration.edit");
+
+  // Process module consumers
+  const hasProcessModule =
+    hasPermission(user, "process.view") ||
+    hasPermission(user, "process.create") ||
+    hasPermission(user, "process.edit");
+
+  // Delivery module consumers
+  const hasDelivery =
+    hasPermission(user, "ready_for_delivery.view") ||
+    hasPermission(user, "ready_for_delivery.deliver");
+
+  switch (normalized) {
+    case "document-types":
+      return hasLeadCreateOrEdit || hasRevenueRegistration;
+
+    case "process-types":
+    case "attestation-types":
+      return hasLeadCreateOrEdit || hasAssignLeads || hasRevenueRegistration || hasProcessModule;
+
+    case "lead-sources":
+      return hasLeadCreateOrEdit;
+
+    case "customer-types":
+      return hasLeadCreateOrEdit || hasRevenueRegistration;
+
+    case "courier-companies":
+      return hasDelivery;
+
+    case "sub-process":
+    case "sub-packages":
+      return hasProcessModule;
+
+    default:
+      return false;
+  }
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ type: string }> }
@@ -44,13 +98,19 @@ export async function GET(
     if (!session?.user?.ownerAdminId) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
     }
-    const rawSlug = params.type.toLowerCase();
+    const rawSlug = params.type.toLowerCase().replace(/_/g, "-");
     const permKey = getMasterDataPermissionKey(rawSlug, "view");
-    if (
-      !session.user.isSuperAdmin &&
-      !hasPermission(session.user, permKey) &&
-      !hasPermission(session.user, "master_configuration.view")
-    ) {
+    const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+
+    const hasMasterConfigMgmt =
+      isSuperAdmin ||
+      hasPermission(session.user, permKey) ||
+      hasPermission(session.user, "master_configuration.view") ||
+      hasPermission(session.user, "master_configuration.manage");
+
+    const isLookupConsumer = !hasMasterConfigMgmt && isAuthorizedMasterDataLookupConsumer(session.user, rawSlug);
+
+    if (!hasMasterConfigMgmt && !isLookupConsumer) {
       return NextResponse.json({ message: "Forbidden. Access to this configuration is restricted." }, { status: 403 });
     }
     const ownerAdminId = session.user.ownerAdminId!;
@@ -58,9 +118,9 @@ export async function GET(
     const type = params.type.toUpperCase().replace(/-/g, "_");
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("query") || "";
-    const activeOnly = searchParams.get("active") === "true";
+    const activeOnly = searchParams.get("active") === "true" || isLookupConsumer;
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const pageSize = parseInt(searchParams.get("pageSize") || (isLookupConsumer && !searchParams.has("pageSize") ? "500" : "50"));
     const skip = (page - 1) * pageSize;
 
     // Dedicated handler for Document Type Categories
@@ -168,6 +228,9 @@ export async function GET(
       isArchived: false,
       ownerAdminId,
     };
+    if (activeOnly) {
+      whereClause.isActive = true;
+    }
 
     const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
     const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
