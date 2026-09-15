@@ -74,6 +74,10 @@ export function LeadForm({
   const [clientTypes, setClientTypes] = useState<string[]>([]);
   const [corporateOptions, setCorporateOptions] = useState<{ label: string; value: string }[]>([]);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isLobModalOpen, setIsLobModalOpen] = useState(false);
+  const [lobReason, setLobReason] = useState("");
+  const [lobError, setLobError] = useState("");
+  const [isSubmittingLob, setIsSubmittingLob] = useState(false);
 
   const allCountries = useMemo(() => 
     Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name)),
@@ -226,6 +230,51 @@ export function LeadForm({
     }));
     setErrors((current) => ({ ...current, assignedUserId: undefined, assignedUser: undefined }));
     setMessage("");
+  }
+
+  async function handleLobSubmit() {
+    const trimmedReason = lobReason.trim();
+    if (!trimmedReason) {
+      setLobError("Reason is mandatory. Please provide a reason for moving this lead to LOB.");
+      return;
+    }
+
+    if (!leadId) {
+      setLobError("Lead ID is missing.");
+      return;
+    }
+
+    setIsSubmittingLob(true);
+    setLobError("");
+
+    try {
+      const response = await fetch(`/api/leads/${leadId}/lob-request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: trimmedReason }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+        success?: boolean;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.message || payload.error || "Unable to submit LOB request.");
+      }
+
+      setIsLobModalOpen(false);
+      setLobReason("");
+      setMessage("LOB request submitted successfully and sent to your supervisor for approval.");
+      onSuccess?.();
+    } catch (error) {
+      setLobError(error instanceof Error ? error.message : "Unable to submit LOB request.");
+    } finally {
+      setIsSubmittingLob(false);
+    }
   }
 
   function validateForm() {
@@ -474,7 +523,15 @@ export function LeadForm({
             label="Lead Status"
             name="leadStatus"
             value={values.leadStatus}
-            onChange={(value) => updateField("leadStatus", value)}
+            onChange={(value) => {
+              if (leadId && value === "LOB") {
+                setLobReason("");
+                setLobError("");
+                setIsLobModalOpen(true);
+                return;
+              }
+              updateField("leadStatus", value);
+            }}
             options={mapToOptions(leadFormStatuses)}
             placeholder="Select lead status"
           />
@@ -625,6 +682,74 @@ export function LeadForm({
         title="Add New Corporate Company"
         description="Fill company details to save and select immediately in lead."
       />
+
+      {isLobModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Move Lead to LOB
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLobModalOpen(false);
+                  setLobReason("");
+                  setLobError("");
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Reason for LOB: <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={lobReason}
+                  onChange={(e) => {
+                    setLobReason(e.target.value);
+                    if (e.target.value.trim()) setLobError("");
+                  }}
+                  placeholder="Enter the reason for moving this lead to LOB..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+                {lobError && (
+                  <p className="mt-1.5 text-xs font-medium text-red-500">{lobError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  setIsLobModalOpen(false);
+                  setLobReason("");
+                  setLobError("");
+                }}
+                disabled={isSubmittingLob}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleLobSubmit}
+                disabled={isSubmittingLob}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isSubmittingLob ? <Loader /> : null}
+                {isSubmittingLob ? "Submitting..." : "Submit LOB Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

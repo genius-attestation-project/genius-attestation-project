@@ -1,6 +1,7 @@
 import { ApprovalRequestType, LeadStatus, WorkflowApprovalStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/features/notifications/server/notification.service";
+import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 
 function startOfToday() {
   const now = new Date();
@@ -10,11 +11,28 @@ function startOfToday() {
 export async function createLobWorkflowRequest(args: {
   leadId: string;
   requestedBy: string;
+  reason?: string;
   ownerAdminId: string;
 }) {
+  const trimmedReason = args.reason?.trim();
+  if (!trimmedReason) {
+    throw new Error("Reason is required to request LOB approval.");
+  }
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: args.leadId },
+  });
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+
   const requester = await prisma.user.findFirst({
     where: { id: args.requestedBy },
-    select: { supervisorUserId: true },
+    include: {
+      role: { select: { name: true } },
+      officeLocationRef: { select: { officeName: true } },
+      supervisorRef: { select: { id: true, name: true, email: true } },
+    },
   });
 
   if (!requester?.supervisorUserId) {
@@ -31,8 +49,13 @@ export async function createLobWorkflowRequest(args: {
   });
 
   if (existing) {
-    throw new Error("A pending LOB request already exists.");
+    throw new Error("A pending LOB request already exists for this lead.");
   }
+
+  const leadFullName = `${lead.firstName} ${lead.lastName || ""}`.trim();
+  const requesterRole = requester.role?.name || "Staff";
+  const requesterOffice = requester.officeLocationName || requester.officeLocationRef?.officeName || "N/A";
+  const supervisorName = requester.supervisorRef?.name || "Supervisor";
 
   const approval = await prisma.leadWorkflowApproval.create({
     data: {
@@ -41,7 +64,25 @@ export async function createLobWorkflowRequest(args: {
       requestedBy: args.requestedBy,
       supervisorId: requester.supervisorUserId,
       status: WorkflowApprovalStatus.Pending,
+      approvalRemarks: trimmedReason,
       ownerAdminId: args.ownerAdminId,
+      metadata: {
+        leadId: lead.id,
+        leadName: leadFullName,
+        leadCode: lead.leadCode,
+        currentStatus: lead.leadStatus,
+        requestedStatus: "LOB",
+        reason: trimmedReason,
+        requestedById: requester.id,
+        requestedByName: requester.name || requester.email,
+        requestedByEmail: requester.email,
+        requestedByRole: requesterRole,
+        requestedByOffice: requesterOffice,
+        supervisorId: requester.supervisorUserId,
+        supervisorName: supervisorName,
+        createdAt: new Date().toISOString(),
+        status: "Pending",
+      },
     },
   });
 
@@ -52,14 +93,14 @@ export async function createLobWorkflowRequest(args: {
       action: "Created",
       performedBy: args.requestedBy,
       ownerAdminId: args.ownerAdminId,
-      remarks: "LOB Approval Requested",
+      remarks: `LOB Request Created: ${trimmedReason}`,
     },
   });
 
   await createNotification({
     userId: requester.supervisorUserId,
     title: "LOB Approval Request",
-    message: "A new LOB approval request is pending your review.",
+    message: `A new LOB approval request for lead ${lead.leadCode} (${leadFullName}) is pending your review.`,
     type: "APPROVAL",
     referenceId: approval.id,
     referenceType: "APPROVAL",
@@ -130,7 +171,7 @@ export async function getOverdueFollowups(ownerAdminId: string, supervisorId?: s
 }
 
 export async function getPendingLobRequests(ownerAdminId: string, supervisorId?: string) {
-  return prisma.leadWorkflowApproval.findMany({
+  const approvals = await prisma.leadWorkflowApproval.findMany({
     where: {
       ownerAdminId,
       requestType: ApprovalRequestType.LOB_REQUEST,
@@ -142,6 +183,48 @@ export async function getPendingLobRequests(ownerAdminId: string, supervisorId?:
     },
     orderBy: { requestedAt: "desc" },
   });
+
+  const userIds = Array.from(new Set(approvals.map((a) => a.requestedBy).filter(Boolean))) as string[];
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: { select: { name: true } },
+          officeLocationName: true,
+          officeLocationRef: { select: { officeName: true } },
+        },
+      })
+    : [];
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  return approvals.map((app) => {
+    const u = app.requestedBy ? userMap.get(app.requestedBy) : null;
+    const meta = (app.metadata as any) || {};
+    return {
+      ...app,
+      requester: u
+        ? {
+            id: u.id,
+            name: u.name || u.email,
+            email: u.email,
+            role: u.role?.name || meta.requestedByRole || "Staff",
+            office: u.officeLocationName || u.officeLocationRef?.officeName || meta.requestedByOffice || "N/A",
+          }
+        : {
+            id: app.requestedBy,
+            name: meta.requestedByName || app.requestedBy,
+            email: meta.requestedByEmail || "",
+            role: meta.requestedByRole || "Staff",
+            office: meta.requestedByOffice || "N/A",
+          },
+      reason: meta.reason || app.approvalRemarks || "",
+      currentStatus: meta.currentStatus || app.lead?.leadStatus || "New",
+      requestedStatus: meta.requestedStatus || "LOB",
+    };
+  });
 }
 
 export async function actionLobRequest(args: {
@@ -150,6 +233,7 @@ export async function actionLobRequest(args: {
   performedBy: string;
   remarks?: string;
   ownerAdminId: string;
+  userAccess?: any;
 }) {
   const approval = await prisma.leadWorkflowApproval.findUnique({
     where: { id: args.approvalId },
@@ -160,9 +244,68 @@ export async function actionLobRequest(args: {
     throw new Error("Invalid or already processed approval request.");
   }
 
+  // Authorization check
+  if (args.userAccess) {
+    const isSuperAdmin = Boolean(args.userAccess.isSuperAdmin);
+    const hasApproveAll = hasPermission(args.userAccess, "lobApproval.approve_all");
+    const hasApproveAssigned = hasPermission(args.userAccess, "lobApproval.approve_assigned_users");
+
+    if (!isSuperAdmin) {
+      if (hasApproveAll) {
+        if (args.userAccess.allowedOfficeIds && args.userAccess.allowedOfficeIds.length > 0 && approval.requestedBy) {
+          const requesterUser = await prisma.user.findUnique({
+            where: { id: approval.requestedBy },
+            select: { officeLocationId: true },
+          });
+          if (requesterUser?.officeLocationId) {
+            const allowed = hasOfficeAccess(args.userAccess, requesterUser.officeLocationId, "lobApproval");
+            if (!allowed) {
+              throw new Error("Forbidden. You do not have office access to this lead's LOB request.");
+            }
+          }
+        }
+      } else if (hasApproveAssigned) {
+        const requester = approval.requestedBy
+          ? await prisma.user.findUnique({
+              where: { id: approval.requestedBy },
+              select: { supervisorUserId: true },
+            })
+          : null;
+        const isSupervisor =
+          approval.supervisorId === args.performedBy ||
+          requester?.supervisorUserId === args.performedBy;
+        if (!isSupervisor) {
+          throw new Error("Forbidden. You can only approve or reject LOB requests for users assigned to you.");
+        }
+      } else {
+        throw new Error("Forbidden. You do not have permission to approve or reject LOB requests.");
+      }
+    }
+  }
+
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(
+    async (tx) => {
+    // Re-verify approval status inside transaction to prevent duplicate actions / race conditions
+    const currentApproval = await tx.leadWorkflowApproval.findUnique({
+      where: { id: args.approvalId },
+      select: { status: true, leadId: true, approvalRemarks: true },
+    });
+
+    if (!currentApproval || currentApproval.status !== WorkflowApprovalStatus.Pending) {
+      throw new Error("Invalid or already processed approval request.");
+    }
+
+    // Re-verify lead state inside transaction
+    const currentLead = await tx.lead.findUnique({
+      where: { id: currentApproval.leadId },
+    });
+
+    if (!currentLead) {
+      throw new Error("Lead not found.");
+    }
+
     // Update approval
     await tx.leadWorkflowApproval.update({
       where: { id: args.approvalId },
@@ -170,7 +313,10 @@ export async function actionLobRequest(args: {
         status: args.action,
         approvedBy: args.performedBy,
         approvedAt: now,
-        approvalRemarks: args.action === WorkflowApprovalStatus.Approved ? args.remarks : null,
+        approvalRemarks:
+          args.action === WorkflowApprovalStatus.Approved
+            ? args.remarks || currentApproval.approvalRemarks
+            : currentApproval.approvalRemarks,
         rejectRemarks: args.action === WorkflowApprovalStatus.Rejected ? args.remarks : null,
         returnRemarks: args.action === WorkflowApprovalStatus.Returned ? args.remarks : null,
       },
@@ -179,14 +325,14 @@ export async function actionLobRequest(args: {
     // Update lead if approved
     if (args.action === WorkflowApprovalStatus.Approved) {
       await tx.lead.update({
-        where: { id: approval.leadId },
+        where: { id: currentApproval.leadId },
         data: { leadStatus: LeadStatus.LOB },
       });
-      
+
       await tx.leadStatusHistory.create({
         data: {
-          leadId: approval.leadId,
-          previousStatus: approval.lead.leadStatus,
+          leadId: currentApproval.leadId,
+          previousStatus: currentLead.leadStatus,
           newStatus: LeadStatus.LOB,
           changedBy: args.performedBy,
           ownerAdminId: args.ownerAdminId,
@@ -201,18 +347,24 @@ export async function actionLobRequest(args: {
         leadId: approval.leadId,
         action: args.action,
         performedBy: args.performedBy,
-        remarks: args.remarks,
+        remarks:
+          args.remarks ||
+          (args.action === WorkflowApprovalStatus.Approved
+            ? "LOB Request Approved"
+            : "LOB Request Rejected"),
         ownerAdminId: args.ownerAdminId,
       },
     });
-  });
+  },
+  { maxWait: 15000, timeout: 30000 }
+  );
 
   // Notify requester
   if (approval.requestedBy) {
     await createNotification({
       userId: approval.requestedBy,
       title: `LOB Request ${args.action}`,
-      message: `Your LOB request for lead ${approval.lead.leadCode} was ${args.action.toLowerCase()}.`,
+      message: `Your LOB request for lead ${approval.lead?.leadCode || "Lead"} was ${args.action.toLowerCase()}.${args.remarks ? ` Remarks: ${args.remarks}` : ""}`,
       type: "APPROVAL",
       referenceId: approval.leadId,
       referenceType: "LEAD",

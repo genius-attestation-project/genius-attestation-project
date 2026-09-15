@@ -171,6 +171,8 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
           { key: "lobApproval.approve", label: "Approve" },
           { key: "lobApproval.reject", label: "Reject" },
           { key: "lobApproval.return", label: "Return" },
+          { key: "lobApproval.approve_all", label: "Approve LOB Requests Of All" },
+          { key: "lobApproval.approve_assigned_users", label: "Approve LOB Requests Of Assigned Users" },
         ],
       },
       {

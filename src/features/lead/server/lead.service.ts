@@ -1180,6 +1180,10 @@ export async function updateLead(
 
   const newLeadStatus = parseLeadStatus(input.leadStatus) ?? LeadStatus.New;
   const statusChanged = existingLead.leadStatus !== newLeadStatus;
+
+  if (statusChanged && newLeadStatus === LeadStatus.LOB) {
+    throw new Error("Direct transition to LOB is not permitted. Please submit an LOB approval request.");
+  }
   
   let bypassApproval = false;
   if (changedByUserId) {

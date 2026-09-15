@@ -36,15 +36,22 @@ export async function POST(req: NextRequest) {
         ownerAdminId,
       });
     } else if (type === ApprovalRequestType.LOB_REQUEST) {
-      if (!session.user.isSuperAdmin && !hasPermission(session.user, `lobApproval.${actionKey}`)) {
+      const isSuperAdmin = Boolean(session.user.isSuperAdmin);
+      const hasApproveAll = hasPermission(session.user, "lobApproval.approve_all");
+      const hasApproveAssigned = hasPermission(session.user, "lobApproval.approve_assigned_users");
+      const hasLegacyAction = hasPermission(session.user, `lobApproval.${actionKey}`);
+
+      if (!isSuperAdmin && !hasApproveAll && !hasApproveAssigned && !hasLegacyAction) {
         return NextResponse.json({ error: `Forbidden. You do not have permission to ${actionKey} LOB requests.` }, { status: 403 });
       }
+
       await actionLobRequest({
         approvalId: id,
         action: workflowAction,
         performedBy,
         remarks,
         ownerAdminId,
+        userAccess: session.user,
       });
     } else if (type === ApprovalRequestType.OVERDUE_FOLLOWUP) {
       if (!session.user.isSuperAdmin && !hasPermission(session.user, `overdueFollowup.${actionKey}`)) {

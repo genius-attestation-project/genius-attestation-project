@@ -40,7 +40,8 @@ export const permissionActions = [
   "comment", "reply", "forward", "inbox",
   "activate", "deactivate", "reset_password",
   "complete", "transfer", "move", "login", "receive", "view_receipt", "retrieve",
-  "deliver", "undo", "view_details", "movement_request"
+  "deliver", "undo", "view_details", "movement_request",
+  "approve_all", "approve_assigned_users"
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -577,7 +578,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
     key: "lobApproval",
     label: "LOB Approval Workflow",
     description: "LOB Approval access.",
-    actions: ["view", "request", "approve", "reject", "return"]
+    actions: ["view", "request", "approve", "reject", "return", "approve_all", "approve_assigned_users"]
   },
   {
     key: "overdueFollowup",

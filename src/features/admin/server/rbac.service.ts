@@ -990,7 +990,12 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       }
       if (key.startsWith("lobApproval.")) {
         result.add("lobApproval.view");
-        if (key === "lobApproval.approve" || key === "lobApproval.reject") {
+        if (
+          key === "lobApproval.approve" ||
+          key === "lobApproval.reject" ||
+          key === "lobApproval.approve_all" ||
+          key === "lobApproval.approve_assigned_users"
+        ) {
           result.add("pending_approval.edit");
         }
       }

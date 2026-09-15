@@ -185,6 +185,8 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.view") ||
+      currentUser?.permissions?.includes("lobApproval.approve_all") ||
+      currentUser?.permissions?.includes("lobApproval.approve_assigned_users") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -264,6 +266,8 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.approve") ||
+      currentUser?.permissions?.includes("lobApproval.approve_all") ||
+      currentUser?.permissions?.includes("lobApproval.approve_assigned_users") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -271,6 +275,8 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.reject") ||
+      currentUser?.permissions?.includes("lobApproval.approve_all") ||
+      currentUser?.permissions?.includes("lobApproval.approve_assigned_users") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -338,6 +344,7 @@ export function PendingApprovalDashboard() {
   const [approvingAdvance, setApprovingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
   const [editingAdvance, setEditingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
   const [deletingAdvance, setDeletingAdvance] = useState<AdvancePaymentApprovalItem | null>(null);
+  const [selectedLobDetail, setSelectedLobDetail] = useState<any>(null);
 
   const [loading, setLoading] = useState(true);
   const [advanceDetailsLoading, setAdvanceDetailsLoading] = useState(false);
@@ -1400,37 +1407,117 @@ export function PendingApprovalDashboard() {
                   <tr>
                     <th className="px-5 py-4">Lead Name</th>
                     <th className="px-5 py-4">Requested By</th>
+                    <th className="px-5 py-4">Current Stage</th>
+                    <th className="px-5 py-4">Requested Stage</th>
+                    <th className="px-5 py-4">Reason</th>
                     <th className="px-5 py-4">Request Date</th>
+                    <th className="px-5 py-4">Status</th>
                     <th className="px-5 py-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
                   {lobRequests.length === 0 ? (
-                    <tr><td colSpan={4} className="p-8 text-center text-soft">No pending LOB requests</td></tr>
+                    <tr><td colSpan={8} className="p-8 text-center text-soft">No pending LOB requests</td></tr>
                   ) : (
-                    lobRequests.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.lead?.leadCode}</td>
-                        <td className="px-5 py-4">{formatTitleCase(item.requestedBy)}</td>
-                        <td className="px-5 py-4">{formatDate(item.requestedAt)}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex gap-2">
-                            {canApproveLob && (
-                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "LOB_REQUEST", id: item.id, title: "Approve LOB Request" })}>Approve</Button>
-                            )}
-                            {canRejectLob && (
-                              <Button variant="danger" size="sm" onClick={() => setActionModal({ type: "Rejected", requestType: "LOB_REQUEST", id: item.id, title: "Reject LOB Request" })}>Reject</Button>
-                            )}
-                            {canReturnLob && (
-                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "LOB_REQUEST", id: item.id, title: "Return LOB Request" })}>Return</Button>
-                            )}
-                            {!canApproveLob && !canRejectLob && !canReturnLob && (
-                              <span className="text-xs italic text-slate-400">View Only</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    lobRequests.map((item) => {
+                      const leadName = `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() || "Lead";
+                      const requesterName = item.requester?.name || item.metadata?.requestedByName || formatTitleCase(item.requestedBy);
+                      const requesterRole = item.requester?.role || item.metadata?.requestedByRole || "Staff";
+                      const requesterOffice = item.requester?.office || item.metadata?.requestedByOffice || "N/A";
+                      const reasonText = item.reason || item.approvalRemarks || item.metadata?.reason || "No reason specified";
+
+                      return (
+                        <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-slate-900 dark:text-white">{leadName}</div>
+                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{item.lead?.leadCode}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200">{requesterName}</div>
+                            <span className="text-xs text-soft">{requesterRole} • {requesterOffice}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                              {item.currentStatus || item.metadata?.currentStatus || item.lead?.leadStatus || "New"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                              LOB
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="max-w-xs truncate text-xs text-slate-700 dark:text-slate-300" title={reasonText}>
+                              {reasonText}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-xs">{formatDate(item.requestedAt)}</td>
+                          <td className="px-5 py-4">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                              Pending
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setSelectedLobDetail(item)}
+                              >
+                                View Details
+                              </Button>
+                              {canApproveLob && (
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setActionModal({
+                                      type: "Approved",
+                                      requestType: "LOB_REQUEST",
+                                      id: item.id,
+                                      title: "Approve LOB Request",
+                                      meta: {
+                                        leadCode: item.lead?.leadCode,
+                                        leadName,
+                                        requestedBy: requesterName,
+                                        remarks: reasonText,
+                                      },
+                                    })
+                                  }
+                                >
+                                  Approve
+                                </Button>
+                              )}
+                              {canRejectLob && (
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() =>
+                                    setActionModal({
+                                      type: "Rejected",
+                                      requestType: "LOB_REQUEST",
+                                      id: item.id,
+                                      title: "Reject LOB Request",
+                                      meta: {
+                                        leadCode: item.lead?.leadCode,
+                                        leadName,
+                                        requestedBy: requesterName,
+                                        remarks: reasonText,
+                                      },
+                                    })
+                                  }
+                                >
+                                  Reject
+                                </Button>
+                              )}
+                              {!canApproveLob && !canRejectLob && (
+                                <span className="text-xs italic text-slate-400">View Only</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1774,6 +1861,140 @@ export function PendingApprovalDashboard() {
           await loadData();
         }}
       />
+
+      {/* LOB Request Details Modal */}
+      {selectedLobDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                LOB Approval Request Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedLobDetail(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 dark:bg-white/5">
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Lead Code</span>
+                  <p className="font-bold text-blue-600 dark:text-blue-400">{selectedLobDetail.lead?.leadCode}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Lead Name</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">
+                    {`${selectedLobDetail.lead?.firstName || ""} ${selectedLobDetail.lead?.lastName || ""}`.trim() || "Lead"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Current Stage</span>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                    {selectedLobDetail.currentStatus || selectedLobDetail.metadata?.currentStatus || selectedLobDetail.lead?.leadStatus || "New"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Requested Stage</span>
+                  <p className="font-bold text-amber-600 dark:text-amber-400">LOB</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Requested By</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">
+                    {selectedLobDetail.requester?.name || selectedLobDetail.metadata?.requestedByName || selectedLobDetail.requestedBy}
+                  </p>
+                  <span className="text-xs text-slate-400">
+                    {selectedLobDetail.requester?.role || selectedLobDetail.metadata?.requestedByRole || "Staff"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Office</span>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                    {selectedLobDetail.requester?.office || selectedLobDetail.metadata?.requestedByOffice || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Request Date</span>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">{formatDate(selectedLobDetail.requestedAt)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Request Status</span>
+                  <p className="font-bold text-blue-600 dark:text-blue-400">{selectedLobDetail.status || "Pending"}</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 dark:border-amber-900/50 dark:bg-amber-950/30">
+                <span className="block text-xs font-bold text-amber-900 dark:text-amber-200 mb-1">
+                  Reason for moving to LOB:
+                </span>
+                <p className="text-xs font-medium text-amber-900/90 dark:text-amber-200/90 leading-relaxed whitespace-pre-wrap">
+                  {selectedLobDetail.reason || selectedLobDetail.approvalRemarks || selectedLobDetail.metadata?.reason || "No reason provided"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <Button variant="ghost" onClick={() => setSelectedLobDetail(null)}>
+                Close
+              </Button>
+              {canRejectLob && (
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    const item = selectedLobDetail;
+                    const lName = `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() || "Lead";
+                    const rName = item.requester?.name || item.metadata?.requestedByName || item.requestedBy;
+                    const rText = item.reason || item.approvalRemarks || item.metadata?.reason || "";
+                    setSelectedLobDetail(null);
+                    setActionModal({
+                      type: "Rejected",
+                      requestType: "LOB_REQUEST",
+                      id: item.id,
+                      title: "Reject LOB Request",
+                      meta: {
+                        leadCode: item.lead?.leadCode,
+                        leadName: lName,
+                        requestedBy: rName,
+                        remarks: rText,
+                      },
+                    });
+                  }}
+                >
+                  Reject
+                </Button>
+              )}
+              {canApproveLob && (
+                <Button
+                  onClick={() => {
+                    const item = selectedLobDetail;
+                    const lName = `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() || "Lead";
+                    const rName = item.requester?.name || item.metadata?.requestedByName || item.requestedBy;
+                    const rText = item.reason || item.approvalRemarks || item.metadata?.reason || "";
+                    setSelectedLobDetail(null);
+                    setActionModal({
+                      type: "Approved",
+                      requestType: "LOB_REQUEST",
+                      id: item.id,
+                      title: "Approve LOB Request",
+                      meta: {
+                        leadCode: item.lead?.leadCode,
+                        leadName: lName,
+                        requestedBy: rName,
+                        remarks: rText,
+                      },
+                    });
+                  }}
+                >
+                  Approve
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
