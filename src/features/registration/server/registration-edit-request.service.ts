@@ -47,7 +47,7 @@ export function getFieldLabel(key: string): { label: string; category?: string }
 
 function normalizeValue(value: any): string | number | boolean | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === "number") return value;
+  if (typeof value === "number") return Number.isNaN(value) ? null : value;
   if (typeof value === "boolean") return value;
   if (value instanceof Date) return value.toISOString().split("T")[0];
   if (typeof value === "object" && "toNumber" in value) return Number(value); // Prisma.Decimal
@@ -55,17 +55,73 @@ function normalizeValue(value: any): string | number | boolean | null {
   return str === "" ? null : str;
 }
 
-function areValuesEqual(a: any, b: any): boolean {
+export function areFieldValuesEqual(key: string, a: any, b: any): boolean {
   const normA = normalizeValue(a);
   const normB = normalizeValue(b);
 
+  // 1. Both are effectively null/empty
   if (normA === null && normB === null) return true;
+
+  // 2. Field-specific normalization and equivalence rules
+  if (key === "requestedAdvanceAmount") {
+    // In Revenue Registration, requestedAdvanceAmount represents a pending advance request.
+    // If no advance was requested, it is 0 / null / empty.
+    // Form default is 0. An existing null/empty/0 vs form default 0 is NOT a user modification.
+    const numA = normA === null || normA === "" ? 0 : Number(normA);
+    const numB = normB === null || normB === "" ? 0 : Number(normB);
+    if (Number.isNaN(numA) || Number.isNaN(numB)) {
+      return normA === normB;
+    }
+    return numA === numB;
+  }
+
+  if (key === "advancePaid") {
+    // advancePaid default is 0. null/empty/0 are equivalent to 0.
+    const numA = normA === null || normA === "" ? 0 : Number(normA);
+    const numB = normB === null || normB === "" ? 0 : Number(normB);
+    if (Number.isNaN(numA) || Number.isNaN(numB)) {
+      return normA === normB;
+    }
+    return numA === numB;
+  }
+
+  if (key === "trackingStatus") {
+    // In Revenue Registration, trackingStatus defaults to "Registered".
+    // A document with null/empty trackingStatus is treated as "Registered" by the system.
+    // An edit form sending the default "Registered" when the user did not touch the status is NOT a change.
+    const strA = normA === null || normA === "" ? "Registered" : String(normA).trim();
+    const strB = normB === null || normB === "" ? "Registered" : String(normB).trim();
+    return strA.toLowerCase() === strB.toLowerCase();
+  }
+
+  if (key === "approvalStatus") {
+    // System default is "Pending"
+    const strA = normA === null || normA === "" ? "Pending" : String(normA).trim();
+    const strB = normB === null || normB === "" ? "Pending" : String(normB).trim();
+    return strA.toLowerCase() === strB.toLowerCase();
+  }
+
+  if (key === "paymentStatus") {
+    // System default is "Pending"
+    const strA = normA === null || normA === "" ? "Pending" : String(normA).trim();
+    const strB = normB === null || normB === "" ? "Pending" : String(normB).trim();
+    return strA.toLowerCase() === strB.toLowerCase();
+  }
+
+  // 3. One is null, the other is non-null
   if (normA === null || normB === null) return false;
 
+  // 4. Numeric comparisons
   if (typeof normA === "number" || typeof normB === "number") {
     return Number(normA) === Number(normB);
   }
 
+  // 5. Boolean comparisons
+  if (typeof normA === "boolean" || typeof normB === "boolean") {
+    return Boolean(normA) === Boolean(normB);
+  }
+
+  // 6. String comparisons
   return String(normA) === String(normB);
 }
 
@@ -145,14 +201,22 @@ export function computeFieldChanges(
     const oldVal = original[key];
     const newVal = proposed[key];
 
-    if (!areValuesEqual(oldVal, newVal)) {
+    if (!areFieldValuesEqual(key, oldVal, newVal)) {
       const fieldMeta = getFieldLabel(key);
+      let formattedOld = normalizeValue(oldVal);
+      let formattedNew = normalizeValue(newVal);
+
+      if (key === "requestedAdvanceAmount" || key === "advancePaid") {
+        formattedOld = formattedOld === null ? 0 : formattedOld;
+        formattedNew = formattedNew === null ? 0 : formattedNew;
+      }
+
       changes.push({
         field: key,
         fieldLabel: fieldMeta.label,
         category: fieldMeta.category,
-        oldValue: normalizeValue(oldVal),
-        newValue: normalizeValue(newVal),
+        oldValue: formattedOld,
+        newValue: formattedNew,
       });
     }
   }
@@ -247,6 +311,14 @@ export function buildRegistrationDataForApproval(
 }
 
 function mapEditRequest(record: any): RegistrationEditRequestItem {
+  const originalSnapshot = (record.originalSnapshot as unknown as Record<string, any>) ?? {};
+  const proposedSnapshot = (record.proposedSnapshot as unknown as Record<string, any>) ?? {};
+  const rawChanges = (record.fieldChanges as unknown as FieldChangeItem[]) ?? [];
+  const fieldChanges =
+    originalSnapshot && proposedSnapshot && Object.keys(proposedSnapshot).length > 0
+      ? computeFieldChanges(originalSnapshot, proposedSnapshot)
+      : rawChanges;
+
   return {
     id: record.id,
     registrationId: record.registrationId,
@@ -256,9 +328,9 @@ function mapEditRequest(record: any): RegistrationEditRequestItem {
     documentName: record.documentName ?? null,
     registrationOffice: record.registrationOffice ?? null,
     currentOffice: record.currentOffice ?? null,
-    originalSnapshot: (record.originalSnapshot as unknown as Record<string, any>) ?? {},
-    proposedSnapshot: (record.proposedSnapshot as unknown as Record<string, any>) ?? {},
-    fieldChanges: (record.fieldChanges as unknown as FieldChangeItem[]) ?? [],
+    originalSnapshot,
+    proposedSnapshot,
+    fieldChanges,
     status: record.status,
     requestedById: record.requestedById ?? null,
     requestedBy: record.requestedBy ?? null,
@@ -318,6 +390,10 @@ export async function createEditRequest(params: CreateEditRequestParams) {
         orderBy: { createdAt: "desc" },
         include: { currentOffice: true },
       },
+      advancePaymentApprovals: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -345,6 +421,12 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     throw error;
   }
 
+  const latestAdvanceApproval = existing.advancePaymentApprovals?.[0];
+  const pendingAdvanceAmount =
+    existing.advancePaymentStatus === "Pending Approval" && latestAdvanceApproval?.status === "Pending Approval"
+      ? Number(latestAdvanceApproval.advanceAmount)
+      : 0;
+
   // 3. Compare original data and proposed data to compute field changes
   const originalSnapshot: Record<string, any> = {
     trackingNumber: existing.trackingNumber,
@@ -368,6 +450,7 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     deliveryLocation: existing.deliveryLocation,
     totalCharges: Number(existing.totalCharges),
     advancePaid: Number(existing.advancePaid),
+    requestedAdvanceAmount: pendingAdvanceAmount,
     paymentMode: existing.paymentMode,
     upiTransactionId: existing.upiTransactionId,
     bankName: existing.bankName,
@@ -393,6 +476,7 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     registeredPerson: existing.registeredPerson,
     regionOfRegistration: existing.regionOfRegistration,
     approvalStatus: existing.approvalStatus,
+    trackingStatus: existing.trackingStatus || "Registered",
     leadId: existing.leadId,
   };
 
