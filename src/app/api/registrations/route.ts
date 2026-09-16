@@ -42,6 +42,23 @@ export async function GET(request: NextRequest) {
       allowedOfficeNames = modConfig.officeNames;
     }
 
+    const rawOfficeLocationIds = searchParams.getAll("officeLocationIds");
+    const officeLocationIdsParam = searchParams.get("officeLocationIds");
+    const officeLocationParam = searchParams.get("officeLocation");
+
+    let officeLocationIds: string[] = [];
+    if (rawOfficeLocationIds.length > 0) {
+      for (const item of rawOfficeLocationIds) {
+        if (item.includes(",")) {
+          officeLocationIds.push(...item.split(",").map((s) => s.trim()).filter(Boolean));
+        } else if (item.trim()) {
+          officeLocationIds.push(item.trim());
+        }
+      }
+    } else if (officeLocationIdsParam) {
+      officeLocationIds = officeLocationIdsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+
     const data = await listRegistrations(ownerAdminId, {
       page,
       pageSize,
@@ -49,6 +66,7 @@ export async function GET(request: NextRequest) {
       isSuperAdmin: session.user.isSuperAdmin,
       allowedOfficeIds,
       allowedOfficeNames,
+      officeLocationIds: officeLocationIds.length > 0 ? officeLocationIds : undefined,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
       trackingNumber: searchParams.get("trackingNumber") ?? undefined,
@@ -57,7 +75,7 @@ export async function GET(request: NextRequest) {
       createdBy: searchParams.get("createdBy") ?? undefined,
       collectedPerson: searchParams.get("collectedPerson") ?? undefined,
       registeredPerson: searchParams.get("registeredPerson") ?? undefined,
-      officeLocation: searchParams.get("officeLocation") ?? undefined,
+      officeLocation: officeLocationParam ?? undefined,
       processOffice: searchParams.get("processOffice") ?? undefined,
       service: searchParams.get("service") ?? undefined,
       documentType: searchParams.get("documentType") ?? undefined,

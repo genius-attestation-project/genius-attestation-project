@@ -6,7 +6,18 @@ import type { RegistrationInput } from "@/features/registration/validations/regi
 
 const registrationInclude = {
   creator: {
-    select: { id: true, name: true, email: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      officeLocationId: true,
+      officeLocationRef: {
+        select: {
+          id: true,
+          officeName: true,
+        },
+      },
+    },
   },
   corporateDetail: {
     select: { id: true, companyName: true, contactPersonName: true, contactPersonMobile: true },
@@ -71,6 +82,10 @@ function mapRegistration(registration: RegistrationRecord) {
   const hasPendingEditRequest = Boolean(pendingEditReq);
   const pendingEditRequestId = pendingEditReq?.id ?? null;
 
+  const creatorOfficeLocationId = (registration.creator as any)?.officeLocationId ?? null;
+  const creatorOfficeName = (registration.creator as any)?.officeLocationRef?.officeName ?? null;
+  const resolvedOfficeName = creatorOfficeName || registration.regionOfRegistration || "Unassigned";
+
   return {
     ...registration,
     totalCharges: Number(registration.totalCharges),
@@ -124,7 +139,11 @@ function mapRegistration(registration: RegistrationRecord) {
       id: registration.creator.id,
       name: registration.creator.name,
       email: registration.creator.email,
+      officeLocationId: creatorOfficeLocationId,
+      officeLocationName: creatorOfficeName,
     } : null,
+    officeLocationId: creatorOfficeLocationId,
+    officeLocationName: resolvedOfficeName,
     movementApproved: Boolean(registration.movementApproved),
     movementApprovalStatus,
     movementApprovalRemarks,
@@ -259,6 +278,7 @@ export async function listRegistrations(
     collectedPerson?: string;
     registeredPerson?: string;
     officeLocation?: string;
+    officeLocationIds?: string[] | string;
     processOffice?: string;
     service?: string;
     documentType?: string;
@@ -289,6 +309,93 @@ export async function listRegistrations(
 
   const statusFilter = params.status || params.trackingStatus;
 
+  // 1. Process Office Visibility and Multi-Office Filtering
+  let selectedOfficeIds: string[] = [];
+  if (params.officeLocationIds) {
+    if (Array.isArray(params.officeLocationIds)) {
+      selectedOfficeIds = params.officeLocationIds.map((s) => s.trim()).filter(Boolean);
+    } else if (typeof params.officeLocationIds === "string") {
+      selectedOfficeIds = params.officeLocationIds.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const isSuperAdmin = Boolean(params.isSuperAdmin);
+  const isRestricted = !isSuperAdmin && params.allowedOfficeIds !== null && params.allowedOfficeIds !== undefined;
+  const userAllowedOfficeIds = isRestricted ? (params.allowedOfficeIds ?? []) : null;
+
+  // If user is restricted and has 0 allowed offices -> deny all access immediately
+  if (isRestricted && userAllowedOfficeIds && userAllowedOfficeIds.length === 0) {
+    return {
+      items: [],
+      pagination: {
+        page,
+        pageSize,
+        totalItems: 0,
+        totalPages: 1,
+      },
+    };
+  }
+
+  let effectiveOfficeIds: string[] | null = null;
+  if (selectedOfficeIds.length > 0) {
+    if (isRestricted && userAllowedOfficeIds) {
+      // Intersect selected office IDs with user's authorized office IDs
+      effectiveOfficeIds = selectedOfficeIds.filter((id) => userAllowedOfficeIds.includes(id));
+      // If user selected offices but none of them are authorized, return empty dataset
+      if (effectiveOfficeIds.length === 0) {
+        return {
+          items: [],
+          pagination: {
+            page,
+            pageSize,
+            totalItems: 0,
+            totalPages: 1,
+          },
+        };
+      }
+    } else {
+      effectiveOfficeIds = selectedOfficeIds;
+    }
+  } else if (isRestricted && userAllowedOfficeIds) {
+    effectiveOfficeIds = userAllowedOfficeIds;
+  }
+
+  let effectiveOfficeNames: string[] = [];
+  if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
+    const offices = await prisma.officeLocation.findMany({
+      where: {
+        id: { in: effectiveOfficeIds },
+        ownerAdminId,
+      },
+      select: { id: true, officeName: true },
+    });
+    effectiveOfficeNames = offices.map((o) => o.officeName).filter(Boolean);
+  }
+
+  let officeCondition: Prisma.RegistrationWhereInput | null = null;
+  if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
+    officeCondition = {
+      OR: [
+        { creator: { officeLocationId: { in: effectiveOfficeIds } } },
+        { regionOfRegistration: { in: effectiveOfficeNames } },
+      ],
+    };
+  } else if (params.officeLocation) {
+    // Fallback for single office location name filter if no office IDs were specified
+    if (isRestricted && params.allowedOfficeNames && !params.allowedOfficeNames.includes(params.officeLocation)) {
+      return {
+        items: [],
+        pagination: {
+          page,
+          pageSize,
+          totalItems: 0,
+          totalPages: 1,
+        },
+      };
+    }
+    officeCondition = { regionOfRegistration: params.officeLocation };
+  }
+
   const where: Prisma.RegistrationWhereInput = {
     ownerAdminId,
     ...(params.trackingNumber ? { trackingNumber: { contains: params.trackingNumber } } : {}),
@@ -297,7 +404,6 @@ export async function listRegistrations(
     ...(params.createdBy ? { createdBy: params.createdBy } : {}),
     ...(params.collectedPerson ? { collectedPerson: params.collectedPerson } : {}),
     ...(params.registeredPerson ? { registeredPerson: params.registeredPerson } : {}),
-    ...(params.officeLocation ? { regionOfRegistration: params.officeLocation } : {}),
     ...(params.processOffice ? { documentMovements: { some: { currentOfficeId: params.processOffice } } } : {}),
     ...(params.service ? { processType: params.service } : {}),
     ...(params.documentType ? { documentType: params.documentType } : {}),
@@ -313,21 +419,31 @@ export async function listRegistrations(
     ...(statusFilter ? { trackingStatus: { contains: statusFilter } } : {}),
   };
 
-  if (params.allowedOfficeNames !== undefined || params.isSuperAdmin !== undefined) {
-    const officeCondition = buildOfficeVisibilityWhereInput(
-      {
-        isSuperAdmin: params.isSuperAdmin,
-        allowedOfficeIds: params.allowedOfficeIds,
-        allowedOfficeNames: params.allowedOfficeNames,
-      },
-      { officeNameField: "regionOfRegistration" }
-    );
-    if (params.officeLocation && !params.isSuperAdmin && params.allowedOfficeNames) {
-      if (!params.allowedOfficeNames.includes(params.officeLocation)) {
-        where.id = "none";
-      }
-    }
-    Object.assign(where, officeCondition);
+  const andConditions: Prisma.RegistrationWhereInput[] = [];
+
+  if (officeCondition) {
+    andConditions.push(officeCondition);
+  }
+
+  if (query) {
+    andConditions.push({
+      OR: [
+        { trackingNumber: { contains: query } },
+        { customerName: { contains: query } },
+        { mobile: { contains: query } },
+        { email: { contains: query } },
+        { processType: { contains: query } },
+        { subPackage: { contains: query } },
+        { documentType: { contains: query } },
+        { documentName: { contains: query } },
+        { paymentStatus: { contains: query } },
+        { approvalStatus: { contains: query } },
+      ],
+    });
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
   }
 
   if (params.fromDate || params.toDate) {
@@ -352,21 +468,6 @@ export async function listRegistrations(
     where.advancePaid = {};
     if (params.minAdvancePaid) where.advancePaid.gte = Number(params.minAdvancePaid);
     if (params.maxAdvancePaid) where.advancePaid.lte = Number(params.maxAdvancePaid);
-  }
-
-  if (query) {
-    where.OR = [
-      { trackingNumber: { contains: query } },
-      { customerName: { contains: query } },
-      { mobile: { contains: query } },
-      { email: { contains: query } },
-      { processType: { contains: query } },
-      { subPackage: { contains: query } },
-      { documentType: { contains: query } },
-      { documentName: { contains: query } },
-      { paymentStatus: { contains: query } },
-      { approvalStatus: { contains: query } },
-    ];
   }
 
   const [items, totalItems] = await Promise.all([

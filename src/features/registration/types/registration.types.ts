@@ -86,8 +86,10 @@ export type Registration = {
   corporateDetailId?: string | null;
   corporateDetail?: { id: string; companyName: string; contactPersonName: string; contactPersonMobile: string } | null;
   ownerAdminId?: string | null;
-  createdBy?: { id: string; name: string | null; email: string | null } | null;
+  createdBy?: { id: string; name: string | null; email: string | null; officeLocationId?: string | null; officeLocationName?: string | null } | null;
   createdById?: string | null;
+  officeLocationId?: string | null;
+  officeLocationName?: string | null;
   createdAt: string;
   updatedAt: string;
   createdDate: string;

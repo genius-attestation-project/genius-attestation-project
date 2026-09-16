@@ -24,9 +24,10 @@ import {
   Send,
   Clock,
   AlertCircle,
+  Building2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
@@ -37,6 +38,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
+import { MultiSelectDropdown, type MultiSelectOption } from "@/components/ui/MultiSelectDropdown";
 import { FileUpload, MultiFileUpload } from "@/components/common/FileUpload";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
@@ -565,6 +567,7 @@ export function RegistrationManager({
     createdBy: "",
     collectedPerson: "",
     registeredPerson: "",
+    officeLocationIds: [] as string[],
     officeLocation: "",
     processOffice: "",
     service: "",
@@ -585,6 +588,94 @@ export function RegistrationManager({
     minAdvancePaid: "",
     maxAdvancePaid: "",
   });
+
+  const authorizedOfficeLocations = useMemo(() => {
+    const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
+    const revRegVis = currentUser?.moduleOfficeVisibilities?.["revenue_registration"];
+    let allowedIds: string[] | null = null;
+
+    if (!isSuperAdmin) {
+      if (revRegVis) {
+        allowedIds = revRegVis.officeIds || [];
+      } else if (currentUser?.allowedOfficeIds !== null && currentUser?.allowedOfficeIds !== undefined) {
+        allowedIds = currentUser.allowedOfficeIds;
+      }
+    }
+
+    if (allowedIds === null) {
+      return rawOfficeLocations;
+    }
+
+    return rawOfficeLocations.filter((loc) => allowedIds!.includes(loc.id));
+  }, [currentUser, rawOfficeLocations]);
+
+  const sortedOfficeLocations = useMemo(() => {
+    const list = [...authorizedOfficeLocations];
+    list.sort((a, b) => a.officeName.localeCompare(b.officeName));
+
+    const defaultOfficeName = (currentOfficeLocationName || currentUser?.officeLocationName || "").trim().toLowerCase();
+    const defaultOfficeId = currentUser?.officeLocationId;
+
+    if (defaultOfficeName || defaultOfficeId) {
+      const defaultIdx = list.findIndex(
+        (loc) => (defaultOfficeId && loc.id === defaultOfficeId) || (defaultOfficeName && loc.officeName.toLowerCase() === defaultOfficeName)
+      );
+      if (defaultIdx > 0) {
+        const [defLoc] = list.splice(defaultIdx, 1);
+        list.unshift(defLoc);
+      }
+    }
+
+    return list;
+  }, [authorizedOfficeLocations, currentOfficeLocationName, currentUser?.officeLocationName, currentUser?.officeLocationId]);
+
+  const officeMultiSelectOptions: MultiSelectOption[] = useMemo(() => {
+    return sortedOfficeLocations.map((loc) => ({
+      label: loc.officeName,
+      value: loc.id,
+      description: loc.location || undefined,
+    }));
+  }, [sortedOfficeLocations]);
+
+  const groupedRegistrations = useMemo(() => {
+    if (registrations.length === 0) return [];
+
+    const groupsMap = new Map<string, { officeId: string | null; officeName: string; items: Registration[] }>();
+
+    registrations.forEach((reg) => {
+      const officeKey = (reg.officeLocationName || reg.regionOfRegistration || "Unassigned").trim();
+      const officeId = reg.officeLocationId || null;
+
+      if (!groupsMap.has(officeKey)) {
+        groupsMap.set(officeKey, {
+          officeId,
+          officeName: officeKey,
+          items: [],
+        });
+      }
+      groupsMap.get(officeKey)!.items.push(reg);
+    });
+
+    const defaultOfficeName = (currentOfficeLocationName || currentUser?.officeLocationName || "").trim().toLowerCase();
+    const defaultOfficeId = currentUser?.officeLocationId;
+
+    const groups = Array.from(groupsMap.values());
+
+    groups.sort((a, b) => {
+      const aName = a.officeName.toLowerCase();
+      const bName = b.officeName.toLowerCase();
+
+      const aIsDefault = (defaultOfficeId && a.officeId === defaultOfficeId) || (defaultOfficeName && aName === defaultOfficeName);
+      const bIsDefault = (defaultOfficeId && b.officeId === defaultOfficeId) || (defaultOfficeName && bName === defaultOfficeName);
+
+      if (aIsDefault && !bIsDefault) return -1;
+      if (!aIsDefault && bIsDefault) return 1;
+
+      return a.officeName.localeCompare(b.officeName);
+    });
+
+    return groups;
+  }, [registrations, currentOfficeLocationName, currentUser?.officeLocationName, currentUser?.officeLocationId]);
 
   const approvedAdvance = useMemo(() => {
     return selected ? Number(selected.advancePaid || 0) : 0;
@@ -708,7 +799,11 @@ export function RegistrationManager({
       if (search.trim()) params.set("query", search.trim());
       
       Object.entries(currentFilters).forEach(([key, value]) => {
-        if (value && String(value).trim()) {
+        if (Array.isArray(value)) {
+          if (value.length > 0) {
+            params.set(key, value.join(","));
+          }
+        } else if (value && String(value).trim()) {
           params.set(key, String(value).trim());
         }
       });
@@ -1106,7 +1201,11 @@ export function RegistrationManager({
       if (query.trim()) params.set("query", query.trim());
 
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && String(value).trim()) {
+        if (Array.isArray(value)) {
+          if (value.length > 0) {
+            params.set(key, value.join(","));
+          }
+        } else if (value && String(value).trim()) {
           params.set(key, String(value).trim());
         }
       });
@@ -1267,11 +1366,13 @@ export function RegistrationManager({
             </label>
             <label className="grid gap-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Office Location</span>
-              <SearchableSelect
-                value={filters.officeLocation}
-                onChange={(val) => setFilters(f => ({ ...f, officeLocation: val }))}
-                options={toSelectOptions(officeLocationOptions)}
-                placeholder="Select office"
+              <MultiSelectDropdown
+                selectedValues={filters.officeLocationIds}
+                onChange={(vals) => setFilters((f) => ({ ...f, officeLocationIds: vals }))}
+                options={officeMultiSelectOptions}
+                placeholder="Select offices"
+                loading={officeLocationsLoading}
+                errorMessage={officeLocationsError}
               />
             </label>
             <label className="grid gap-2">
@@ -1386,7 +1487,7 @@ export function RegistrationManager({
                 onClick={() => {
                   const blankFilters = {
                     fromDate: "", toDate: "", trackingNumber: "", customerName: "", mobile: "",
-                    createdBy: "", collectedPerson: "", registeredPerson: "", officeLocation: "", processOffice: "",
+                    createdBy: "", collectedPerson: "", registeredPerson: "", officeLocationIds: [] as string[], officeLocation: "", processOffice: "",
                     service: "", documentType: "", documentIssuedCountry: "", customerType: "", processType: "",
                     subPackage: "",
                     priority: "", deliveryLocation: "", paymentStatus: "", paymentMode: "", approvalStatus: "", status: "",
@@ -1501,152 +1602,170 @@ export function RegistrationManager({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-(--border) bg-white/70 dark:bg-white/5">
-                    {registrations.map((registration, index) => (
-                      <tr key={registration.id} className="transition hover:bg-blue-50/70 dark:hover:bg-blue-500/5">
-                        <td className="px-3.5 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSelectRow(registration.id)}
-                            className="inline-flex items-center justify-center p-0.5 rounded text-slate-600 hover:text-blue-600 dark:text-slate-300 cursor-pointer"
-                          >
-                            {selectedIds.includes(registration.id) ? (
-                              <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
-                            ) : (
-                              <Square size={16} className="text-slate-400" />
-                            )}
-                          </button>
-                        </td>
-                        <td className="px-3.5 py-3 text-center text-slate-500 font-medium">
-                          {((page - 1) * pageSize) + index + 1}
-                        </td>
-                        <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
+                    {groupedRegistrations.map((group) => (
+                      <Fragment key={`office-group-${group.officeName}`}>
+                        <tr className="bg-slate-100/90 border-y border-slate-200/90 dark:bg-slate-800/80 dark:border-white/10">
+                          <td colSpan={12} className="px-4 py-2 font-bold text-xs text-slate-800 dark:text-slate-200">
                             <div className="flex items-center gap-2">
-                              <PriorityDot priority={registration.priority} size={10} />
-                              <Link
-                                href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
-                                className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                              >
-                                {registration.trackingNumber}
-                              </Link>
-                            </div>
-                            {registration.hasPendingEditRequest && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/50 dark:text-amber-300 w-fit">
-                                <Clock size={10} className="text-amber-600 dark:text-amber-400" />
-                                Edit Approval Pending
+                              <Building2 size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="font-bold text-slate-900 dark:text-white">{group.officeName}</span>
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                                {group.items.length} {group.items.length === 1 ? "document" : "documents"}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
-                          {registration.customerName}
-                        </td>
-                        <td className="px-3.5 py-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
-                          {registration.mobile}
-                        </td>
-                        <td className="px-3.5 py-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
-                          {registration.createdBy?.name || "Unknown"}
-                        </td>
-                        <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-40">
-                          {registration.processType || "-"}
-                        </td>
-                        <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-32.5">
-                          {registration.documentType || "-"}
-                        </td>
-                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                            registration.trackingStatus === "Delivered"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                              : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
-                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300"
-                              : registration.trackingStatus === "Document In Hand"
-                              ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
-                              : registration.trackingStatus === "In Transfer"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
-                          }`}>
-                            {registration.trackingStatus || "Registered"}
-                          </span>
-                        </td>
-                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
-                            registration.paymentStatus === "Paid"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                              : registration.paymentStatus === "Partially Paid"
-                              ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                              : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
-                          }`}>
-                            {registration.paymentStatus || "Unpaid"}
-                          </span>
-                        </td>
-                        <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
-                          {registration.createdDate}
-                        </td>
-                        <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
-                            {Number(registration.advancePaid || 0) <= 0 &&
-                              !registration.movementApproved &&
-                              registration.movementApprovalStatus !== "Approved" &&
-                              (!registration.trackingStatus ||
-                                ["Registered", "REGISTERED", "Movement Approval Pending", "Movement Approval Rejected"].includes(registration.trackingStatus)) &&
-                              canRequestMovement && (
-                              <Button
-                                variant={registration.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
-                                size="sm"
-                                title={
-                                  registration.movementApprovalStatus === "Pending"
-                                    ? "Movement approval request is pending review"
-                                    : "Request movement approval to allow document movement without advance payment"
-                                }
-                                onClick={() => setMovementApprovalTarget(registration)}
-                                className={`h-8 px-2 text-[11px] font-bold flex items-center gap-1 shrink-0 ${
-                                  registration.movementApprovalStatus === "Pending"
-                                    ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                                    : registration.movementApprovalStatus === "Rejected"
-                                    ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
-                                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-xs"
-                                }`}
-                              >
-                                <Send size={12} />
-                                <span className="hidden xl:inline">
-                                  {registration.movementApprovalStatus === "Rejected"
-                                    ? "Re-request Approval"
-                                    : registration.movementApprovalStatus === "Pending"
-                                    ? "Approval Pending"
-                                    : "Movement Request"}
+                            </div>
+                          </td>
+                        </tr>
+                        {group.items.map((registration) => {
+                          const globalIndex = registrations.indexOf(registration);
+                          return (
+                            <tr key={registration.id} className="transition hover:bg-blue-50/70 dark:hover:bg-blue-500/5">
+                              <td className="px-3.5 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSelectRow(registration.id)}
+                                  className="inline-flex items-center justify-center p-0.5 rounded text-slate-600 hover:text-blue-600 dark:text-slate-300 cursor-pointer"
+                                >
+                                  {selectedIds.includes(registration.id) ? (
+                                    <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
+                                  ) : (
+                                    <Square size={16} className="text-slate-400" />
+                                  )}
+                                </button>
+                              </td>
+                              <td className="px-3.5 py-3 text-center text-slate-500 font-medium">
+                                {((page - 1) * pageSize) + (globalIndex >= 0 ? globalIndex : 0) + 1}
+                              </td>
+                              <td className="px-3.5 py-3 font-bold text-blue-700 dark:text-blue-200 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <PriorityDot priority={registration.priority} size={10} />
+                                    <Link
+                                      href={`/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`}
+                                      className="font-mono hover:underline hover:text-blue-600 dark:hover:text-blue-400"
+                                    >
+                                      {registration.trackingNumber}
+                                    </Link>
+                                  </div>
+                                  {registration.hasPendingEditRequest && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/50 dark:text-amber-300 w-fit">
+                                      <Clock size={10} className="text-amber-600 dark:text-amber-400" />
+                                      Edit Approval Pending
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white min-w-32.5">
+                                {registration.customerName}
+                              </td>
+                              <td className="px-3.5 py-3 whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                                {registration.mobile}
+                              </td>
+                              <td className="px-3.5 py-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
+                                {registration.createdBy?.name || "Unknown"}
+                              </td>
+                              <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-40">
+                                {registration.processType || "-"}
+                              </td>
+                              <td className="px-3.5 py-3 leading-snug font-medium text-slate-800 dark:text-slate-200 min-w-32.5">
+                                {registration.documentType || "-"}
+                              </td>
+                              <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                                  registration.trackingStatus === "Delivered"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                    : registration.trackingStatus === "Ready for Delivery" || registration.trackingStatus === "Ready For Delivery"
+                                    ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300"
+                                    : registration.trackingStatus === "Document In Hand"
+                                    ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
+                                    : registration.trackingStatus === "In Transfer"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                    : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                                }`}>
+                                  {registration.trackingStatus || "Registered"}
                                 </span>
-                                <span className="xl:hidden">
-                                  {registration.movementApprovalStatus === "Rejected"
-                                    ? "Re-request"
-                                    : registration.movementApprovalStatus === "Pending"
-                                    ? "Pending"
-                                    : "Movement Request"}
+                              </td>
+                              <td className="px-3.5 py-3 text-center whitespace-nowrap font-semibold">
+                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${
+                                  registration.paymentStatus === "Paid"
+                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                                    : registration.paymentStatus === "Partially Paid"
+                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                                    : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+                                }`}>
+                                  {registration.paymentStatus || "Unpaid"}
                                 </span>
-                              </Button>
-                            )}
-                            {hasTimelinePermission && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                title="View Branch Movement"
-                                onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
-                                className="h-8 w-8"
-                              >
-                                <Route size={15} className="text-blue-600" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" onClick={() => openView(registration)} className="h-8 w-8">
-                              <Eye size={15} />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(registration)} className="h-8 w-8">
-                              <Pencil size={15} />
-                            </Button>
-                            <Button variant="danger" size="icon" onClick={() => handleDelete(registration)} className="h-8 w-8">
-                              <Trash2 size={15} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                              </td>
+                              <td className="px-3.5 py-3 text-center whitespace-nowrap font-mono text-slate-600 dark:text-slate-300">
+                                {registration.createdDate}
+                              </td>
+                              <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  {Number(registration.advancePaid || 0) <= 0 &&
+                                    !registration.movementApproved &&
+                                    registration.movementApprovalStatus !== "Approved" &&
+                                    (!registration.trackingStatus ||
+                                      ["Registered", "REGISTERED", "Movement Approval Pending", "Movement Approval Rejected"].includes(registration.trackingStatus)) &&
+                                    canRequestMovement && (
+                                    <Button
+                                      variant={registration.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
+                                      size="sm"
+                                      title={
+                                        registration.movementApprovalStatus === "Pending"
+                                          ? "Movement approval request is pending review"
+                                          : "Request movement approval to allow document movement without advance payment"
+                                      }
+                                      onClick={() => setMovementApprovalTarget(registration)}
+                                      className={`h-8 px-2 text-[11px] font-bold flex items-center gap-1 shrink-0 ${
+                                        registration.movementApprovalStatus === "Pending"
+                                          ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                        : registration.movementApprovalStatus === "Rejected"
+                                        ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-xs"
+                                      }`}
+                                    >
+                                      <Send size={12} />
+                                      <span className="hidden xl:inline">
+                                        {registration.movementApprovalStatus === "Rejected"
+                                          ? "Re-request Approval"
+                                          : registration.movementApprovalStatus === "Pending"
+                                          ? "Approval Pending"
+                                          : "Movement Request"}
+                                      </span>
+                                      <span className="xl:hidden">
+                                        {registration.movementApprovalStatus === "Rejected"
+                                          ? "Re-request"
+                                          : registration.movementApprovalStatus === "Pending"
+                                          ? "Pending"
+                                          : "Movement Request"}
+                                      </span>
+                                    </Button>
+                                  )}
+                                  {hasTimelinePermission && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      title="View Branch Movement"
+                                      onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}
+                                      className="h-8 w-8"
+                                    >
+                                      <Route size={15} className="text-blue-600" />
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" onClick={() => openView(registration)} className="h-8 w-8">
+                                    <Eye size={15} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => openEdit(registration)} className="h-8 w-8">
+                                    <Pencil size={15} />
+                                  </Button>
+                                  <Button variant="danger" size="icon" onClick={() => handleDelete(registration)} className="h-8 w-8">
+                                    <Trash2 size={15} />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
