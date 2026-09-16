@@ -18,7 +18,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;
-    const lead = await getLeadById(ownerAdminId, id);
+    const lead = await getLeadById(ownerAdminId, id, session?.user);
 
     if (!lead) {
       return jsonError("Lead not found.", 404);
@@ -96,7 +96,7 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { id } = await context.params;
-    const deleted = await deleteLead(ownerAdminId, id);
+    const deleted = await deleteLead(ownerAdminId, id, session?.user);
 
     if (!deleted) {
       return jsonError("Lead not found.", 404);

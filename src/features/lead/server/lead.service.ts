@@ -1035,12 +1035,15 @@ export async function listLeads(user: any, ownerAdminId: string, params: {
   }
 }
 
-export async function getLeadById(ownerAdminId: string, id: string) {
+export async function getLeadById(ownerAdminId: string, id: string, user?: any) {
+  const officeCondition = user && !user.isSuperAdmin ? getLeadAccessFilter(user).officeCondition : {};
+
   try {
     const lead = await prisma.lead.findFirst({
       where: {
         ownerAdminId,
         OR: [{ id }, { leadCode: id }],
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
       },
       select: leadSelect,
     });
@@ -1055,6 +1058,7 @@ export async function getLeadById(ownerAdminId: string, id: string) {
       where: {
         ownerAdminId,
         OR: [{ id }, { leadCode: id }],
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
       },
       select: legacyLeadSelect,
     });
@@ -1449,11 +1453,14 @@ export async function bulkAssignLeads(args: {
   };
 }
 
-export async function deleteLead(ownerAdminId: string, id: string) {
+export async function deleteLead(ownerAdminId: string, id: string, user?: any) {
+  const officeCondition = user && !user.isSuperAdmin ? getLeadAccessFilter(user).officeCondition : {};
+
   const existingLead = await prisma.lead.findFirst({
     where: {
       ownerAdminId,
       OR: [{ id }, { leadCode: id }],
+      ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
     },
     select: { id: true },
   });

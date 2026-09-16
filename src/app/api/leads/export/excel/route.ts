@@ -1,5 +1,6 @@
 import { listLeads } from "@/features/lead/server/lead.service";
 import { generateLeadExcelBuffer } from "@/features/lead/server/export.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError } from "@/utils/response";
 import { NextRequest } from "next/server";
@@ -13,6 +14,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
+    const officeLocationId = searchParams.get("officeLocationId") ?? undefined;
+
+    if (officeLocationId && !hasOfficeAccess(session.user, officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
     
     // Fetch all records for the export without typical pagination by setting pageSize to a very high number
     const data = await listLeads(session.user, ownerAdminId, {
@@ -27,7 +33,7 @@ export async function GET(request: NextRequest) {
       state: searchParams.get("state") ?? undefined,
       source: searchParams.get("source") ?? undefined,
       followupDate: searchParams.get("followupDate") ?? undefined,
-      officeLocationId: searchParams.get("officeLocationId") ?? undefined,
+      officeLocationId,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
     });

@@ -1,9 +1,14 @@
-import { getClosedAnalyticsCards } from "@/features/closed/server/closed.service";
+import {
+  buildBaseClosedWhere,
+  getClosedAnalyticsCards,
+  getOfficeLocationOptions,
+} from "@/features/closed/server/closed.service";
 import type { ClosedFilters } from "@/features/closed/server/closed.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
-import { LeadStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 
 function parseFilters(url: string): ClosedFilters {
@@ -32,7 +37,7 @@ function parseFilters(url: string): ClosedFilters {
   return filters;
 }
 
-async function getFallbackClosedAnalyticsCards(ownerAdminId: string) {
+async function getFallbackClosedAnalyticsCards(ownerAdminId: string, user?: any, filters: ClosedFilters = {}) {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
@@ -41,7 +46,7 @@ async function getFallbackClosedAnalyticsCards(ownerAdminId: string) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const where: Prisma.LeadWhereInput = { ownerAdminId, leadStatus: LeadStatus.Closed };
+  const where: Prisma.LeadWhereInput = buildBaseClosedWhere(ownerAdminId, filters, user);
 
   const [totalClosedLeads, todayClosedLeads, thisMonthClosedLeads, revenue, leads] = await Promise.all([
     prisma.lead.count({ where }),
@@ -86,20 +91,28 @@ async function getFallbackClosedAnalyticsCards(ownerAdminId: string) {
       assignedUsers,
       countries,
       previousStatuses: [],
-      officeLocations: [],
+      officeLocations: await getOfficeLocationOptions(ownerAdminId, user),
     },
   };
 }
 
 export async function GET(request: NextRequest) {
   let ownerAdminId: string | undefined;
+  let sessionUser: any;
 
   try {
     const session = await auth();
-    ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
+    sessionUser = session?.user;
+    ownerAdminId = sessionUser?.ownerAdminId ?? sessionUser?.id;
     if (!ownerAdminId) return jsonError("Authentication required.", 401);
 
-    const data = await getClosedAnalyticsCards(ownerAdminId, parseFilters(request.url));
+    const filters = parseFilters(request.url);
+
+    if (filters.officeLocationId && !hasOfficeAccess(sessionUser, filters.officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const data = await getClosedAnalyticsCards(ownerAdminId, filters, sessionUser);
     return jsonOk(data);
   } catch (error) {
     const filters = parseFilters(request.url);
@@ -116,7 +129,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const data = await getFallbackClosedAnalyticsCards(ownerAdminId);
+      const data = await getFallbackClosedAnalyticsCards(ownerAdminId, sessionUser, filters);
       return jsonOk(data);
     } catch (fallbackError) {
       console.error(`[GET /api/closed/analytics] Fallback Database operation failed:`, {

@@ -193,40 +193,111 @@ function formatMonthKey(value: Date): string {
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function buildBaseClosedWhere(ownerAdminId: string, filters: ClosedFilters): Prisma.LeadWhereInput {
-  const where: Prisma.LeadWhereInput = {
-    ownerAdminId,
-    leadStatus: LeadStatus.Closed,
-  };
+export function getClosedLeadAllowedOfficeIds(user: any): string[] | null {
+  if (!user || user.isSuperAdmin === true || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
+    return null;
+  }
+
+  if (user.moduleOfficeVisibilities && typeof user.moduleOfficeVisibilities === "object") {
+    const modConfig = user.moduleOfficeVisibilities["lead_management"];
+    if (modConfig) {
+      return Array.isArray(modConfig.officeIds) ? modConfig.officeIds : [];
+    }
+  }
+
+  if (Array.isArray(user.allowedOfficeIds)) {
+    return user.allowedOfficeIds;
+  }
+
+  return [];
+}
+
+export function buildBaseClosedWhere(
+  ownerAdminId: string,
+  filters: ClosedFilters,
+  user?: any,
+): Prisma.LeadWhereInput {
+  const allowedOfficeIds = getClosedLeadAllowedOfficeIds(user);
+
+  let officeCondition: Prisma.LeadWhereInput = {};
+
+  if (allowedOfficeIds !== null) {
+    if (allowedOfficeIds.length === 0) {
+      return {
+        ownerAdminId,
+        id: "none",
+      };
+    }
+
+    if (filters.officeLocationId) {
+      const target = filters.officeLocationId.trim().toLowerCase();
+      const isPermitted = allowedOfficeIds.some((id) => id.trim().toLowerCase() === target);
+      if (!isPermitted) {
+        return {
+          ownerAdminId,
+          id: "none",
+        };
+      }
+      officeCondition = {
+        creator: {
+          officeLocationId: filters.officeLocationId,
+        },
+      };
+    } else {
+      officeCondition = {
+        creator: {
+          officeLocationId: { in: allowedOfficeIds },
+        },
+      };
+    }
+  } else {
+    if (filters.officeLocationId) {
+      officeCondition = {
+        creator: {
+          officeLocationId: filters.officeLocationId,
+        },
+      };
+    }
+  }
+
+  const andConditions: Prisma.LeadWhereInput[] = [];
+
+  if (Object.keys(officeCondition).length > 0) {
+    andConditions.push(officeCondition);
+  }
 
   if (filters.service) {
-    where.service = filters.service;
+    andConditions.push({ service: filters.service });
   }
 
   if (filters.assignedUser) {
-    where.assignedUser = { contains: filters.assignedUser };
+    andConditions.push({ assignedUser: { contains: filters.assignedUser } });
   }
 
   if (filters.country) {
-    where.country = { contains: filters.country };
-  }
-
-  if (filters.officeLocationId) {
-    where.creator = { officeLocationId: filters.officeLocationId };
+    andConditions.push({ country: { contains: filters.country } });
   }
 
   if (filters.query?.trim()) {
     const query = filters.query.trim();
-    where.OR = [
-      { leadCode: { contains: query } },
-      { firstName: { contains: query } },
-      { lastName: { contains: query } },
-      { mobileNumber: { contains: query } },
-      { email: { contains: query } },
-      { service: { contains: query } },
-      { assignedUser: { contains: query } },
-    ];
+    andConditions.push({
+      OR: [
+        { leadCode: { contains: query } },
+        { firstName: { contains: query } },
+        { lastName: { contains: query } },
+        { mobileNumber: { contains: query } },
+        { email: { contains: query } },
+        { service: { contains: query } },
+        { assignedUser: { contains: query } },
+      ],
+    });
   }
+
+  const where: Prisma.LeadWhereInput = {
+    ownerAdminId,
+    leadStatus: LeadStatus.Closed,
+    ...(andConditions.length > 0 ? { AND: andConditions } : {}),
+  };
 
   return where;
 }
@@ -294,9 +365,10 @@ function matchesLatestHistory(snapshot: ClosedLeadSnapshot, filters: ClosedFilte
 async function listCurrentClosedSnapshots(
   ownerAdminId: string,
   filters: ClosedFilters = {},
+  user?: any,
 ): Promise<ClosedLeadSnapshot[]> {
   const where: Prisma.LeadWhereInput = {
-    ...buildBaseClosedWhere(ownerAdminId, filters),
+    ...buildBaseClosedWhere(ownerAdminId, filters, user),
   };
 
   const records = await prisma.lead.findMany({
@@ -458,9 +530,10 @@ async function findTimelineRows(
 export async function getClosedAnalyticsCards(
   ownerAdminId: string,
   filters: ClosedFilters = {},
+  user?: any,
 ): Promise<ClosedAnalyticsCards> {
   const now = new Date();
-  const allCurrentClosedSnapshots = await listCurrentClosedSnapshots(ownerAdminId, {});
+  const allCurrentClosedSnapshots = await listCurrentClosedSnapshots(ownerAdminId, {}, user);
   const filteredSnapshots =
     filters.service ||
     filters.assignedUser ||
@@ -470,7 +543,7 @@ export async function getClosedAnalyticsCards(
     filters.officeLocationId ||
     filters.dateFrom ||
     filters.dateTo
-      ? await listCurrentClosedSnapshots(ownerAdminId, filters)
+      ? await listCurrentClosedSnapshots(ownerAdminId, filters, user)
       : allCurrentClosedSnapshots;
 
   const todayStart = startOfDay(now);
@@ -518,16 +591,23 @@ export async function getClosedAnalyticsCards(
             : undefined,
         ),
       ),
-      officeLocations: await getOfficeLocationOptions(ownerAdminId),
+      officeLocations: await getOfficeLocationOptions(ownerAdminId, user),
     },
   };
 }
 
-async function getOfficeLocationOptions(ownerAdminId: string) {
+export async function getOfficeLocationOptions(ownerAdminId: string, user?: any) {
+  const allowedOfficeIds = getClosedLeadAllowedOfficeIds(user);
+
+  if (allowedOfficeIds !== null && allowedOfficeIds.length === 0) {
+    return [];
+  }
+
   const users = await prisma.user.findMany({
     where: {
       OR: [{ ownerAdminId }, { id: ownerAdminId }],
       officeLocationId: { not: null },
+      ...(allowedOfficeIds !== null ? { officeLocationId: { in: allowedOfficeIds } } : {}),
     },
     select: {
       officeLocationId: true,
@@ -542,15 +622,32 @@ async function getOfficeLocationOptions(ownerAdminId: string) {
   });
 
   const options = new Map<string, { label: string; value: string }>();
-  for (const user of users) {
-    if (!user.officeLocationId) continue;
+  for (const userRow of users) {
+    if (!userRow.officeLocationId) continue;
     const label =
-      user.officeLocationName?.trim() ||
-      [user.officeLocationRef?.officeName, user.officeLocationRef?.location]
+      userRow.officeLocationName?.trim() ||
+      [userRow.officeLocationRef?.officeName, userRow.officeLocationRef?.location]
         .filter(Boolean)
         .join(" - ") ||
-      user.officeLocationId;
-    options.set(user.officeLocationId, { label, value: user.officeLocationId });
+      userRow.officeLocationId;
+    options.set(userRow.officeLocationId, { label, value: userRow.officeLocationId });
+  }
+
+  if (allowedOfficeIds !== null && allowedOfficeIds.length > 0) {
+    const missingIds = allowedOfficeIds.filter((id) => !options.has(id));
+    if (missingIds.length > 0) {
+      const offices = await prisma.officeLocation.findMany({
+        where: {
+          id: { in: missingIds },
+          OR: [{ ownerAdminId }, { id: ownerAdminId }],
+        },
+        select: { id: true, officeName: true, location: true },
+      });
+      for (const off of offices) {
+        const label = [off.officeName, off.location].filter(Boolean).join(" - ") || off.id;
+        options.set(off.id, { label, value: off.id });
+      }
+    }
   }
 
   return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
@@ -561,8 +658,9 @@ export async function getClosedLeadsTable(
   filters: ClosedFilters = {},
   page = 1,
   pageSize = 20,
+  user?: any,
 ): Promise<{ items: ClosedLeadRow[]; totalItems: number; totalPages: number; page: number }> {
-  const rows = (await listCurrentClosedSnapshots(ownerAdminId, filters))
+  const rows = (await listCurrentClosedSnapshots(ownerAdminId, filters, user))
     .sort((left, right) => {
       const leftDate = left.statusHistory[0]?.createdAt ?? left.closedAt ?? left.createdAt;
       const rightDate = right.statusHistory[0]?.createdAt ?? right.closedAt ?? right.createdAt;
@@ -603,8 +701,9 @@ export async function getClosedTrends(
   ownerAdminId: string,
   filters: ClosedFilters = {},
   interval: ClosedTrendInterval = "daily",
+  user?: any,
 ): Promise<ClosedTrendPoint[]> {
-  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters);
+  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters, user);
   const now = new Date();
   const buckets = buildTrendBuckets(interval, now);
   const grouped = new Map(buckets.map((bucket) => [bucket.key, 0]));
@@ -632,8 +731,9 @@ export async function getClosedRevenue(
   ownerAdminId: string,
   filters: ClosedFilters = {},
   interval: ClosedTrendInterval = "monthly",
+  user?: any,
 ): Promise<ClosedRevenuePoint[]> {
-  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters);
+  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters, user);
   const now = new Date();
   const buckets = buildTrendBuckets(interval, now);
   const grouped = new Map(buckets.map((bucket) => [bucket.key, 0]));
@@ -660,8 +760,9 @@ export async function getClosedRevenue(
 export async function getClosedCharts(
   ownerAdminId: string,
   filters: ClosedFilters = {},
+  user?: any,
 ): Promise<ClosedCharts> {
-  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters);
+  const snapshots = await listCurrentClosedSnapshots(ownerAdminId, filters, user);
 
   const statusCounts = new Map<string, number>();
   const serviceCounts = new Map<string, number>();
@@ -690,37 +791,78 @@ export async function getClosedTimeline(
   ownerAdminId: string,
   filters: ClosedFilters = {},
   limit = 50,
+  user?: any,
 ): Promise<ClosedTimelineEntry[]> {
+  const allowedOfficeIds = getClosedLeadAllowedOfficeIds(user);
+
+  if (allowedOfficeIds !== null && allowedOfficeIds.length === 0) {
+    return [];
+  }
+
+  let officeCondition: Prisma.LeadWhereInput = {};
+  if (allowedOfficeIds !== null) {
+    if (filters.officeLocationId) {
+      const target = filters.officeLocationId.trim().toLowerCase();
+      const isPermitted = allowedOfficeIds.some((id) => id.trim().toLowerCase() === target);
+      if (!isPermitted) {
+        return [];
+      }
+      officeCondition = { creator: { officeLocationId: filters.officeLocationId } };
+    } else {
+      officeCondition = { creator: { officeLocationId: { in: allowedOfficeIds } } };
+    }
+  } else if (filters.officeLocationId) {
+    officeCondition = { creator: { officeLocationId: filters.officeLocationId } };
+  }
+
+  const previousStatus = parsePreviousStatus(filters.previousStatus);
   const query = filters.query?.trim();
 
-  const records = await findTimelineRows(ownerAdminId, LeadStatus.Closed, filters, limit);
-
-  const leadIds = records.map((record) => record.lead_id);
-  const leads = leadIds.length > 0
-    ? await prisma.lead.findMany({
-        where: {
-          id: { in: leadIds },
-          ...(filters.service ? { service: filters.service } : {}),
-          ...(filters.assignedUser
-            ? { assignedUser: { contains: filters.assignedUser } }
-            : {}),
-          ...(filters.country ? { country: { contains: filters.country } } : {}),
-          ...(filters.officeLocationId ? { creator: { officeLocationId: filters.officeLocationId } } : {}),
-          ...(query
-            ? {
-                OR: [
-                  { leadCode: { contains: query } },
-                  { firstName: { contains: query } },
-                  { lastName: { contains: query } },
-                  { mobileNumber: { contains: query } },
-                  { email: { contains: query } },
-                  { service: { contains: query } },
-                ],
-              }
-            : {}),
-        },
+  const historyEntries = await prisma.leadStatusHistory.findMany({
+    where: {
+      ownerAdminId,
+      newStatus: LeadStatus.Closed,
+      ...(previousStatus ? { previousStatus } : {}),
+      ...(filters.dateFrom || filters.dateTo
+        ? {
+            createdAt: {
+              ...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+              ...(filters.dateTo ? { lt: filters.dateTo } : {}),
+            },
+          }
+        : {}),
+      lead: {
+        ownerAdminId,
+        leadStatus: LeadStatus.Closed,
+        ...officeCondition,
+        ...(filters.service ? { service: filters.service } : {}),
+        ...(filters.assignedUser ? { assignedUser: { contains: filters.assignedUser } } : {}),
+        ...(filters.country ? { country: { contains: filters.country } } : {}),
+        ...(query
+          ? {
+              OR: [
+                { leadCode: { contains: query } },
+                { firstName: { contains: query } },
+                { lastName: { contains: query } },
+                { mobileNumber: { contains: query } },
+                { email: { contains: query } },
+                { service: { contains: query } },
+              ],
+            }
+          : {}),
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      leadId: true,
+      previousStatus: true,
+      newStatus: true,
+      changedBy: true,
+      createdAt: true,
+      lead: {
         select: {
-          id: true,
           leadCode: true,
           firstName: true,
           lastName: true,
@@ -728,24 +870,21 @@ export async function getClosedTimeline(
           assignedUser: true,
           country: true,
         },
-      })
-    : [];
-  const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
+      },
+    },
+  });
 
-  return records.filter((record) => leadsById.has(record.lead_id)).map((record) => ({
-    id: record.id,
-    leadId: record.lead_id,
-    leadCode: leadsById.get(record.lead_id)?.leadCode ?? "Unknown",
-    clientName: [
-      leadsById.get(record.lead_id)?.firstName,
-      leadsById.get(record.lead_id)?.lastName,
-    ].filter(Boolean).join(" "),
-    previousStatus: formatLeadStatusLabel(record.previous_status),
-    newStatus: formatLeadStatusLabel(record.new_status),
-    changedBy: record.changed_by,
-    createdAt: record.created_at.toISOString(),
-    service: leadsById.get(record.lead_id)?.service ?? "",
-    assignedUser: leadsById.get(record.lead_id)?.assignedUser ?? "",
-    country: leadsById.get(record.lead_id)?.country ?? "",
+  return historyEntries.map((entry) => ({
+    id: entry.id,
+    leadId: entry.leadId,
+    leadCode: entry.lead.leadCode ?? "Unknown",
+    clientName: [entry.lead.firstName, entry.lead.lastName].filter(Boolean).join(" "),
+    previousStatus: formatLeadStatusLabel(entry.previousStatus),
+    newStatus: formatLeadStatusLabel(entry.newStatus),
+    changedBy: entry.changedBy,
+    createdAt: entry.createdAt.toISOString(),
+    service: entry.lead.service ?? "",
+    assignedUser: entry.lead.assignedUser ?? "",
+    country: entry.lead.country ?? "",
   }));
 }

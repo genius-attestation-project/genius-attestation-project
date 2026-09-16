@@ -1,5 +1,6 @@
 import { getClosedTrends } from "@/features/closed/server/closed.service";
 import type { ClosedFilters, ClosedTrendInterval } from "@/features/closed/server/closed.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
@@ -7,8 +8,9 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("Authentication required.", 401);
+    const user = session?.user;
+    const ownerAdminId = user?.ownerAdminId ?? user?.id;
+    if (!ownerAdminId || !user) return jsonError("Authentication required.", 401);
 
     const { searchParams } = new URL(request.url);
     const filters: ClosedFilters = {};
@@ -33,7 +35,11 @@ export async function GET(request: NextRequest) {
     if (officeLocationId) filters.officeLocationId = officeLocationId;
     if (query) filters.query = query;
 
-    const data = await getClosedTrends(ownerAdminId, filters, interval);
+    if (filters.officeLocationId && !hasOfficeAccess(user, filters.officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const data = await getClosedTrends(ownerAdminId, filters, interval, user);
     return jsonOk({ items: data });
   } catch (error) {
     console.error(`[GET /api/closed/trends] Database operation failed:`, {

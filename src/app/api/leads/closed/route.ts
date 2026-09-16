@@ -1,5 +1,6 @@
 import { getClosedLeadsTable } from "@/features/closed/server/closed.service";
 import type { ClosedFilters } from "@/features/closed/server/closed.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
@@ -33,15 +34,20 @@ function parseFilters(url: string): ClosedFilters {
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
-    if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+    const user = session?.user;
+    const ownerAdminId = user?.ownerAdminId ?? user?.id;
+    if (!ownerAdminId || !user) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get("page") ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
     const filters = parseFilters(request.url);
 
-    const data = await getClosedLeadsTable(ownerAdminId, filters, page, pageSize);
+    if (filters.officeLocationId && !hasOfficeAccess(user, filters.officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const data = await getClosedLeadsTable(ownerAdminId, filters, page, pageSize, user);
     return jsonOk(data);
   } catch (error) {
     const filters = parseFilters(request.url);
