@@ -12,9 +12,16 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
+    const rawPage = searchParams.get("page");
+    const rawPageSize = searchParams.get("pageSize");
+    const parsedPage = parseInt(rawPage ?? "1", 10);
+    const parsedPageSize = parseInt(rawPageSize ?? "10", 10);
+    const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+    const pageSize = isNaN(parsedPageSize) || parsedPageSize < 1 ? 10 : Math.min(parsedPageSize, 1000);
+
     const data = await listLeads(session?.user, ownerAdminId, {
-      page: Number(searchParams.get("page") ?? "1"),
-      pageSize: Number(searchParams.get("pageSize") ?? "10"),
+      page,
+      pageSize,
       query: searchParams.get("query") ?? undefined,
       status: searchParams.get("status") ?? undefined,
       service: searchParams.get("service") ?? undefined,

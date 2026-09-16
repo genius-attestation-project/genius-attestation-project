@@ -1,4 +1,4 @@
-import { createUser, listRoleOptions, listUsers } from "@/features/admin/server/rbac.service";
+import { createUser, listPaginatedUsers, listRoleOptions, listUsers } from "@/features/admin/server/rbac.service";
 import { userSchema } from "@/features/admin/validations/rbac.schema";
 import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
@@ -15,7 +15,47 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
+    const rawPage = searchParams.get("page");
+    const rawPageSize = searchParams.get("pageSize");
+    const query = searchParams.get("query") ?? undefined;
+    const status = searchParams.get("status") ?? undefined;
+    const roleId = searchParams.get("roleId") ?? undefined;
+    const departmentId = searchParams.get("departmentId") ?? undefined;
+    const officeLocationId = searchParams.get("officeLocationId") ?? undefined;
     const activeOnly = searchParams.get("active") === "true";
+
+    if (rawPage !== null || rawPageSize !== null) {
+      const parsedPage = parseInt(rawPage ?? "1", 10);
+      const parsedPageSize = parseInt(rawPageSize ?? "10", 10);
+      const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+      const pageSize = isNaN(parsedPageSize) || parsedPageSize < 1 ? 10 : Math.min(parsedPageSize, 1000);
+
+      const [paginatedData, roles] = await Promise.all([
+        listPaginatedUsers(ownerAdminId, {
+          page,
+          pageSize,
+          query,
+          status,
+          roleId,
+          departmentId,
+          officeLocationId,
+          activeOnly,
+        }),
+        listRoleOptions(ownerAdminId),
+      ]);
+
+      return jsonOk({
+        users: paginatedData.items,
+        items: paginatedData.items,
+        data: paginatedData.items,
+        roles,
+        pagination: paginatedData.pagination,
+        page: paginatedData.pagination.page,
+        pageSize: paginatedData.pagination.pageSize,
+        totalRecords: paginatedData.pagination.totalItems,
+        totalPages: paginatedData.pagination.totalPages,
+      });
+    }
 
     let [users, roles] = await Promise.all([
       listUsers(ownerAdminId),

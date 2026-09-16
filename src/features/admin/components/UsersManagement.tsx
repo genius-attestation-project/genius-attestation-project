@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit3, KeyRound, Plus, Trash2, UserCog, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { TablePagination } from "@/components/ui/TablePagination";
 import type {
   DepartmentRow,
   OfficeLocationRow,
@@ -64,73 +65,138 @@ export function UsersManagement() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter((user) => {
-        const matchesQuery =
-          user.name.toLowerCase().includes(query.toLowerCase()) ||
-          user.email.toLowerCase().includes(query.toLowerCase()) ||
-          user.department.toLowerCase().includes(query.toLowerCase()) ||
-          user.role.toLowerCase().includes(query.toLowerCase());
-        const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-
-        return matchesQuery && matchesStatus;
-      }),
-    [query, statusFilter, users],
-  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const fetchReqIdRef = useRef(0);
 
   useEffect(() => {
-    void loadUsers();
+    let ignore = false;
+
+    async function loadMetadata() {
+      try {
+        const [departmentsResponse, officeLocationsResponse] = await Promise.all([
+          fetch("/api/departments", { cache: "no-store" }),
+          fetch("/api/office-locations", { cache: "no-store" }),
+        ]);
+        const departmentsPayload = (await departmentsResponse.json()) as {
+          departments?: DepartmentRow[];
+          message?: string;
+        };
+        const officeLocationsPayload = (await officeLocationsResponse.json()) as {
+          officeLocations?: OfficeLocationRow[];
+          message?: string;
+        };
+
+        if (!ignore) {
+          if (departmentsPayload.departments) {
+            setDepartments(departmentsPayload.departments);
+          }
+          if (officeLocationsPayload.officeLocations) {
+            setOfficeLocations(officeLocationsPayload.officeLocations);
+          }
+        }
+      } catch (loadError) {
+        console.error("Failed to load metadata:", loadError);
+      }
+    }
+
+    void loadMetadata();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
-  async function loadUsers() {
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter, pageSize]);
+
+  async function loadUsers(
+    currentPage = page,
+    currentPageSize = pageSize,
+    currentQuery = query,
+    currentStatus = statusFilter
+  ) {
+    const reqId = ++fetchReqIdRef.current;
     setLoading(true);
     setError("");
 
     try {
-      const [usersResponse, departmentsResponse, officeLocationsResponse] = await Promise.all([
-        fetch("/api/users", { cache: "no-store" }),
-        fetch("/api/departments", { cache: "no-store" }),
-        fetch("/api/office-locations", { cache: "no-store" }),
-      ]);
-      const payload = (await usersResponse.json()) as {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: String(currentPageSize),
+      });
+
+      if (currentQuery.trim()) {
+        params.set("query", currentQuery.trim());
+      }
+
+      if (currentStatus !== "all") {
+        params.set("status", currentStatus);
+      }
+
+      const response = await fetch(`/api/users?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
         users?: UserAccessRow[];
         roles?: RoleOption[];
-        message?: string;
-      };
-      const departmentsPayload = (await departmentsResponse.json()) as {
-        departments?: DepartmentRow[];
-        message?: string;
-      };
-      const officeLocationsPayload = (await officeLocationsResponse.json()) as {
-        officeLocations?: OfficeLocationRow[];
+        pagination?: {
+          page: number;
+          pageSize: number;
+          totalItems: number;
+          totalPages: number;
+        };
         message?: string;
       };
 
-      if (!usersResponse.ok) {
+      if (reqId !== fetchReqIdRef.current) {
+        return;
+      }
+
+      if (!response.ok) {
         throw new Error(payload.message ?? "Unable to load users.");
       }
 
-      if (!departmentsResponse.ok) {
-        throw new Error(departmentsPayload.message ?? "Unable to load departments.");
-      }
-
-      if (!officeLocationsResponse.ok) {
-        throw new Error(officeLocationsPayload.message ?? "Unable to load office locations.");
-      }
-
       setUsers(payload.users ?? []);
-      setRoles(payload.roles ?? []);
-      setDepartments(departmentsPayload.departments ?? []);
-      setOfficeLocations(officeLocationsPayload.officeLocations ?? []);
+      if (payload.roles) {
+        setRoles(payload.roles);
+      }
+      if (payload.pagination) {
+        setPage(payload.pagination.page ?? currentPage);
+        setPageSize(payload.pagination.pageSize ?? currentPageSize);
+        setTotalItems(payload.pagination.totalItems ?? 0);
+        setTotalPages(payload.pagination.totalPages ?? 1);
+      }
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Unable to load users.";
-      console.error("Failed to load users:", message);
-      setError(message);
+      if (reqId === fetchReqIdRef.current) {
+        const message = loadError instanceof Error ? loadError.message : "Unable to load users.";
+        console.error("Failed to load users:", message);
+        setError(message);
+        setUsers([]);
+        setTotalItems(0);
+        setTotalPages(1);
+      }
     } finally {
-      setLoading(false);
+      if (reqId === fetchReqIdRef.current) {
+        setLoading(false);
+      }
     }
   }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadUsers(page, pageSize, query, statusFilter);
+    }, query ? 250 : 0);
+
+    return () => clearTimeout(timeout);
+  }, [page, pageSize, query, statusFilter]);
+
+  useEffect(() => {
+    if (totalItems > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalItems, totalPages]);
 
   function openCreateDrawer() {
     setEditingUser(null);
@@ -176,7 +242,7 @@ export function UsersManagement() {
         throw new Error(payload.message ?? "Unable to save user.");
       }
 
-      await loadUsers();
+      await loadUsers(page, pageSize, query, statusFilter);
       setIsDrawerOpen(false);
       setMessage(editingUser ? "User updated successfully." : "User created successfully.");
     } catch (submitError) {
@@ -235,7 +301,11 @@ export function UsersManagement() {
         throw new Error(payload?.message ?? "Unable to delete user.");
       }
 
-      await loadUsers();
+      if (users.length === 1 && page > 1) {
+        setPage((prev) => Math.max(1, prev - 1));
+      } else {
+        await loadUsers(page, pageSize, query, statusFilter);
+      }
       setMessage("User deleted successfully.");
     } catch (deleteError) {
       const message = deleteError instanceof Error ? deleteError.message : "Unable to delete user.";
@@ -278,7 +348,7 @@ export function UsersManagement() {
           </div>
           <div className="flex items-center gap-4 justify-between sm:justify-end">
             <p className="text-sm font-semibold text-soft">
-              Showing {filteredUsers.length} of {users.length} users
+              Showing {totalItems === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalItems)} of {totalItems} users
             </p>
             <Button onClick={openCreateDrawer}>
               <Plus size={16} />
@@ -295,7 +365,7 @@ export function UsersManagement() {
               <LoadingSkeleton key={index} className="h-16 w-full" />
             ))}
           </div>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <EmptyState
             icon={Users}
             title="No Users Found"
@@ -303,11 +373,10 @@ export function UsersManagement() {
             action={<Button onClick={openCreateDrawer}>Add User</Button>}
           />
         ) : (
-          <>
-            <DataTable
-              keyField="id"
-              rows={filteredUsers}
-              columns={[
+          <DataTable
+            keyField="id"
+            rows={users}
+            columns={[
                 {
                   key: "name",
                   label: "User",
@@ -396,19 +465,21 @@ export function UsersManagement() {
                   },
                 },
               ]}
+              footer={
+                <TablePagination
+                  page={page}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  totalPages={totalPages}
+                  loading={loading}
+                  onPageChange={(newPage) => setPage(newPage)}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setPage(1);
+                  }}
+                />
+              }
             />
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-soft">
-              <p>Pagination: 1 of 1</p>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" disabled>
-                  Previous
-                </Button>
-                <Button variant="secondary" size="sm" disabled>
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
         )}
       </DashboardCard>
 

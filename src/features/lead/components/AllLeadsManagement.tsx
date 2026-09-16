@@ -12,6 +12,7 @@ import { FilterDropdown } from "@/components/ui/FilterDropdown";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { LeadForm } from "@/features/lead/components/LeadForm";
 import { defaultLeadValues, leadStatuses, type LeadFormValues } from "@/features/lead/data/lead.data";
 import type { LeadFilterOptionsResponse, LeadListResponse, LeadRow } from "@/features/lead/types/lead.types";
@@ -132,6 +133,12 @@ export function AllLeadsManagement({
     endpoint,
     pageSize,
   ]);
+
+  useEffect(() => {
+    if (leadData.pagination.totalItems > 0 && page > leadData.pagination.totalPages) {
+      setPage(leadData.pagination.totalPages);
+    }
+  }, [leadData.pagination.totalItems, leadData.pagination.totalPages, page]);
 
   useEffect(() => {
     let ignore = false;
@@ -369,7 +376,11 @@ export function AllLeadsManagement({
         throw new Error(payload?.message ?? "Unable to delete lead.");
       }
 
-      await refreshLeads();
+      if (leadData.items.length === 1 && page > 1) {
+        setPage((prev) => Math.max(1, prev - 1));
+      } else {
+        await refreshLeads();
+      }
     } catch (deleteError) {
       console.error("Failed to delete lead", deleteError);
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete lead.");
@@ -501,8 +512,8 @@ export function AllLeadsManagement({
               />
             ) : null}
             </div>
-            <p className="text-sm font-medium text-soft">
-              Showing {showingCount} of {totalCount} leads
+            <p className="text-sm font-semibold text-soft">
+              Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount} leads
             </p>
           </div>
 
@@ -679,29 +690,23 @@ export function AllLeadsManagement({
                   },
                 },
               ]}
+              footer={
+                isServerFilteredEndpoint ? (
+                  <TablePagination
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={leadData.pagination.totalItems}
+                    totalPages={leadData.pagination.totalPages}
+                    loading={loading}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    onPageSizeChange={(newSize) => {
+                      setPageSize(newSize);
+                      setPage(1);
+                    }}
+                  />
+                ) : null
+              }
             />
-
-            {isServerFilteredEndpoint ? (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-soft">
-                <p>
-                  Pagination: {leadData.pagination.page} of {leadData.pagination.totalPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Rows per page:</span>
-                  <select
-                    className="h-9 rounded-md border border-(--border) bg-transparent px-3 text-sm outline-none dark:bg-white/5"
-                    value={pageSize}
-                    onChange={(e) => setPageSize(Number(e.target.value))}
-                  >
-                    {[10, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000].map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : null}
           </>
         )}
       </DashboardCard>

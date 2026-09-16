@@ -15,6 +15,7 @@ type DataTableProps<T> = {
   rows: T[];
   keyField: keyof T;
   className?: string;
+  footer?: ReactNode;
 };
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -22,6 +23,7 @@ export function DataTable<T extends Record<string, unknown>>({
   rows,
   keyField,
   className,
+  footer,
 }: DataTableProps<T>) {
   return (
     <div className={cn("min-w-0 overflow-hidden rounded-2xl ring-1 ring-slate-900/5 shadow-sm dark:ring-white/10", className)}>
@@ -49,6 +51,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </tbody>
         </table>
       </div>
+      {footer}
     </div>
   );
 }

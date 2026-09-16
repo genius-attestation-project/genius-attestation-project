@@ -908,8 +908,10 @@ export async function listLeads(user: any, ownerAdminId: string, params: {
   fromDate?: string;
   toDate?: string;
 }): Promise<LeadListResponse> {
-  const page = Math.max(1, params.page ?? 1);
-  const pageSize = Math.max(1, Math.min(params.pageSize ?? 10, 5000));
+  const parsedPage = typeof params.page === "number" ? params.page : parseInt(String(params.page ?? "1"), 10);
+  const parsedPageSize = typeof params.pageSize === "number" ? params.pageSize : parseInt(String(params.pageSize ?? "10"), 10);
+  const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+  const pageSize = isNaN(parsedPageSize) || parsedPageSize < 1 ? 10 : Math.min(parsedPageSize, 1000);
   const status = parseLeadStatus(params.status);
   const query = params.query?.trim();
   const service = params.service?.trim();

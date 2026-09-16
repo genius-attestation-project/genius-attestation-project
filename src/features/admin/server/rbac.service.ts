@@ -467,6 +467,104 @@ async function fetchUsersFromDb(ownerAdminId: string) {
   });
 }
 
+export interface PaginatedUsersResult {
+  items: UserAccessRow[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
+
+export async function listPaginatedUsers(
+  ownerAdminId: string,
+  params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: string;
+    roleId?: string;
+    departmentId?: string;
+    officeLocationId?: string;
+    activeOnly?: boolean;
+  }
+): Promise<PaginatedUsersResult> {
+  const parsedPage = typeof params.page === "number" ? params.page : parseInt(String(params.page ?? "1"), 10);
+  const parsedPageSize = typeof params.pageSize === "number" ? params.pageSize : parseInt(String(params.pageSize ?? "10"), 10);
+  const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+  const pageSize = isNaN(parsedPageSize) || parsedPageSize < 1 ? 10 : Math.min(parsedPageSize, 1000);
+
+  const baseCondition: Prisma.UserWhereInput = {
+    OR: [
+      { ownerAdminId },
+      { id: ownerAdminId },
+    ],
+  };
+
+  const andConditions: Prisma.UserWhereInput[] = [baseCondition];
+
+  if (params.activeOnly || params.status === "Active") {
+    andConditions.push({ isActive: true });
+  } else if (params.status === "Inactive") {
+    andConditions.push({ isActive: false });
+  }
+
+  if (params.roleId && params.roleId !== "all") {
+    andConditions.push({ roleId: params.roleId });
+  }
+
+  if (params.departmentId && params.departmentId !== "all") {
+    andConditions.push({ departmentId: params.departmentId });
+  }
+
+  if (params.officeLocationId && params.officeLocationId !== "all") {
+    andConditions.push({ officeLocationId: params.officeLocationId });
+  }
+
+  if (params.query?.trim()) {
+    const q = params.query.trim();
+    andConditions.push({
+      OR: [
+        { name: { contains: q } },
+        { email: { contains: q } },
+        { phone: { contains: q } },
+        { role: { name: { contains: q } } },
+        { departmentRef: { name: { contains: q } } },
+        { officeLocationRef: { officeName: { contains: q } } },
+      ],
+    });
+  }
+
+  const where: Prisma.UserWhereInput = andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
+
+  const [users, totalItems] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        role: { select: { id: true, name: true } },
+        departmentRef: { select: { id: true, name: true } },
+        officeLocationRef: { select: { id: true, officeName: true } },
+        supervisorRef: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return {
+    items: users.map(mapUser),
+    pagination: {
+      page,
+      pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / pageSize)),
+    },
+  };
+}
+
 export async function listUsers(ownerAdminId: string) {
   const users = await fetchUsersFromDb(ownerAdminId);
   return users.map(mapUser);
