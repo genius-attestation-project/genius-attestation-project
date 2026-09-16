@@ -12,7 +12,9 @@ export function buildProcessWhereClause(
   ownerAdminId: string,
   officeLocationName?: string,
   processType?: string,
-  tab?: "inhand" | "inbound" | "completed" | "rejected" | "outbound" | "bundle" | "total"
+  tab?: "inhand" | "inbound" | "completed" | "rejected" | "outbound" | "bundle" | "total",
+  search?: string,
+  priority?: string
 ) {
   const where: any = {
     registration: { ownerAdminId },
@@ -29,29 +31,31 @@ export function buildProcessWhereClause(
       ]
     : null;
 
+  let currentOrFilter: any[] | null = null;
+
   if (tab === "inbound") {
     where.currentModule = "PROCESS_MODULE";
     where.status = { in: ["INBOUND", "Pending Receive", "Pending"] };
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
   } else if (tab === "inhand") {
     where.currentModule = "PROCESS_MODULE";
     where.status = { in: ["HOME", "IN_HAND", "Received", "Document In Hand"] };
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
   } else if (tab === "completed") {
     where.currentModule = "PROCESS_MODULE";
     where.status = "COMPLETED";
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
   } else if (tab === "rejected") {
     where.currentModule = "PROCESS_MODULE";
     where.status = "REJECTED";
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
   } else if (tab === "outbound") {
     where.fromModule = "PROCESS_MODULE";
@@ -68,7 +72,7 @@ export function buildProcessWhereClause(
       ],
     };
     if (officeLocationName) {
-      where.OR = [
+      currentOrFilter = [
         { fromOffice: { officeName: officeLocationName } },
         { bundle: { fromOffice: { officeName: officeLocationName } } },
       ];
@@ -76,13 +80,56 @@ export function buildProcessWhereClause(
   } else if (tab === "bundle") {
     where.bundleId = { not: null };
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
   } else {
     // Total / default
     if (officeFilter) {
-      where.OR = officeFilter;
+      currentOrFilter = officeFilter;
     }
+  }
+
+  const andConditions: any[] = [];
+
+  if (currentOrFilter && currentOrFilter.length > 0) {
+    andConditions.push({ OR: currentOrFilter });
+  }
+
+  if (search && search.trim() !== "") {
+    const s = search.trim();
+    andConditions.push({
+      OR: [
+        { trackingNumber: { contains: s } },
+        { registration: { trackingNumber: { contains: s } } },
+        { registration: { customerName: { contains: s } } },
+        { registration: { documentName: { contains: s } } },
+        { registration: { documentType: { contains: s } } },
+        { registration: { processType: { contains: s } } },
+      ],
+    });
+  }
+
+  if (priority && priority !== "All") {
+    if (priority === "Normal") {
+      andConditions.push({
+        registration: {
+          OR: [
+            { priority: "Normal" },
+            { priority: null },
+          ],
+        },
+      });
+    } else {
+      andConditions.push({
+        registration: {
+          priority: priority,
+        },
+      });
+    }
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
   }
 
   return where;
@@ -146,7 +193,9 @@ export async function listProcessAssignments(
   officeLocationName: string,
   processType?: string,
   tab?: string,
-  currentOfficeName?: string
+  currentOfficeName?: string,
+  search?: string,
+  priority?: string
 ) {
   const targetOfficeName = currentOfficeName || officeLocationName;
   const rawTab = (tab || "inhand").toLowerCase().replace("_", "");
@@ -158,7 +207,14 @@ export async function listProcessAssignments(
   else if (rawTab === "rejected") mapTab = "rejected";
   else if (rawTab === "bundle") mapTab = "bundle";
 
-  const whereClause = buildProcessWhereClause(ownerAdminId, targetOfficeName, processType, mapTab);
+  const whereClause = buildProcessWhereClause(
+    ownerAdminId,
+    targetOfficeName,
+    processType,
+    mapTab,
+    search,
+    priority
+  );
 
   const movements = await (prisma as any).documentMovement.findMany({
     where: whereClause,
@@ -201,6 +257,7 @@ export async function listProcessAssignments(
     customerName: mov.registration?.customerName || mov.trackingNumber,
     clientName: mov.registration?.customerName || mov.trackingNumber,
     mobile: mov.registration?.mobile || "-",
+    documentName: mov.registration?.documentName || "-",
     documentType: mov.registration?.documentType || "-",
     service: mov.registration?.externalProcess || mov.registration?.processType || "-",
     mainProcess: mov.registration?.processType || "-",

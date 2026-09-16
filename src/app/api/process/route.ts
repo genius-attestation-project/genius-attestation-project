@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
     const processType = searchParams.get("processType") || undefined;
     const tab = searchParams.get("tab") || undefined;
     const officeParam = searchParams.get("officeId") || searchParams.get("officeName") || searchParams.get("office");
+    const search = searchParams.get("search") || undefined;
+    const priority = searchParams.get("priority") || undefined;
 
     if (tab === "in_hand" && !hasPermission(session.user, "process.document_in_hand.view")) {
       return jsonError("Forbidden. You do not have permission to view Document In Hand in Process.", 403);
@@ -83,7 +85,15 @@ export async function GET(request: NextRequest) {
     }
 
     const stats = await getProcessStats(ownerAdminId, officeLocationName, processType);
-    const items = await listProcessAssignments(ownerAdminId, officeLocationName, processType, tab, officeLocationName);
+    const items = await listProcessAssignments(
+      ownerAdminId,
+      officeLocationName,
+      processType,
+      tab,
+      officeLocationName,
+      search,
+      priority
+    );
 
     return jsonOk({
       items,

@@ -25,7 +25,9 @@ import {
   CheckSquare,
   Square,
   CornerUpLeft,
-  ExternalLink
+  ExternalLink,
+  Search,
+  X
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -114,6 +116,7 @@ export function ProcessDashboard({
 
   const [processType, setProcessType] = useState<string>("All");
   const [priorityFilter, setPriorityFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -252,7 +255,9 @@ export function ProcessDashboard({
     try {
       const typeQuery = processType === "All" ? "" : `&processType=${encodeURIComponent(processType)}`;
       const officeQuery = selectedOfficeId ? `&officeId=${encodeURIComponent(selectedOfficeId)}` : "";
-      const res = await fetch(`/api/process?tab=${activeTab}${typeQuery}${officeQuery}`, { cache: "no-store" });
+      const priorityQuery = priorityFilter === "All" ? "" : `&priority=${encodeURIComponent(priorityFilter)}`;
+      const searchParam = activeTab === "in_hand" && searchQuery.trim() ? `&search=${encodeURIComponent(searchQuery.trim())}` : "";
+      const res = await fetch(`/api/process?tab=${activeTab}${typeQuery}${officeQuery}${priorityQuery}${searchParam}`, { cache: "no-store" });
       const payload = await res.json();
       
       if (!res.ok) {
@@ -277,7 +282,7 @@ export function ProcessDashboard({
   useEffect(() => {
     loadData();
     setSelectedTrackingNumbers([]);
-  }, [activeTab, processType, selectedOfficeId]);
+  }, [activeTab, processType, selectedOfficeId, priorityFilter, searchQuery]);
 
 
   // Multi-selection helpers
@@ -660,6 +665,32 @@ export function ProcessDashboard({
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
           <CheckCircle2 size={18} />
           <p>{successMessage}</p>
+        </div>
+      )}
+
+      {/* Search Bar for Document In Hand */}
+      {activeTab === "in_hand" && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tracking number, customer, document..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white pl-9 pr-9 py-2 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                title="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -12,6 +12,7 @@ export type ProcessItem = {
   trackingNumber: string;
   clientName: string;
   customerName?: string;
+  documentName?: string;
   mobile?: string;
   documentType?: string;
   service?: string;
