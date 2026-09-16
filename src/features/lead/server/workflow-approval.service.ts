@@ -170,16 +170,93 @@ export async function getOverdueFollowups(ownerAdminId: string, supervisorId?: s
   });
 }
 
-export async function getPendingLobRequests(ownerAdminId: string, supervisorId?: string) {
+export async function getPendingLobRequests(
+  params:
+    | {
+        ownerAdminId: string;
+        supervisorId?: string;
+        isSuperAdmin?: boolean;
+        hasApproveAll?: boolean;
+        allowedOfficeIds?: string[] | null;
+      }
+    | string,
+  maybeSupervisorId?: string,
+) {
+  let ownerAdminId: string;
+  let supervisorId: string | undefined;
+  let isSuperAdmin = false;
+  let hasApproveAll = false;
+  let allowedOfficeIds: string[] | null | undefined = undefined;
+
+  if (typeof params === "string") {
+    ownerAdminId = params;
+    supervisorId = maybeSupervisorId;
+  } else {
+    ownerAdminId = params.ownerAdminId;
+    supervisorId = params.supervisorId;
+    isSuperAdmin = Boolean(params.isSuperAdmin);
+    hasApproveAll = Boolean(params.hasApproveAll);
+    allowedOfficeIds = params.allowedOfficeIds;
+  }
+
+  // If user is not super admin and does not have approve_all, and allowedOfficeIds is empty -> return []
+  if (!isSuperAdmin && !hasApproveAll && Array.isArray(allowedOfficeIds) && allowedOfficeIds.length === 0) {
+    return [];
+  }
+
+  const whereClause: Prisma.LeadWorkflowApprovalWhereInput = {
+    ownerAdminId,
+    requestType: ApprovalRequestType.LOB_REQUEST,
+    status: WorkflowApprovalStatus.Pending,
+    ...(supervisorId ? { supervisorId } : {}),
+  };
+
+  // Office scoping when not super admin and not global approval
+  if (!isSuperAdmin && !hasApproveAll && Array.isArray(allowedOfficeIds) && allowedOfficeIds.length > 0) {
+    const requesterUsersInOffices = await prisma.user.findMany({
+      where: {
+        officeLocationId: { in: allowedOfficeIds },
+        OR: [{ ownerAdminId }, { id: ownerAdminId }],
+      },
+      select: { id: true },
+    });
+    const requesterUserIds = requesterUsersInOffices.map((u) => u.id);
+
+    whereClause.OR = [
+      {
+        lead: {
+          creator: {
+            officeLocationId: { in: allowedOfficeIds },
+          },
+        },
+      },
+      ...(requesterUserIds.length > 0
+        ? [
+            {
+              requestedBy: { in: requesterUserIds },
+            },
+          ]
+        : []),
+    ];
+  }
+
   const approvals = await prisma.leadWorkflowApproval.findMany({
-    where: {
-      ownerAdminId,
-      requestType: ApprovalRequestType.LOB_REQUEST,
-      status: WorkflowApprovalStatus.Pending,
-      ...(supervisorId ? { supervisorId } : {}),
-    },
+    where: whereClause,
     include: {
-      lead: true,
+      lead: {
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              officeLocationId: true,
+              officeLocationName: true,
+              officeLocationRef: { select: { id: true, officeName: true } },
+            },
+          },
+        },
+      },
     },
     orderBy: { requestedAt: "desc" },
   });
@@ -193,8 +270,9 @@ export async function getPendingLobRequests(ownerAdminId: string, supervisorId?:
           name: true,
           email: true,
           role: { select: { name: true } },
+          officeLocationId: true,
           officeLocationName: true,
-          officeLocationRef: { select: { officeName: true } },
+          officeLocationRef: { select: { id: true, officeName: true } },
         },
       })
     : [];
@@ -203,6 +281,14 @@ export async function getPendingLobRequests(ownerAdminId: string, supervisorId?:
   return approvals.map((app) => {
     const u = app.requestedBy ? userMap.get(app.requestedBy) : null;
     const meta = (app.metadata as any) || {};
+    const leadOffice =
+      app.lead?.creator?.officeLocationRef?.officeName ||
+      app.lead?.creator?.officeLocationName ||
+      u?.officeLocationRef?.officeName ||
+      u?.officeLocationName ||
+      meta.requestedByOffice ||
+      "N/A";
+
     return {
       ...app,
       requester: u
@@ -211,14 +297,14 @@ export async function getPendingLobRequests(ownerAdminId: string, supervisorId?:
             name: u.name || u.email,
             email: u.email,
             role: u.role?.name || meta.requestedByRole || "Staff",
-            office: u.officeLocationName || u.officeLocationRef?.officeName || meta.requestedByOffice || "N/A",
+            office: leadOffice,
           }
         : {
             id: app.requestedBy,
             name: meta.requestedByName || app.requestedBy,
             email: meta.requestedByEmail || "",
             role: meta.requestedByRole || "Staff",
-            office: meta.requestedByOffice || "N/A",
+            office: leadOffice,
           },
       reason: meta.reason || app.approvalRemarks || "",
       currentStatus: meta.currentStatus || app.lead?.leadStatus || "New",
@@ -237,33 +323,47 @@ export async function actionLobRequest(args: {
 }) {
   const approval = await prisma.leadWorkflowApproval.findUnique({
     where: { id: args.approvalId },
-    include: { lead: true },
+    include: {
+      lead: {
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              officeLocationId: true,
+              officeLocationName: true,
+              officeLocationRef: { select: { id: true, officeName: true } },
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!approval || approval.status !== WorkflowApprovalStatus.Pending) {
     throw new Error("Invalid or already processed approval request.");
   }
 
+  const actionKey =
+    args.action === WorkflowApprovalStatus.Approved
+      ? "approve"
+      : args.action === WorkflowApprovalStatus.Rejected
+      ? "reject"
+      : "return";
+
   // Authorization check
   if (args.userAccess) {
     const isSuperAdmin = Boolean(args.userAccess.isSuperAdmin);
     const hasApproveAll = hasPermission(args.userAccess, "lobApproval.approve_all");
     const hasApproveAssigned = hasPermission(args.userAccess, "lobApproval.approve_assigned_users");
+    const hasActionPerm =
+      hasPermission(args.userAccess, `lobApproval.${actionKey}`) ||
+      (actionKey === "approve" && hasPermission(args.userAccess, "lobApproval.approve"));
 
     if (!isSuperAdmin) {
       if (hasApproveAll) {
-        if (args.userAccess.allowedOfficeIds && args.userAccess.allowedOfficeIds.length > 0 && approval.requestedBy) {
-          const requesterUser = await prisma.user.findUnique({
-            where: { id: approval.requestedBy },
-            select: { officeLocationId: true },
-          });
-          if (requesterUser?.officeLocationId) {
-            const allowed = hasOfficeAccess(args.userAccess, requesterUser.officeLocationId, "lobApproval");
-            if (!allowed) {
-              throw new Error("Forbidden. You do not have office access to this lead's LOB request.");
-            }
-          }
-        }
+        // Global approval scope -> completely bypasses Pending Approval Office Visibility!
       } else if (hasApproveAssigned) {
         const requester = approval.requestedBy
           ? await prisma.user.findUnique({
@@ -277,8 +377,32 @@ export async function actionLobRequest(args: {
         if (!isSupervisor) {
           throw new Error("Forbidden. You can only approve or reject LOB requests for users assigned to you.");
         }
+      } else if (hasActionPerm) {
+        // Normal Action (Approve / Reject / Return) -> Restricted strictly by Pending Approval Office Visibility!
+        let requestOfficeId = approval.lead?.creator?.officeLocationId;
+        if (!requestOfficeId && approval.requestedBy) {
+          const requesterUser = await prisma.user.findUnique({
+            where: { id: approval.requestedBy },
+            select: { officeLocationId: true },
+          });
+          requestOfficeId = requesterUser?.officeLocationId || null;
+        }
+
+        const authorizedOfficeIds =
+          args.userAccess.moduleOfficeVisibilities?.["pending_approval"]?.officeIds ??
+          args.userAccess.allowedOfficeIds ??
+          [];
+
+        if (
+          !Array.isArray(authorizedOfficeIds) ||
+          authorizedOfficeIds.length === 0 ||
+          !requestOfficeId ||
+          !authorizedOfficeIds.includes(requestOfficeId)
+        ) {
+          throw new Error("Forbidden. You do not have office access to this LOB request.");
+        }
       } else {
-        throw new Error("Forbidden. You do not have permission to approve or reject LOB requests.");
+        throw new Error(`Forbidden. You do not have permission to ${actionKey} LOB requests.`);
       }
     }
   }

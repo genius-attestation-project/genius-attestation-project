@@ -185,8 +185,10 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.view") ||
+      currentUser?.permissions?.includes("lobApproval.approve") ||
       currentUser?.permissions?.includes("lobApproval.approve_all") ||
       currentUser?.permissions?.includes("lobApproval.approve_assigned_users") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -284,6 +286,7 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("lobApproval.return") ||
+      currentUser?.permissions?.includes("lobApproval.approve_all") ||
       currentUser?.permissions?.includes("*")
     );
 

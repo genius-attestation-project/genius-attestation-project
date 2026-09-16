@@ -1,11 +1,19 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getPendingLobRequests, createLobWorkflowRequest } from "@/features/lead/server/workflow-approval.service";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission, requireApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
-import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
 export async function GET() {
-  const denied = await requireApiPermission("lobApproval.view");
+  const denied = await requireAnyApiPermission([
+    "lobApproval.view",
+    "lobApproval.approve",
+    "lobApproval.reject",
+    "lobApproval.return",
+    "lobApproval.approve_all",
+    "lobApproval.approve_assigned_users",
+    "pending_approval.view",
+  ]);
   if (denied) return denied;
 
   try {
@@ -19,28 +27,35 @@ export async function GET() {
     const isSuperAdmin = Boolean(user.isSuperAdmin);
     const hasApproveAll = hasPermission(user, "lobApproval.approve_all");
     const hasApproveAssigned = hasPermission(user, "lobApproval.approve_assigned_users");
+    const hasGeneralAccess =
+      hasPermission(user, "lobApproval.view") ||
+      hasPermission(user, "lobApproval.approve") ||
+      hasPermission(user, "lobApproval.reject") ||
+      hasPermission(user, "lobApproval.return") ||
+      hasPermission(user, "pending_approval.view");
 
-    // Determine supervisor filter
+    // Determine supervisor filter: only restrict to supervisees if user ONLY has approve_assigned_users
     let supervisorId: string | undefined = undefined;
+    if (!isSuperAdmin && !hasApproveAll && hasApproveAssigned && !hasGeneralAccess) {
+      supervisorId = user.id;
+    }
+
+    // Determine allowed office IDs
+    let allowedOfficeIds: string[] | null | undefined = undefined;
     if (!isSuperAdmin && !hasApproveAll) {
-      if (hasApproveAssigned) {
-        supervisorId = user.id;
-      } else {
-        // User has lobApproval.view but neither approve_all nor approve_assigned_users
-        supervisorId = user.id;
-      }
+      allowedOfficeIds =
+        user.moduleOfficeVisibilities?.["pending_approval"]?.officeIds ??
+        user.allowedOfficeIds ??
+        [];
     }
 
-    let items = await getPendingLobRequests(ownerAdminId, supervisorId);
-
-    // Apply office visibility filtering if applicable
-    if (!isSuperAdmin && user.allowedOfficeIds && user.allowedOfficeIds.length > 0) {
-      items = items.filter((item: any) => {
-        const leadOffice = item.lead?.officeLocationId;
-        if (!leadOffice) return true;
-        return hasOfficeAccess(user, leadOffice, "lobApproval");
-      });
-    }
+    const items = await getPendingLobRequests({
+      ownerAdminId,
+      supervisorId,
+      isSuperAdmin,
+      hasApproveAll,
+      allowedOfficeIds,
+    });
 
     return NextResponse.json({ items });
   } catch (error: any) {
