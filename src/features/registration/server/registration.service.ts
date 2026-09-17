@@ -144,6 +144,7 @@ function mapRegistration(registration: RegistrationRecord) {
     } : null,
     officeLocationId: creatorOfficeLocationId,
     officeLocationName: resolvedOfficeName,
+    regionOfRegistrationId: registration.regionOfRegistrationId ?? null,
     movementApproved: Boolean(registration.movementApproved),
     movementApprovalStatus,
     movementApprovalRemarks,
@@ -249,6 +250,7 @@ function buildRegistrationData(
       : {}),
     registeredPerson: input.registeredPerson || null,
     regionOfRegistration: input.regionOfRegistration || null,
+    ...(input.regionOfRegistrationId ? { regionOfRegistrationId: input.regionOfRegistrationId } : {}),
     approvalStatus: input.approvalStatus,
     trackingStatus: input.trackingStatus || "Registered",
   };
@@ -595,9 +597,10 @@ export async function createRegistration(
     const reg = await tx.registration.create({
       data: {
         ...buildRegistrationData(
-          { ...input, regionOfRegistration: sourceOfficeName },
+          { ...input, regionOfRegistration: sourceOfficeName, regionOfRegistrationId: sourceOffice?.id },
           { approvedAdvance: 0 },
         ),
+        regionOfRegistrationId: sourceOffice?.id ?? null,
         movementApproved: false,
         trackingStatus: initialTrackingStatus,
         welcomeCallStatus: "Pending",

@@ -176,6 +176,8 @@ model OfficeLocation {
   subPackageMovements              SubPackageMovement[] @relation("AssignedOfficeSubPackage")
   accountAssignments               AccountOfficeAssignment[]
   userOfficeVisibilities           UserOfficeVisibility[]
+  registrationsByRegion            Registration[]            @relation("RegistrationRegionOffice")
+  roleOfficeVisibilities           RoleOfficeVisibility[]
 
   @@unique([officeName, ownerAdminId])
   @@index([ownerAdminId])
@@ -436,6 +438,8 @@ model Registration {
   commissionToEmail      String?   @map("commission_to_email")
   registeredPerson       String?   @map("registered_person")
   regionOfRegistration   String?   @map("region_of_registration")
+  regionOfRegistrationId String?   @map("region_of_registration_id")
+  regionOfRegistrationRef OfficeLocation? @relation("RegistrationRegionOffice", fields: [regionOfRegistrationId], references: [id], onDelete: SetNull)
   bmStatus               String    @default("Pending") @map("bm_status")
   acceptedBy             String?   @map("accepted_by")
   acceptedAt             DateTime? @map("accepted_at")
@@ -743,6 +747,7 @@ model AccessRole {
   isActive        Boolean          @default(true)
   ownerAdminId    String?          @map("owner_admin_id")
   rolePermissions RolePermission[]
+  roleOfficeVisibilities RoleOfficeVisibility[]
   userRoles       UserRole[]
   users           User[]
   createdAt       DateTime         @default(now()) @map("created_at")
@@ -807,6 +812,24 @@ model UserOfficeVisibility {
   @@index([moduleKey])
   @@index([officeLocationId])
   @@map("user_office_visibility")
+}
+
+model RoleOfficeVisibility {
+  id               String         @id @default(cuid())
+  roleId           String         @map("role_id")
+  role             AccessRole     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  moduleKey        String         @default("global") @map("module_key")
+  officeLocationId String         @map("office_location_id")
+  officeLocation   OfficeLocation @relation(fields: [officeLocationId], references: [id], onDelete: Cascade)
+  createdBy        String?        @map("created_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([roleId, moduleKey, officeLocationId])
+  @@index([roleId])
+  @@index([moduleKey])
+  @@index([officeLocationId])
+  @@map("role_office_visibility")
 }
 
 model UserPermission {

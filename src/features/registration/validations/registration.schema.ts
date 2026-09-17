@@ -97,6 +97,7 @@ export const registrationInputSchema = z.object({
   commissionToEmail: optionalText,
   registeredPerson: optionalText,
   regionOfRegistration: optionalText,
+  regionOfRegistrationId: optionalText,
   approvalStatus: z.preprocess(
     (val) => (val && approvalStatusOptions.includes(val as any) ? val : "Pending"),
     z.enum(approvalStatusOptions),

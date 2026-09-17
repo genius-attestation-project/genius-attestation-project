@@ -65,6 +65,7 @@ export type Registration = {
   commissionToEmail: string | null;
   registeredPerson: string | null;
   regionOfRegistration: string | null;
+  regionOfRegistrationId?: string | null;
   bmStatus: string;
   acceptedBy: string | null;
   acceptedAt: string | null;
@@ -146,6 +147,7 @@ export type RegistrationFormState = {
   commissionToEmail: string;
   registeredPerson: string;
   regionOfRegistration: string;
+  regionOfRegistrationId?: string;
   approvalStatus: string;
   trackingStatus: string;
   leadId?: string;

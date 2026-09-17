@@ -114,6 +114,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
       { key: "revenue_registration.import", label: "Import" },
       { key: "revenue_registration.export", label: "Export" },
       { key: "revenue_registration.movement_request", label: "Movement Request" },
+      { key: "revenue_registration.add_advance", label: "Add Advance" },
     ],
   },
   {
@@ -911,6 +912,22 @@ export function UserAccessManagement() {
         throw new Error(payload.message ?? `Failed to save visibility for ${moduleKey}.`);
       }
 
+      // If this is revenue_registration, also save the Add Advance office visibilities
+      if (moduleKey === "revenue_registration") {
+        const addAdvanceOffices = officeVisMap[userId]?.["revenue_registration_add_advance"] ?? [];
+        await fetch("/api/admin/user-access/offices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            moduleKey: "revenue_registration_add_advance",
+            moduleId: "revenue_registration_add_advance",
+            officeLocationIds: addAdvanceOffices,
+            officeIds: addAdvanceOffices,
+          }),
+        });
+      }
+
       if (payload.moduleOfficeMap) {
         setOfficeVisMap((prev) => ({
           ...prev,
@@ -1459,11 +1476,26 @@ export function UserAccessManagement() {
                             key={moduleItem.key}
                             moduleItem={moduleItem}
                             selectedOfficeIds={userModuleOffices}
+                            addAdvanceOfficeIds={
+                              moduleItem.key === "revenue_registration"
+                                ? officeVisMap[selectedUser.id]?.["revenue_registration_add_advance"] ?? []
+                                : undefined
+                            }
                             assignedOffices={assignedOffices}
                             globalOffices={globalOffices}
                             isSaving={savingModuleKey === moduleItem.key}
                             onChange={(newIds) =>
                               handleModuleOfficesChange(selectedUser.id, moduleItem.key, newIds)
+                            }
+                            onAddAdvanceChange={
+                              moduleItem.key === "revenue_registration"
+                                ? (newIds) =>
+                                    handleModuleOfficesChange(
+                                      selectedUser.id,
+                                      "revenue_registration_add_advance",
+                                      newIds
+                                    )
+                                : undefined
                             }
                             onSave={() =>
                               handleSaveSingleModuleVisibility(selectedUser.id, moduleItem.key)
@@ -1996,32 +2028,34 @@ export function UserAccessManagement() {
 }
 
 /**
- * ModuleOfficeCard: Dedicated component for configuring offices for a single module.
- * Features Categorized Multi-Select Dropdown (Assigned Offices vs Global Offices),
- * Search, Select All, Clear All, Selected Count display, and Save button.
+ * ModuleOfficeCard: Dedicated component for configuring offices for a si/**
+ * Reusable Multi-Select Office Picker Dropdown Component
  */
-function ModuleOfficeCard({
-  moduleItem,
+function OfficeMultiSelectPicker({
+  label,
+  icon,
+  description,
   selectedOfficeIds,
   assignedOffices,
   globalOffices,
-  isSaving,
   onChange,
-  onSave,
+  emptyLabel = "No offices visible (Deny Access)",
+  placeholder = "Select Offices ▼",
 }: {
-  moduleItem: ModuleDefinitionItem;
+  label: string;
+  icon?: React.ReactNode;
+  description?: string;
   selectedOfficeIds: string[];
   assignedOffices: OfficeLocationItem[];
   globalOffices: OfficeLocationItem[];
-  isSaving: boolean;
-  onChange: (officeIds: string[]) => void;
-  onSave: () => void;
+  onChange: (ids: string[]) => void;
+  emptyLabel?: string;
+  placeholder?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -2053,8 +2087,8 @@ function ModuleOfficeCard({
   }, [globalOffices, searchQuery]);
 
   const selectedCount = selectedOfficeIds.length;
-  const assignedIds = new Set(assignedOffices.map((o) => o.id));
-  const globalIds = new Set(globalOffices.map((o) => o.id));
+  const assignedIds = useMemo(() => new Set(assignedOffices.map((o) => o.id)), [assignedOffices]);
+  const globalIds = useMemo(() => new Set(globalOffices.map((o) => o.id)), [globalOffices]);
 
   const selectedAssignedCount = selectedOfficeIds.filter((id) => assignedIds.has(id)).length;
   const selectedGlobalCount = selectedOfficeIds.filter((id) => globalIds.has(id)).length;
@@ -2096,7 +2130,6 @@ function ModuleOfficeCard({
     onChange(selectedOfficeIds.filter((id) => !globalIds.has(id)));
   }
 
-  // Get office names for pill display
   const allOfficeMap = useMemo(() => {
     const map = new Map<string, { name: string; isAssigned: boolean }>();
     for (const o of assignedOffices) map.set(o.id, { name: o.officeName, isAssigned: true });
@@ -2104,6 +2137,276 @@ function ModuleOfficeCard({
     return map;
   }, [assignedOffices, globalOffices]);
 
+  return (
+    <div className="flex flex-col gap-2.5" ref={dropdownRef}>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+            {icon ?? <Building2 size={14} className="text-blue-600 dark:text-blue-400" />}
+            {label}:
+          </label>
+          {description ? (
+            <p className="text-[11px] text-soft mt-0.5">{description}</p>
+          ) : null}
+        </div>
+        <span className="text-[11px] font-semibold text-soft">
+          {selectedCount === 0
+            ? emptyLabel
+            : `${selectedCount} ${selectedCount === 1 ? "office" : "offices"} selected`}
+        </span>
+      </div>
+
+      {/* Dropdown Trigger Button */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className={`w-full flex items-center justify-between rounded-2xl border px-3.5 py-2.5 text-xs transition-all cursor-pointer ${
+            isOpen
+              ? "border-blue-500 bg-white ring-2 ring-blue-500/20 dark:bg-[#12141a]"
+              : "border-(--border) bg-white/60 hover:bg-white hover:border-slate-400 dark:bg-white/5 dark:hover:bg-white/10"
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <span
+              className={`font-bold ${
+                selectedCount > 0
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400"
+              }`}
+            >
+              {selectedCount === 0 ? placeholder : `${selectedCount} offices selected`}
+            </span>
+            {selectedCount > 0 ? (
+              <span className="text-[11px] text-soft">
+                ({selectedAssignedCount} assigned, {selectedGlobalCount} global)
+              </span>
+            ) : null}
+          </div>
+          {isOpen ? <ChevronUp size={16} className="text-soft" /> : <ChevronDown size={16} className="text-soft" />}
+        </button>
+
+        {/* Dropdown Popover Menu */}
+        {isOpen && (
+          <div className="absolute left-0 right-0 top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-[#12141a] animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3 max-h-96 overflow-hidden">
+            {/* Search in Dropdown */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-soft" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search offices..."
+                className="w-full rounded-xl border border-(--border) bg-slate-50/80 pl-8 pr-7 py-1.5 text-xs outline-none focus:border-blue-500 dark:bg-white/5"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-soft hover:text-foreground cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center justify-between border-b border-(--border) pb-2 text-[11px]">
+              <span className="font-extrabold text-soft uppercase tracking-wider">
+                {selectedCount} Selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
+                >
+                  Select All
+                </button>
+                <span className="text-soft">|</span>
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="font-bold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Categories List */}
+            <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+              {/* 1. ASSIGNED OFFICES */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <Building2 size={13} />
+                    Assigned Offices ({selectedAssignedCount}/{assignedOffices.length})
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllAssigned}
+                      className="text-soft hover:text-foreground cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllAssigned}
+                      className="text-soft hover:text-foreground cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {filteredAssigned.length === 0 ? (
+                  <p className="text-[11px] text-soft py-1 italic">No assigned offices found.</p>
+                ) : (
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {filteredAssigned.map((office) => {
+                      const checked = selectedOfficeIds.includes(office.id);
+                      return (
+                        <label
+                          key={office.id}
+                          className={`flex items-center gap-2.5 rounded-xl border p-2 cursor-pointer transition-colors ${
+                            checked
+                              ? "border-blue-500 bg-blue-50/80 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+                              : "border-(--border) bg-white/40 hover:bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleOffice(office.id)}
+                            className="h-3.5 w-3.5 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span className="truncate text-xs font-bold">{office.officeName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. GLOBAL OFFICES */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Building2 size={13} />
+                    Global Offices ({selectedGlobalCount}/{globalOffices.length})
+                  </span>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllGlobal}
+                      className="text-soft hover:text-foreground cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllGlobal}
+                      className="text-soft hover:text-foreground cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {filteredGlobal.length === 0 ? (
+                  <p className="text-[11px] text-soft py-1 italic">No global offices found.</p>
+                ) : (
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {filteredGlobal.map((office) => {
+                      const checked = selectedOfficeIds.includes(office.id);
+                      return (
+                        <label
+                          key={office.id}
+                          className={`flex items-center gap-2.5 rounded-xl border p-2 cursor-pointer transition-colors ${
+                            checked
+                              ? "border-blue-500 bg-blue-50/80 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+                              : "border-(--border) bg-white/40 hover:bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleOffice(office.id)}
+                            className="h-3.5 w-3.5 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span className="truncate text-xs font-bold">{office.officeName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Selected Offices Tag Pills Below Dropdown */}
+      {selectedOfficeIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {selectedOfficeIds.map((id) => {
+            const info = allOfficeMap.get(id);
+            if (!info) return null;
+            return (
+              <span
+                key={id}
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold border transition-colors ${
+                  info.isAssigned
+                    ? "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900"
+                    : "bg-slate-100 text-slate-800 border-slate-200 dark:bg-white/10 dark:text-slate-200 dark:border-white/10"
+                }`}
+              >
+                <span className="truncate max-w-40">{info.name}</span>
+                <button
+                  type="button"
+                  onClick={() => toggleOffice(id)}
+                  className="hover:opacity-70 cursor-pointer p-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ModuleOfficeCard: Renders Module info, Save button, general Office Visibility selector,
+ * and if moduleItem.key === "revenue_registration", also renders the "Add Advance Office Visibility" section.
+ */
+function ModuleOfficeCard({
+  moduleItem,
+  selectedOfficeIds,
+  addAdvanceOfficeIds,
+  assignedOffices,
+  globalOffices,
+  isSaving,
+  onChange,
+  onAddAdvanceChange,
+  onSave,
+}: {
+  moduleItem: ModuleDefinitionItem;
+  selectedOfficeIds: string[];
+  addAdvanceOfficeIds?: string[];
+  assignedOffices: OfficeLocationItem[];
+  globalOffices: OfficeLocationItem[];
+  isSaving: boolean;
+  onChange: (officeIds: string[]) => void;
+  onAddAdvanceChange?: (officeIds: string[]) => void;
+  onSave: () => void;
+}) {
   return (
     <div className="rounded-3xl border border-(--border) bg-white/70 p-5 shadow-xs transition-all dark:bg-white/5 dark:border-white/10 hover:border-blue-500/30">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -2133,245 +2436,36 @@ function ModuleOfficeCard({
         </div>
       </div>
 
-      {/* Office Multi-Select Dropdown Container */}
-      <div className="mt-4 pt-3 border-t border-(--border) flex flex-col gap-2.5" ref={dropdownRef}>
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <Building2 size={14} className="text-blue-600 dark:text-blue-400" />
-            Office Visibility:
-          </label>
-          <span className="text-[11px] font-semibold text-soft">
-            {selectedCount === 0
-              ? "No offices visible (Deny Access)"
-              : `${selectedCount} ${selectedCount === 1 ? "office" : "offices"} visible`}
-          </span>
-        </div>
-
-        {/* Dropdown Trigger Button */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsOpen((prev) => !prev)}
-            className={`w-full flex items-center justify-between rounded-2xl border px-3.5 py-2.5 text-xs transition-all cursor-pointer ${
-              isOpen
-                ? "border-blue-500 bg-white ring-2 ring-blue-500/20 dark:bg-[#12141a]"
-                : "border-(--border) bg-white/60 hover:bg-white hover:border-slate-400 dark:bg-white/5 dark:hover:bg-white/10"
-            }`}
-          >
-            <div className="flex items-center gap-2 truncate">
-              <span
-                className={`font-bold ${
-                  selectedCount > 0
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                {selectedCount === 0
-                  ? "Select Offices ▼"
-                  : `${selectedCount} offices selected`}
-              </span>
-              {selectedCount > 0 ? (
-                <span className="text-[11px] text-soft">
-                  ({selectedAssignedCount} assigned, {selectedGlobalCount} global)
-                </span>
-              ) : null}
-            </div>
-            {isOpen ? <ChevronUp size={16} className="text-soft" /> : <ChevronDown size={16} className="text-soft" />}
-          </button>
-
-          {/* Dropdown Popover Menu */}
-          {isOpen && (
-            <div className="absolute left-0 right-0 top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-[#12141a] animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3 max-h-96 overflow-hidden">
-              {/* Search in Dropdown */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-soft" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search offices..."
-                  className="w-full rounded-xl border border-(--border) bg-slate-50/80 pl-8 pr-7 py-1.5 text-xs outline-none focus:border-blue-500 dark:bg-white/5"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-soft hover:text-foreground cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex items-center justify-between border-b border-(--border) pb-2 text-[11px]">
-                <span className="font-extrabold text-soft uppercase tracking-wider">
-                  {selectedCount} Selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    className="font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
-                  >
-                    Select All
-                  </button>
-                  <span className="text-soft">|</span>
-                  <button
-                    type="button"
-                    onClick={handleClearAll}
-                    className="font-bold text-rose-600 hover:underline dark:text-rose-400 cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-
-              {/* Scrollable Categories List */}
-              <div className="flex flex-col gap-4 overflow-y-auto pr-1">
-                {/* 1. ASSIGNED OFFICES */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                      <Building2 size={13} />
-                      Assigned Offices ({selectedAssignedCount}/{assignedOffices.length})
-                    </span>
-                    <div className="flex items-center gap-1.5 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllAssigned}
-                        className="text-soft hover:text-foreground cursor-pointer"
-                      >
-                        All
-                      </button>
-                      <span>•</span>
-                      <button
-                        type="button"
-                        onClick={handleClearAllAssigned}
-                        className="text-soft hover:text-foreground cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-
-                  {filteredAssigned.length === 0 ? (
-                    <p className="text-[11px] text-soft py-1 italic">No assigned offices found.</p>
-                  ) : (
-                    <div className="grid gap-1.5 sm:grid-cols-2">
-                      {filteredAssigned.map((office) => {
-                        const checked = selectedOfficeIds.includes(office.id);
-                        return (
-                          <label
-                            key={office.id}
-                            className={`flex items-center gap-2.5 rounded-xl border p-2 cursor-pointer transition-colors ${
-                              checked
-                                ? "border-blue-500 bg-blue-50/80 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
-                                : "border-(--border) bg-white/40 hover:bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleOffice(office.id)}
-                              className="h-3.5 w-3.5 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                            <span className="truncate text-xs font-bold">{office.officeName}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. GLOBAL OFFICES */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Building2 size={13} />
-                      Global Offices ({selectedGlobalCount}/{globalOffices.length})
-                    </span>
-                    <div className="flex items-center gap-1.5 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllGlobal}
-                        className="text-soft hover:text-foreground cursor-pointer"
-                      >
-                        All
-                      </button>
-                      <span>•</span>
-                      <button
-                        type="button"
-                        onClick={handleClearAllGlobal}
-                        className="text-soft hover:text-foreground cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-
-                  {filteredGlobal.length === 0 ? (
-                    <p className="text-[11px] text-soft py-1 italic">No global offices found.</p>
-                  ) : (
-                    <div className="grid gap-1.5 sm:grid-cols-2">
-                      {filteredGlobal.map((office) => {
-                        const checked = selectedOfficeIds.includes(office.id);
-                        return (
-                          <label
-                            key={office.id}
-                            className={`flex items-center gap-2.5 rounded-xl border p-2 cursor-pointer transition-colors ${
-                              checked
-                                ? "border-blue-500 bg-blue-50/80 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
-                                : "border-(--border) bg-white/40 hover:bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleOffice(office.id)}
-                              className="h-3.5 w-3.5 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                            <span className="truncate text-xs font-bold">{office.officeName}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Selected Offices Tag Pills Below Dropdown */}
-        {selectedOfficeIds.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {selectedOfficeIds.map((id) => {
-              const info = allOfficeMap.get(id);
-              if (!info) return null;
-              return (
-                <span
-                  key={id}
-                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold border transition-colors ${
-                    info.isAssigned
-                      ? "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900"
-                      : "bg-slate-100 text-slate-800 border-slate-200 dark:bg-white/10 dark:text-slate-200 dark:border-white/10"
-                  }`}
-                >
-                  <span className="truncate max-w-40">{info.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleOffice(id)}
-                    className="hover:opacity-70 cursor-pointer p-0.5"
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
+      {/* 1. General Office Visibility Section */}
+      <div className="mt-4 pt-3 border-t border-(--border)">
+        <OfficeMultiSelectPicker
+          label="Office Visibility"
+          icon={<Building2 size={14} className="text-blue-600 dark:text-blue-400" />}
+          selectedOfficeIds={selectedOfficeIds}
+          assignedOffices={assignedOffices}
+          globalOffices={globalOffices}
+          onChange={onChange}
+          emptyLabel="No offices visible (Deny Access)"
+          placeholder="Select Offices ▼"
+        />
       </div>
+
+      {/* 2. Add Advance Office Visibility Section (Only for Revenue Registration) */}
+      {moduleItem.key === "revenue_registration" && onAddAdvanceChange && (
+        <div className="mt-5 pt-4 border-t-2 border-dashed border-emerald-500/20 dark:border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/10 -mx-5 -mb-5 p-5 rounded-b-3xl">
+          <OfficeMultiSelectPicker
+            label="Add Advance Office Visibility"
+            icon={<BadgeDollarSign size={15} className="text-emerald-600 dark:text-emerald-400" />}
+            description="Control which offices a user is allowed to add advance amounts for (matched against document Region of Registration)."
+            selectedOfficeIds={addAdvanceOfficeIds ?? []}
+            assignedOffices={assignedOffices}
+            globalOffices={globalOffices}
+            onChange={onAddAdvanceChange}
+            emptyLabel="No Add Advance offices (Add Advance disabled)"
+            placeholder="Select Add Advance Offices ▼"
+          />
+        </div>
+      )}
     </div>
   );
 }

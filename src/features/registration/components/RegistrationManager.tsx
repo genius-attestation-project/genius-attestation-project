@@ -41,6 +41,7 @@ import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableS
 import { MultiSelectDropdown, type MultiSelectOption } from "@/components/ui/MultiSelectDropdown";
 import { FileUpload, MultiFileUpload } from "@/components/common/FileUpload";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { canUserAddAdvance } from "@/features/admin/utils/add-advance-permission";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
@@ -699,6 +700,18 @@ export function RegistrationManager({
     const num = Number(rawVal);
     return Boolean(rawVal) && !Number.isNaN(num) && num > 0;
   }, [form.totalCharges]);
+
+  const canAddAdvance = useMemo(() => {
+    if (selected) {
+      return canUserAddAdvance(currentUser, selected);
+    }
+    const targetOfficeName = form.regionOfRegistration || currentOfficeLocationName;
+    const targetOfficeId = form.regionOfRegistrationId || rawOfficeLocations.find((o) => o.officeName === targetOfficeName)?.id;
+    return canUserAddAdvance(currentUser, {
+      regionOfRegistrationId: targetOfficeId,
+      regionOfRegistration: targetOfficeName,
+    });
+  }, [currentUser, selected, form.regionOfRegistration, form.regionOfRegistrationId, currentOfficeLocationName, rawOfficeLocations]);
 
   const computedPaymentStatus = useMemo(() => {
     const total = Number(form.totalCharges || 0);
@@ -2066,23 +2079,33 @@ export function RegistrationManager({
                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Approved Advance
                 </span>
-                <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
-                  {isAdvancePaidEnabled ? "Click to request advance" : "Enter Total Charges first"}
+                <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled && canAddAdvance ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  {!canAddAdvance
+                    ? "Add Advance restricted for this office"
+                    : isAdvancePaidEnabled
+                      ? "Click to request advance"
+                      : "Enter Total Charges first"}
                 </span>
               </div>
               <button
                 type="button"
-                disabled={!isAdvancePaidEnabled}
+                disabled={!isAdvancePaidEnabled || !canAddAdvance}
                 onClick={() => {
-                  if (!isAdvancePaidEnabled) return;
+                  if (!isAdvancePaidEnabled || !canAddAdvance) return;
                   setIsAddAdvanceOpen(true);
                 }}
-                title={isAdvancePaidEnabled ? "Click to add an advance payment request" : "Enter Total Charges first to enable advance payment"}
+                title={
+                  !canAddAdvance
+                    ? "You do not have permission to add advance for documents registered in this office"
+                    : isAdvancePaidEnabled
+                    ? "Click to add an advance payment request"
+                    : "Enter Total Charges first to enable advance payment"
+                }
                 className={[
                   "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
                   "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
                   "transition-all duration-150",
-                  isAdvancePaidEnabled
+                  isAdvancePaidEnabled && canAddAdvance
                     ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
                     : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
                 ].join(" ")}
@@ -2091,14 +2114,16 @@ export function RegistrationManager({
                   <span>
                     ₹ {approvedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
-                  {isAdvancePaidEnabled && (
+                  {isAdvancePaidEnabled && canAddAdvance && (
                     <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
                       <Plus size={12} /> Request Advance
                     </span>
                   )}
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
-                  {!isAdvancePaidEnabled
+                  {!canAddAdvance
+                    ? "Permission Restricted"
+                    : !isAdvancePaidEnabled
                     ? "Enter Total Charges First"
                     : "Approved Only"}
                 </span>
@@ -2398,7 +2423,7 @@ export function RegistrationManager({
 
       {(selected || drawerMode === "form") && (
         <AddAdvanceModal
-          isOpen={isAddAdvanceOpen && isAdvancePaidEnabled}
+          isOpen={isAddAdvanceOpen && isAdvancePaidEnabled && canAddAdvance}
           onClose={() => setIsAddAdvanceOpen(false)}
           registrationId={selected?.id || ""}
           trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}

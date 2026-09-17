@@ -1396,6 +1396,9 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
             rolePermissions: {
               include: { permission: { select: { code: true } } },
             },
+            roleOfficeVisibilities: {
+              include: { officeLocation: { select: { id: true, officeName: true } } },
+            },
           },
         },
       },
@@ -1459,6 +1462,24 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
 
   // Build module-wise office visibility map
   const moduleOfficeVisibilities: Record<string, { officeIds: string[]; officeNames: string[] }> = {};
+
+  // First seed with role-level module office visibilities if present
+  if (user.role?.roleOfficeVisibilities && user.role.roleOfficeVisibilities.length > 0) {
+    for (const rv of user.role.roleOfficeVisibilities) {
+      const mKey = rv.moduleKey || "global";
+      if (!moduleOfficeVisibilities[mKey]) {
+        moduleOfficeVisibilities[mKey] = { officeIds: [], officeNames: [] };
+      }
+      if (rv.officeLocationId && !moduleOfficeVisibilities[mKey].officeIds.includes(rv.officeLocationId)) {
+        moduleOfficeVisibilities[mKey].officeIds.push(rv.officeLocationId);
+      }
+      if (rv.officeLocation?.officeName && !moduleOfficeVisibilities[mKey].officeNames.includes(rv.officeLocation.officeName)) {
+        moduleOfficeVisibilities[mKey].officeNames.push(rv.officeLocation.officeName);
+      }
+    }
+  }
+
+  // Then apply user-level explicit office visibilities (takes precedence / merges)
   for (const v of officeVisRows) {
     const mKey = v.moduleKey || "global";
     if (!moduleOfficeVisibilities[mKey]) {
@@ -1549,6 +1570,8 @@ export function hasPermission(
   }
   return access.permissions.includes(code) || access.permissions.includes("*");
 }
+
+export { canUserAddAdvance } from "@/features/admin/utils/add-advance-permission";
 
 export function getPermissionScope(
   access: SessionAccess | { isSuperAdmin?: boolean; permissionScopes?: Record<string, string> } | null | undefined,

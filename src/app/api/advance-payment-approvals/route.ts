@@ -5,7 +5,12 @@ import {
   submitAdvancePaymentApproval,
 } from "@/features/revenue/server/advance-payment-approval.service";
 import { auth } from "@/lib/auth";
-import { hasPermission } from "@/features/admin/server/rbac.service";
+import { prisma } from "@/lib/prisma";
+import {
+  canUserAddAdvance,
+  getSessionAccess,
+  hasPermission,
+} from "@/features/admin/server/rbac.service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -74,26 +79,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (
-      !session.user.isSuperAdmin &&
-      !hasPermission(session.user, "advance_payment_approval.approve") &&
-      !hasPermission(session.user, "advance_payment_approval.reject")
-    ) {
-      return NextResponse.json({ error: "Forbidden. You do not have permission to process advance approvals." }, { status: 403 });
-    }
-
     const body = await request.json().catch(() => ({}));
     console.log("[Backend POST /api/advance-payment-approvals] Received request body:", body);
 
-    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
-
     const registrationId = (body.registrationId || body.revenueRegistrationId || body.id || body.trackingNumber || "").toString().trim();
+    if (!registrationId) {
+      return NextResponse.json({ error: "Registration ID is required." }, { status: 400 });
+    }
+
+    // 1. Fetch registration record with regionOfRegistrationId & regionOfRegistration
+    const registration = await prisma.registration.findFirst({
+      where: {
+        ownerAdminId: session.user.ownerAdminId,
+        OR: [
+          { id: registrationId },
+          { trackingNumber: registrationId },
+        ],
+      },
+      select: {
+        id: true,
+        regionOfRegistration: true,
+        regionOfRegistrationId: true,
+      },
+    });
+
+    if (!registration) {
+      return NextResponse.json({ error: "Registration record not found." }, { status: 404 });
+    }
+
+    // 2. Check authorization via canUserAddAdvance
+    const access = (await getSessionAccess(session.user.id)) || session.user;
+    if (!canUserAddAdvance(access, registration)) {
+      return NextResponse.json(
+        { error: "Forbidden. You do not have permission to add advance for documents registered in this office." },
+        { status: 403 },
+      );
+    }
+
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
     const advanceAmount = Number(body.advanceAmount ?? body.amount ?? 0);
     const receiptFileId = body.receiptFileId || body.proofFileId || (Array.isArray(body.proofFiles) ? body.proofFiles[0] : null) || null;
 
     const approval = await submitAdvancePaymentApproval({
       ownerAdminId: session.user.ownerAdminId,
-      registrationId,
+      registrationId: registration.id,
       advanceAmount,
       paymentDate: body.paymentDate,
       paymentMode: body.paymentMode,
