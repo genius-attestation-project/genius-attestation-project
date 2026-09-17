@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { StatementFilters } from "./StatementFilters";
 import { EmptyState } from "./EmptyState";
 import { DebitSection } from "./DebitSection";
@@ -11,6 +12,11 @@ import type { AccountStatementsData, AccountStatementItem } from "../types/accou
 import { AlertCircle } from "lucide-react";
 
 export const AccountStatementsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isSuperAdmin = Boolean(user?.isSuperAdmin);
+  const permissions = user?.permissions || [];
+  const canExport = isSuperAdmin || permissions.includes("account_statements.export") || permissions.includes("*");
+
   const [office, setOffice] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -148,6 +154,7 @@ export const AccountStatementsPage: React.FC = () => {
           toDate={toDate}
           search={search}
           hasSearched={hasSearched}
+          canExport={canExport}
           onOfficeChange={(val) => {
             setOffice(val);
             if (validationWarning) setValidationWarning(null);

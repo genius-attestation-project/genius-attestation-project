@@ -6,10 +6,9 @@ import { getAccountStatements } from "@/features/account-statements/server/accou
 import { accountStatementFiltersSchema } from "@/features/account-statements/validations/account-statements.schema";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export async function GET(request: Request) {
-  const denied = await requireApiPermission("account_statements.view");
+  const denied = await requireApiPermission("account_statements.export");
   if (denied) return denied;
 
   try {
@@ -38,26 +37,10 @@ export async function GET(request: Request) {
 
     const { office, fromDate, toDate } = parseResult.data;
     if (!office || office === "All" || !fromDate || !toDate) {
-      return NextResponse.json({
-        office: office || "",
-        fromDate: fromDate || "",
-        toDate: toDate || "",
-        openingBalance: 0,
-        credit: {
-          advances: [],
-          advancesTotal: 0,
-          moreAdvances: [],
-          moreAdvancesTotal: 0,
-          panelCredits: [],
-          panelCreditsTotal: 0,
-          creditTotal: 0,
-        },
-        debit: {
-          groups: [],
-          debitTotal: 0,
-        },
-        cashInHand: 0,
-      });
+      return NextResponse.json(
+        { error: "Office, fromDate, and toDate are required for export." },
+        { status: 400 }
+      );
     }
 
     // Verify Office Visibility Access for non-Super Admin
@@ -65,21 +48,24 @@ export async function GET(request: Request) {
       const isAllowed = hasOfficeAccess(session.user, office, "account_statements");
       if (!isAllowed) {
         return NextResponse.json(
-          { error: "You are not authorized to view account statements for this office." },
+          { error: "You are not authorized to export account statements for this office." },
           { status: 403 }
         );
       }
     }
 
     const data = await getAccountStatements(ownerAdminId, parseResult.data, session.user);
-    return NextResponse.json(data);
+    return NextResponse.json({
+      success: true,
+      exportedAt: new Date().toISOString(),
+      data,
+    });
   } catch (error: any) {
-    console.error("[GET /api/account-statements] Error:", error);
+    console.error("[GET /api/account-statements/export] Error:", error);
     const isAuthErr = error?.message?.includes("not authorized");
     return NextResponse.json(
-      { error: error?.message || "Failed to fetch account statements." },
+      { error: error?.message || "Failed to export account statements." },
       { status: isAuthErr ? 403 : 500 }
     );
   }
 }
-

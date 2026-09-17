@@ -82,22 +82,26 @@ export const MoreAdvanceTable: React.FC<MoreAdvanceTableProps> = ({
                           <ImageIcon className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => onEdit(item)}
-                        title="Edit"
-                        className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(item)}
-                        title="Delete"
-                        className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-all cursor-pointer"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {item.canEdit !== false && (
+                        <button
+                          type="button"
+                          onClick={() => onEdit(item)}
+                          title="Edit"
+                          className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {item.canDelete !== false && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(item)}
+                          title="Delete"
+                          className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

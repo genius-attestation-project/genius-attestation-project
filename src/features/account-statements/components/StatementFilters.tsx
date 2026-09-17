@@ -14,6 +14,7 @@ interface StatementFiltersProps {
   toDate: string;
   search: string;
   hasSearched?: boolean;
+  canExport?: boolean;
   onOfficeChange: (office: string) => void;
   onFromDateChange: (date: string) => void;
   onToDateChange: (date: string) => void;
@@ -30,6 +31,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
   toDate,
   search,
   hasSearched = false,
+  canExport = true,
   onOfficeChange,
   onFromDateChange,
   onToDateChange,
@@ -45,15 +47,20 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
     let mounted = true;
     async function loadOffices() {
       try {
-        const res = await fetch("/api/office-locations", { cache: "no-store" });
+        const res = await fetch("/api/offices/all?module=account_statements", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          if (mounted && json.officeLocations) {
-            setOffices(json.officeLocations);
+          const list: OfficeLocationItem[] = json.offices || json.data || [];
+          if (mounted) {
+            setOffices(list);
+            // Auto-select if exactly 1 authorized office is available and no office currently selected
+            if (list.length === 1 && !office) {
+              onOfficeChange(list[0].officeName);
+            }
           }
         }
       } catch (err) {
-        console.error("Failed to load office locations:", err);
+        console.error("Failed to load authorized office locations:", err);
       }
     }
     loadOffices();
@@ -72,7 +79,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
           </h2>
         </div>
 
-        {hasSearched && (
+        {hasSearched && canExport && (
           <button
             type="button"
             onClick={onPrint}
@@ -86,7 +93,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
 
       {/* Main Filter Controls */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
-        {/* Office Dropdown (Strict Real Offices Only) */}
+        {/* Office Dropdown (Strict Authorized Real Offices Only) */}
         <div className="space-y-1.5 lg:col-span-1">
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-blue-500" />
@@ -97,7 +104,9 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
             onChange={(e) => onOfficeChange(e.target.value)}
             className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
-            <option value="">Select Office...</option>
+            <option value="">
+              {offices.length === 0 ? "No authorized offices available" : "Select Office..."}
+            </option>
             {offices.map((off) => (
               <option key={off.id} value={off.officeName}>
                 {off.officeName}

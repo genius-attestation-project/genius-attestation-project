@@ -1519,14 +1519,15 @@ export function hasOfficeAccess(
 
   const target = officeIdOrName.trim().toLowerCase();
 
-  // If moduleKey is provided and module-specific visibilities exist for this module, check them
-  if (moduleKey && access.moduleOfficeVisibilities) {
+  // If moduleKey is provided and module-specific visibilities exist for this user, check strictly
+  if (moduleKey && access.moduleOfficeVisibilities !== null && access.moduleOfficeVisibilities !== undefined) {
     const modConfig = access.moduleOfficeVisibilities[moduleKey];
-    if (modConfig) {
-      const matchId = modConfig.officeIds.some((id) => id.toLowerCase() === target);
-      const matchName = modConfig.officeNames.some((name) => name.toLowerCase() === target);
-      return matchId || matchName;
+    if (!modConfig || (modConfig.officeIds.length === 0 && modConfig.officeNames.length === 0)) {
+      return false;
     }
+    const matchId = modConfig.officeIds.some((id) => id.toLowerCase() === target);
+    const matchName = modConfig.officeNames.some((name) => name.toLowerCase() === target);
+    return matchId || matchName;
   }
 
   return (

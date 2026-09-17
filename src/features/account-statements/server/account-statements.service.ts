@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import type {
   AccountStatementsData,
   AccountStatementFiltersInput,
@@ -10,39 +11,103 @@ const db = prisma as any;
 
 /**
  * Fetches unified account statements data combining approved advance payments and account panel transactions.
+ * Strictly enforces user's module permissions and Office Visibility Access for "account_statements".
  */
 export async function getAccountStatements(
   ownerAdminId: string,
-  filters: AccountStatementFiltersInput
+  filters: AccountStatementFiltersInput,
+  userAccess?: any
 ): Promise<AccountStatementsData> {
   const { office, fromDate, toDate, search, transactionType = "ALL" } = filters;
 
   const officeFilter = office && office !== "All" && office !== "Select Office" ? office.trim() : null;
   const searchFilter = search ? search.trim().toLowerCase() : null;
 
+  const emptyResponse: AccountStatementsData = {
+    office: officeFilter || "",
+    fromDate: fromDate || "",
+    toDate: toDate || "",
+    openingBalance: 0,
+    credit: {
+      advances: [],
+      advancesTotal: 0,
+      moreAdvances: [],
+      moreAdvancesTotal: 0,
+      panelCredits: [],
+      panelCreditsTotal: 0,
+      creditTotal: 0,
+    },
+    debit: {
+      groups: [],
+      debitTotal: 0,
+    },
+    cashInHand: 0,
+  };
+
   // Enforce mandatory parameters: office, fromDate, and toDate
   if (!officeFilter || !fromDate || !toDate) {
-    return {
-      office: officeFilter || "",
-      fromDate: fromDate || "",
-      toDate: toDate || "",
-      openingBalance: 0,
-      credit: {
-        advances: [],
-        advancesTotal: 0,
-        moreAdvances: [],
-        moreAdvancesTotal: 0,
-        panelCredits: [],
-        panelCreditsTotal: 0,
-        creditTotal: 0,
-      },
-      debit: {
-        groups: [],
-        debitTotal: 0,
-      },
-      cashInHand: 0,
-    };
+    return emptyResponse;
   }
+
+  const isSuperAdmin = Boolean(userAccess?.isSuperAdmin);
+
+  // Extract allowed offices for "account_statements" module
+  let allowedOfficeIds: string[] = [];
+  let allowedOfficeNames: string[] = [];
+
+  if (userAccess && !isSuperAdmin) {
+    if (userAccess.moduleOfficeVisibilities !== null && userAccess.moduleOfficeVisibilities !== undefined) {
+      const modConfig = userAccess.moduleOfficeVisibilities["account_statements"];
+      allowedOfficeIds = modConfig?.officeIds ?? [];
+      allowedOfficeNames = modConfig?.officeNames ?? [];
+    } else {
+      allowedOfficeIds = Array.isArray(userAccess.allowedOfficeIds) ? userAccess.allowedOfficeIds : [];
+      allowedOfficeNames = Array.isArray(userAccess.allowedOfficeNames) ? userAccess.allowedOfficeNames : [];
+    }
+
+    // If non-superadmin user has NO allowed offices assigned for account_statements, deny access
+    if (allowedOfficeIds.length === 0 && allowedOfficeNames.length === 0) {
+      return emptyResponse;
+    }
+  }
+
+  // Resolve requested office against database office locations
+  let targetOfficeId: string | null = null;
+  let targetOfficeName: string | null = null;
+
+  if (officeFilter) {
+    const matchingOffice = await db.officeLocation.findFirst({
+      where: {
+        ownerAdminId,
+        OR: [
+          { id: officeFilter },
+          { officeName: officeFilter },
+        ],
+      },
+      select: { id: true, officeName: true },
+    });
+
+    if (matchingOffice) {
+      targetOfficeId = matchingOffice.id;
+      targetOfficeName = matchingOffice.officeName;
+    } else {
+      targetOfficeName = officeFilter;
+    }
+
+    // If user is not superadmin, verify that the requested office is within allowed visibility
+    if (userAccess && !isSuperAdmin) {
+      const isAllowed = hasOfficeAccess(userAccess, targetOfficeId || targetOfficeName, "account_statements") ||
+        hasOfficeAccess(userAccess, targetOfficeName, "account_statements");
+
+      if (!isAllowed) {
+        throw new Error("You are not authorized to view account statements for this office.");
+      }
+    }
+  }
+
+  // User action permissions
+  const canEdit = !userAccess || isSuperAdmin || hasPermission(userAccess, "account_statements.edit");
+  const canDelete = !userAccess || isSuperAdmin || hasPermission(userAccess, "account_statements.delete");
 
   // Build Date filters
   const dateFrom = new Date(fromDate);
@@ -57,11 +122,17 @@ export async function getAccountStatements(
     status: "Approved",
   };
 
-  if (officeFilter) {
+  if (targetOfficeName) {
     advanceWhere.OR = [
-      { office: { equals: officeFilter } },
-      { registration: { regionOfRegistration: { equals: officeFilter } } },
-      { registration: { deliveryLocation: { equals: officeFilter } } },
+      { office: { equals: targetOfficeName } },
+      { registration: { regionOfRegistration: { equals: targetOfficeName } } },
+      { registration: { deliveryLocation: { equals: targetOfficeName } } },
+    ];
+  } else if (!isSuperAdmin && allowedOfficeNames.length > 0) {
+    advanceWhere.OR = [
+      { office: { in: allowedOfficeNames } },
+      { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
+      { registration: { deliveryLocation: { in: allowedOfficeNames } } },
     ];
   }
 
@@ -141,8 +212,8 @@ export async function getAccountStatements(
       bankProofFileUrl: item.bankProofFileUrl || null,
       bankProofFileName: item.bankProofFileName || null,
       officeName: item.office || item.registration?.regionOfRegistration || null,
-      canEdit: true,
-      canDelete: true,
+      canEdit,
+      canDelete,
     };
 
     if (isCash) {
@@ -182,15 +253,10 @@ export async function getAccountStatements(
     };
   }
 
-  if (officeFilter) {
-    // Match office location ID or office name
-    const matchingOffice = await db.officeLocation.findFirst({
-      where: { ownerAdminId, officeName: officeFilter },
-      select: { id: true },
-    });
-    if (matchingOffice) {
-      panelWhere.officeId = matchingOffice.id;
-    }
+  if (targetOfficeId) {
+    panelWhere.officeId = targetOfficeId;
+  } else if (!isSuperAdmin && allowedOfficeIds.length > 0) {
+    panelWhere.officeId = { in: allowedOfficeIds };
   }
 
   const rawPanelTransactions = await db.accountPanelTransaction.findMany({
@@ -249,8 +315,8 @@ export async function getAccountStatements(
       accountId: item.accountId,
       accountName: item.account?.name || "Uncategorized Account",
       officeId: item.officeId || null,
-      canEdit: true,
-      canDelete: true,
+      canEdit,
+      canDelete,
     };
 
     const isCredit = (item.account?.type || "").toUpperCase() === "CREDIT";
