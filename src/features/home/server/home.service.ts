@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
 import { resolveOfficeLocationId } from "@/lib/office-location";
-import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
+import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 function logHomeWorkflow(message: string, payload: Record<string, unknown>) {
   console.info(`[home] ${message}`, payload);
@@ -292,7 +292,7 @@ export async function markReadyForDelivery(params: {
       throw new Error(`Cannot mark ready for delivery: Delivery Location is ${reg?.deliveryLocation}, but current receiving office is ${params.officeLocationName}.`);
     }
 
-    const mainProcessCheck = await verifyCoreSubProcessCompleted(movement.trackingNumber, params.ownerAdminId);
+    const mainProcessCheck = await verifyMainProcessCompleted(movement.trackingNumber, params.ownerAdminId, tx);
     if (!mainProcessCheck.isCompleted) {
       throw new Error(`Cannot mark ready for delivery: Main Process is not completed.`);
     }

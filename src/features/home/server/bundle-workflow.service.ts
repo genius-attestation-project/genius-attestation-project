@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 import crypto from "crypto";
 
@@ -618,14 +618,6 @@ export async function receiveBundle(params: {
   const receivedSet = new Set(params.receivedTrackingNumbers);
   const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
 
-  const mainProcessCheckMap = new Map<string, boolean>();
-  for (const item of (bundle.items as any[])) {
-    if (receivedSet.has(item.trackingNumber)) {
-      const mainProcessCheck = await verifyCoreSubProcessCompleted(item.trackingNumber, params.ownerAdminId);
-      mainProcessCheckMap.set(item.trackingNumber, mainProcessCheck.isCompleted);
-    }
-  }
-
   return prisma.$transaction(async (tx: any) => {
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
@@ -643,7 +635,8 @@ export async function receiveBundle(params: {
           include: { documentMovements: true },
         });
 
-        const hasCompletedMainProcess = mainProcessCheckMap.get(item.trackingNumber) ?? false;
+        const mainProcessCheck = await verifyMainProcessCompleted(item.trackingNumber, params.ownerAdminId, tx);
+        const hasCompletedMainProcess = mainProcessCheck.isCompleted;
 
         const receivingOfficeName = bundle.toOffice?.officeName || "";
         const receivingOfficeId = bundle.toOfficeId || bundle.toOffice?.id || "";
@@ -658,7 +651,7 @@ export async function receiveBundle(params: {
           )
         );
 
-        // Document moves to Ready For Delivery ONLY when ALL processing is complete AND receiving office matches deliveryLocation
+        // Document moves to Ready For Delivery ONLY when ALL main process activities are complete AND receiving office matches deliveryLocation
         const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isOfficeMatch;
 
         if (isReadyForDeliveryAutoRoute) {
@@ -691,7 +684,7 @@ export async function receiveBundle(params: {
                   workflowStep: "Automatic Ready For Delivery Routing",
                   status: "Ready for Delivery",
                   performedBy: params.userName || params.userId,
-                  remarks: `Routed to Ready For Delivery (Process Type Main Process activity status is Completed)`,
+                  remarks: `Routed to Ready For Delivery (Authoritative Main Process completed)`,
                   ownerAdminId: params.ownerAdminId,
                 },
               });
@@ -715,7 +708,7 @@ export async function receiveBundle(params: {
                 registrationId: reg.id,
                 action: "AUTO_ROUTED_TO_READY_FOR_DELIVERY",
                 performedBy: params.userName || params.userId,
-                description: `Process Type Main Process activity status is Completed. Routed to Ready For Delivery.`,
+                description: `Authoritative Main Process completed. Routed to Ready For Delivery.`,
               },
             });
           }
@@ -726,6 +719,7 @@ export async function receiveBundle(params: {
               status: "Received",
               currentOfficeId: bundle.toOfficeId,
               currentModule: "DOCUMENT_IN_HAND",
+              currentStatus: "Document In Hand",
               receivedAt: new Date(),
               receivedBy: params.userName || params.userId,
             },

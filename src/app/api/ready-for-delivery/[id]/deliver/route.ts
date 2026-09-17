@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionAccess, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
-import { verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
 
 export async function POST(
   request: NextRequest,
@@ -73,11 +73,11 @@ export async function POST(
       }
     }
 
-    // 1. CORE SUBPROCESS VALIDATION BEFORE READY FOR DELIVERY / DELIVERY
-    const coreCheck = await verifyCoreSubProcessCompleted(reg.trackingNumber, ownerAdminId);
+    // 1. AUTHORITATIVE MAIN PROCESS VALIDATION BEFORE DELIVERY
+    const coreCheck = await verifyMainProcessCompleted(reg.trackingNumber, ownerAdminId);
     if (!coreCheck.isCompleted) {
       return jsonError(
-        coreCheck.message || "Cannot move this document to Ready For Delivery because the Core SubProcess has not been completed.",
+        coreCheck.message || "Cannot deliver this document because the Main Process has not been completed.",
         400
       );
     }

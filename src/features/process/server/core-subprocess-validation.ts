@@ -2,9 +2,10 @@ import { prisma } from "@/lib/prisma";
 
 export type MainProcessCheckResult = {
   isCompleted: boolean;
-  coreSubPackageId?: string | null;
-  coreSubPackageName?: string | null;
   processType?: string | null;
+  totalActivities?: number;
+  completedActivities?: number;
+  missingActivities?: string[];
   message?: string;
 };
 
@@ -12,15 +13,23 @@ export type CoreSubProcessCheckResult = MainProcessCheckResult;
 
 /**
  * Verifies whether the Main Process associated with a document's Process Type
- * has been fully completed.
+ * has been fully and authoritatively completed.
  *
- * Completion of Sub Processes alone is NOT sufficient. The document becomes eligible
- * for Ready For Delivery ONLY when Main Process Status = Completed.
+ * Business Rules:
+ * 1. An individual completed sub-process/activity is NEVER sufficient for overall main process completion.
+ * 2. If a Process Type has configured sub-packages/activities in Master Data:
+ *    - ALL configured activities must have a completed SubPackageMovement (status: 'Completed' / 'COMPLETED').
+ *    - NO sub-package movement may be in 'Pending', 'In Progress', 'Returned', 'Rejected', or 'In Sub Package'.
+ * 3. If no sub-packages are configured, completion is determined by explicit 'COMPLETED' status
+ *    on ProcessAssignment or DocumentMovement.
+ * 4. Accepts an optional Prisma transaction client `tx` for transactional safety during inbound receive.
  */
 export async function verifyMainProcessCompleted(
   targetId: string,
-  ownerAdminId: string
+  ownerAdminId: string,
+  tx?: any
 ): Promise<MainProcessCheckResult> {
+  const db = tx ?? prisma;
   const target = targetId.trim();
   if (!target) {
     return {
@@ -29,7 +38,7 @@ export async function verifyMainProcessCompleted(
     };
   }
 
-  const registration = await prisma.registration.findFirst({
+  const registration = await db.registration.findFirst({
     where: {
       ownerAdminId,
       OR: [{ id: target }, { trackingNumber: target }],
@@ -57,125 +66,116 @@ export async function verifyMainProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // 1. Check if any sub-package movement for this tracking number is actively pending or in progress
-  const pendingSubMovements = await (prisma as any).subPackageMovement.findMany({
-    where: {
-      trackingNumber: registration.trackingNumber,
-      ownerAdminId,
-      status: {
-        in: [
-          "In Progress",
-          "IN_PROGRESS",
-          "Pending",
-          "PENDING",
-          "In Sub Package",
-          "IN_SUB_PACKAGE",
-        ],
-      },
-    },
-  });
-
-  if (pendingSubMovements.length > 0) {
-    return {
-      isCompleted: false,
-      processType: processTypeName || null,
-      message: `Document has ${pendingSubMovements.length} pending sub-process(es). All sub-processes must be completed before delivery.`,
-    };
-  }
-
-  // 2. Query completed sub-package movements
-  const completedSubMovements = await (prisma as any).subPackageMovement.findMany({
-    where: {
-      trackingNumber: registration.trackingNumber,
-      ownerAdminId,
-      status: { in: ["Completed", "COMPLETED"] },
-    },
-    select: { subPackageId: true },
-  });
-  const completedSubPkgIds = new Set(completedSubMovements.map((m: any) => m.subPackageId));
-
-  // 3. Query Master Configuration for configured sub-packages
+  // 1. If Process Type is specified, check against configured Master Data sub-packages / activities
   if (processTypeName) {
-    const masterProcessType = await prisma.masterData.findFirst({
+    const masterProcessType = await db.masterData.findFirst({
       where: {
         type: "PROCESS_TYPES",
         name: processTypeName,
         ownerAdminId,
       },
       include: {
-        subPackages: true,
+        subPackages: {
+          where: { isActive: true },
+        },
       },
     });
 
-    if (masterProcessType) {
-      // 3a. If coreSubPackageId is defined and completed
-      if (masterProcessType.coreSubPackageId && completedSubPkgIds.has(masterProcessType.coreSubPackageId)) {
+    const configuredActivities = masterProcessType?.subPackages || [];
+
+    // Query all sub-package movements for this document
+    const subMovements = await db.subPackageMovement.findMany({
+      where: {
+        trackingNumber: registration.trackingNumber,
+        ownerAdminId,
+      },
+    });
+
+    if (configuredActivities.length > 0) {
+      const completedSubPkgIds = new Set(
+        subMovements
+          .filter((sm: any) => sm.status === "Completed" || sm.status === "COMPLETED")
+          .map((sm: any) => sm.subPackageId)
+      );
+
+      const missingActivities = configuredActivities
+        .filter((act: any) => !completedSubPkgIds.has(act.id))
+        .map((act: any) => act.name);
+
+      const incompleteMovements = subMovements.filter(
+        (sm: any) => sm.status !== "Completed" && sm.status !== "COMPLETED"
+      );
+
+      const isAllActivitiesCompleted =
+        missingActivities.length === 0 && incompleteMovements.length === 0;
+
+      if (isAllActivitiesCompleted) {
         return {
           isCompleted: true,
           processType: processTypeName,
-          coreSubPackageId: masterProcessType.coreSubPackageId,
+          totalActivities: configuredActivities.length,
+          completedActivities: configuredActivities.length,
+          missingActivities: [],
         };
       }
 
-      // 3b. If all configured sub-packages are completed (and at least one exists)
-      const configuredIds = masterProcessType.subPackages.map((sp: any) => sp.id);
-      if (configuredIds.length > 0 && configuredIds.every((id: string) => completedSubPkgIds.has(id))) {
+      const pendingDetails = [
+        ...missingActivities.map((name: string) => `${name} (Not completed)`),
+        ...incompleteMovements.map((m: any) => `Activity ID ${m.subPackageId} (${m.status})`),
+      ];
+
+      return {
+        isCompleted: false,
+        processType: processTypeName,
+        totalActivities: configuredActivities.length,
+        completedActivities: configuredActivities.length - missingActivities.length,
+        missingActivities,
+        message: `Main process is incomplete. Pending activities: ${pendingDetails.join(", ")}.`,
+      };
+    }
+
+    // If master process type is defined but has no configured sub-packages
+    if (subMovements.length > 0) {
+      const allCompleted = subMovements.every(
+        (sm: any) => sm.status === "Completed" || sm.status === "COMPLETED"
+      );
+      if (allCompleted) {
         return {
           isCompleted: true,
           processType: processTypeName,
+          totalActivities: subMovements.length,
+          completedActivities: subMovements.length,
         };
       }
+      return {
+        isCompleted: false,
+        processType: processTypeName,
+        message: "Not all sub-process activities are completed.",
+      };
     }
   }
 
-  // 4. Fallback for subpackage movements: if any completed subpackage movements exist and none are pending
-  if (completedSubMovements.length > 0 && pendingSubMovements.length === 0) {
-    return {
-      isCompleted: true,
-      processType: processTypeName || null,
-    };
-  }
-
-  // 5. Check overall document movement / assignment status
-  const isDocMovCompleted = registration.documentMovements.some(
-    (mov) =>
-      mov.status === "COMPLETED" ||
-      mov.status === "Completed" ||
-      mov.status === "Ready for Delivery" ||
-      mov.currentStatus === "Completed" ||
-      mov.currentStatus === "COMPLETED" ||
-      mov.currentStatus === "READY_FOR_DELIVERY" ||
-      mov.currentStatus === "Ready for Delivery"
-  );
-
-  const completedAssignment = await prisma.processAssignment.findFirst({
+  // 2. Check authoritative Process Assignment completion
+  const completedAssignment = await db.processAssignment.findFirst({
     where: {
       trackingNumber: registration.trackingNumber,
       status: { in: ["COMPLETED", "Completed"] },
     },
   });
 
-  if (isDocMovCompleted || completedAssignment) {
+  if (completedAssignment) {
     return {
       isCompleted: true,
       processType: processTypeName || null,
     };
   }
 
-  // 6. Check Movement History for completed sub-package or completed process
-  const completedInHistory = await prisma.movementHistory.findFirst({
-    where: {
-      trackingNumber: registration.trackingNumber,
-      OR: [
-        { action: "Sub Package Completed" },
-        { action: "Marked as COMPLETED" },
-        { newStatus: "Completed" },
-        { newStatus: "COMPLETED" },
-      ],
-    },
-  });
+  // 3. Check explicit document movement completion (status === 'COMPLETED')
+  const isDocMovExplicitlyCompleted = registration.documentMovements.some(
+    (mov: any) => mov.status === "COMPLETED"
+  );
 
-  if (completedInHistory && pendingSubMovements.length === 0) {
+  if (isDocMovExplicitlyCompleted) {
     return {
       isCompleted: true,
       processType: processTypeName || null,
@@ -185,7 +185,7 @@ export async function verifyMainProcessCompleted(
   return {
     isCompleted: false,
     processType: processTypeName || null,
-    message: "This document cannot be moved to Ready For Delivery because process completion requirements are not met.",
+    message: "This document cannot be moved to Ready For Delivery because the Main Process has not been completed.",
   };
 }
 
@@ -194,8 +194,8 @@ export async function verifyMainProcessCompleted(
  */
 export async function verifyCoreSubProcessCompleted(
   targetId: string,
-  ownerAdminId: string
+  ownerAdminId: string,
+  tx?: any
 ): Promise<CoreSubProcessCheckResult> {
-  return verifyMainProcessCompleted(targetId, ownerAdminId);
+  return verifyMainProcessCompleted(targetId, ownerAdminId, tx);
 }
-
