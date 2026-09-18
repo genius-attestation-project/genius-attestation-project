@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
-import { hasPermission } from "@/features/admin/server/rbac.service";
-import { rejectEditRequest } from "@/features/registration/server/registration-edit-request.service";
+import { hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
+import { getEditRequestById, rejectEditRequest } from "@/features/registration/server/registration-edit-request.service";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -19,6 +19,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     }
 
     const { id } = await context.params;
+
+    const editReq = await getEditRequestById(ownerAdminId, id);
+    if (!editReq) {
+      return jsonError("Edit request not found.", 404);
+    }
+
+    if (!session.user.isSuperAdmin) {
+      const office = editReq.currentOffice || editReq.registrationOffice;
+      if (!hasOfficeAccess(session.user, office, "pending_approval")) {
+        return jsonError("You do not have office visibility access to reject this edit request.", 403);
+      }
+    }
+
     const body = await request.json().catch(() => ({}));
     const rejectionReason = (body?.rejectionReason ?? "").trim();
 

@@ -38,6 +38,8 @@ export function EditRequestDiffModal({
     }
   }
 
+  const isPending = request.status === "PENDING";
+  const isFailedReview = request.status === "FAILED_REVIEW";
   const fieldChanges = request.fieldChanges || [];
 
   return (
@@ -57,12 +59,16 @@ export function EditRequestDiffModal({
               </div>
               <div>
                 <h3 id="modal-title" className="text-lg font-extrabold text-slate-900 dark:text-white">
-                  Approve Edit Request
+                  {isPending ? "Approve Edit Request" : "Edit Request Details"}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Tracking #{" "}
                   <strong className="font-mono font-bold text-blue-600 dark:text-blue-400">
                     {request.trackingNumber}
+                  </strong>
+                  {" • Status: "}
+                  <strong className={`font-semibold ${isPending ? "text-amber-600 dark:text-amber-400" : isFailedReview ? "text-rose-600 dark:text-rose-400" : "text-slate-600 dark:text-slate-300"}`}>
+                    {request.status}
                   </strong>
                 </p>
               </div>
@@ -79,6 +85,20 @@ export function EditRequestDiffModal({
 
         {/* Body Content */}
         <div className="max-h-[70vh] overflow-y-auto p-6 space-y-5">
+          {!isPending && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-semibold text-amber-800 dark:text-amber-300">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="font-bold">Cannot Approve Request (Status: {request.status})</p>
+                <p className="mt-0.5 text-[11px] font-normal text-amber-700 dark:text-amber-300">
+                  {isFailedReview
+                    ? "This edit request failed review because the registration document was modified after the request snapshot was taken. Only PENDING requests can be approved. Please review the updated document and create a new edit request."
+                    : `This edit request is currently marked as ${request.status} and is not eligible for approval.`}
+                </p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs font-semibold text-rose-700 dark:text-rose-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -190,11 +210,13 @@ export function EditRequestDiffModal({
             )}
           </div>
 
-          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
-            <p className="font-semibold">
-              ⚠️ Confirming this approval will immediately update the document with all proposed values and log an immutable audit history record.
-            </p>
-          </div>
+          {isPending && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+              <p className="font-semibold">
+                ⚠️ Confirming this approval will immediately update the document with all proposed values and log an immutable audit history record.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -205,17 +227,19 @@ export function EditRequestDiffModal({
             onClick={onClose}
             disabled={submitting}
           >
-            Cancel
+            {isPending ? "Cancel" : "Close"}
           </Button>
-          <Button
-            type="button"
-            onClick={handleConfirm}
-            disabled={submitting}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {submitting ? "Approving..." : "Confirm Approve"}
-          </Button>
+          {isPending && (
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={submitting}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {submitting ? "Approving..." : "Confirm Approve"}
+            </Button>
+          )}
         </div>
       </div>
     </div>

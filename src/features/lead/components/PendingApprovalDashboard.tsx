@@ -357,7 +357,8 @@ export function PendingApprovalDashboard() {
   const permittedTabs = React.useMemo(() => {
     const list: { key: MainTabKey; label: string; count: number }[] = [];
     if (canViewEditRequests) {
-      list.push({ key: "edit_request", label: "Edit Request", count: editRequests.length });
+      const pendingCount = editRequests.filter((r) => r.status === "PENDING").length;
+      list.push({ key: "edit_request", label: "Edit Request", count: pendingCount });
     }
     if (canViewAdvancePayment) {
       list.push({ key: "advance_payment", label: "Advance Payment Approvals", count: advancePaymentRequests.length });
@@ -813,25 +814,31 @@ export function PendingApprovalDashboard() {
                         </td>
                         <td className="px-5 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
-                            {canApproveEditRequests && (
-                              <Button
-                                size="sm"
-                                onClick={() => setApprovingEditRequest(item)}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {canRejectEditRequests && (
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => setRejectingEditRequest(item)}
-                              >
-                                Reject
-                              </Button>
-                            )}
-                            {!canApproveEditRequests && !canRejectEditRequests && (
-                              <span className="text-xs italic text-slate-400">View Only</span>
+                            {item.status === "PENDING" ? (
+                              <>
+                                {canApproveEditRequests && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => setApprovingEditRequest(item)}
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {canRejectEditRequests && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => setRejectingEditRequest(item)}
+                                  >
+                                    Reject
+                                  </Button>
+                                )}
+                                {!canApproveEditRequests && !canRejectEditRequests && (
+                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </>
+                            ) : (
+                              <StatusBadge status={item.status} />
                             )}
                           </div>
                         </td>
@@ -1836,14 +1843,17 @@ export function PendingApprovalDashboard() {
         onClose={() => setApprovingEditRequest(null)}
         request={approvingEditRequest}
         onApprove={async (id) => {
-          const res = await parseResponse<{ message?: string }>(
-            await fetch(`/api/registration-edit-requests/${id}/approve`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-          setSuccess(res.message || "Edit request approved successfully.");
-          await loadData();
+          try {
+            const res = await parseResponse<{ message?: string }>(
+              await fetch(`/api/registration-edit-requests/${id}/approve`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              })
+            );
+            setSuccess(res.message || "Edit request approved successfully.");
+          } finally {
+            await loadData();
+          }
         }}
       />
 
@@ -1853,15 +1863,18 @@ export function PendingApprovalDashboard() {
         onClose={() => setRejectingEditRequest(null)}
         request={rejectingEditRequest}
         onReject={async (id, rejectionReason) => {
-          const res = await parseResponse<{ message?: string }>(
-            await fetch(`/api/registration-edit-requests/${id}/reject`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ rejectionReason }),
-            })
-          );
-          setSuccess(res.message || "Edit request rejected.");
-          await loadData();
+          try {
+            const res = await parseResponse<{ message?: string }>(
+              await fetch(`/api/registration-edit-requests/${id}/reject`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ rejectionReason }),
+              })
+            );
+            setSuccess(res.message || "Edit request rejected.");
+          } finally {
+            await loadData();
+          }
         }}
       />
 

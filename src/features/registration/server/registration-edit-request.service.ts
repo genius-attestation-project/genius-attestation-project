@@ -536,25 +536,58 @@ export async function listEditRequests(
     office?: string;
     page?: number;
     pageSize?: number;
+    allowedOfficeNames?: string[] | null;
+    isSuperAdmin?: boolean;
   } = {}
 ) {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.max(1, Math.min(params.pageSize ?? 50, 1000));
+
+  // If user is restricted by office and allowedOfficeNames is empty, return empty
+  if (!params.isSuperAdmin && params.allowedOfficeNames !== null && params.allowedOfficeNames !== undefined) {
+    if (params.allowedOfficeNames.length === 0) {
+      return {
+        items: [],
+        pagination: { page, pageSize, totalItems: 0, totalPages: 1 },
+      };
+    }
+  }
 
   const where: Prisma.RegistrationEditRequestWhereInput = {
     ownerAdminId,
     ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
     ...(params.trackingNumber ? { trackingNumber: { contains: params.trackingNumber } } : {}),
     ...(params.registrationId ? { registrationId: params.registrationId } : {}),
-    ...(params.office && params.office !== "Select Office" && params.office !== "ALL"
-      ? {
-          OR: [
-            { registrationOffice: params.office },
-            { currentOffice: params.office },
-          ],
-        }
-      : {}),
   };
+
+  const hasSpecificOffice = Boolean(params.office && params.office !== "Select Office" && params.office !== "ALL");
+  const isRestricted = !params.isSuperAdmin && params.allowedOfficeNames !== null && params.allowedOfficeNames !== undefined;
+
+  if (isRestricted) {
+    const allowed = params.allowedOfficeNames!;
+    if (hasSpecificOffice) {
+      if (!allowed.some((a) => a.toLowerCase() === params.office!.toLowerCase())) {
+        return {
+          items: [],
+          pagination: { page, pageSize, totalItems: 0, totalPages: 1 },
+        };
+      }
+      where.OR = [
+        { registrationOffice: params.office },
+        { currentOffice: params.office },
+      ];
+    } else {
+      where.OR = [
+        { registrationOffice: { in: allowed } },
+        { currentOffice: { in: allowed } },
+      ];
+    }
+  } else if (hasSpecificOffice) {
+    where.OR = [
+      { registrationOffice: params.office },
+      { currentOffice: params.office },
+    ];
+  }
 
   const [items, total] = await Promise.all([
     prisma.registrationEditRequest.findMany({
@@ -628,6 +661,16 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
           where: { id: editRequest.id },
           data: { status: "FAILED_REVIEW" },
         });
+
+        // Log audit trail for transparency
+        await prisma.auditTrail.create({
+          data: {
+            registrationId: editRequest.registrationId,
+            action: "Edit request failed review",
+            description: `Edit request #${editRequest.id} marked as FAILED_REVIEW. The document was modified after the request snapshot was taken.`,
+            performedBy: approvedByName || "System Approver",
+          },
+        }).catch(() => null);
 
         const error: any = new Error(
           "Document changed after request creation. Please review and create a new request."

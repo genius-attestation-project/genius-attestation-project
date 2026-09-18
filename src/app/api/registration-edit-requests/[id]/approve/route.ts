@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
-import { hasPermission } from "@/features/admin/server/rbac.service";
-import { approveEditRequest } from "@/features/registration/server/registration-edit-request.service";
+import { hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
+import { approveEditRequest, getEditRequestById } from "@/features/registration/server/registration-edit-request.service";
 
 export async function POST(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -19,6 +19,19 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
     }
 
     const { id } = await context.params;
+
+    const editRequest = await getEditRequestById(ownerAdminId, id);
+    if (!editRequest) {
+      return jsonError("Edit request not found.", 404);
+    }
+
+    if (!session.user.isSuperAdmin) {
+      const office = editRequest.currentOffice || editRequest.registrationOffice;
+      if (!hasOfficeAccess(session.user, office, "pending_approval")) {
+        return jsonError("You do not have office visibility access to approve this edit request.", 403);
+      }
+    }
+
     const approverName = session.user.name ?? session.user.email ?? "Approver";
 
     const result = await approveEditRequest({

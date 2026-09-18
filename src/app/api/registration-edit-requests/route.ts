@@ -21,12 +21,20 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") ?? undefined;
+    const statusParam = searchParams.get("status");
+    const status = statusParam !== null ? (statusParam || "PENDING") : "PENDING";
     const trackingNumber = searchParams.get("trackingNumber") ?? undefined;
     const registrationId = searchParams.get("registrationId") ?? undefined;
     const office = searchParams.get("office") ?? undefined;
     const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
     const pageSize = searchParams.get("pageSize") ? Number(searchParams.get("pageSize")) : 50;
+
+    let allowedOfficeNames = session.user.allowedOfficeNames;
+
+    if (!session.user.isSuperAdmin && session.user.moduleOfficeVisibilities?.["pending_approval"]) {
+      const modConfig = session.user.moduleOfficeVisibilities["pending_approval"];
+      allowedOfficeNames = modConfig.officeNames;
+    }
 
     const data = await listEditRequests(ownerAdminId, {
       status,
@@ -35,6 +43,8 @@ export async function GET(request: NextRequest) {
       office,
       page,
       pageSize,
+      allowedOfficeNames,
+      isSuperAdmin: session.user.isSuperAdmin,
     });
 
     return jsonOk(data);
