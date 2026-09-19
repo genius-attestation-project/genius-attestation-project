@@ -66,7 +66,70 @@ export async function verifyMainProcessCompleted(
 
   const processTypeName = registration.processType?.trim();
 
-  // 1. If Process Type is specified, check against configured Master Data sub-packages / activities
+  // 1. Check Authoritative Process Module completion in MovementHistory
+  // When a document is marked COMPLETED in Process Module (via processBulkMove or moveProcessAssignment),
+  // it logs action: "Marked as COMPLETED". We strictly exclude any "Sub Package" actions.
+  const completedHistory = await db.movementHistory.findFirst({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      action: { in: ["Marked as COMPLETED", "COMPLETED", "Process Completed"] },
+      NOT: {
+        action: { contains: "Sub Package" },
+      },
+    },
+    orderBy: { performedAt: "desc" },
+  });
+
+  if (completedHistory) {
+    // Verify there was no subsequent rejection or return that reversed completion
+    const subsequentReversal = await db.movementHistory.findFirst({
+      where: {
+        trackingNumber: registration.trackingNumber,
+        performedAt: { gt: completedHistory.performedAt },
+        OR: [
+          { action: { in: ["Marked as REJECTED", "Returned Document", "Activity Rejected", "Sub Package Return"] } },
+          { newStatus: { in: ["REJECTED", "RETURNED", "Rejected", "Returned"] } },
+        ],
+      },
+    });
+
+    if (!subsequentReversal) {
+      return {
+        isCompleted: true,
+        processType: processTypeName || null,
+      };
+    }
+  }
+
+  // 2. Check explicit DocumentMovement completion (status === 'COMPLETED' or currentStatus === 'COMPLETED')
+  const isDocMovExplicitlyCompleted = registration.documentMovements.some(
+    (mov: any) => mov.status === "COMPLETED" || mov.currentStatus === "COMPLETED"
+  );
+
+  if (isDocMovExplicitlyCompleted) {
+    return {
+      isCompleted: true,
+      processType: processTypeName || null,
+    };
+  }
+
+  // 3. Check authoritative ProcessAssignment completion
+  const completedAssignment = await db.processAssignment.findFirst({
+    where: {
+      trackingNumber: registration.trackingNumber,
+      status: { in: ["COMPLETED", "Completed"] },
+    },
+  });
+
+  if (completedAssignment) {
+    return {
+      isCompleted: true,
+      processType: processTypeName || null,
+    };
+  }
+
+  // 4. If Process Type is specified, check against configured Master Data sub-packages / activities
+  // ALL configured activities must be completed. A single completed sub-process alone is NEVER sufficient.
   if (processTypeName) {
     const masterProcessType = await db.masterData.findFirst({
       where: {
@@ -92,9 +155,11 @@ export async function verifyMainProcessCompleted(
     });
 
     if (configuredActivities.length > 0) {
+      const configuredSubPkgIds = new Set(configuredActivities.map((act: any) => act.id));
+
       const completedSubPkgIds = new Set(
         subMovements
-          .filter((sm: any) => sm.status === "Completed" || sm.status === "COMPLETED")
+          .filter((sm: any) => configuredSubPkgIds.has(sm.subPackageId) && (sm.status === "Completed" || sm.status === "COMPLETED"))
           .map((sm: any) => sm.subPackageId)
       );
 
@@ -103,7 +168,10 @@ export async function verifyMainProcessCompleted(
         .map((act: any) => act.name);
 
       const incompleteMovements = subMovements.filter(
-        (sm: any) => sm.status !== "Completed" && sm.status !== "COMPLETED"
+        (sm: any) =>
+          configuredSubPkgIds.has(sm.subPackageId) &&
+          sm.status !== "Completed" &&
+          sm.status !== "COMPLETED"
       );
 
       const isAllActivitiesCompleted =
@@ -153,33 +221,6 @@ export async function verifyMainProcessCompleted(
         message: "Not all sub-process activities are completed.",
       };
     }
-  }
-
-  // 2. Check authoritative Process Assignment completion
-  const completedAssignment = await db.processAssignment.findFirst({
-    where: {
-      trackingNumber: registration.trackingNumber,
-      status: { in: ["COMPLETED", "Completed"] },
-    },
-  });
-
-  if (completedAssignment) {
-    return {
-      isCompleted: true,
-      processType: processTypeName || null,
-    };
-  }
-
-  // 3. Check explicit document movement completion (status === 'COMPLETED')
-  const isDocMovExplicitlyCompleted = registration.documentMovements.some(
-    (mov: any) => mov.status === "COMPLETED"
-  );
-
-  if (isDocMovExplicitlyCompleted) {
-    return {
-      isCompleted: true,
-      processType: processTypeName || null,
-    };
   }
 
   return {

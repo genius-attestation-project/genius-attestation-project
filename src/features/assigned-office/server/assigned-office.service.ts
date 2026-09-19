@@ -1291,10 +1291,38 @@ export async function receiveBundleDocuments(params: {
         const receivingOfficeId = targetOffice?.id || params.officeId;
         const deliveryLocation = reg?.deliveryLocation || "";
 
-        // Office matching: matches either office name or office ID
+        // Resolve delivery location to office ID or name
+        let deliveryOffice = deliveryLocation ? await tx.officeLocation.findFirst({
+          where: {
+            OR: [
+              { id: deliveryLocation },
+              { officeName: deliveryLocation },
+            ],
+          },
+          select: { id: true, officeName: true },
+        }) : null;
+
+        if (!deliveryOffice && deliveryLocation) {
+          const ao = await tx.assignedOffice.findFirst({
+            where: {
+              OR: [
+                { id: deliveryLocation },
+                { username: deliveryLocation },
+              ],
+            },
+            select: { id: true, username: true },
+          });
+          if (ao) {
+            deliveryOffice = { id: ao.id, officeName: ao.username };
+          }
+        }
+
+        // Office matching: matches resolved office ID, resolved office name, or direct name/ID comparison
         const isOfficeMatch = Boolean(
           deliveryLocation &&
           (
+            (deliveryOffice?.id && (deliveryOffice.id === receivingOfficeId || deliveryOffice.id === resolvedOfficeId)) ||
+            (deliveryOffice?.officeName && receivingOfficeName && deliveryOffice.officeName.trim().toLowerCase() === receivingOfficeName.trim().toLowerCase()) ||
             (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()) ||
             (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.trim().toLowerCase())
           )
