@@ -116,7 +116,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             { label: "Customer Type", value: reg.customerType || "Individual" }, { label: "Issued Country", value: reg.documentIssuedCountry },
             { label: "Delivery Location", value: reg.deliveryLocation }, { label: "Additional Process", value: reg.externalProcess },
             { label: "Current Office", value: proc.currentOffice }, { label: "Current Stage", value: proc.currentStage },
-            { label: "Current Status", value: currentStatus }, { label: "Current Sub Package", value: proc.currentSubPackage },
+            { label: "Current Status", value: currentStatus }, { label: "Current Sub Package", value: proc.currentSubPackage || "-" },
           ]} />
         </Section>
 
@@ -124,7 +124,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           <DetailsGrid fields={[
             { label: "Document Name", value: reg.documentName }, { label: "Document Type", value: reg.documentType },
             { label: "Process Type", value: reg.processType }, { label: "Issued Country", value: reg.documentIssuedCountry },
-            { label: "Additional Process", value: reg.externalProcess }, { label: "Sub Package", value: reg.subPackage },
+            { label: "Additional Process", value: reg.externalProcess }, { label: "Sub Package", value: reg.subPackage || "-" },
             { label: "Registered Date", value: formatDate(reg.createdAt) }, { label: "Region of Registration", value: reg.regionOfRegistration },
             { label: "Registered By", value: reg.registeredPerson || reg.createdBy }, { label: "Collected By", value: reg.collectedPerson },
           ]} />
@@ -155,7 +155,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
 
         <Section title="Current Process"><DetailsGrid fields={[
           { label: "Current Office", value: proc.currentOffice }, { label: "Current Department", value: proc.currentDepartment },
-          { label: "Current Package", value: proc.currentPackage }, { label: "Current Sub Package", value: proc.currentSubPackage },
+          { label: "Current Package", value: proc.currentPackage }, { label: "Current Sub Package", value: proc.currentSubPackage || "-" },
           { label: "Current Assigned User", value: proc.currentHandler }, { label: "Current Status", value: currentStatus },
           { label: "Current Stage", value: proc.currentStage }, { label: "Number of Days", value: `${proc.daysCount} Days` },
         ]} />

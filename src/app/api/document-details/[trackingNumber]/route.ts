@@ -176,7 +176,53 @@ export async function GET(
     });
 
     const latestMovement = registration.documentMovements[0] || null;
-    const latestSubPackage = subPackageMovements[0] || null;
+    const activeSubPackageMov =
+      subPackageMovements.find((m: any) => m.status === "In Progress") ||
+      subPackageMovements[0] ||
+      null;
+
+    const rawSubPackageId =
+      activeSubPackageMov?.subPackageId ||
+      registration.subPackage ||
+      null;
+
+    // Resolve human-readable sub-package name
+    const subPackageNameMap = new Map<string, string>();
+    for (const act of configuredActivities) {
+      subPackageNameMap.set(act.id, act.name);
+      subPackageNameMap.set(act.name.trim().toLowerCase(), act.name);
+    }
+
+    let currentSubPackage = "-";
+    let currentSubPackageId: string | null = rawSubPackageId;
+
+    if (rawSubPackageId) {
+      if (subPackageNameMap.has(rawSubPackageId)) {
+        currentSubPackage = subPackageNameMap.get(rawSubPackageId)!;
+      } else if (subPackageNameMap.has(rawSubPackageId.trim().toLowerCase())) {
+        currentSubPackage = subPackageNameMap.get(rawSubPackageId.trim().toLowerCase())!;
+      } else {
+        // Fallback: look up directly in SubPackage table by id or name
+        const foundSubPackage = await prisma.subPackage.findFirst({
+          where: {
+            OR: [
+              { id: rawSubPackageId },
+              { name: rawSubPackageId },
+            ],
+          },
+          select: { id: true, name: true },
+        });
+
+        if (foundSubPackage) {
+          currentSubPackage = foundSubPackage.name;
+          currentSubPackageId = foundSubPackage.id;
+        } else {
+          // If it was already a human-readable name that isn't a cuid ID
+          const isCuid = /^c[a-z0-9]{24}$/i.test(rawSubPackageId.trim());
+          currentSubPackage = isCuid ? "-" : rawSubPackageId;
+        }
+      }
+    }
 
     // Current Process Information
     const currentOffice =
@@ -185,7 +231,6 @@ export async function GET(
       "Main Office";
     const currentDepartment = "Processing & Verification Operations";
     const currentPackage = registration.processType || registration.externalProcess || "General";
-    const currentSubPackage = registration.subPackage || latestSubPackage?.subPackageId || "-";
     const currentHandler =
       latestMovement?.receivedBy ||
       registration.registeredPerson ||
@@ -208,6 +253,8 @@ export async function GET(
     return NextResponse.json({
       registration: {
         ...registration,
+        subPackage: currentSubPackage || "-",
+        subPackageId: currentSubPackageId,
         totalCharges: Number(registration.totalCharges || 0),
         advancePaid: Number(registration.advancePaid || 0),
         balanceAmount: Number(registration.balanceAmount || 0),
@@ -216,7 +263,8 @@ export async function GET(
         currentOffice,
         currentDepartment,
         currentPackage,
-        currentSubPackage,
+        currentSubPackage: currentSubPackage || "-",
+        currentSubPackageId,
         currentHandler,
         currentStatus,
         currentStage,
