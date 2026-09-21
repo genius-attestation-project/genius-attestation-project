@@ -37,6 +37,7 @@ type MainTabKey =
   | "edit_request"
   | "advance_payment"
   | "movement_approval"
+  | "rd_approval"
   | "advance_details"
   | "corporate_approval"
   | "lob"
@@ -45,6 +46,33 @@ type MainTabKey =
 
 type Lead = any;
 type LeadWorkflowApproval = any;
+type RDApprovalItem = {
+  id: string;
+  registrationId: string;
+  trackingNumber: string;
+  customerName: string;
+  documentName?: string;
+  documentType?: string;
+  processType?: string;
+  registrationOffice?: string;
+  currentOffice?: string;
+  currentOfficeId?: string | null;
+  deliveryLocation: string;
+  deliveryOfficeId?: string | null;
+  status: string;
+  remarks?: string;
+  approvalRemarks?: string | null;
+  requestedBy: string;
+  requestedById?: string;
+  requestedDate: string;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  mobile?: string;
+  currentWorkflowStatus?: string;
+};
 type MovementApprovalItem = {
   id: string;
   registrationId: string;
@@ -164,6 +192,35 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("movement_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewRDApproval =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.rd_approval.view") ||
+      currentUser?.permissions?.includes("rd_approval.view") ||
+      currentUser?.permissions?.includes("pending_approval.rd_approval.approve") ||
+      currentUser?.permissions?.includes("rd_approval.approve") ||
+      currentUser?.permissions?.includes("pending_approval.rd_approval.reject") ||
+      currentUser?.permissions?.includes("rd_approval.reject") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveRD =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.rd_approval.approve") ||
+      currentUser?.permissions?.includes("rd_approval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectRD =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.rd_approval.reject") ||
+      currentUser?.permissions?.includes("rd_approval.reject") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -324,6 +381,11 @@ export function PendingApprovalDashboard() {
 
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [movementApprovals, setMovementApprovals] = useState<MovementApprovalItem[]>([]);
+  const [rdApprovals, setRdApprovals] = useState<RDApprovalItem[]>([]);
+  const [approvingRDItem, setApprovingRDItem] = useState<RDApprovalItem | null>(null);
+  const [rejectingRDItem, setRejectingRDItem] = useState<RDApprovalItem | null>(null);
+  const [rdRemarks, setRdRemarks] = useState("");
+  const [rdRejectionReason, setRdRejectionReason] = useState("");
   const [selectedMovementIds, setSelectedMovementIds] = useState<string[]>([]);
   const [isBulkMovementModalOpen, setIsBulkMovementModalOpen] = useState(false);
   const [bulkMovementRemarks, setBulkMovementRemarks] = useState("");
@@ -366,6 +428,9 @@ export function PendingApprovalDashboard() {
     if (canViewMovement) {
       list.push({ key: "movement_approval", label: "Movement Approval", count: movementApprovals.length });
     }
+    if (canViewRDApproval) {
+      list.push({ key: "rd_approval", label: "RD Approval", count: rdApprovals.length });
+    }
     if (canViewAdvanceDetails) {
       list.push({ key: "advance_details", label: "Advance Details", count: hasSearchedAdvanceDetails ? allAdvanceRecords.length : 0 });
     }
@@ -385,6 +450,7 @@ export function PendingApprovalDashboard() {
   }, [
     canViewAdvancePayment,
     canViewMovement,
+    canViewRDApproval,
     canViewAdvanceDetails,
     canViewCorporate,
     canViewLob,
@@ -392,6 +458,7 @@ export function PendingApprovalDashboard() {
     canViewOverdue,
     advancePaymentRequests.length,
     movementApprovals.length,
+    rdApprovals.length,
     hasSearchedAdvanceDetails,
     allAdvanceRecords.length,
     corporateApprovals.length,
@@ -433,6 +500,9 @@ export function PendingApprovalDashboard() {
       const movementPromise = canViewMovement
         ? parseResponse<{ items: MovementApprovalItem[] }>(await fetch("/api/movement-approvals", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
+      const rdApprovalPromise = canViewRDApproval
+        ? parseResponse<{ items: RDApprovalItem[] }>(await fetch("/api/rd-approvals?status=Pending", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
       const corporatePromise = canViewCorporate
         ? parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
@@ -447,10 +517,11 @@ export function PendingApprovalDashboard() {
         : Promise.resolve({ items: [] });
       const officesPromise = fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] }));
 
-      const [editRes, advanceRes, movementRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
+      const [editRes, advanceRes, movementRes, rdRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
         editRequestPromise,
         advancePromise,
         movementPromise,
+        rdApprovalPromise,
         corporatePromise,
         inactivePromise,
         lobPromise,
@@ -460,6 +531,7 @@ export function PendingApprovalDashboard() {
       setEditRequests(editRes.items ?? []);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setMovementApprovals(movementRes.items ?? []);
+      setRdApprovals(rdRes.items ?? []);
       setCorporateApprovals(corporateRes.items ?? []);
       setInactiveLeads(inactiveRes.items ?? []);
       setLobRequests(lobRes.items ?? []);
@@ -548,6 +620,56 @@ export function PendingApprovalDashboard() {
       await loadData();
     } catch (err: any) {
       setError(err.message || "Failed to bulk approve movement requests.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleApproveRD(item: RDApprovalItem, remarks?: string) {
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await parseResponse(
+        await fetch(`/api/rd-approvals/${item.id}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remarks: remarks?.trim() || undefined }),
+        })
+      );
+      setSuccess(`Successfully approved RD request for ${item.trackingNumber} to ${item.deliveryLocation}. Document moved to Ready For Delivery.`);
+      setApprovingRDItem(null);
+      setRdRemarks("");
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Failed to approve RD request.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRejectRD(item: RDApprovalItem, rejectionReason: string) {
+    if (!rejectionReason.trim()) {
+      setError("Please provide a rejection reason.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await parseResponse(
+        await fetch(`/api/rd-approvals/${item.id}/reject`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
+        })
+      );
+      setSuccess(`Successfully rejected RD request for ${item.trackingNumber}.`);
+      setRejectingRDItem(null);
+      setRdRejectionReason("");
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Failed to reject RD request.");
     } finally {
       setSubmitting(false);
     }
@@ -1090,6 +1212,110 @@ export function PendingApprovalDashboard() {
                               )}
                               {!canApproveMovement && !canRejectMovement && (
                                 <span className="text-xs italic text-slate-400" title="Approval permission required">
+                                  View Only
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "rd_approval" && (
+              <div className="space-y-0">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-4 py-4">Tracking Number</th>
+                      <th className="px-4 py-4">Customer Name</th>
+                      <th className="px-4 py-4">Document / Process Type</th>
+                      <th className="px-4 py-4">Registration Office</th>
+                      <th className="px-4 py-4">Current Office</th>
+                      <th className="px-4 py-4">Delivery Location</th>
+                      <th className="px-4 py-4">Requested By</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {rdApprovals.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-soft">
+                          No pending RD approval requests.
+                        </td>
+                      </tr>
+                    ) : (
+                      rdApprovals.map((item) => (
+                        <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                          <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                              className="hover:underline"
+                            >
+                              {item.trackingNumber}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                            {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
+                            <p className="text-xs text-soft">{item.processType ? formatTitleCase(item.processType) : "-"}</p>
+                          </td>
+                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                            {item.registrationOffice || "-"}
+                          </td>
+                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                            {item.currentOffice || item.registrationOffice || "-"}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                              <Building2 size={13} />
+                              {item.deliveryLocation || "-"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-xs whitespace-nowrap">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
+                            <p className="text-soft">{formatDate(item.requestedDate)}</p>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <StatusBadge status={item.status} />
+                          </td>
+                          <td className="px-4 py-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-2">
+                              {canApproveRD && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setApprovingRDItem(item);
+                                    setRdRemarks("");
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  Approve
+                                </Button>
+                              )}
+                              {canRejectRD && (
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => {
+                                    setRejectingRDItem(item);
+                                    setRdRejectionReason("");
+                                  }}
+                                >
+                                  <XCircle size={14} />
+                                  Reject
+                                </Button>
+                              )}
+                              {!canApproveRD && !canRejectRD && (
+                                <span className="text-xs italic text-slate-400" title="RD approval permission required">
                                   View Only
                                 </span>
                               )}
@@ -2007,6 +2233,148 @@ export function PendingApprovalDashboard() {
                   Approve
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RD Approval Approve Modal */}
+      {approvingRDItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600" />
+                Approve RD Request
+              </h3>
+              <button
+                type="button"
+                onClick={() => setApprovingRDItem(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/5 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Tracking Number:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{approvingRDItem.trackingNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Customer Name:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatTitleCase(approvingRDItem.customerName)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Delivery Location:</span>
+                  <span className="font-extrabold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <Building2 size={12} />
+                    {approvingRDItem.deliveryLocation}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Current Office:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{approvingRDItem.currentOffice || "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Requested By:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{approvingRDItem.requestedBy}</span>
+                </div>
+              </div>
+
+              <div>
+                <Textarea
+                  label="Approval Remarks (Optional)"
+                  value={rdRemarks}
+                  onChange={(e) => setRdRemarks(e.target.value)}
+                  placeholder="Enter any approval notes or instructions..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Approving this request will immediately move the document to <strong>Ready For Delivery</strong> for <strong>{approvingRDItem.deliveryLocation}</strong>.
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <Button variant="ghost" disabled={submitting} onClick={() => setApprovingRDItem(null)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={submitting}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => void handleApproveRD(approvingRDItem, rdRemarks)}
+              >
+                {submitting ? "Approving..." : "Confirm & Approve"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RD Approval Reject Modal */}
+      {rejectingRDItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 text-rose-600">
+                <XCircle size={18} />
+                Reject RD Request
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRejectingRDItem(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/5 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Tracking Number:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{rejectingRDItem.trackingNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Customer Name:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatTitleCase(rejectingRDItem.customerName)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-slate-500">Delivery Location:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{rejectingRDItem.deliveryLocation}</span>
+                </div>
+              </div>
+
+              <div>
+                <Textarea
+                  label="Rejection Reason *"
+                  value={rdRejectionReason}
+                  onChange={(e) => setRdRejectionReason(e.target.value)}
+                  placeholder="Provide reason for rejecting this RD request..."
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="rounded-lg bg-rose-50 p-3 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+                Rejecting this request will keep the document in its current Document In Hand workflow state.
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <Button variant="ghost" disabled={submitting} onClick={() => setRejectingRDItem(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={submitting || !rdRejectionReason.trim()}
+                onClick={() => void handleRejectRD(rejectingRDItem, rdRejectionReason)}
+              >
+                {submitting ? "Rejecting..." : "Confirm Rejection"}
+              </Button>
             </div>
           </div>
         </div>

@@ -498,6 +498,7 @@ model Registration {
   advancePaymentApprovals AdvancePaymentApproval[]
   movementApprovals       MovementApproval[]
   editRequests            RegistrationEditRequest[]
+  rdApprovals             RDApproval[]
 
   @@index([ownerAdminId])
   @@index([createdAt])
@@ -1885,5 +1886,43 @@ model AccountPanelTransaction {
   @@index([officeId])
   @@index([transactionDate])
   @@map("account_panel_transactions")
+}
+
+model RDApproval {
+  id                 String       @id @default(cuid())
+  registrationId     String       @map("registration_id")
+  registration       Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  trackingNumber     String       @map("tracking_number")
+  customerName       String?      @map("customer_name")
+  documentName       String?      @map("document_name")
+  documentType       String?      @map("document_type")
+  processType        String?      @map("process_type")
+  registrationOffice String?      @map("registration_office")
+  currentOffice      String?      @map("current_office")
+  deliveryLocation   String?      @map("delivery_location")
+  status             String       @default("Pending")
+  requestedById      String?      @map("requested_by_id")
+  requestedByName    String?      @map("requested_by_name")
+  requestedDate      DateTime     @default(now()) @map("requested_date")
+  approvedById       String?      @map("approved_by_id")
+  approvedByName     String?      @map("approved_by_name")
+  approvedAt         DateTime?    @map("approved_at")
+  rejectedById       String?      @map("rejected_by_id")
+  rejectedByName     String?      @map("rejected_by_name")
+  rejectedAt         DateTime?    @map("rejected_at")
+  rejectionReason    String?      @map("rejection_reason")
+  remarks            String?      @db.Text
+  approvalRemarks    String?      @db.Text @map("approval_remarks")
+  ownerAdminId       String       @map("owner_admin_id")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@index([registrationId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([deliveryLocation])
+  @@index([requestedDate])
+  @@map("rd_approvals")
 }
 

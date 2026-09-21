@@ -11,6 +11,7 @@ import {
   getMovementHistory,
   routeDocumentsToReadyForDelivery,
 } from "@/features/home/server/bundle-workflow.service";
+import { createRDApprovalRequest } from "@/features/pending-approval/server/rd-approval.service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -269,7 +270,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await routeDocumentsToReadyForDelivery({
+      const result = await createRDApprovalRequest({
         trackingNumbers,
         userId: currentUser.id,
         userName: currentUser.name || undefined,

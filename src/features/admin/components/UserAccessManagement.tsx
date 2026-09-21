@@ -150,6 +150,13 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         ],
       },
       {
+        label: "RD Approve",
+        actions: [
+          { key: "pending_approval.rd_approval.approve", label: "Approve" },
+          { key: "pending_approval.rd_approval.reject", label: "Reject" },
+        ],
+      },
+      {
         label: "Advance Details Approval",
         actions: [
           { key: "advance_details_approval.view", label: "View" },

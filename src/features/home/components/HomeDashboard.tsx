@@ -390,24 +390,24 @@ export function HomeDashboard({
 
       const body = await res.json();
       if (!res.ok) {
-        throw new Error(body.error || "Failed to route documents to Ready For Delivery.");
+        throw new Error(body.error || "Failed to create RD approval request.");
       }
 
-      const routed = body.routedDocuments || [];
+      const created = body.createdRequests || body.routedDocuments || [];
       const rejected = body.rejectedDocuments || [];
 
       let msg = "";
-      if (routed.length > 0) {
-        msg += `Successfully routed ${routed.length} document(s) to Ready For Delivery at their Delivery Locations:\n` +
-          routed.map((d: any) => `• ${d.trackingNumber} → ${d.deliveryLocation}`).join("\n");
+      if (created.length > 0) {
+        msg += `Successfully created RD Approval request for ${created.length} document(s) (Pending Approval → RD Approval):\n` +
+          created.map((d: any) => `• ${d.trackingNumber} → ${d.deliveryLocation}`).join("\n");
       }
       if (rejected.length > 0) {
         if (msg) msg += "\n\n";
-        msg += `Could not route ${rejected.length} document(s):\n` +
+        msg += `Could not create RD Approval request for ${rejected.length} document(s):\n` +
           rejected.map((d: any) => `• ${d.trackingNumber}: ${d.reason}`).join("\n");
       }
 
-      alert(msg || "RD operation completed.");
+      alert(msg || "RD Approval request created successfully.");
       setSelectedTrackingNumbers([]);
       fetchData();
     } catch (err: any) {
