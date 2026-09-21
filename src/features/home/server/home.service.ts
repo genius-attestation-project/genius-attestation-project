@@ -285,11 +285,49 @@ export async function markReadyForDelivery(params: {
     if (!movement) throw new Error("Document movement not found in HOME.");
 
     const reg = movement.registration;
-    const deliveryLoc = (reg?.deliveryLocation || "").trim().toLowerCase();
-    const currentLoc = params.officeLocationName.trim().toLowerCase();
+    const deliveryLocation = (reg?.deliveryLocation || "").trim();
+    const receivingOfficeName = params.officeLocationName.trim();
+    const receivingOfficeId = officeId;
 
-    if (deliveryLoc && deliveryLoc !== currentLoc) {
-      throw new Error(`Cannot mark ready for delivery: Delivery Location is ${reg?.deliveryLocation}, but current receiving office is ${params.officeLocationName}.`);
+    let deliveryOffice = deliveryLocation ? await tx.officeLocation.findFirst({
+      where: {
+        ownerAdminId: params.ownerAdminId,
+        OR: [
+          { id: deliveryLocation },
+          { officeName: deliveryLocation },
+        ],
+      },
+      select: { id: true, officeName: true },
+    }) : null;
+
+    if (!deliveryOffice && deliveryLocation) {
+      const ao = await tx.assignedOffice.findFirst({
+        where: {
+          ownerAdminId: params.ownerAdminId,
+          OR: [
+            { id: deliveryLocation },
+            { username: deliveryLocation },
+          ],
+        },
+        select: { id: true, username: true },
+      });
+      if (ao) {
+        deliveryOffice = { id: ao.id, officeName: ao.username };
+      }
+    }
+
+    const isOfficeMatch = Boolean(
+      deliveryLocation &&
+      (
+        (deliveryOffice?.id && deliveryOffice.id === receivingOfficeId) ||
+        (deliveryOffice?.officeName && deliveryOffice.officeName.trim().toLowerCase() === receivingOfficeName.toLowerCase()) ||
+        (receivingOfficeName && receivingOfficeName.toLowerCase() === deliveryLocation.toLowerCase()) ||
+        (receivingOfficeId && receivingOfficeId.toLowerCase() === deliveryLocation.toLowerCase())
+      )
+    );
+
+    if (!isOfficeMatch) {
+      throw new Error(`Cannot mark ready for delivery: Delivery Location is ${reg?.deliveryLocation || "Not specified"}, but current receiving office is ${params.officeLocationName}.`);
     }
 
     const mainProcessCheck = await verifyMainProcessCompleted(movement.trackingNumber, params.ownerAdminId, tx);

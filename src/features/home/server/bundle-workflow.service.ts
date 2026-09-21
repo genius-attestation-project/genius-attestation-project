@@ -638,13 +638,21 @@ export async function receiveBundle(params: {
         const mainProcessCheck = await verifyMainProcessCompleted(item.trackingNumber, params.ownerAdminId, tx);
         const hasCompletedMainProcess = mainProcessCheck.isCompleted;
 
-        const receivingOfficeName = bundle.toOffice?.officeName || "";
-        const receivingOfficeId = bundle.toOfficeId || bundle.toOffice?.id || "";
-        const deliveryLocation = reg?.deliveryLocation || "";
+        let receivingOffice = bundle.toOffice;
+        if (!receivingOffice && bundle.toOfficeId) {
+          receivingOffice = await tx.officeLocation.findUnique({
+            where: { id: bundle.toOfficeId },
+            select: { id: true, officeName: true },
+          });
+        }
+        const receivingOfficeName = receivingOffice?.officeName || bundle.toOffice?.officeName || "";
+        const receivingOfficeId = bundle.toOfficeId || receivingOffice?.id || bundle.toOffice?.id || "";
+        const deliveryLocation = (reg?.deliveryLocation || "").trim();
 
         // Resolve delivery location to office ID or name
         let deliveryOffice = deliveryLocation ? await tx.officeLocation.findFirst({
           where: {
+            ownerAdminId: params.ownerAdminId,
             OR: [
               { id: deliveryLocation },
               { officeName: deliveryLocation },
@@ -656,6 +664,7 @@ export async function receiveBundle(params: {
         if (!deliveryOffice && deliveryLocation) {
           const ao = await tx.assignedOffice.findFirst({
             where: {
+              ownerAdminId: params.ownerAdminId,
               OR: [
                 { id: deliveryLocation },
                 { username: deliveryLocation },
@@ -674,13 +683,15 @@ export async function receiveBundle(params: {
           (
             (deliveryOffice?.id && (deliveryOffice.id === receivingOfficeId || deliveryOffice.id === bundle.toOfficeId)) ||
             (deliveryOffice?.officeName && receivingOfficeName && deliveryOffice.officeName.trim().toLowerCase() === receivingOfficeName.trim().toLowerCase()) ||
-            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()) ||
-            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.trim().toLowerCase())
+            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.toLowerCase()) ||
+            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.toLowerCase())
           )
         );
 
-        // Document moves to Ready For Delivery ONLY when ALL main process activities are complete AND receiving office matches deliveryLocation
-        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isOfficeMatch;
+        // Document moves to Ready For Delivery ONLY when BOTH conditions are met:
+        // 1. Authoritative Main Process is fully completed
+        // 2. Receiving office matches Document's Delivery Location
+        const isReadyForDeliveryAutoRoute = Boolean(hasCompletedMainProcess && isOfficeMatch);
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
