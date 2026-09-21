@@ -9,6 +9,7 @@ import {
   listOutboundBundles,
   receiveBundle,
   getMovementHistory,
+  routeDocumentsToReadyForDelivery,
 } from "@/features/home/server/bundle-workflow.service";
 
 export async function GET(req: NextRequest) {
@@ -244,6 +245,40 @@ export async function POST(req: NextRequest) {
         ownerAdminId: currentUser.ownerAdminId,
         remarks,
       });
+      return NextResponse.json(result);
+    }
+
+    if (action === "ready_for_delivery" || action === "rd") {
+      const canRouteRD =
+        hasPermission(currentUser, "home.document_in_hand.transfer") ||
+        hasPermission(currentUser, "home.transfer") ||
+        hasPermission(currentUser, "home.view") ||
+        hasPermission(currentUser, "ready_for_delivery.view");
+
+      if (!canRouteRD) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to route documents to Ready For Delivery." },
+          { status: 403 }
+        );
+      }
+
+      const { trackingNumbers, remarks } = body;
+
+      if (!trackingNumbers || !Array.isArray(trackingNumbers) || trackingNumbers.length === 0) {
+        return NextResponse.json(
+          { error: "Please provide an array of trackingNumbers to route." },
+          { status: 400 }
+        );
+      }
+
+      const result = await routeDocumentsToReadyForDelivery({
+        trackingNumbers,
+        userId: currentUser.id,
+        userName: currentUser.name || undefined,
+        ownerAdminId: currentUser.ownerAdminId,
+        remarks,
+      });
+
       return NextResponse.json(result);
     }
 

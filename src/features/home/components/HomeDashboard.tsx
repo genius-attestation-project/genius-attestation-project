@@ -369,6 +369,53 @@ export function HomeDashboard({
     }
   };
 
+  // Manual RD Route to Ready For Delivery
+  const handleRD = async () => {
+    if (selectedTrackingNumbers.length === 0) {
+      alert("Please select at least one document to route to Ready For Delivery.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/home", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ready_for_delivery",
+          trackingNumbers: selectedTrackingNumbers,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error || "Failed to route documents to Ready For Delivery.");
+      }
+
+      const routed = body.routedDocuments || [];
+      const rejected = body.rejectedDocuments || [];
+
+      let msg = "";
+      if (routed.length > 0) {
+        msg += `Successfully routed ${routed.length} document(s) to Ready For Delivery at their Delivery Locations:\n` +
+          routed.map((d: any) => `• ${d.trackingNumber} → ${d.deliveryLocation}`).join("\n");
+      }
+      if (rejected.length > 0) {
+        if (msg) msg += "\n\n";
+        msg += `Could not route ${rejected.length} document(s):\n` +
+          rejected.map((d: any) => `• ${d.trackingNumber}: ${d.reason}`).join("\n");
+      }
+
+      alert(msg || "RD operation completed.");
+      setSelectedTrackingNumbers([]);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || "RD action error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Inbound Bundle click -> Open Details Modal
   const handleOpenBundleModal = (bundle: any) => {
     setSelectedBundle(bundle);
@@ -603,7 +650,18 @@ export function HomeDashboard({
                       <span>Selected: {selectedTrackingNumbers.length} documents</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        onClick={handleRD}
+                        disabled={selectedTrackingNumbers.length === 0 || isLoading}
+                        variant="secondary"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-sm shadow-xs border-none"
+                        title="Route eligible selected document(s) with completed Main Process directly to Ready For Delivery at their Delivery Locations"
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        RD
+                      </Button>
+
                       <span className="text-xs font-semibold text-slate-600 tracking-wider">
                         Select Destination Office:
                       </span>
