@@ -250,14 +250,12 @@ export async function POST(req: NextRequest) {
 
     if (action === "ready_for_delivery" || action === "rd") {
       const canRouteRD =
-        hasPermission(currentUser, "home.document_in_hand.transfer") ||
-        hasPermission(currentUser, "home.transfer") ||
-        hasPermission(currentUser, "home.view") ||
-        hasPermission(currentUser, "ready_for_delivery.view");
+        hasPermission(currentUser, "home.document_in_hand.rd_button") ||
+        hasPermission(currentUser, "home.rd_button");
 
       if (!canRouteRD) {
         return NextResponse.json(
-          { error: "Forbidden. You do not have permission to route documents to Ready For Delivery." },
+          { error: "Forbidden. You do not have permission to use RD manual routing." },
           { status: 403 }
         );
       }

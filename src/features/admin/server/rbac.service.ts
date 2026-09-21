@@ -1140,10 +1140,19 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       result.add("home.view");
       result.add("menu.home");
 
-      if (key === "home.document_in_hand.view" || key === "home.document_in_hand.transfer") {
+      if (
+        key === "home.document_in_hand.view" ||
+        key === "home.document_in_hand.transfer" ||
+        key === "home.document_in_hand.rd_button" ||
+        key === "home.rd_button"
+      ) {
         result.add("home.document_in_hand.view");
         if (key === "home.document_in_hand.transfer") {
           result.add("home.transfer");
+        }
+        if (key === "home.document_in_hand.rd_button" || key === "home.rd_button") {
+          result.add("home.document_in_hand.rd_button");
+          result.add("home.rd_button");
         }
       } else if (key.startsWith("home.inbound.")) {
         result.add("home.inbound.view");

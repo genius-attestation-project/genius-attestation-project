@@ -531,6 +531,10 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
       catalogKeys.add("home.movement_history.view");
     }
     if (code === "home.transfer") catalogKeys.add("home.document_in_hand.transfer");
+    if (code === "home.rd_button" || code === "home.document_in_hand.rd_button") {
+      catalogKeys.add("home.document_in_hand.rd_button");
+      catalogKeys.add("home.rd_button");
+    }
     if (code === "home.receive") catalogKeys.add("home.inbound.receive");
     if (code === "home.return") catalogKeys.add("home.inbound.return");
     if (code === "home.retrieve") catalogKeys.add("home.outbound.retrieve");

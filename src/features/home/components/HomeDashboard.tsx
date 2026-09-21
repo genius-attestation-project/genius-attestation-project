@@ -58,6 +58,7 @@ export function HomeDashboard({
   const perms = userPermissions;
   const canViewDocumentInHand = isSuperAdmin || perms.includes("home.document_in_hand.view");
   const canTransfer = isSuperAdmin || perms.includes("home.document_in_hand.transfer") || perms.includes("home.transfer");
+  const canUseRDButton = isSuperAdmin || perms.includes("home.document_in_hand.rd_button") || perms.includes("home.rd_button");
   const canViewInbound = isSuperAdmin || perms.includes("home.inbound.view");
   const canReceive = isSuperAdmin || perms.includes("home.inbound.receive") || perms.includes("home.receive");
   const canReturn = isSuperAdmin || perms.includes("home.inbound.return") || perms.includes("home.return");
@@ -643,46 +644,52 @@ export function HomeDashboard({
             {/* 1. DOCUMENT IN HAND TAB */}
             {activeTab === "document_in_hand" && canViewDocumentInHand && (
               <div className="space-y-6">
-                {/* Transfer Bar */}
-                {canTransfer && (
+                {/* Action Toolbar */}
+                {(canTransfer || canUseRDButton) && (
                   <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-blue-50/80 border border-blue-200 p-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                       <span>Selected: {selectedTrackingNumbers.length} documents</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        onClick={handleRD}
-                        disabled={selectedTrackingNumbers.length === 0 || isLoading}
-                        variant="secondary"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-sm shadow-xs border-none"
-                        title="Route eligible selected document(s) with completed Main Process directly to Ready For Delivery at their Delivery Locations"
-                      >
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        RD
-                      </Button>
+                      {canUseRDButton && (
+                        <Button
+                          onClick={handleRD}
+                          disabled={selectedTrackingNumbers.length === 0 || isLoading}
+                          variant="secondary"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-sm shadow-xs border-none cursor-pointer"
+                          title="Manually route selected document(s) directly to Ready For Delivery at their Delivery Locations"
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                          RD
+                        </Button>
+                      )}
 
-                      <span className="text-xs font-semibold text-slate-600 tracking-wider">
-                        Select Destination Office:
-                      </span>
-                      <DestinationOfficeSelect
-                        offices={offices}
-                        assignedOfficesInput={assignedOffices}
-                        globalOfficesInput={globalOffices}
-                        currentOfficeId={selectedOfficeId}
-                        value={destinationOfficeId}
-                        onChange={(id) => setDestinationOfficeId(id)}
-                        disabled={isLoading}
-                      />
+                      {canTransfer && (
+                        <>
+                          <span className="text-xs font-semibold text-slate-600 tracking-wider">
+                            Select Destination Office:
+                          </span>
+                          <DestinationOfficeSelect
+                            offices={offices}
+                            assignedOfficesInput={assignedOffices}
+                            globalOfficesInput={globalOffices}
+                            currentOfficeId={selectedOfficeId}
+                            value={destinationOfficeId}
+                            onChange={(id) => setDestinationOfficeId(id)}
+                            disabled={isLoading}
+                          />
 
-                      <Button
-                        onClick={handleTransfer}
-                        disabled={selectedTrackingNumbers.length === 0 || !destinationOfficeId || isLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm shadow-xs"
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        TRANSFER
-                      </Button>
+                          <Button
+                            onClick={handleTransfer}
+                            disabled={selectedTrackingNumbers.length === 0 || !destinationOfficeId || isLoading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm shadow-xs"
+                          >
+                            <Send className="mr-2 h-4 w-4" />
+                            TRANSFER
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

@@ -421,6 +421,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         actions: [
           { key: "home.document_in_hand.view", label: "View" },
           { key: "home.document_in_hand.transfer", label: "Transfer" },
+          { key: "home.document_in_hand.rd_button", label: "RD Button" },
         ],
       },
       {

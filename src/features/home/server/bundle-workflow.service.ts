@@ -1025,16 +1025,6 @@ export async function routeDocumentsToReadyForDelivery(params: {
           return;
         }
 
-        // Check authoritative Main Process completion
-        const mainProcessCheck = await verifyMainProcessCompleted(trackingNumber, params.ownerAdminId, tx);
-        if (!mainProcessCheck.isCompleted) {
-          results.rejectedDocuments.push({
-            trackingNumber,
-            reason: mainProcessCheck.message || "Main Process is not completed.",
-          });
-          return;
-        }
-
         // Resolve delivery location to office ID / Office record
         let deliveryOffice = await tx.officeLocation.findFirst({
           where: {
@@ -1117,7 +1107,7 @@ export async function routeDocumentsToReadyForDelivery(params: {
             registrationId: reg.id,
             action: "RD_ROUTE_TO_READY_FOR_DELIVERY",
             performedBy: params.userName || params.userId,
-            description: `Manually routed to Ready For Delivery at ${destinationOfficeName}. Authoritative Main Process verified as completed.`,
+            description: params.remarks || `Manually routed to Ready For Delivery at ${destinationOfficeName} via RD manual action.`,
           },
         });
 
