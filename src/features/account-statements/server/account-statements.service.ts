@@ -246,14 +246,12 @@ export async function getAccountStatements(
       moreAdvancesList.push(statementItem);
 
       // Create offsetting Debit entry for Bank Payment Transaction
-      const trackNoDisplay = trackingNum ? `Track no: ${trackingNum}` : "Track no: —";
-
       bankPaymentDebitItems.push({
         ...statementItem,
         id: `debit_adv_${item.id}`,
         accountName: primaryDebitAccount,
         trackingNumber: trackingNum || null,
-        narration: trackNoDisplay,
+        narration: cleanRemarks || `${item.paymentMode || "Bank Transfer"} Advance for ${trackingNum || "document"}`,
       });
     }
   }
