@@ -473,7 +473,6 @@ export async function approveAdvancePayment(args: {
       bankProofFileUrl,
       bankProofFileName,
       approvalRemarks: args.remarks.trim(),
-      remarks: args.remarks.trim(),
     } as any,
   });
 

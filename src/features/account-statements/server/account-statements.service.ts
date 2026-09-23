@@ -156,6 +156,12 @@ export async function getAccountStatements(
           registeredPerson: true,
         },
       },
+      auditLogs: {
+        where: { action: "Created" },
+        select: { remarks: true },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+      },
     },
   });
 
@@ -199,7 +205,9 @@ export async function getAccountStatements(
     const proofName = item.bankProofFileName || item.receiptFileName || "Proof Document";
 
     const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
-    const cleanRemarks = (item.remarks || "").trim();
+    const createdAuditRemarks = (item.auditLogs?.[0]?.remarks || "").trim();
+    const itemRemarks = (item.remarks || "").trim();
+    const cleanRemarks = createdAuditRemarks || itemRemarks;
 
     const cleanRef = item.referenceNumber ? item.referenceNumber.replace(/^Ref:\s*/i, "").trim() : "";
     const fallbackBankName = cleanRef
