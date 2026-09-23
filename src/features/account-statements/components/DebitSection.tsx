@@ -66,7 +66,7 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
                   <tr className="border-b border-slate-200/80 bg-slate-50/80 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
                     <th className="py-2.5 px-3 w-12 text-center">SI No</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">Date</th>
-                    <th className="py-2.5 px-3">Item / Account</th>
+                    <th className="py-2.5 px-3 min-w-[170px]">Item / Account</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">Invoice No</th>
                     <th className="py-2.5 px-3 text-right">Amount Bill</th>
                     <th className="py-2.5 px-3 text-center w-28">Action</th>
@@ -84,12 +84,12 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
                       <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
                         {item.date}
                       </td>
-                      <td className="py-2.5 px-3">
-                        <div className="font-semibold text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 min-w-[170px]">
+                        <div className="font-semibold text-slate-900 dark:text-white break-words">
                           {item.accountName || group.accountName}
                         </div>
                         {item.narration && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words whitespace-pre-line mt-0.5">
                             {item.narration}
                           </div>
                         )}

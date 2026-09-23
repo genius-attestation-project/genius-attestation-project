@@ -8,6 +8,7 @@ export interface AccountStatementItem {
   amount: number;
   paymentMode?: string;
   narration?: string;
+  trackingNumber?: string | null;
   proofFileUrl?: string | null;
   proofFileName?: string | null;
   bankProofFileUrl?: string | null;
