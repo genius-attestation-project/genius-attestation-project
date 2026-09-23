@@ -198,18 +198,15 @@ export async function getAccountStatements(
 
     const proofName = item.bankProofFileName || item.receiptFileName || "Proof Document";
 
-    const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
-
     const statementItem: AccountStatementItem = {
       id: item.id,
       sourceType: "ADVANCE_PAYMENT",
       date: dateStr,
       collectedBy: item.collectedBy || item.requestedByName || item.registeredPerson || item.registration?.registeredPerson || "Staff",
-      invoiceNumber: trackingNum || item.referenceNumber || "-",
+      invoiceNumber: item.trackingNumber || item.referenceNumber || "-",
       amount: Number(item.advanceAmount ?? 0),
       paymentMode: item.paymentMode || "Cash",
-      narration: item.remarks || (isCash ? `Cash Advance for ${trackingNum}` : `${item.paymentMode} Advance for ${trackingNum}`),
-      trackingNumber: trackingNum || null,
+      narration: item.remarks || (isCash ? `Cash Advance for ${item.trackingNumber}` : `${item.paymentMode} Advance for ${item.trackingNumber}`),
       proofFileUrl: proofUrl,
       proofFileName: proofName,
       bankProofFileUrl: item.bankProofFileUrl || null,
@@ -233,14 +230,11 @@ export async function getAccountStatements(
         ? `Bank Payment (${item.paymentMode} Ref: ${item.referenceNumber})`
         : `Bank Transfer - ${item.paymentMode || "Bank Payment"}`;
 
-      const trackNoDisplay = trackingNum ? `Track no: ${trackingNum}` : "Track no: —";
-
       bankPaymentDebitItems.push({
         ...statementItem,
         id: `debit_adv_${item.id}`,
         accountName: bankAccountName,
-        trackingNumber: trackingNum || null,
-        narration: trackNoDisplay,
+        narration: `Track no: ${item.trackingNumber} advance ${Number(item.advanceAmount)} transfer via ${item.paymentMode || "Bank"}`,
       });
     }
   }
