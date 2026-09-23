@@ -89,7 +89,13 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
                           {item.accountName || group.accountName}
                         </div>
                         {item.narration && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                          <div
+                            className={
+                              group.accountName === "Bank Payment Transactions" || item.sourceType === "ADVANCE_PAYMENT"
+                                ? "text-[11px] text-slate-500 dark:text-slate-400 break-words whitespace-normal"
+                                : "text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1"
+                            }
+                          >
                             {item.narration}
                           </div>
                         )}
