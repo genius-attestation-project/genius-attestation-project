@@ -199,6 +199,14 @@ export async function getAccountStatements(
     const proofName = item.bankProofFileName || item.receiptFileName || "Proof Document";
 
     const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
+    const cleanRemarks = (item.remarks || "").trim();
+
+    const cleanRef = item.referenceNumber ? item.referenceNumber.replace(/^Ref:\s*/i, "").trim() : "";
+    const fallbackBankName = cleanRef
+      ? `Bank Payment (${item.paymentMode || "Bank"} Ref: ${cleanRef})`
+      : `Bank Transfer - ${item.paymentMode || "Bank Payment"}`;
+
+    const primaryDebitAccount = cleanRemarks || fallbackBankName;
 
     const statementItem: AccountStatementItem = {
       id: item.id,
@@ -208,8 +216,9 @@ export async function getAccountStatements(
       invoiceNumber: trackingNum || item.referenceNumber || "-",
       amount: Number(item.advanceAmount ?? 0),
       paymentMode: item.paymentMode || "Cash",
-      narration: item.remarks || (isCash ? `Cash Advance for ${trackingNum}` : `${item.paymentMode} Advance for ${trackingNum}`),
+      narration: cleanRemarks || (isCash ? `Cash Advance for ${trackingNum}` : `${item.paymentMode} Advance for ${trackingNum}`),
       trackingNumber: trackingNum || null,
+      accountName: primaryDebitAccount,
       proofFileUrl: proofUrl,
       proofFileName: proofName,
       bankProofFileUrl: item.bankProofFileUrl || null,
@@ -229,16 +238,12 @@ export async function getAccountStatements(
       moreAdvancesList.push(statementItem);
 
       // Create offsetting Debit entry for Bank Payment Transaction
-      const bankAccountName = item.referenceNumber
-        ? `Bank Payment (${item.paymentMode} Ref: ${item.referenceNumber})`
-        : `Bank Transfer - ${item.paymentMode || "Bank Payment"}`;
-
       const trackNoDisplay = trackingNum ? `Track no: ${trackingNum}` : "Track no: —";
 
       bankPaymentDebitItems.push({
         ...statementItem,
         id: `debit_adv_${item.id}`,
-        accountName: bankAccountName,
+        accountName: primaryDebitAccount,
         trackingNumber: trackingNum || null,
         narration: trackNoDisplay,
       });

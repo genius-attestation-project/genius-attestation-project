@@ -88,7 +88,7 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
                         <div className="font-semibold text-slate-900 dark:text-white break-words">
                           {item.accountName || group.accountName}
                         </div>
-                        {item.narration && (
+                        {item.narration && item.narration !== item.accountName && (
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words whitespace-pre-line mt-0.5">
                             {item.narration}
                           </div>
