@@ -1,4 +1,5 @@
 import { createLead, listLeads } from "@/features/lead/server/lead.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { leadInputSchema } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
 import { requireApiPermission, requireAnyApiPermission } from "@/middleware/auth.middleware";
@@ -21,6 +22,12 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
+    const officeLocationId = searchParams.get("officeLocationId") ?? undefined;
+
+    if (officeLocationId && !hasOfficeAccess(session?.user, officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
     const rawPage = searchParams.get("page");
     const rawPageSize = searchParams.get("pageSize");
     const parsedPage = parseInt(rawPage ?? "1", 10);
@@ -40,7 +47,7 @@ export async function GET(request: NextRequest) {
       state: searchParams.get("state") ?? undefined,
       source: searchParams.get("source") ?? undefined,
       followupDate: searchParams.get("followupDate") ?? undefined,
-      officeLocationId: searchParams.get("officeLocationId") ?? undefined,
+      officeLocationId,
       fromDate: searchParams.get("fromDate") ?? undefined,
       toDate: searchParams.get("toDate") ?? undefined,
     });

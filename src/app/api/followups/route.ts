@@ -1,4 +1,5 @@
 import { getFollowupCalendar } from "@/features/lead/server/lead.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
@@ -16,13 +17,17 @@ export async function GET(request: NextRequest) {
     const officeLocationId = searchParams.get("officeLocationId") || undefined;
     const leadStatus = searchParams.get("leadStatus") || undefined;
 
+    if (officeLocationId && !hasOfficeAccess(session?.user, officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
     const data = await getFollowupCalendar(
       ownerAdminId,
       filter === "today" || filter === "upcoming" || filter === "missed" || filter === "completed"
         ? filter
         : "all",
       userId,
-      { assignedUser, officeLocationId, leadStatus }
+      { assignedUser, officeLocationId, leadStatus, user: session?.user }
     );
     return jsonOk(data);
   } catch (error) {

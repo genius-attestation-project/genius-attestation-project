@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       leadIds: parsed.data.leadIds,
       assignedUserId: parsed.data.assignedUserId,
       changedBy,
+      user: session.user,
     });
 
     return jsonOk({

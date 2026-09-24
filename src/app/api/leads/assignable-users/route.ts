@@ -19,7 +19,7 @@ export async function GET() {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const users = await listAssignableLeadUsers(ownerAdminId);
+    const users = await listAssignableLeadUsers(ownerAdminId, session?.user);
     return jsonOk({ users });
   } catch (error) {
     console.error("Failed to fetch assignable lead users", error);

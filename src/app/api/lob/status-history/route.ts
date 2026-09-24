@@ -1,6 +1,7 @@
 import { getLobStatusHistory } from "@/features/lob/server/lob.service";
 import type { LobFilters } from "@/features/lob/server/lob.service";
 import { auth } from "@/lib/auth";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -33,7 +34,12 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("Authentication required.", 401);
 
     const filters = parseFilters(request.url);
-    const data = await getLobStatusHistory(ownerAdminId, filters);
+
+    if (filters.officeLocationId && !hasOfficeAccess(session?.user, filters.officeLocationId, "lead_management")) {
+      return jsonError("You do not have permission to view data for this office.", 403);
+    }
+
+    const data = await getLobStatusHistory(ownerAdminId, filters, 50, session?.user);
     return jsonOk({ items: data });
   } catch (error) {
     console.error("Failed to fetch LOB status history", error);

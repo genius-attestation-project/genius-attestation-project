@@ -1,4 +1,5 @@
 import { getLobSummary } from "@/features/lead/server/lead.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
@@ -14,7 +15,13 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
-    const data = await getLobSummary(ownerAdminId, searchParams.get("officeLocationId") ?? undefined);
+    const officeLocationId = searchParams.get("officeLocationId") ?? undefined;
+
+    if (officeLocationId && !hasOfficeAccess(session?.user, officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const data = await getLobSummary(ownerAdminId, officeLocationId, session?.user);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch LOB summary", error);

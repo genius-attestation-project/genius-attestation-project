@@ -1,5 +1,6 @@
 import { getLobTrends } from "@/features/lob/server/lob.service";
 import type { LobFilters, LobTrendInterval } from "@/features/lob/server/lob.service";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest) {
     if (dateFrom) filters.dateFrom = new Date(dateFrom);
     if (dateTo) filters.dateTo = new Date(dateTo);
 
-    const data = await getLobTrends(ownerAdminId, filters, interval);
+    if (filters.officeLocationId && !hasOfficeAccess(session?.user, filters.officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const data = await getLobTrends(ownerAdminId, filters, interval, session?.user);
     return jsonOk({ items: data });
   } catch (error) {
     console.error("Failed to fetch LOB trends", error);

@@ -1,6 +1,7 @@
 import { getLobLeadsTable } from "@/features/lob/server/lob.service";
 import type { LobFilters } from "@/features/lob/server/lob.service";
 import { auth } from "@/lib/auth";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -31,10 +32,14 @@ export async function GET(request: NextRequest) {
     if (previousStatus) filters.previousStatus = previousStatus;
     if (query) filters.query = query;
 
+    if (filters.officeLocationId && !hasOfficeAccess(session?.user, filters.officeLocationId, "lead_management")) {
+      return jsonError("You do not have permission to view data for this office.", 403);
+    }
+
     const page = Math.max(1, Number(searchParams.get("page") ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 20)));
 
-    const data = await getLobLeadsTable(ownerAdminId, filters, page, pageSize);
+    const data = await getLobLeadsTable(ownerAdminId, filters, page, pageSize, session?.user);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch LOB leads", error);

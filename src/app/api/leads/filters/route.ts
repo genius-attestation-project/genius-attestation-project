@@ -18,7 +18,7 @@ export async function GET() {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const filters = await getLeadFilterOptions(ownerAdminId);
+    const filters = await getLeadFilterOptions(ownerAdminId, session?.user);
     return jsonOk(filters);
   } catch (error) {
     console.error("Failed to fetch lead filters", error);

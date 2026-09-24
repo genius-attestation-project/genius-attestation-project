@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
+import { buildLeadOfficeCondition } from "@/features/lead/server/lead.service";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -37,10 +39,20 @@ export async function POST(request: NextRequest) {
       state,
     } = payload;
 
-    const where: Prisma.LeadWhereInput = {
-      ...leadCreatorWhere(ownerAdminId, userId),
-      nextFollowupAt: { not: null },
-    };
+    if (officeLocationId && !hasOfficeAccess(session?.user, officeLocationId, "lead_management")) {
+      return jsonError("Access denied for the requested office.", 403);
+    }
+
+    const officeCondition = buildLeadOfficeCondition(session?.user, officeLocationId);
+
+    const andConditions: Prisma.LeadWhereInput[] = [
+      leadCreatorWhere(ownerAdminId, userId),
+      { nextFollowupAt: { not: null } },
+    ];
+
+    if (Object.keys(officeCondition).length > 0) {
+      andConditions.push(officeCondition);
+    }
 
     if (fromDate || toDate) {
       const dateFilter: Prisma.DateTimeFilter = {};
@@ -54,34 +66,31 @@ export async function POST(request: NextRequest) {
         d.setHours(23, 59, 59, 999);
         dateFilter.lte = d;
       }
-      where.nextFollowupAt = dateFilter;
+      andConditions.push({ nextFollowupAt: dateFilter });
     }
 
     if (leadOwner) {
-      where.createdById = leadOwner;
+      andConditions.push({ createdById: leadOwner });
     }
 
     if (assignedUser) {
-      where.assignedUserId = assignedUser;
-    }
-
-    if (officeLocationId) {
-      where.creator = {
-        officeLocationId,
-      };
+      andConditions.push({ assignedUserId: assignedUser });
     }
 
     if (leadStatus) {
-      where.leadStatus = leadStatus;
+      andConditions.push({ leadStatus });
     }
 
     if (country) {
-      where.country = country;
+      andConditions.push({ country });
     }
 
     if (state) {
-      where.state = state;
+      andConditions.push({ state });
     }
+
+    const where: Prisma.LeadWhereInput =
+      andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
     const records = await prisma.lead.findMany({
       where,

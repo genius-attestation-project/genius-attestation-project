@@ -17,7 +17,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ date: str
     if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
     const { date } = await context.params;
-    const data = await getFollowupsByDate(ownerAdminId, date, userId);
+    const data = await getFollowupsByDate(ownerAdminId, date, userId, session?.user);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch followups by date", error);

@@ -9,7 +9,7 @@ export async function GET() {
     const userId = session?.user?.id;
     if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
-    const data = await getUpcomingFollowups(ownerAdminId, userId);
+    const data = await getUpcomingFollowups(ownerAdminId, userId, session?.user);
     return jsonOk(data);
   } catch (error) {
     console.error("Failed to fetch upcoming followups", error);

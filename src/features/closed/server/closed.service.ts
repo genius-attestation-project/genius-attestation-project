@@ -203,6 +203,7 @@ export function getClosedLeadAllowedOfficeIds(user: any): string[] | null {
     if (modConfig) {
       return Array.isArray(modConfig.officeIds) ? modConfig.officeIds : [];
     }
+    return [];
   }
 
   if (Array.isArray(user.allowedOfficeIds)) {

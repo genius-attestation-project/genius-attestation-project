@@ -12,7 +12,7 @@ export async function GET() {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
-    const stats = await getDashboardStats(ownerAdminId);
+    const stats = await getDashboardStats(ownerAdminId, session?.user);
     return jsonOk(stats);
   } catch (error) {
     console.error("Failed to load dashboard stats", error);

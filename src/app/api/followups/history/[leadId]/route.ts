@@ -17,7 +17,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ leadId: s
     if (!ownerAdminId || !userId) return jsonError("Authentication required.", 401);
 
     const { leadId } = await context.params;
-    const data = await getFollowupHistory(ownerAdminId, leadId, userId);
+    const data = await getFollowupHistory(ownerAdminId, leadId, userId, session?.user);
 
     if (!data) {
       return jsonError("Lead not found.", 404);

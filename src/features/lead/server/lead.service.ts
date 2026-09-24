@@ -574,27 +574,53 @@ function visibleLegacyScheduledFollowupWhere(ownerAdminId: string, userId?: stri
   };
 }
 
-async function listScheduledFollowupRecords(ownerAdminId: string, userId?: string, options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string }) {
+async function listScheduledFollowupRecords(
+  ownerAdminId: string,
+  userId?: string,
+  options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string; user?: any },
+) {
   const where = visibleScheduledFollowupWhere(ownerAdminId, userId);
-  if (options?.assignedUser) where.assignedUserId = options.assignedUser;
-  if (options?.leadStatus) where.leadStatus = options.leadStatus as LeadStatus;
-  if (options?.officeLocationId) where.creator = { officeLocationId: options.officeLocationId };
+  const officeCond = buildLeadOfficeCondition(options?.user, options?.officeLocationId);
+
+  const andConditions: Prisma.LeadWhereInput[] = [where];
+  if (Object.keys(officeCond).length > 0) {
+    andConditions.push(officeCond);
+  }
+  if (options?.assignedUser) {
+    andConditions.push({ assignedUserId: options.assignedUser });
+  }
+  if (options?.leadStatus) {
+    andConditions.push({ leadStatus: options.leadStatus as LeadStatus });
+  }
 
   return prisma.lead.findMany({
-    where,
+    where: andConditions.length === 1 ? andConditions[0] : { AND: andConditions },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: leadSelect,
   });
 }
 
-async function listLegacyScheduledFollowupRecords(ownerAdminId: string, userId?: string, options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string }) {
+async function listLegacyScheduledFollowupRecords(
+  ownerAdminId: string,
+  userId?: string,
+  options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string; user?: any },
+) {
   const where = visibleLegacyScheduledFollowupWhere(ownerAdminId, userId);
-  if (options?.assignedUser) where.assignedUserId = options.assignedUser;
-  if (options?.leadStatus) where.leadStatus = options.leadStatus as LeadStatus;
-  if (options?.officeLocationId) where.creator = { officeLocationId: options.officeLocationId };
+  const officeCond = buildLeadOfficeCondition(options?.user, options?.officeLocationId);
+
+  const andConditions: Prisma.LeadWhereInput[] = [where];
+  if (Object.keys(officeCond).length > 0) {
+    andConditions.push(officeCond);
+  }
+  if (options?.assignedUser) {
+    andConditions.push({ assignedUserId: options.assignedUser });
+  }
+  if (options?.leadStatus) {
+    andConditions.push({ leadStatus: options.leadStatus as LeadStatus });
+  }
 
   return prisma.lead.findMany({
-    where,
+    where: andConditions.length === 1 ? andConditions[0] : { AND: andConditions },
     orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
     select: legacyLeadSelect,
   });
@@ -687,12 +713,63 @@ function getHistoryActionType(
   return FollowupActionType.Rescheduled;
 }
 
-export async function listAssignableLeadUsers(ownerAdminId: string): Promise<LeadAssignableUser[]> {
+export function getLeadAllowedOfficeIds(user: any): string[] | null {
+  if (!user || user.isSuperAdmin === true || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
+    return null;
+  }
+
+  if (user.moduleOfficeVisibilities && typeof user.moduleOfficeVisibilities === "object") {
+    const modConfig = user.moduleOfficeVisibilities["lead_management"];
+    if (modConfig) {
+      return Array.isArray(modConfig.officeIds) ? modConfig.officeIds : [];
+    }
+    return [];
+  }
+
+  if (Array.isArray(user.allowedOfficeIds)) {
+    return user.allowedOfficeIds;
+  }
+
+  return [];
+}
+
+export function buildLeadOfficeCondition(user: any, requestedOfficeId?: string): Prisma.LeadWhereInput {
+  const allowedOfficeIds = getLeadAllowedOfficeIds(user);
+
+  if (allowedOfficeIds === null) {
+    if (requestedOfficeId?.trim()) {
+      return { creator: { officeLocationId: requestedOfficeId.trim() } };
+    }
+    return {};
+  }
+
+  if (allowedOfficeIds.length === 0) {
+    return { id: "none" };
+  }
+
+  if (requestedOfficeId?.trim()) {
+    const target = requestedOfficeId.trim().toLowerCase();
+    const isPermitted = allowedOfficeIds.some((id) => id.trim().toLowerCase() === target);
+    if (!isPermitted) {
+      return { id: "none" };
+    }
+    return { creator: { officeLocationId: requestedOfficeId.trim() } };
+  }
+
+  return { creator: { officeLocationId: { in: allowedOfficeIds } } };
+}
+
+export async function listAssignableLeadUsers(ownerAdminId: string, user?: any): Promise<LeadAssignableUser[]> {
+  const allowedOfficeIds = getLeadAllowedOfficeIds(user);
+
+  const where: Prisma.UserWhereInput = {
+    isActive: true,
+    OR: [{ ownerAdminId }, { id: ownerAdminId }],
+    ...(allowedOfficeIds !== null ? { officeLocationId: { in: allowedOfficeIds } } : {}),
+  };
+
   const users = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      OR: [{ ownerAdminId }, { id: ownerAdminId }],
-    },
+    where,
     orderBy: [{ name: "asc" }, { email: "asc" }],
     select: {
       id: true,
@@ -701,10 +778,10 @@ export async function listAssignableLeadUsers(ownerAdminId: string): Promise<Lea
     },
   });
 
-  return users.map((user) => ({
-    id: user.id,
-    name: user.name?.trim() || user.email,
-    email: user.email,
+  return users.map((u) => ({
+    id: u.id,
+    name: u.name?.trim() || u.email,
+    email: u.email,
   }));
 }
 
@@ -716,12 +793,16 @@ function uniqueTextOptions(values: Array<string | null | undefined>) {
     .map((value) => ({ label: value, value }));
 }
 
-export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFilterOptionsResponse> {
+export async function getLeadFilterOptions(ownerAdminId: string, user?: any): Promise<LeadFilterOptionsResponse> {
+  const allowedOfficeIds = getLeadAllowedOfficeIds(user);
+  const leadOfficeCondition = user && !user.isSuperAdmin ? getLeadAccessFilter(user).officeCondition : {};
+
   const [users, leads] = await Promise.all([
     prisma.user.findMany({
       where: {
         isActive: true,
         OR: [{ ownerAdminId }, { id: ownerAdminId }],
+        ...(allowedOfficeIds !== null ? { officeLocationId: { in: allowedOfficeIds } } : {}),
       },
       orderBy: [{ name: "asc" }, { email: "asc" }],
       select: {
@@ -739,7 +820,10 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
       },
     }),
     prisma.lead.findMany({
-      where: { ownerAdminId },
+      where: {
+        ownerAdminId,
+        ...(Object.keys(leadOfficeCondition).length > 0 ? leadOfficeCondition : {}),
+      },
       distinct: ["country", "state", "service", "source", "assignedUserId", "assignedUser"],
       select: {
         country: true,
@@ -758,25 +842,25 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
     { label: string; value: string; description?: string; officeLocationId?: string }
   >();
 
-  for (const user of users) {
-    const userName = user.name?.trim() || user.email;
-    assignedUsers.set(user.id, {
+  for (const userRow of users) {
+    const userName = userRow.name?.trim() || userRow.email;
+    assignedUsers.set(userRow.id, {
       label: userName,
-      value: user.id,
-      description: user.email,
-      officeLocationId: user.officeLocationId ?? undefined,
+      value: userRow.id,
+      description: userRow.email,
+      officeLocationId: userRow.officeLocationId ?? undefined,
     });
 
-    if (user.officeLocationId) {
+    if (userRow.officeLocationId) {
       const label =
-        user.officeLocationName?.trim() ||
-        [user.officeLocationRef?.officeName, user.officeLocationRef?.location]
+        userRow.officeLocationName?.trim() ||
+        [userRow.officeLocationRef?.officeName, userRow.officeLocationRef?.location]
           .filter(Boolean)
           .join(" - ");
 
-      officeLocations.set(user.officeLocationId, {
-        label: label || user.officeLocationId,
-        value: user.officeLocationId,
+      officeLocations.set(userRow.officeLocationId, {
+        label: label || userRow.officeLocationId,
+        value: userRow.officeLocationId,
       });
     }
   }
@@ -791,10 +875,10 @@ export async function getLeadFilterOptions(ownerAdminId: string): Promise<LeadFi
   }
 
   return {
-    createdBy: users.map((user) => ({
-      label: user.name?.trim() || user.email,
-      value: user.id,
-      description: user.email,
+    createdBy: users.map((u) => ({
+      label: u.name?.trim() || u.email,
+      value: u.id,
+      description: u.email,
     })),
     assignedTo: Array.from(assignedUsers.values()),
     countries: uniqueTextOptions(leads.map((lead) => lead.country)),
@@ -872,11 +956,8 @@ export function getLeadAccessFilter(user: any): {
   // Office visibility filter for leads
   let officeCondition: Prisma.LeadWhereInput = {};
   if (!isSuperAdmin && user) {
-    let allowedOfficeIds = user.allowedOfficeIds;
-    if (user.moduleOfficeVisibilities?.["lead_management"]) {
-      allowedOfficeIds = user.moduleOfficeVisibilities["lead_management"].officeIds;
-    }
-    if (Array.isArray(allowedOfficeIds)) {
+    const allowedOfficeIds = getLeadAllowedOfficeIds(user);
+    if (allowedOfficeIds !== null) {
       if (allowedOfficeIds.length > 0) {
         officeCondition = {
           creator: {
@@ -1382,6 +1463,7 @@ export async function bulkAssignLeads(args: {
   leadIds: string[];
   assignedUserId: string;
   changedBy?: string;
+  user?: any;
 }) {
   const leadIds = Array.from(new Set(args.leadIds.map((id) => id.trim()).filter(Boolean)));
 
@@ -1389,11 +1471,15 @@ export async function bulkAssignLeads(args: {
     return { count: 0, assignedUserName: "" };
   }
 
+  const allowedOfficeIds = getLeadAllowedOfficeIds(args.user);
+  const officeCondition = args.user && !args.user.isSuperAdmin ? getLeadAccessFilter(args.user).officeCondition : {};
+
   const assignedUser = await prisma.user.findFirst({
     where: {
       id: args.assignedUserId,
       isActive: true,
       OR: [{ ownerAdminId: args.ownerAdminId }, { id: args.ownerAdminId }],
+      ...(allowedOfficeIds !== null ? { officeLocationId: { in: allowedOfficeIds } } : {}),
     },
     select: {
       id: true,
@@ -1411,6 +1497,7 @@ export async function bulkAssignLeads(args: {
     where: {
       ownerAdminId: args.ownerAdminId,
       id: { in: leadIds },
+      ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
     },
     select: {
       id: true,
@@ -1668,12 +1755,15 @@ export async function completeFollowupWithDescription(args: {
   return getLeadById(args.ownerAdminId, args.leadId);
 }
 
-export async function getFollowupHistory(ownerAdminId: string, leadId: string, userId?: string) {
+export async function getFollowupHistory(ownerAdminId: string, leadId: string, userId?: string, user?: any) {
+  const officeCondition = buildLeadOfficeCondition(user);
+
   try {
     const lead = await prisma.lead.findFirst({
       where: {
         ...leadCreatorWhere(ownerAdminId, userId),
         id: leadId,
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
       },
       select: {
         id: true,
@@ -1710,6 +1800,7 @@ export async function getFollowupHistory(ownerAdminId: string, leadId: string, u
       where: {
         ...leadCreatorWhere(ownerAdminId, userId),
         id: leadId,
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
       },
       select: {
         id: true,
@@ -1731,7 +1822,7 @@ export async function getFollowupCalendar(
   ownerAdminId: string,
   filter: FollowupFilter = "all",
   userId?: string,
-  options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string },
+  options?: { assignedUser?: string; officeLocationId?: string; leadStatus?: string; user?: any },
 ): Promise<FollowupCalendarResponse> {
   const today = new Date();
   try {
@@ -1767,18 +1858,19 @@ export async function getFollowupCalendar(
   }
 }
 
-export async function getTodayFollowups(ownerAdminId: string, userId?: string): Promise<FollowupCalendarResponse> {
-  return getFollowupCalendar(ownerAdminId, "today", userId);
+export async function getTodayFollowups(ownerAdminId: string, userId?: string, user?: any): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "today", userId, { user });
 }
 
-export async function getUpcomingFollowups(ownerAdminId: string, userId?: string): Promise<FollowupCalendarResponse> {
-  return getFollowupCalendar(ownerAdminId, "upcoming", userId);
+export async function getUpcomingFollowups(ownerAdminId: string, userId?: string, user?: any): Promise<FollowupCalendarResponse> {
+  return getFollowupCalendar(ownerAdminId, "upcoming", userId, { user });
 }
 
 export async function getFollowupsByDate(
   ownerAdminId: string,
   date: string,
   userId?: string,
+  user?: any,
 ): Promise<FollowupsByDateResponse> {
   const [year, month, day] = date.split("-").map((value) => Number.parseInt(value, 10));
 
@@ -1791,11 +1883,13 @@ export async function getFollowupsByDate(
     };
   }
 
+  const officeCondition = buildLeadOfficeCondition(user);
   const selectedDate = new Date(year, month - 1, day);
   try {
     const records = await prisma.lead.findMany({
       where: {
         ...visibleScheduledFollowupWhere(ownerAdminId, userId),
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -1826,6 +1920,7 @@ export async function getFollowupsByDate(
     const records = await prisma.lead.findMany({
       where: {
         ...visibleLegacyScheduledFollowupWhere(ownerAdminId, userId),
+        ...(Object.keys(officeCondition).length > 0 ? officeCondition : {}),
         nextFollowupAt: {
           gte: startOfDay(selectedDate),
           lt: endOfDay(selectedDate),
@@ -2094,12 +2189,14 @@ export async function requestMoveFollowupToLob(args: {
   });
 }
 
-export async function getLobSummary(ownerAdminId: string, officeLocationId?: string): Promise<LobResponse> {
+export async function getLobSummary(ownerAdminId: string, officeLocationId?: string, user?: any): Promise<LobResponse> {
+  const officeCond = buildLeadOfficeCondition(user, officeLocationId);
+
   const grouped = await prisma.lead.groupBy({
     by: ["service", "leadStatus"],
     where: {
       ownerAdminId,
-      ...(officeLocationId ? { creator: { officeLocationId } } : {}),
+      ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
     },
     _count: { _all: true },
     _sum: { amount: true },
@@ -2164,17 +2261,31 @@ async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
   }));
 }
 
-export async function getDashboardStats(ownerAdminId: string): Promise<DashboardStatsResponse> {
+export async function getDashboardStats(ownerAdminId: string, user?: any): Promise<DashboardStatsResponse> {
   const revenueWindowStart = new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1);
+  const officeCond = buildLeadOfficeCondition(user);
+
   const [totalLeads, activeLeads, closedLeads, pendingLeads] = await Promise.all([
-    prisma.lead.count({ where: { ownerAdminId } }),
+    prisma.lead.count({
+      where: {
+        ownerAdminId,
+        ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+      },
+    }),
     prisma.lead.count({
       where: {
         ownerAdminId,
         NOT: { leadStatus: LeadStatus.Closed },
+        ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
       },
     }),
-    prisma.lead.count({ where: { ownerAdminId, leadStatus: LeadStatus.Closed } }),
+    prisma.lead.count({
+      where: {
+        ownerAdminId,
+        leadStatus: LeadStatus.Closed,
+        ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+      },
+    }),
     getOwnerApprovalRequestCount(ownerAdminId),
   ]);
 
@@ -2202,10 +2313,14 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
             ownerAdminId,
             nextFollowupAt: { not: null },
             NOT: { followupStatus: FollowupStatus.Completed },
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
           },
         }),
         prisma.lead.findMany({
-          where: { ownerAdminId },
+          where: {
+            ownerAdminId,
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+          },
           orderBy: { createdAt: "desc" },
           take: 5,
           select: leadSelect,
@@ -2214,6 +2329,7 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
           where: {
             ownerAdminId,
             nextFollowupAt: { not: null },
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
           },
           orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
           take: 5,
@@ -2221,7 +2337,10 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
         }),
         prisma.lead.groupBy({
           by: ["leadStatus"],
-          where: { ownerAdminId },
+          where: {
+            ownerAdminId,
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+          },
           _count: { _all: true },
         }),
         Promise.all(
@@ -2232,10 +2351,18 @@ export async function getDashboardStats(ownerAdminId: string): Promise<Dashboard
 
             const [createdCount, followupCount] = await Promise.all([
               prisma.lead.count({
-                where: { ownerAdminId, createdAt: { gte: start, lt: end } },
+                where: {
+                  ownerAdminId,
+                  createdAt: { gte: start, lt: end },
+                  ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+                },
               }),
               prisma.lead.count({
-                where: { ownerAdminId, nextFollowupAt: { gte: start, lt: end } },
+                where: {
+                  ownerAdminId,
+                  nextFollowupAt: { gte: start, lt: end },
+                  ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+                },
               }),
             ]);
 
