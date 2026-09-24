@@ -1,6 +1,7 @@
 import { snoozeFollowup } from "@/features/lead/server/lead.service";
 import { FOLLOWUP_PAST_VALIDATION_MESSAGE } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
+import { requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -41,7 +42,10 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-    const params = await context.params;
+  const denied = await requireAnyApiPermission(["followups.manage", "followups.view", "leads.edit"]);
+  if (denied) return denied;
+
+  const params = await context.params;
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

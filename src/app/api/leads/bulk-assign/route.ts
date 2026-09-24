@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { bulkAssignLeads } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
+import { requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -11,6 +12,9 @@ const payloadSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAnyApiPermission(["assigned_leads.assign", "leads.edit"]);
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;

@@ -1,7 +1,7 @@
 import { deleteLead, getLeadById, updateLead } from "@/features/lead/server/lead.service";
 import { leadInputSchema } from "@/features/lead/validations/lead.schema";
 import { auth } from "@/lib/auth";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireApiPermission, requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -12,6 +12,15 @@ type RouteContext = {
 };
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireAnyApiPermission([
+    "leads.view",
+    "leads.view_all",
+    "leads.view_own",
+    "leads.view_assigned_users",
+    "lead_management.view",
+  ]);
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -90,6 +99,9 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 }
 
 export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiPermission("leads.delete");
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

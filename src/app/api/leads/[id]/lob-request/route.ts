@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { createLobWorkflowRequest } from "@/features/lead/server/workflow-approval.service";
 import { jsonError, jsonOk } from "@/utils/response";
 import { prisma } from "@/lib/prisma";
@@ -9,7 +9,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const denied = await requireApiPermission("leads.edit");
+  const denied = await requireAnyApiPermission(["lob.request", "leads.edit"]);
   if (denied) return denied;
 
   try {

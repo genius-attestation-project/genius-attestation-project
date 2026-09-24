@@ -1,8 +1,19 @@
 import { listAssignableLeadUsers } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
+import { requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 
 export async function GET() {
+  const denied = await requireAnyApiPermission([
+    "leads.view",
+    "leads.create",
+    "leads.edit",
+    "assigned_leads.view",
+    "assigned_leads.assign",
+    "lead_management.view",
+  ]);
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

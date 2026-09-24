@@ -2,6 +2,7 @@ import { getClosedLeadsTable } from "@/features/closed/server/closed.service";
 import type { ClosedFilters } from "@/features/closed/server/closed.service";
 import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
+import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
@@ -32,6 +33,9 @@ function parseFilters(url: string): ClosedFilters {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApiPermission("closed_leads.view");
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const user = session?.user;

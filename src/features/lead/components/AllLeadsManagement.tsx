@@ -16,6 +16,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { LeadForm } from "@/features/lead/components/LeadForm";
 import { defaultLeadValues, leadStatuses, type LeadFormValues } from "@/features/lead/data/lead.data";
 import type { LeadFilterOptionsResponse, LeadListResponse, LeadRow } from "@/features/lead/types/lead.types";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 type AllLeadsManagementProps = {
   title?: string;
@@ -86,6 +87,16 @@ export function AllLeadsManagement({
   const [pageSize, setPageSize] = useState(10);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
+  const permissions = currentUser?.permissions || [];
+
+  const canCreate = isSuperAdmin || permissions.includes("leads.create") || permissions.includes("*");
+  const canEdit = isSuperAdmin || permissions.includes("leads.edit") || permissions.includes("*");
+  const canDelete = isSuperAdmin || permissions.includes("leads.delete") || permissions.includes("*");
+  const canExport = isSuperAdmin || permissions.includes("leads.export") || permissions.includes("*");
+  const canImport = isSuperAdmin || permissions.includes("leads.import") || permissions.includes("*");
 
   const isServerFilteredEndpoint = endpoint === "/api/leads";
 
@@ -170,7 +181,7 @@ export function AllLeadsManagement({
   }, [isServerFilteredEndpoint]);
 
   useEffect(() => {
-    if (!isServerFilteredEndpoint || typeof window === "undefined") {
+    if (!isServerFilteredEndpoint || typeof window === "undefined" || !canEdit) {
       return;
     }
 
@@ -360,6 +371,11 @@ export function AllLeadsManagement({
   }
 
   async function handleDelete(lead: LeadRow) {
+    if (!canDelete) {
+      setError("You do not have permission to delete leads.");
+      return;
+    }
+
     const shouldDelete = window.confirm(`Delete ${lead.leadCode} permanently?`);
 
     if (!shouldDelete) {
@@ -388,6 +404,11 @@ export function AllLeadsManagement({
   }
 
   async function handleExportExcel() {
+    if (!canExport) {
+      setExportError("You do not have permission to export leads.");
+      return;
+    }
+
     if (leadData.items.length === 0) {
       setExportError("No records available to export.");
       return;
@@ -481,7 +502,7 @@ export function AllLeadsManagement({
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      {showAddLead && (
+      {showAddLead && canCreate && (
         <div className="flex items-center justify-end">
           <Button onClick={() => setIsDrawerOpen(true)}>
             <Plus size={16} />
@@ -579,10 +600,12 @@ export function AllLeadsManagement({
               </div>
               {exportError && <div className="text-sm text-red-500 mt-2">{exportError}</div>}
               <div className="flex justify-end gap-2 mt-2">
-                <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={isExporting}>
-                  {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
-                  Export Excel
-                </Button>
+                {canExport && (
+                  <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                    {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+                    Export Excel
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={resetFilters}>
                   <FilterX size={16} />
                   Clear Filters
@@ -616,7 +639,7 @@ export function AllLeadsManagement({
             title="No Leads Found"
             description="There are no lead records matching the current filters."
             action={
-              showAddLead ? <Button onClick={() => setIsDrawerOpen(true)}>Create Lead</Button> : null
+              showAddLead && canCreate ? <Button onClick={() => setIsDrawerOpen(true)}>Create Lead</Button> : null
             }
           />
         ) : (
@@ -672,19 +695,29 @@ export function AllLeadsManagement({
 
                     return (
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedLead(lead)}>
+                        <Button variant="ghost" size="icon" onClick={() => setSelectedLead(lead)} title="View Details">
                           <Eye size={16} />
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          onClick={() => setEditingLead(lead)}
-                        >
-                          <Pencil size={16} />
-                        </Button>
-                        <Button variant="danger" size="icon" onClick={() => void handleDelete(lead)}>
-                          <Trash2 size={16} />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            onClick={() => setEditingLead(lead)}
+                            title="Edit Lead"
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="danger"
+                            size="icon"
+                            onClick={() => void handleDelete(lead)}
+                            title="Delete Lead"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
                     );
                   },
@@ -711,40 +744,44 @@ export function AllLeadsManagement({
         )}
       </DashboardCard>
 
-      <FormDrawer
-        open={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        title="Add Lead"
-        description="Create a lead with the current CRM field structure in a cleaner modern SaaS form."
-      >
-        <LeadForm
-          onCancel={() => setIsDrawerOpen(false)}
-          onSuccess={async () => {
-            await refreshLeads();
-            setIsDrawerOpen(false);
-          }}
-        />
-      </FormDrawer>
-
-      <FormDrawer
-        open={Boolean(editingLead)}
-        onClose={() => setEditingLead(null)}
-        title="Edit Lead"
-        description="Update the selected lead and keep the dashboard synced with live database data."
-      >
-        {editingLead ? (
+      {canCreate && (
+        <FormDrawer
+          open={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          title="Add Lead"
+          description="Create a lead with the current CRM field structure in a cleaner modern SaaS form."
+        >
           <LeadForm
-            leadId={editingLead.id}
-            initialValues={toFormValues(editingLead)}
-            submitLabel="Update Lead"
-            onCancel={() => setEditingLead(null)}
+            onCancel={() => setIsDrawerOpen(false)}
             onSuccess={async () => {
               await refreshLeads();
-              setEditingLead(null);
+              setIsDrawerOpen(false);
             }}
           />
-        ) : null}
-      </FormDrawer>
+        </FormDrawer>
+      )}
+
+      {canEdit && (
+        <FormDrawer
+          open={Boolean(editingLead)}
+          onClose={() => setEditingLead(null)}
+          title="Edit Lead"
+          description="Update the selected lead and keep the dashboard synced with live database data."
+        >
+          {editingLead ? (
+            <LeadForm
+              leadId={editingLead.id}
+              initialValues={toFormValues(editingLead)}
+              submitLabel="Update Lead"
+              onCancel={() => setEditingLead(null)}
+              onSuccess={async () => {
+                await refreshLeads();
+                setEditingLead(null);
+              }}
+            />
+          ) : null}
+        </FormDrawer>
+      )}
 
       <FormDrawer
         open={Boolean(selectedLead)}

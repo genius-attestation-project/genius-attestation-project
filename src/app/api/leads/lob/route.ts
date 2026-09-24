@@ -1,9 +1,13 @@
 import { getLobSummary } from "@/features/lead/server/lead.service";
 import { auth } from "@/lib/auth";
+import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApiPermission("lob.view");
+  if (denied) return denied;
+
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
