@@ -179,6 +179,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         pagePermission: "master_configuration.courier_companies.view",
       },
       {
+        label: "Source",
+        href: "/dashboard/master-configuration/source",
+        icon: Globe,
+        menuPermission: "menu.master-configuration.source",
+        pagePermission: "master_configuration.source.view",
+      },
+      {
         label: "Account Menu",
         href: "/dashboard/master-configuration/account-menu",
         icon: FolderTree,
@@ -473,6 +480,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     key: "courier_companies",
     label: "Courier Companies",
     description: "Courier Companies master data management.",
+    actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
+  },
+  {
+    key: "master_configuration.source",
+    label: "Source",
+    description: "Source master data management.",
     actions: ["view", "create", "edit", "delete", "activate", "deactivate", "export"]
   },
   {

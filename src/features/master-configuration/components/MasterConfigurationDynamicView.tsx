@@ -18,7 +18,9 @@ const pageTitles: Record<string, string> = {
   "sub-process": "Sub Process",
   "sub-packages": "Sub Process",
   "customer-types": "Customer Types",
-  "lead-sources": "Lead Sources",
+  "lead-sources": "Source",
+  "source": "Source",
+  "sources": "Source",
   "courier-companies": "Courier Companies",
 };
 
@@ -35,6 +37,7 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
   const isDocumentTypeCategory = slug === "document-type-categories";
   const isProcessType = slug === "attestation-types" || slug === "process-types";
   const isSubPackage = slug === "sub-process" || slug === "sub-packages";
+  const isSource = slug === "source" || slug === "sources" || slug === "lead-sources";
   const title = pageTitles[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
   const [data, setData] = useState<any[]>([]);
@@ -234,6 +237,8 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
           ? "Category Name"
           : isProcessType 
           ? "Process Type" 
+          : isSource
+          ? "Source Name"
           : "Name", 
         accessorKey: "name" 
       },
@@ -360,7 +365,7 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
           <div className="space-y-6">
             <div className="space-y-4">
               <Input
-                label={isSubPackage ? "Sub Process Name" : isDocumentTypeCategory ? "Category Name" : "Name"}
+                label={isSubPackage ? "Sub Process Name" : isDocumentTypeCategory ? "Category Name" : isSource ? "Source Name" : "Name"}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required

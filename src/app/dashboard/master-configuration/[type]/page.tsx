@@ -11,6 +11,9 @@ const slugPermissionMap: Record<string, string> = {
   "sub-packages": "master_configuration.sub_process.view",
   "customer-types": "master_configuration.customer_types.view",
   "courier-companies": "master_configuration.courier_companies.view",
+  "source": "master_configuration.source.view",
+  "sources": "master_configuration.source.view",
+  "lead-sources": "master_configuration.source.view",
 };
 
 export default async function MasterConfigurationDynamicPage({

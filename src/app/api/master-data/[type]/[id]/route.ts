@@ -25,6 +25,10 @@ function getMasterDataPermissionKey(slug: string, action: "view" | "create" | "e
       return `master_configuration.payment_mode.${action}`;
     case "courier-companies":
       return `master_configuration.courier_companies.${action}`;
+    case "source":
+    case "sources":
+    case "lead-sources":
+      return `master_configuration.source.${action}`;
     case "departments":
       return `departments.${action}`;
     case "office-locations":

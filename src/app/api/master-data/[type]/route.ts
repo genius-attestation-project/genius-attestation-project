@@ -25,6 +25,10 @@ function getMasterDataPermissionKey(slug: string, action: "view" | "create" | "e
       return `master_configuration.payment_mode.${action}`;
     case "courier-companies":
       return `master_configuration.courier_companies.${action}`;
+    case "source":
+    case "sources":
+    case "lead-sources":
+      return `master_configuration.source.${action}`;
     case "departments":
       return `departments.${action}`;
     case "office-locations":
@@ -70,8 +74,10 @@ function isAuthorizedMasterDataLookupConsumer(user: any, slug: string): boolean 
     case "attestation-types":
       return hasLeadCreateOrEdit || hasAssignLeads || hasRevenueRegistration || hasProcessModule;
 
+    case "source":
+    case "sources":
     case "lead-sources":
-      return hasLeadCreateOrEdit;
+      return hasLeadCreateOrEdit || hasPermission(user, "leads.view");
 
     case "customer-types":
       return hasLeadCreateOrEdit || hasRevenueRegistration;
@@ -234,9 +240,12 @@ export async function GET(
 
     const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
     const isDocumentType = rawSlug === "document-types" || type === "DOCUMENT_TYPES";
+    const isSource = rawSlug === "source" || rawSlug === "sources" || rawSlug === "lead-sources" || type === "SOURCE" || type === "SOURCES" || type === "LEAD_SOURCES";
 
     if (isProcessType) {
       whereClause.type = "PROCESS_TYPES";
+    } else if (isSource) {
+      whereClause.type = "SOURCE";
     }
 
     const coreSubPackageId = searchParams.get("coreSubPackageId") || "";
@@ -279,7 +288,7 @@ export async function GET(
 
     const groupStats = await prisma.masterData.groupBy({
       by: ["isActive"],
-      where: { type, isArchived: false, ownerAdminId },
+      where: { type: whereClause.type, isArchived: false, ownerAdminId },
       _count: { id: true },
     });
 
@@ -386,7 +395,8 @@ export async function POST(
     // Generic MasterData handler
     const isDocumentType = type === "DOCUMENT_TYPES" || type === "DOCUMENT_TYPE";
     const isProcessType = rawSlug === "attestation-types" || rawSlug === "process-types" || type === "ATTESTATION_TYPES" || type === "PROCESS_TYPES";
-    const targetType = isProcessType ? "PROCESS_TYPES" : type;
+    const isSource = rawSlug === "source" || rawSlug === "sources" || rawSlug === "lead-sources" || type === "SOURCE" || type === "SOURCES" || type === "LEAD_SOURCES";
+    const targetType = isProcessType ? "PROCESS_TYPES" : isSource ? "SOURCE" : type;
 
     let finalCategoryId: string | null = categoryId || null;
     let finalCategoryName = (category || "").trim().slice(0, 100);
@@ -449,7 +459,7 @@ export async function POST(
 
     const newItem = await prisma.masterData.create({
       data: {
-        type,
+        type: targetType,
         name: trimmedName,
         category: finalCategoryName || "General",
         categoryId: finalCategoryId,

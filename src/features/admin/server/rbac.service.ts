@@ -1382,6 +1382,10 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         result.add("master_configuration.courier_companies.view");
         result.add("menu.master-configuration.courier-companies");
       }
+      if (key.startsWith("master_configuration.source.") || key.startsWith("source.")) {
+        result.add("master_configuration.source.view");
+        result.add("menu.master-configuration.source");
+      }
       if (key.startsWith("account_menu.")) {
         result.add("account_menu.view");
         result.add("menu.master-configuration.account-menu");

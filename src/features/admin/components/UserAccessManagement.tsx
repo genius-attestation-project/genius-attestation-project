@@ -354,6 +354,15 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         ],
       },
       {
+        label: "Source",
+        actions: [
+          { key: "master_configuration.source.view", label: "View" },
+          { key: "master_configuration.source.create", label: "Create" },
+          { key: "master_configuration.source.edit", label: "Edit" },
+          { key: "master_configuration.source.delete", label: "Delete" },
+        ],
+      },
+      {
         label: "Account Menu",
         actions: [
           { key: "account_menu.view", label: "View" },
