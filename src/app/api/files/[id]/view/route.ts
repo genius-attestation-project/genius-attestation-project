@@ -29,6 +29,8 @@ export async function GET(
         hasPermission(userAccess, "corporate_details.view") ||
         hasPermission(userAccess, "corporate_details_approval.view") ||
         hasPermission(userAccess, "master_configuration.view") ||
+        hasPermission(userAccess, "account_statements.view") ||
+        hasPermission(userAccess, "account_panel.view") ||
         hasPermission(userAccess, "lead_management.view");
 
       if (!allowed) {

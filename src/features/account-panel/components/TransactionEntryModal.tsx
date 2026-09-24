@@ -23,6 +23,7 @@ interface TransactionEntryModalProps {
   onClose: () => void;
   account: AccountNode | null;
   activeOfficeName?: string | null;
+  activeOfficeId?: string | null;
   onSuccess?: () => void;
 }
 
@@ -31,6 +32,7 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
   onClose,
   account,
   activeOfficeName,
+  activeOfficeId,
   onSuccess,
 }) => {
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -90,6 +92,7 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
           transactionDate,
           amount: parseFloat(amount),
           narration: narration.trim() || undefined,
+          officeId: activeOfficeId || undefined,
         }),
       });
 

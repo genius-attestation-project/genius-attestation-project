@@ -32,6 +32,12 @@ export interface DebitAccountGroup {
   items: AccountStatementItem[];
 }
 
+export interface CreditAccountGroup {
+  accountName: string;
+  subTotal: number;
+  items: AccountStatementItem[];
+}
+
 export interface AccountStatementsData {
   office: string;
   fromDate: string;
@@ -44,6 +50,7 @@ export interface AccountStatementsData {
     moreAdvancesTotal: number;
     panelCredits: AccountStatementItem[];
     panelCreditsTotal: number;
+    groups?: CreditAccountGroup[];
     creditTotal: number;
   };
   debit: {

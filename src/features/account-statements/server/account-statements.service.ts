@@ -5,6 +5,7 @@ import type {
   AccountStatementFiltersInput,
   AccountStatementItem,
   DebitAccountGroup,
+  CreditAccountGroup,
 } from "../types/account-statements.types";
 
 const db = prisma as any;
@@ -35,6 +36,7 @@ export async function getAccountStatements(
       moreAdvancesTotal: 0,
       panelCredits: [],
       panelCreditsTotal: 0,
+      groups: [],
       creditTotal: 0,
     },
     debit: {
@@ -320,9 +322,20 @@ export async function getAccountStatements(
   }
 
   if (targetOfficeId) {
-    panelWhere.officeId = targetOfficeId;
+    panelWhere.OR = [
+      { officeId: targetOfficeId },
+      { account: { officeAssignments: { some: { officeId: targetOfficeId } } } },
+    ];
+  } else if (targetOfficeName) {
+    panelWhere.OR = [
+      { officeId: targetOfficeName },
+      { account: { officeAssignments: { some: { office: { officeName: targetOfficeName } } } } },
+    ];
   } else if (!isSuperAdmin && allowedOfficeIds.length > 0) {
-    panelWhere.officeId = { in: allowedOfficeIds };
+    panelWhere.OR = [
+      { officeId: { in: allowedOfficeIds } },
+      { account: { officeAssignments: { some: { officeId: { in: allowedOfficeIds } } } } },
+    ];
   }
 
   const rawPanelTransactions = await db.accountPanelTransaction.findMany({
@@ -334,6 +347,13 @@ export async function getAccountStatements(
           name: true,
           type: true,
           code: true,
+          category: true,
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
     },
@@ -398,7 +418,29 @@ export async function getAccountStatements(
   }
 
   // ----------------------------------------------------
-  // 3. Group Debit Items by Account Name
+  // 3. Group Credit Items by Account Name
+  // ----------------------------------------------------
+  const creditGroupMap = new Map<string, AccountStatementItem[]>();
+  for (const item of panelCreditItems) {
+    const accName = item.accountName || "Credit Transactions";
+    const existing = creditGroupMap.get(accName) || [];
+    existing.push(item);
+    creditGroupMap.set(accName, existing);
+  }
+
+  const creditGroups: CreditAccountGroup[] = [];
+  for (const [accountName, items] of Array.from(creditGroupMap.entries())) {
+    const groupSubTotal = items.reduce((sum, it) => sum + it.amount, 0);
+    const numberedItems = items.map((it, idx) => ({ ...it, slNo: idx + 1 }));
+    creditGroups.push({
+      accountName,
+      subTotal: groupSubTotal,
+      items: numberedItems,
+    });
+  }
+
+  // ----------------------------------------------------
+  // 4. Group Debit Items by Account Name
   // ----------------------------------------------------
   const debitGroupMap = new Map<string, AccountStatementItem[]>();
 
@@ -432,7 +474,7 @@ export async function getAccountStatements(
   }
 
   // ----------------------------------------------------
-  // 4. Calculate Totals
+  // 5. Calculate Totals
   // ----------------------------------------------------
   const advancesTotal = advancesList.reduce((sum, item) => sum + item.amount, 0);
   const moreAdvancesTotal = moreAdvancesList.reduce((sum, item) => sum + item.amount, 0);
@@ -455,6 +497,7 @@ export async function getAccountStatements(
       moreAdvancesTotal,
       panelCredits: transactionType === "DEBIT" ? [] : panelCreditItems,
       panelCreditsTotal,
+      groups: transactionType === "DEBIT" ? [] : creditGroups,
       creditTotal,
     },
     debit: {

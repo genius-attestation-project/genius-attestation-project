@@ -220,6 +220,7 @@ export const AccountPanelDashboard: React.FC = () => {
         isOpen={Boolean(selectedLeafAccount)}
         account={selectedLeafAccount}
         activeOfficeName={activeOffice?.name}
+        activeOfficeId={activeOffice?.id}
         onClose={() => setSelectedLeafAccount(null)}
       />
     </div>
