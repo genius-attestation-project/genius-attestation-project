@@ -66,6 +66,9 @@ export async function PUT(
         collectedBy: body.collectedBy,
         remarks: body.narration ?? body.remarks,
         bankProofFileId: body.bankProofFileId,
+        bankName: body.bankName,
+        transactionRefNo: body.transactionRefNo,
+        transferDate: body.transferDate,
       });
       return NextResponse.json({ success: true, item: updated });
     } else if (sourceType === "ACCOUNT_PANEL") {
@@ -121,6 +124,9 @@ export async function PUT(
           collectedBy: body.collectedBy,
           remarks: body.narration ?? body.remarks,
           bankProofFileId: body.bankProofFileId,
+          bankName: body.bankName,
+          transactionRefNo: body.transactionRefNo,
+          transferDate: body.transferDate,
         });
         return NextResponse.json({ success: true, item: updated });
       } else {

@@ -20,6 +20,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [amount, setAmount] = useState<number>(0);
   const [date, setDate] = useState<string>("");
   const [paymentMode, setPaymentMode] = useState<string>("Cash");
+  const [bankName, setBankName] = useState<string>("");
   const [collectedBy, setCollectedBy] = useState<string>("");
   const [narration, setNarration] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState<string>("");
@@ -31,6 +32,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setAmount(item.amount);
       setDate(item.date);
       setPaymentMode(item.paymentMode || "Cash");
+      setBankName(item.bankName || "");
       setCollectedBy(item.collectedBy || "");
       setNarration(item.narration || "");
       setInvoiceNumber(item.invoiceNumber || "");
@@ -61,6 +63,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           paymentDate: date,
           transactionDate: date,
           paymentMode,
+          bankName: bankName.trim() || undefined,
           collectedBy,
           narration,
           invoiceNumber,
@@ -164,6 +167,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   <option value="Card">Card</option>
                 </select>
               </div>
+
+              {/* Bank Name (for Non-Cash) */}
+              {paymentMode !== "Cash" && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={bankName}
+                    placeholder="e.g. State Bank of India"
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  />
+                </div>
+              )}
 
               {/* Collected By */}
               <div>

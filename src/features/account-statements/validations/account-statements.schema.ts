@@ -19,6 +19,9 @@ export const updateStatementTransactionSchema = z.object({
   narration: z.string().optional(),
   referenceNumber: z.string().optional(),
   invoiceNumber: z.string().optional(),
+  bankName: z.string().optional().nullable(),
+  transactionRefNo: z.string().optional().nullable(),
+  transferDate: z.string().optional().nullable(),
   bankProofFileId: z.string().optional().nullable(),
   billAttachment: z.string().optional().nullable(),
 });

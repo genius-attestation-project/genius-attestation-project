@@ -133,6 +133,22 @@ export async function POST(request: Request) {
       receiptFileId,
       performedByUserId: session.user.id,
       ipAddress,
+      bankName: body.bankName || null,
+      transactionRefNo: body.transactionRefNo || null,
+      transferDate: body.transferDate || null,
+      upiTransactionId: body.upiTransactionId || null,
+      chequeNumber: body.chequeNumber || null,
+      chequeDate: body.chequeDate || null,
+      ddNumber: body.ddNumber || null,
+      ddDate: body.ddDate || null,
+      cardLast4: body.cardLast4 || null,
+      approvalCode: body.approvalCode || null,
+      paymentGateway: body.paymentGateway || null,
+      onlineTransactionId: body.onlineTransactionId || null,
+      walletName: body.walletName || null,
+      walletTransactionId: body.walletTransactionId || null,
+      paymentReferenceNo: body.paymentReferenceNo || null,
+      paymentDescription: body.paymentDescription || null,
     });
 
     return NextResponse.json({ success: true, item: approval });

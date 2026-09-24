@@ -32,6 +32,22 @@ export async function submitAdvancePaymentApproval(args: {
   receiptFileId?: string | null;
   performedByUserId?: string | null;
   ipAddress?: string | null;
+  bankName?: string | null;
+  transactionRefNo?: string | null;
+  transferDate?: string | Date | null;
+  upiTransactionId?: string | null;
+  chequeNumber?: string | null;
+  chequeDate?: string | Date | null;
+  ddNumber?: string | null;
+  ddDate?: string | Date | null;
+  cardLast4?: string | null;
+  approvalCode?: string | null;
+  paymentGateway?: string | null;
+  onlineTransactionId?: string | null;
+  walletName?: string | null;
+  walletTransactionId?: string | null;
+  paymentReferenceNo?: string | null;
+  paymentDescription?: string | null;
 }) {
   const advanceAmount = Number(args.advanceAmount);
   if (isNaN(advanceAmount) || advanceAmount <= 0) {
@@ -170,12 +186,34 @@ export async function submitAdvancePaymentApproval(args: {
     },
   });
 
-  // Update registration advance payment status flag ONLY
+  // Update registration record with original payment request data
+  const regUpdateData: any = {
+    advancePaymentStatus: "Pending Approval",
+    advancePaymentRejectionReason: null,
+  };
+  if (args.bankName !== undefined) regUpdateData.bankName = args.bankName;
+  if (args.transactionRefNo !== undefined) regUpdateData.transactionRefNo = args.transactionRefNo;
+  if (args.transferDate) regUpdateData.transferDate = new Date(args.transferDate);
+  if (args.upiTransactionId !== undefined) regUpdateData.upiTransactionId = args.upiTransactionId;
+  if (args.chequeNumber !== undefined) regUpdateData.chequeNumber = args.chequeNumber;
+  if (args.chequeDate) regUpdateData.chequeDate = new Date(args.chequeDate);
+  if (args.ddNumber !== undefined) regUpdateData.ddNumber = args.ddNumber;
+  if (args.ddDate) regUpdateData.ddDate = new Date(args.ddDate);
+  if (args.cardLast4 !== undefined) regUpdateData.cardLast4 = args.cardLast4;
+  if (args.approvalCode !== undefined) regUpdateData.approvalCode = args.approvalCode;
+  if (args.paymentGateway !== undefined) regUpdateData.paymentGateway = args.paymentGateway;
+  if (args.onlineTransactionId !== undefined) regUpdateData.onlineTransactionId = args.onlineTransactionId;
+  if (args.walletName !== undefined) regUpdateData.walletName = args.walletName;
+  if (args.walletTransactionId !== undefined) regUpdateData.walletTransactionId = args.walletTransactionId;
+  if (args.paymentReferenceNo !== undefined) regUpdateData.paymentReferenceNo = args.paymentReferenceNo;
+  if (args.paymentDescription !== undefined) regUpdateData.paymentDescription = args.paymentDescription || args.remarks;
+  if (args.collectedBy) regUpdateData.collectedPerson = args.collectedBy;
+  if (args.paymentMode) regUpdateData.paymentMode = args.paymentMode;
+
   await prisma.registration.update({
     where: { id: registration.id },
     data: {
-      advancePaymentStatus: "Pending Approval",
-      advancePaymentRejectionReason: null,
+      ...regUpdateData,
       auditTrail: {
         create: {
           action: "Advance Payment Requested",
@@ -778,6 +816,9 @@ export async function updateAdvancePaymentApproval(args: {
   collectedBy?: string | null;
   remarks?: string | null;
   bankProofFileId?: string | null;
+  bankName?: string | null;
+  transactionRefNo?: string | null;
+  transferDate?: string | Date | null;
   ipAddress?: string | null;
 }) {
   const approval = await prisma.advancePaymentApproval.findFirst({
@@ -875,12 +916,22 @@ export async function updateAdvancePaymentApproval(args: {
       balanceAmount: newBalanceAmount,
     });
 
+    const regSyncData: any = {
+      advancePaid: new Prisma.Decimal(newTotalApprovedAdvance),
+      balanceAmount: new Prisma.Decimal(newBalanceAmount),
+      paymentStatus: newPaymentStatus,
+    };
+    if (args.bankName !== undefined) regSyncData.bankName = args.bankName;
+    if (args.transactionRefNo !== undefined) regSyncData.transactionRefNo = args.transactionRefNo;
+    if (args.transferDate) regSyncData.transferDate = new Date(args.transferDate);
+    if (args.paymentMode) regSyncData.paymentMode = args.paymentMode;
+    if (args.collectedBy) regSyncData.collectedPerson = args.collectedBy;
+    if (args.remarks) regSyncData.paymentDescription = args.remarks;
+
     await prisma.registration.update({
       where: { id: approval.registrationId },
       data: {
-        advancePaid: new Prisma.Decimal(newTotalApprovedAdvance),
-        balanceAmount: new Prisma.Decimal(newBalanceAmount),
-        paymentStatus: newPaymentStatus,
+        ...regSyncData,
         auditTrail: {
           create: {
             action: "Advance Payment Updated",

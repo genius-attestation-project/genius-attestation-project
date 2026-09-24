@@ -9,6 +9,11 @@ export interface AccountStatementItem {
   paymentMode?: string;
   narration?: string;
   trackingNumber?: string | null;
+  bankName?: string | null;
+  referenceNumber?: string | null;
+  transferDate?: string | null;
+  proofFileType?: string | null;
+  remarks?: string | null;
   proofFileUrl?: string | null;
   proofFileName?: string | null;
   bankProofFileUrl?: string | null;

@@ -154,10 +154,33 @@ export async function getAccountStatements(
           customerName: true,
           regionOfRegistration: true,
           registeredPerson: true,
+          collectedPerson: true,
+          bankName: true,
+          transactionRefNo: true,
+          transferDate: true,
+          paymentMode: true,
+          paymentDescription: true,
+          upiTransactionId: true,
+          chequeNumber: true,
+          chequeDate: true,
+          ddNumber: true,
+          ddDate: true,
+          cardLast4: true,
+          approvalCode: true,
+          paymentGateway: true,
+          onlineTransactionId: true,
+          walletName: true,
+          walletTransactionId: true,
+          paymentReferenceNo: true,
+          files: {
+            where: { fileCategory: "ADVANCE_PAYMENT" },
+            include: { fileStorage: true },
+            orderBy: { uploadedAt: "desc" },
+          },
         },
       },
       auditLogs: {
-        where: { action: "Created" },
+        where: { action: { in: ["Submitted", "Created"] } },
         select: { remarks: true },
         orderBy: { createdAt: "asc" },
         take: 1,
@@ -168,17 +191,21 @@ export async function getAccountStatements(
   // Filter advances by search term if provided
   const filteredAdvances = approvedAdvancesRaw.filter((item: any) => {
     if (!searchFilter) return true;
-    const tracking = (item.trackingNumber || "").toLowerCase();
-    const customer = (item.customerName || "").toLowerCase();
-    const collector = (item.collectedBy || item.requestedByName || item.registeredPerson || "").toLowerCase();
-    const mode = (item.paymentMode || "").toLowerCase();
-    const ref = (item.referenceNumber || "").toLowerCase();
+    const tracking = (item.trackingNumber || item.registration?.trackingNumber || "").toLowerCase();
+    const customer = (item.customerName || item.registration?.customerName || "").toLowerCase();
+    const collector = (item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "").toLowerCase();
+    const mode = (item.paymentMode || item.registration?.paymentMode || "").toLowerCase();
+    const ref = (item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || "").toLowerCase();
+    const bank = (item.registration?.bankName || "").toLowerCase();
+    const remarks = (item.remarks || item.registration?.paymentDescription || "").toLowerCase();
     return (
       tracking.includes(searchFilter) ||
       customer.includes(searchFilter) ||
       collector.includes(searchFilter) ||
       mode.includes(searchFilter) ||
-      ref.includes(searchFilter)
+      ref.includes(searchFilter) ||
+      bank.includes(searchFilter) ||
+      remarks.includes(searchFilter)
     );
   });
 
@@ -191,42 +218,64 @@ export async function getAccountStatements(
   let moreAdvanceSlNo = 1;
 
   for (const item of filteredAdvances) {
-    const isCash = (item.paymentMode || "").trim().toLowerCase() === "cash";
-    const dateStr = item.paymentDate
-      ? new Date(item.paymentDate).toISOString().split("T")[0]
+    const isCash = (item.paymentMode || item.registration?.paymentMode || "").trim().toLowerCase() === "cash";
+    
+    // Original payment date from Advance Payment Request
+    const paymentDateObj = item.paymentDate || item.registration?.transferDate || item.requestedAt || item.createdAt;
+    const dateStr = paymentDateObj
+      ? new Date(paymentDateObj).toISOString().split("T")[0]
       : new Date(item.createdAt).toISOString().split("T")[0];
 
-    const proofUrl =
-      item.bankProofFileUrl ||
-      item.receiptFileUrl ||
-      (item.bankProofFileId ? `/api/files/${item.bankProofFileId}/view` : null) ||
-      (item.receiptFileId ? `/api/files/${item.receiptFileId}/view` : null);
+    // Original uploaded proof file from Advance Payment Request
+    let proofUrl: string | null = null;
+    let proofName: string = "Proof Document";
 
-    const proofName = item.bankProofFileName || item.receiptFileName || "Proof Document";
+    if (item.receiptFileUrl) {
+      proofUrl = item.receiptFileUrl;
+      proofName = item.receiptFileName || "Advance Payment Receipt";
+    } else if (item.receiptFileId) {
+      proofUrl = `/api/files/${item.receiptFileId}/view`;
+      proofName = item.receiptFileName || "Advance Payment Receipt";
+    } else if (item.registration?.files?.length > 0 && item.registration.files[0].fileStorage) {
+      const storage = item.registration.files[0].fileStorage;
+      proofUrl = storage.url || `/api/files/${storage.id}/view`;
+      proofName = storage.originalName || "Advance Payment Proof";
+    } else if (item.bankProofFileUrl || item.bankProofFileId) {
+      // Fallback only if no advance request receipt was attached
+      proofUrl = item.bankProofFileUrl || `/api/files/${item.bankProofFileId}/view`;
+      proofName = item.bankProofFileName || "Proof Document";
+    }
 
     const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
+    const effectivePaymentMode = item.paymentMode || item.registration?.paymentMode || (isCash ? "Cash" : "Bank Transfer");
+    const effectiveCollectedBy = item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "Staff";
+    const bankName = item.registration?.bankName || null;
+    const refNumber = item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || item.registration?.paymentReferenceNo || "";
+    
+    // Original remarks/narration entered in Advance Payment Request
     const createdAuditRemarks = (item.auditLogs?.[0]?.remarks || "").trim();
-    const itemRemarks = (item.remarks || "").trim();
-    const cleanRemarks = createdAuditRemarks || itemRemarks;
+    const originalRemarks = (item.remarks || item.registration?.paymentDescription || createdAuditRemarks || "").trim();
+    const cleanNarration = originalRemarks || (isCash ? `Cash Advance for ${trackingNum}` : `${effectivePaymentMode} Advance for ${trackingNum}`);
 
-    const cleanRef = item.referenceNumber ? item.referenceNumber.replace(/^Ref:\s*/i, "").trim() : "";
-    const fallbackBankName = cleanRef
-      ? `Bank Payment (${item.paymentMode || "Bank"} Ref: ${cleanRef})`
-      : `Bank Transfer - ${item.paymentMode || "Bank Payment"}`;
-
-    const primaryDebitAccount = cleanRemarks || fallbackBankName;
+    // Bank Account Name for debit Bank Payment Transactions
+    const bankAccountName = bankName || effectivePaymentMode;
 
     const statementItem: AccountStatementItem = {
       id: item.id,
       sourceType: "ADVANCE_PAYMENT",
       date: dateStr,
-      collectedBy: item.collectedBy || item.requestedByName || item.registeredPerson || item.registration?.registeredPerson || "Staff",
-      invoiceNumber: trackingNum || item.referenceNumber || "-",
+      collectedBy: effectiveCollectedBy,
+      invoiceNumber: trackingNum || refNumber || "-",
       amount: Number(item.advanceAmount ?? 0),
-      paymentMode: item.paymentMode || "Cash",
-      narration: cleanRemarks || (isCash ? `Cash Advance for ${trackingNum}` : `${item.paymentMode} Advance for ${trackingNum}`),
+      paymentMode: effectivePaymentMode,
+      narration: cleanNarration,
       trackingNumber: trackingNum || null,
-      accountName: primaryDebitAccount,
+      bankName,
+      referenceNumber: refNumber || null,
+      transferDate: item.registration?.transferDate ? new Date(item.registration.transferDate).toISOString().split("T")[0] : dateStr,
+      proofFileType: item.proofFileType || "Receipt",
+      remarks: originalRemarks || null,
+      accountName: bankAccountName,
       proofFileUrl: proofUrl,
       proofFileName: proofName,
       bankProofFileUrl: item.bankProofFileUrl || null,
@@ -249,9 +298,9 @@ export async function getAccountStatements(
       bankPaymentDebitItems.push({
         ...statementItem,
         id: `debit_adv_${item.id}`,
-        accountName: primaryDebitAccount,
+        accountName: bankAccountName,
         trackingNumber: trackingNum || null,
-        narration: cleanRemarks || `${item.paymentMode || "Bank Transfer"} Advance for ${trackingNum || "document"}`,
+        narration: cleanNarration,
       });
     }
   }
