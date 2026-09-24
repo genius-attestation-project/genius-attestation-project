@@ -150,6 +150,13 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         ],
       },
       {
+        label: "RD Approve",
+        actions: [
+          { key: "pending_approval.rd_approval.approve", label: "Approve" },
+          { key: "pending_approval.rd_approval.reject", label: "Reject" },
+        ],
+      },
+      {
         label: "Advance Details Approval",
         actions: [
           { key: "advance_details_approval.view", label: "View" },
@@ -421,6 +428,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
         actions: [
           { key: "home.document_in_hand.view", label: "View" },
           { key: "home.document_in_hand.transfer", label: "Transfer" },
+          { key: "home.document_in_hand.rd_button", label: "RD Button" },
         ],
       },
       {

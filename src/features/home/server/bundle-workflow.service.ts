@@ -638,13 +638,21 @@ export async function receiveBundle(params: {
         const mainProcessCheck = await verifyMainProcessCompleted(item.trackingNumber, params.ownerAdminId, tx);
         const hasCompletedMainProcess = mainProcessCheck.isCompleted;
 
-        const receivingOfficeName = bundle.toOffice?.officeName || "";
-        const receivingOfficeId = bundle.toOfficeId || bundle.toOffice?.id || "";
-        const deliveryLocation = reg?.deliveryLocation || "";
+        let receivingOffice = bundle.toOffice;
+        if (!receivingOffice && bundle.toOfficeId) {
+          receivingOffice = await tx.officeLocation.findUnique({
+            where: { id: bundle.toOfficeId },
+            select: { id: true, officeName: true },
+          });
+        }
+        const receivingOfficeName = receivingOffice?.officeName || bundle.toOffice?.officeName || "";
+        const receivingOfficeId = bundle.toOfficeId || receivingOffice?.id || bundle.toOffice?.id || "";
+        const deliveryLocation = (reg?.deliveryLocation || "").trim();
 
         // Resolve delivery location to office ID or name
         let deliveryOffice = deliveryLocation ? await tx.officeLocation.findFirst({
           where: {
+            ownerAdminId: params.ownerAdminId,
             OR: [
               { id: deliveryLocation },
               { officeName: deliveryLocation },
@@ -656,6 +664,7 @@ export async function receiveBundle(params: {
         if (!deliveryOffice && deliveryLocation) {
           const ao = await tx.assignedOffice.findFirst({
             where: {
+              ownerAdminId: params.ownerAdminId,
               OR: [
                 { id: deliveryLocation },
                 { username: deliveryLocation },
@@ -674,13 +683,15 @@ export async function receiveBundle(params: {
           (
             (deliveryOffice?.id && (deliveryOffice.id === receivingOfficeId || deliveryOffice.id === bundle.toOfficeId)) ||
             (deliveryOffice?.officeName && receivingOfficeName && deliveryOffice.officeName.trim().toLowerCase() === receivingOfficeName.trim().toLowerCase()) ||
-            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.trim().toLowerCase()) ||
-            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.trim().toLowerCase())
+            (receivingOfficeName && receivingOfficeName.trim().toLowerCase() === deliveryLocation.toLowerCase()) ||
+            (receivingOfficeId && receivingOfficeId.trim().toLowerCase() === deliveryLocation.toLowerCase())
           )
         );
 
-        // Document moves to Ready For Delivery ONLY when ALL main process activities are complete AND receiving office matches deliveryLocation
-        const isReadyForDeliveryAutoRoute = hasCompletedMainProcess && isOfficeMatch;
+        // Document moves to Ready For Delivery ONLY when BOTH conditions are met:
+        // 1. Authoritative Main Process is fully completed
+        // 2. Receiving office matches Document's Delivery Location
+        const isReadyForDeliveryAutoRoute = Boolean(hasCompletedMainProcess && isOfficeMatch);
 
         if (isReadyForDeliveryAutoRoute) {
           await tx.documentMovement.updateMany({
@@ -944,3 +955,182 @@ export async function getMovementHistory(params: {
 
   return history;
 }
+
+export async function routeDocumentsToReadyForDelivery(params: {
+  trackingNumbers: string[];
+  userId: string;
+  userName?: string;
+  ownerAdminId: string;
+  remarks?: string;
+}) {
+  if (!params.trackingNumbers || params.trackingNumbers.length === 0) {
+    throw new Error("At least one tracking number must be selected.");
+  }
+
+  const results: {
+    routedDocuments: { trackingNumber: string; deliveryLocation: string }[];
+    rejectedDocuments: { trackingNumber: string; reason: string }[];
+  } = {
+    routedDocuments: [],
+    rejectedDocuments: [],
+  };
+
+  const db = prisma as any;
+
+  for (const trackingNumber of params.trackingNumbers) {
+    try {
+      await db.$transaction(async (tx: any) => {
+        const reg = await tx.registration.findFirst({
+          where: {
+            trackingNumber,
+            ownerAdminId: params.ownerAdminId,
+          },
+          include: {
+            documentMovements: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { currentOffice: true },
+            },
+          },
+        });
+
+        if (!reg) {
+          results.rejectedDocuments.push({
+            trackingNumber,
+            reason: "Document record not found.",
+          });
+          return;
+        }
+
+        // Check if already delivered
+        if (
+          reg.trackingStatus === "Delivered" ||
+          reg.deliveryStatus === "Delivered" ||
+          reg.documentMovements?.[0]?.currentStatus === "Delivered"
+        ) {
+          results.rejectedDocuments.push({
+            trackingNumber,
+            reason: "Document is already delivered.",
+          });
+          return;
+        }
+
+        // Check Delivery Location
+        const deliveryLocation = (reg.deliveryLocation || "").trim();
+        if (!deliveryLocation || deliveryLocation === "-" || deliveryLocation.toLowerCase() === "unassigned") {
+          results.rejectedDocuments.push({
+            trackingNumber,
+            reason: "Document does not have a valid Delivery Location configured.",
+          });
+          return;
+        }
+
+        // Resolve delivery location to office ID / Office record
+        let deliveryOffice = await tx.officeLocation.findFirst({
+          where: {
+            ownerAdminId: params.ownerAdminId,
+            OR: [
+              { id: deliveryLocation },
+              { officeName: deliveryLocation },
+            ],
+          },
+          select: { id: true, officeName: true },
+        });
+
+        if (!deliveryOffice) {
+          const ao = await tx.assignedOffice.findFirst({
+            where: {
+              ownerAdminId: params.ownerAdminId,
+              OR: [
+                { id: deliveryLocation },
+                { username: deliveryLocation },
+              ],
+            },
+            select: { id: true, username: true },
+          });
+          if (ao) {
+            deliveryOffice = { id: ao.id, officeName: ao.username };
+          }
+        }
+
+        const destinationOfficeId = deliveryOffice?.id || reg.documentMovements?.[0]?.currentOfficeId;
+        const destinationOfficeName = deliveryOffice?.officeName || deliveryLocation;
+
+        await tx.documentMovement.updateMany({
+          where: { trackingNumber },
+          data: {
+            status: "Ready for Delivery",
+            currentOfficeId: destinationOfficeId,
+            currentModule: "READY_FOR_DELIVERY",
+            currentStatus: "READY_FOR_DELIVERY",
+            updatedAt: new Date(),
+          },
+        });
+
+        await tx.registration.update({
+          where: { trackingNumber },
+          data: {
+            trackingStatus: "Ready for Delivery",
+            bmStatus: "Ready for Delivery",
+          },
+        });
+
+        if (tx.documentWorkflowHistory) {
+          await tx.documentWorkflowHistory.create({
+            data: {
+              documentId: reg.id,
+              trackingNumber,
+              workflowStep: "Manual RD Route",
+              status: "Ready for Delivery",
+              performedBy: params.userName || params.userId,
+              remarks: params.remarks || `Manually routed to Ready For Delivery for ${destinationOfficeName}`,
+              ownerAdminId: params.ownerAdminId,
+            },
+          });
+        }
+
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber,
+            action: "RD Route",
+            oldStatus: reg.documentMovements?.[0]?.status || "Document In Hand",
+            newStatus: "Ready for Delivery",
+            oldOffice: reg.documentMovements?.[0]?.currentOffice?.officeName || null,
+            newOffice: destinationOfficeName,
+            performedBy: params.userName || params.userId,
+            remarks: params.remarks || `Routed to Ready For Delivery via RD action`,
+          },
+        });
+
+        await tx.auditTrail.create({
+          data: {
+            registrationId: reg.id,
+            action: "RD_ROUTE_TO_READY_FOR_DELIVERY",
+            performedBy: params.userName || params.userId,
+            description: params.remarks || `Manually routed to Ready For Delivery at ${destinationOfficeName} via RD manual action.`,
+          },
+        });
+
+        results.routedDocuments.push({
+          trackingNumber,
+          deliveryLocation: destinationOfficeName,
+        });
+      }, { timeout: 20000 });
+    } catch (err: any) {
+      results.rejectedDocuments.push({
+        trackingNumber,
+        reason: err.message || "Unexpected error while routing document.",
+      });
+    }
+  }
+
+  return {
+    success: results.routedDocuments.length > 0,
+    total: params.trackingNumbers.length,
+    successCount: results.routedDocuments.length,
+    failureCount: results.rejectedDocuments.length,
+    routedDocuments: results.routedDocuments,
+    rejectedDocuments: results.rejectedDocuments,
+  };
+}
+

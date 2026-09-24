@@ -1037,6 +1037,8 @@ export function expandEffectivePermissions(keys: string[]): string[] {
     // 2. Pending Approval Module & Types
     if (
       key.startsWith("pending_approval.") ||
+      key.startsWith("rd_approval.") ||
+      key.startsWith("rd_approve.") ||
       key.startsWith("advance_payment_approval.") ||
       key.startsWith("movement_approval.") ||
       key.startsWith("advance_details_approval.") ||
@@ -1048,6 +1050,33 @@ export function expandEffectivePermissions(keys: string[]): string[] {
     ) {
       result.add("pending_approval.view");
       result.add("menu.lead-management.pending-approval");
+
+      if (
+        key.startsWith("rd_approval.") ||
+        key.startsWith("rd_approve.") ||
+        key.startsWith("pending_approval.rd_approval.")
+      ) {
+        result.add("pending_approval.rd_approval.view");
+        result.add("rd_approval.view");
+        if (
+          key === "rd_approval.approve" ||
+          key === "pending_approval.rd_approval.approve" ||
+          key === "rd_approve.approve"
+        ) {
+          result.add("pending_approval.rd_approval.approve");
+          result.add("rd_approval.approve");
+          result.add("pending_approval.edit");
+        }
+        if (
+          key === "rd_approval.reject" ||
+          key === "pending_approval.rd_approval.reject" ||
+          key === "rd_approve.reject"
+        ) {
+          result.add("pending_approval.rd_approval.reject");
+          result.add("rd_approval.reject");
+          result.add("pending_approval.edit");
+        }
+      }
 
       if (key.startsWith("edit_request.")) {
         result.add("edit_request.view");
@@ -1140,10 +1169,19 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       result.add("home.view");
       result.add("menu.home");
 
-      if (key === "home.document_in_hand.view" || key === "home.document_in_hand.transfer") {
+      if (
+        key === "home.document_in_hand.view" ||
+        key === "home.document_in_hand.transfer" ||
+        key === "home.document_in_hand.rd_button" ||
+        key === "home.rd_button"
+      ) {
         result.add("home.document_in_hand.view");
         if (key === "home.document_in_hand.transfer") {
           result.add("home.transfer");
+        }
+        if (key === "home.document_in_hand.rd_button" || key === "home.rd_button") {
+          result.add("home.document_in_hand.rd_button");
+          result.add("home.rd_button");
         }
       } else if (key.startsWith("home.inbound.")) {
         result.add("home.inbound.view");

@@ -261,7 +261,7 @@ async function listReadyRows(
         AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
         AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
         AND (
-          r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery', 'Pending Approval')
+          r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery')
           OR r.bm_status IN ('Ready for Delivery', 'Ready For Delivery')
           OR dm.current_status = 'READY_FOR_DELIVERY'
           OR dm.current_module = 'READY_FOR_DELIVERY'
@@ -320,7 +320,7 @@ async function listReadyRows(
       AND LOWER(COALESCE(r.tracking_status, '')) != 'delivered'
       AND LOWER(COALESCE(dm.current_status, '')) != 'delivered'
       AND (
-        r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery', 'Pending Approval')
+        r.tracking_status IN ('Ready for Delivery', 'Ready For Delivery')
         OR r.bm_status IN ('Ready for Delivery', 'Ready For Delivery')
         OR dm.current_status = 'READY_FOR_DELIVERY'
         OR dm.current_module = 'READY_FOR_DELIVERY'

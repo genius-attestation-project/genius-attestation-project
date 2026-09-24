@@ -9,7 +9,9 @@ import {
   listOutboundBundles,
   receiveBundle,
   getMovementHistory,
+  routeDocumentsToReadyForDelivery,
 } from "@/features/home/server/bundle-workflow.service";
+import { createRDApprovalRequest } from "@/features/pending-approval/server/rd-approval.service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -244,6 +246,38 @@ export async function POST(req: NextRequest) {
         ownerAdminId: currentUser.ownerAdminId,
         remarks,
       });
+      return NextResponse.json(result);
+    }
+
+    if (action === "ready_for_delivery" || action === "rd") {
+      const canRouteRD =
+        hasPermission(currentUser, "home.document_in_hand.rd_button") ||
+        hasPermission(currentUser, "home.rd_button");
+
+      if (!canRouteRD) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to use RD manual routing." },
+          { status: 403 }
+        );
+      }
+
+      const { trackingNumbers, remarks } = body;
+
+      if (!trackingNumbers || !Array.isArray(trackingNumbers) || trackingNumbers.length === 0) {
+        return NextResponse.json(
+          { error: "Please provide an array of trackingNumbers to route." },
+          { status: 400 }
+        );
+      }
+
+      const result = await createRDApprovalRequest({
+        trackingNumbers,
+        userId: currentUser.id,
+        userName: currentUser.name || undefined,
+        ownerAdminId: currentUser.ownerAdminId,
+        remarks,
+      });
+
       return NextResponse.json(result);
     }
 

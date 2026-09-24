@@ -179,6 +179,17 @@ export function getOperationalModules() {
     }
   }
 
+  if (!seenKeys.has("rd_approval")) {
+    seenKeys.add("rd_approval");
+    modulesList.push({
+      key: "rd_approval",
+      label: "RD Approval",
+      href: "/dashboard/pending-approval",
+      description: "Office visibility control for RD Approval requests based on document Delivery Location",
+      category: "Approvals",
+    });
+  }
+
   return modulesList;
 }
 
@@ -531,9 +542,21 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
       catalogKeys.add("home.movement_history.view");
     }
     if (code === "home.transfer") catalogKeys.add("home.document_in_hand.transfer");
+    if (code === "home.rd_button" || code === "home.document_in_hand.rd_button") {
+      catalogKeys.add("home.document_in_hand.rd_button");
+      catalogKeys.add("home.rd_button");
+    }
     if (code === "home.receive") catalogKeys.add("home.inbound.receive");
     if (code === "home.return") catalogKeys.add("home.inbound.return");
     if (code === "home.retrieve") catalogKeys.add("home.outbound.retrieve");
+    if (code === "rd_approval.approve" || code === "pending_approval.rd_approval.approve") {
+      catalogKeys.add("pending_approval.rd_approval.approve");
+      catalogKeys.add("rd_approval.approve");
+    }
+    if (code === "rd_approval.reject" || code === "pending_approval.rd_approval.reject") {
+      catalogKeys.add("pending_approval.rd_approval.reject");
+      catalogKeys.add("rd_approval.reject");
+    }
 
     if (code === "process.view") {
       catalogKeys.add("process.document_in_hand.view");
