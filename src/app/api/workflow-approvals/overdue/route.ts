@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { getOverdueFollowups } from "@/features/lead/server/workflow-approval.service";
-import { requireApiPermission } from "@/middleware/auth.middleware";
+import { requireAnyApiPermission } from "@/middleware/auth.middleware";
 import { auth } from "@/lib/auth";
 
 export async function GET() {
-  const denied = await requireApiPermission("overdueFollowup.view");
+  const denied = await requireAnyApiPermission([
+    "overdueFollowup.view",
+    "overdueFollowup.approve",
+    "overdueFollowup.return",
+    "overdueFollowup.reject",
+    "pending_approval.view",
+  ]);
   if (denied) return denied;
 
   try {

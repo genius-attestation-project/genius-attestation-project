@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
         userAccess: session.user,
       });
     } else if (type === ApprovalRequestType.OVERDUE_FOLLOWUP) {
-      if (!session.user.isSuperAdmin && !hasPermission(session.user, `overdueFollowup.${actionKey}`)) {
+      if (
+        !session.user.isSuperAdmin &&
+        !hasPermission(session.user, `overdueFollowup.${actionKey}`) &&
+        !hasPermission(session.user, "pending_approval.edit")
+      ) {
         return NextResponse.json({ error: `Forbidden. You do not have permission to ${actionKey} overdue followups.` }, { status: 403 });
       }
       await actionOverdueFollowup({

@@ -1,7 +1,8 @@
-import { ApprovalRequestType, LeadStatus, WorkflowApprovalStatus, Prisma } from "@prisma/client";
+import { ApprovalRequestType, FollowupStatus, LeadStatus, WorkflowApprovalStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/features/notifications/server/notification.service";
 import { hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
+import { lockUsersWithMissedFollowups, clearLockCacheForUser } from "./followup-lock.service";
 
 function startOfToday() {
   const now = new Date();
@@ -142,31 +143,74 @@ export async function getInactiveLeads(ownerAdminId: string, supervisorId?: stri
 }
 
 export async function getOverdueFollowups(ownerAdminId: string, supervisorId?: string) {
+  // Synchronize lock state detection
+  await lockUsersWithMissedFollowups(ownerAdminId);
+
   const todayStart = startOfToday();
 
   const whereClause: Prisma.LeadWhereInput = {
-    ownerAdminId,
+    ...(ownerAdminId ? { ownerAdminId } : {}),
     nextFollowupAt: { lt: todayStart },
-    followupStatus: { not: "Completed" },
-    leadStatus: { notIn: [LeadStatus.Closed, LeadStatus.LOB] },
+    followupCompleted: false,
+    NOT: [
+      { followupStatus: FollowupStatus.Completed },
+      { leadStatus: { in: [LeadStatus.Closed, LeadStatus.LOB] } },
+    ],
   };
 
-  let assignedUserIds: string[] | undefined = undefined;
   if (supervisorId) {
     const users = await prisma.user.findMany({
       where: { supervisorUserId: supervisorId },
       select: { id: true },
     });
-    assignedUserIds = users.map((u) => u.id);
-    whereClause.assignedUserId = { in: assignedUserIds };
+    const supervisedUserIds = users.map((u) => u.id);
+    whereClause.OR = [
+      { assignedUserId: { in: supervisedUserIds } },
+      { createdById: { in: supervisedUserIds } },
+    ];
   }
 
-  return prisma.lead.findMany({
+  const leads = await prisma.lead.findMany({
     where: whereClause,
     include: {
-      creator: { select: { name: true, email: true } },
+      creator: { select: { id: true, name: true, email: true } },
     },
-    orderBy: { nextFollowupAt: "asc" },
+    orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "asc" }],
+  });
+
+  const missingUserIds = Array.from(
+    new Set(
+      leads
+        .filter((l) => !l.assignedUser?.trim() && (l.assignedUserId || l.createdById))
+        .map((l) => l.assignedUserId || l.createdById)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
+  const userMap = new Map<string, string>();
+  if (missingUserIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: missingUserIds } },
+      select: { id: true, name: true, email: true },
+    });
+    for (const u of users) {
+      userMap.set(u.id, u.name?.trim() || u.email);
+    }
+  }
+
+  return leads.map((lead) => {
+    const assignedName =
+      lead.assignedUser?.trim() ||
+      (lead.assignedUserId ? userMap.get(lead.assignedUserId) : null) ||
+      (lead.createdById ? userMap.get(lead.createdById) : null) ||
+      lead.creator?.name?.trim() ||
+      lead.creator?.email ||
+      "Unassigned";
+
+    return {
+      ...lead,
+      assignedUser: assignedName,
+    };
   });
 }
 
@@ -605,6 +649,10 @@ export async function actionOverdueFollowup(args: {
     },
   });
 
+  const targetUserIds = Array.from(
+    new Set([lead.assignedUserId, lead.createdById].filter((id): id is string => Boolean(id)))
+  );
+
   await prisma.$transaction(async (tx) => {
     // Audit log
     await tx.approvalAuditLog.create({
@@ -624,13 +672,53 @@ export async function actionOverdueFollowup(args: {
       where: { id: args.leadId },
       data: { nextFollowupAt: now, followupNotified: false },
     });
+
+    // Unlock the affected user(s) who were locked for this overdue followup
+    const unlockWhere: Prisma.UserWhereInput = {
+      isLocked: true,
+      OR: [
+        { lockedFollowupLeadId: args.leadId },
+        ...(targetUserIds.length > 0 ? [{ id: { in: targetUserIds } }] : []),
+      ],
+    };
+
+    const lockedUsers = await tx.user.findMany({
+      where: unlockWhere,
+      select: { id: true },
+    });
+
+    if (lockedUsers.length > 0) {
+      await tx.user.updateMany({
+        where: { id: { in: lockedUsers.map((u) => u.id) } },
+        data: {
+          isLocked: false,
+          lockReason: null,
+          lockedAt: null,
+          lockedFollowupLeadId: null,
+          lockedFollowupAt: null,
+          unlockedBy: args.performedBy,
+          unlockReason:
+            args.remarks?.trim() ||
+            (args.action === WorkflowApprovalStatus.Approved
+              ? "Overdue follow-up unlocked by supervisor"
+              : "Overdue follow-up returned by supervisor"),
+          unlockedAt: now,
+        },
+      });
+    }
   });
 
-  if (lead.assignedUserId) {
+  // Invalidate memory lock cache for unlocked users
+  for (const uid of targetUserIds) {
+    clearLockCacheForUser(uid, args.ownerAdminId);
+  }
+
+  const notifyUserId = lead.assignedUserId ?? lead.createdById;
+  if (notifyUserId) {
     await createNotification({
-      userId: lead.assignedUserId,
+      userId: notifyUserId,
       title: `Overdue Followup Reviewed`,
-      message: `Supervisor reviewed your overdue followup for ${lead.leadCode}. Result: ${args.action}.`,
+      message: `Supervisor reviewed your overdue followup for ${lead.leadCode}. Result: ${args.action}. Account access restored.`,
       type: "SYSTEM",
       referenceId: lead.id,
       referenceType: "LEAD",

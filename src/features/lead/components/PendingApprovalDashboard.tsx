@@ -260,6 +260,10 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("overdueFollowup.view") ||
+      currentUser?.permissions?.includes("overdueFollowup.approve") ||
+      currentUser?.permissions?.includes("overdueFollowup.return") ||
+      currentUser?.permissions?.includes("overdueFollowup.reject") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -365,6 +369,7 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("overdueFollowup.approve") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -372,6 +377,7 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("overdueFollowup.return") ||
+      currentUser?.permissions?.includes("pending_approval.edit") ||
       currentUser?.permissions?.includes("*")
     );
 
