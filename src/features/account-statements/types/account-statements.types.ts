@@ -20,6 +20,7 @@ export interface AccountStatementItem {
   bankProofFileName?: string | null;
   accountId?: string | null;
   accountName?: string | null;
+  accountHierarchy?: string[];
   officeId?: string | null;
   officeName?: string | null;
   canEdit?: boolean;
@@ -28,12 +29,14 @@ export interface AccountStatementItem {
 
 export interface DebitAccountGroup {
   accountName: string;
+  accountHierarchy?: string[];
   subTotal: number;
   items: AccountStatementItem[];
 }
 
 export interface CreditAccountGroup {
   accountName: string;
+  accountHierarchy?: string[];
   subTotal: number;
   items: AccountStatementItem[];
 }

@@ -48,13 +48,38 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
         </div>
       ) : (
         groups.map((group) => (
-          <div key={group.accountName} className="space-y-2">
+          <div key={group.accountHierarchy?.join(" > ") || group.accountName} className="space-y-2">
             {/* Account Group Sub Header */}
             <div className="flex items-center justify-between bg-slate-100/80 px-3 py-1.5 rounded-xl dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
-              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                {group.accountName}
-              </h4>
-              <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+              <div className="flex flex-col py-0.5">
+                {group.accountHierarchy && group.accountHierarchy.length > 1 ? (
+                  <div className="flex flex-col gap-0.5 text-xs">
+                    {group.accountHierarchy.map((name, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        {idx > 0 && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none pl-1">
+                            ↓
+                          </span>
+                        )}
+                        <span
+                          className={
+                            idx === group.accountHierarchy!.length - 1
+                              ? "font-extrabold text-slate-900 dark:text-white"
+                              : "font-semibold text-slate-600 dark:text-slate-400"
+                          }
+                        >
+                          {name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {group.accountName}
+                  </h4>
+                )}
+              </div>
+              <span className="text-xs font-black text-slate-700 dark:text-slate-300 shrink-0 self-center">
                 Sub Total: ₹{group.subTotal.toLocaleString("en-IN")}
               </span>
             </div>

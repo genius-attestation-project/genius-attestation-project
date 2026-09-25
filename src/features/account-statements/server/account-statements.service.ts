@@ -338,6 +338,53 @@ export async function getAccountStatements(
     ];
   }
 
+  // Fetch complete account menu definitions to build hierarchy chains
+  const allAccountMenus = await db.accountMenu.findMany({
+    where: { ownerAdminId },
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      type: true,
+      category: true,
+    },
+  });
+
+  const accountMenuMap = new Map<
+    string,
+    { id: string; name: string; parentId: string | null; type: string | null; category: string | null }
+  >();
+  for (const node of allAccountMenus) {
+    accountMenuMap.set(node.id, node);
+  }
+
+  const getAccountHierarchy = (accountId?: string | null, fallbackName?: string | null): string[] => {
+    if (!accountId || !accountMenuMap.has(accountId)) {
+      return fallbackName ? [fallbackName] : [];
+    }
+    const path: string[] = [];
+    let current = accountMenuMap.get(accountId);
+    const visited = new Set<string>();
+
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      const isBootstrapRoot =
+        !current.parentId &&
+        (current.name === "CREDIT" || current.name === "DEBIT" || current.category === "Root");
+
+      if (!isBootstrapRoot) {
+        path.unshift(current.name);
+      }
+
+      if (!current.parentId) {
+        break;
+      }
+      current = accountMenuMap.get(current.parentId);
+    }
+
+    return path.length > 0 ? path : fallbackName ? [fallbackName] : [];
+  };
+
   const rawPanelTransactions = await db.accountPanelTransaction.findMany({
     where: panelWhere,
     include: {
@@ -366,16 +413,23 @@ export async function getAccountStatements(
     const narr = (item.narration || "").toLowerCase();
     const accName = (item.account?.name || "").toLowerCase();
     const createdBy = (item.createdByName || "").toLowerCase();
+    const hierarchy = getAccountHierarchy(item.accountId, item.account?.name);
+    const hierarchyStr = hierarchy.join(" ").toLowerCase();
     return (
       inv.includes(searchFilter) ||
       narr.includes(searchFilter) ||
       accName.includes(searchFilter) ||
+      hierarchyStr.includes(searchFilter) ||
       createdBy.includes(searchFilter)
     );
   });
 
   const panelCreditItems: AccountStatementItem[] = [];
-  const panelDebitItems: { accountName: string; item: AccountStatementItem }[] = [];
+  const panelDebitItems: {
+    accountName: string;
+    accountHierarchy: string[];
+    item: AccountStatementItem;
+  }[] = [];
 
   for (const item of filteredPanelTransactions) {
     const dateStr = item.transactionDate
@@ -387,6 +441,8 @@ export async function getAccountStatements(
         ? item.billAttachment
         : `/api/files/${item.billAttachment}/view`
       : null;
+
+    const accountHierarchy = getAccountHierarchy(item.accountId, item.account?.name);
 
     const statementItem: AccountStatementItem = {
       id: item.id,
@@ -400,6 +456,7 @@ export async function getAccountStatements(
       proofFileName: item.billAttachment || "Bill Attachment",
       accountId: item.accountId,
       accountName: item.account?.name || "Uncategorized Account",
+      accountHierarchy,
       officeId: item.officeId || null,
       canEdit,
       canDelete,
@@ -412,61 +469,104 @@ export async function getAccountStatements(
     } else {
       panelDebitItems.push({
         accountName: item.account?.name || "General Debit Expenses",
+        accountHierarchy,
         item: statementItem,
       });
     }
   }
 
   // ----------------------------------------------------
-  // 3. Group Credit Items by Account Name
+  // 3. Group Credit Items by Account Hierarchy
   // ----------------------------------------------------
-  const creditGroupMap = new Map<string, AccountStatementItem[]>();
+  interface CreditGroupAccumulator {
+    accountName: string;
+    accountHierarchy: string[];
+    items: AccountStatementItem[];
+  }
+  const creditGroupMap = new Map<string, CreditGroupAccumulator>();
+
   for (const item of panelCreditItems) {
-    const accName = item.accountName || "Credit Transactions";
-    const existing = creditGroupMap.get(accName) || [];
-    existing.push(item);
-    creditGroupMap.set(accName, existing);
+    const hierarchy =
+      item.accountHierarchy && item.accountHierarchy.length > 0
+        ? item.accountHierarchy
+        : [item.accountName || "Credit Transactions"];
+    const groupKey = item.accountId || hierarchy.join(" > ");
+    const existing = creditGroupMap.get(groupKey);
+
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      creditGroupMap.set(groupKey, {
+        accountName: item.accountName || hierarchy[hierarchy.length - 1] || "Credit Transactions",
+        accountHierarchy: hierarchy,
+        items: [item],
+      });
+    }
   }
 
   const creditGroups: CreditAccountGroup[] = [];
-  for (const [accountName, items] of Array.from(creditGroupMap.entries())) {
+  for (const { accountName, accountHierarchy, items } of Array.from(creditGroupMap.values())) {
     const groupSubTotal = items.reduce((sum, it) => sum + it.amount, 0);
     const numberedItems = items.map((it, idx) => ({ ...it, slNo: idx + 1 }));
     creditGroups.push({
       accountName,
+      accountHierarchy,
       subTotal: groupSubTotal,
       items: numberedItems,
     });
   }
 
   // ----------------------------------------------------
-  // 4. Group Debit Items by Account Name
+  // 4. Group Debit Items by Account Hierarchy
   // ----------------------------------------------------
-  const debitGroupMap = new Map<string, AccountStatementItem[]>();
+  interface DebitGroupAccumulator {
+    accountName: string;
+    accountHierarchy: string[];
+    items: AccountStatementItem[];
+  }
+  const debitGroupMap = new Map<string, DebitGroupAccumulator>();
 
   // Add non-cash bank transfer debit entries
   if (bankPaymentDebitItems.length > 0) {
     const bankGroupKey = "Bank Payment Transactions";
-    debitGroupMap.set(bankGroupKey, bankPaymentDebitItems);
+    debitGroupMap.set("bank_payment_transactions", {
+      accountName: bankGroupKey,
+      accountHierarchy: [bankGroupKey],
+      items: bankPaymentDebitItems,
+    });
   }
 
   // Add Account Panel debit transactions
-  for (const { accountName, item } of panelDebitItems) {
-    const existing = debitGroupMap.get(accountName) || [];
-    existing.push(item);
-    debitGroupMap.set(accountName, existing);
+  for (const { accountName, accountHierarchy, item } of panelDebitItems) {
+    const hierarchy =
+      accountHierarchy && accountHierarchy.length > 0
+        ? accountHierarchy
+        : [accountName || "General Debit Expenses"];
+    const groupKey = item.accountId || hierarchy.join(" > ");
+    const existing = debitGroupMap.get(groupKey);
+
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      debitGroupMap.set(groupKey, {
+        accountName,
+        accountHierarchy: hierarchy,
+        items: [item],
+      });
+    }
   }
 
   const debitGroups: DebitAccountGroup[] = [];
   let totalDebitAmount = 0;
 
-  for (const [accountName, items] of Array.from(debitGroupMap.entries())) {
+  for (const { accountName, accountHierarchy, items } of Array.from(debitGroupMap.values())) {
     const groupSubTotal = items.reduce((sum, it) => sum + it.amount, 0);
     // Assign sequential SL numbers within each debit group
     const numberedItems = items.map((it, idx) => ({ ...it, slNo: idx + 1 }));
 
     debitGroups.push({
       accountName,
+      accountHierarchy,
       subTotal: groupSubTotal,
       items: numberedItems,
     });

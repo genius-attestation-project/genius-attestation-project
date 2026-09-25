@@ -28,17 +28,30 @@ export const CreditSection: React.FC<CreditSectionProps> = ({
       return creditData.groups;
     }
     if (creditData.panelCredits && creditData.panelCredits.length > 0) {
-      const map = new Map<string, AccountStatementItem[]>();
+      const map = new Map<
+        string,
+        { accountName: string; accountHierarchy?: string[]; items: AccountStatementItem[] }
+      >();
       for (const item of creditData.panelCredits) {
-        const name = item.accountName || "Credit Accounts";
-        const list = map.get(name) || [];
-        list.push(item);
-        map.set(name, list);
+        const hierarchy =
+          item.accountHierarchy && item.accountHierarchy.length > 0
+            ? item.accountHierarchy
+            : [item.accountName || "Credit Accounts"];
+        const key = item.accountId || hierarchy.join(" > ");
+        const name = item.accountName || hierarchy[hierarchy.length - 1] || "Credit Accounts";
+        const existing = map.get(key) || {
+          accountName: name,
+          accountHierarchy: hierarchy,
+          items: [],
+        };
+        existing.items.push(item);
+        map.set(key, existing);
       }
-      return Array.from(map.entries()).map(([accountName, items]) => ({
-        accountName,
-        subTotal: items.reduce((sum, it) => sum + it.amount, 0),
-        items: items.map((it, idx) => ({ ...it, slNo: idx + 1 })),
+      return Array.from(map.values()).map((g) => ({
+        accountName: g.accountName,
+        accountHierarchy: g.accountHierarchy,
+        subTotal: g.items.reduce((sum, it) => sum + it.amount, 0),
+        items: g.items.map((it, idx) => ({ ...it, slNo: idx + 1 })),
       }));
     }
     return [];
@@ -89,13 +102,38 @@ export const CreditSection: React.FC<CreditSectionProps> = ({
 
       {/* Section 3: Account Panel Credit Groups */}
       {creditGroups.map((group) => (
-        <div key={group.accountName} className="space-y-2">
+        <div key={group.accountHierarchy?.join(" > ") || group.accountName} className="space-y-2">
           {/* Account Group Sub Header */}
           <div className="flex items-center justify-between bg-emerald-50/80 px-3 py-1.5 rounded-xl dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/30">
-            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
-              {group.accountName}
-            </h4>
-            <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+            <div className="flex flex-col py-0.5">
+              {group.accountHierarchy && group.accountHierarchy.length > 1 ? (
+                <div className="flex flex-col gap-0.5 text-xs">
+                  {group.accountHierarchy.map((name, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      {idx > 0 && (
+                        <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold select-none pl-1">
+                          ↓
+                        </span>
+                      )}
+                      <span
+                        className={
+                          idx === group.accountHierarchy!.length - 1
+                            ? "font-extrabold uppercase tracking-wider text-emerald-900 dark:text-emerald-300"
+                            : "font-semibold text-emerald-800/80 dark:text-emerald-400/80"
+                        }
+                      >
+                        {name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
+                  {group.accountName}
+                </h4>
+              )}
+            </div>
+            <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 shrink-0 self-center">
               Sub Total: ₹{group.subTotal.toLocaleString("en-IN")}
             </span>
           </div>
