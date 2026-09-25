@@ -31,7 +31,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export const permissionActions = [
-  "view", "create", "edit", "update", "delete", "settings", "manage", "export",
+  "view", "create", "edit", "update", "delete", "settings", "manage", "export", "search",
   "approve", "reject", "return", "request", "create_request",
   "bulkApprove", "bulkReject", "bulkReturn",
   "viewOverdue", "viewAll", "viewReportingStaff", "viewOwn", "manageFollowups",
@@ -552,7 +552,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "closed_leads", label: "Closed Leads", description: "Closed lead access.", actions: ["view"] },
   { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access.", actions: ["view", "create", "edit", "create_request", "movement_request", "add_advance", "delete", "manage", "export", "import", "downloadTemplate", "viewImportHistory"] },
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
-  { key: "search_report", label: "Search / Report", description: "Search and reporting access." },
+  { key: "search_report", label: "Search / Report", description: "Search and reporting access.", actions: ["view", "search", "export"] },
   { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export"] },
   { key: "bm_report", label: "BM Report", description: "Real-time document movement tracking center access.", actions: ["view", "export"] },
   {
@@ -673,6 +673,7 @@ export const defaultRoleDefinitions = [
       "closed_leads.view",
       "reports.view",
       "search_report.view",
+      "search_report.search",
       "search_report.export",
       "revenue_registration.view",
       "revenue_registration.edit",
@@ -793,6 +794,7 @@ export const defaultRoleDefinitions = [
       "revenue_registration.create_request",
       "revenue_registration.movement_request",
       "search_report.view",
+      "search_report.search",
       "search_report.export",
       "revenue_registration.import",
       "revenue_registration.downloadTemplate",

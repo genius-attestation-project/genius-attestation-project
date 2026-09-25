@@ -467,9 +467,15 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
     category: "Analytics & Reports",
     description: "Unified cross-office tracking number search, customer lookups, and report exports.",
     moduleAccessKey: "search_report.view",
-    actions: [
-      { key: "search_report.view", label: "View Reports" },
-      { key: "search_report.export", label: "Export Reports" },
+    subModules: [
+      {
+        label: "General Search",
+        actions: [
+          { key: "search_report.view", label: "View" },
+          { key: "search_report.search", label: "Search" },
+          { key: "search_report.export", label: "Export" },
+        ],
+      },
     ],
   },
   {
