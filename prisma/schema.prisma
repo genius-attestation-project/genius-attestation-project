@@ -1926,3 +1926,67 @@ model RDApproval {
   @@map("rd_approvals")
 }
 
+model AccountApproval {
+  id               String    @id @default(cuid())
+  targetId         String    @map("target_id")
+  sourceType       String    @map("source_type")
+  office           String?   @map("office")
+  officeId         String?   @map("office_id")
+  customerName     String?   @map("customer_name")
+  trackingNumber   String?   @map("tracking_number")
+
+  // Before Change Data
+  oldAmount        Decimal   @default(0) @map("old_amount") @db.Decimal(12, 2)
+  oldDate          DateTime  @map("old_date")
+  oldPaymentMode   String?   @map("old_payment_mode")
+  oldBankName      String?   @map("old_bank_name")
+  oldCollectedBy   String?   @map("old_collected_by")
+  oldInvoiceNumber String?   @map("old_invoice_number")
+  oldRemarks       String?   @db.Text @map("old_remarks")
+  oldProofFileId   String?   @map("old_proof_file_id")
+  oldProofFileUrl  String?   @map("old_proof_file_url")
+  oldProofFileName String?   @map("old_proof_file_name")
+
+  // After Change Data
+  newAmount        Decimal   @default(0) @map("new_amount") @db.Decimal(12, 2)
+  newDate          DateTime  @map("new_date")
+  newPaymentMode   String?   @map("new_payment_mode")
+  newBankName      String?   @map("new_bank_name")
+  newCollectedBy   String?   @map("new_collected_by")
+  newInvoiceNumber String?   @map("new_invoice_number")
+  newRemarks       String?   @db.Text @map("new_remarks")
+  newProofFileId   String?   @map("new_proof_file_id")
+  newProofFileUrl  String?   @map("new_proof_file_url")
+  newProofFileName String?   @map("new_proof_file_name")
+
+  // Snapshots
+  beforeSnapshot   Json?     @map("before_snapshot")
+  afterSnapshot    Json?     @map("after_snapshot")
+
+  // Status & Audit
+  status           String    @default("Pending") @map("status")
+  requestedById    String?   @map("requested_by_id")
+  requestedByName  String?   @map("requested_by_name")
+  requestedAt      DateTime  @default(now()) @map("requested_at")
+  approvedById     String?   @map("approved_by_id")
+  approvedByName   String?   @map("approved_by_name")
+  approvedAt       DateTime? @map("approved_at")
+  rejectedById     String?   @map("rejected_by_id")
+  rejectedByName   String?   @map("rejected_by_name")
+  rejectedAt       DateTime? @map("rejected_at")
+  rejectionReason  String?   @db.Text @map("rejection_reason")
+  approvalRemarks  String?   @db.Text @map("approval_remarks")
+
+  ownerAdminId     String    @map("owner_admin_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([targetId])
+  @@index([sourceType])
+  @@index([status])
+  @@index([ownerAdminId])
+  @@index([requestedAt])
+  @@index([office])
+  @@map("account_approvals")
+}
+

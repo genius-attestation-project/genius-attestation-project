@@ -190,6 +190,17 @@ export function getOperationalModules() {
     });
   }
 
+  if (!seenKeys.has("account_approval")) {
+    seenKeys.add("account_approval");
+    modulesList.push({
+      key: "account_approval",
+      label: "Account Approval",
+      href: "/dashboard/pending-approval",
+      description: "Office visibility control for Account Statement edit approval requests",
+      category: "Approvals",
+    });
+  }
+
   return modulesList;
 }
 

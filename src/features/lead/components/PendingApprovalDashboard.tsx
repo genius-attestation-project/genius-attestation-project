@@ -31,10 +31,14 @@ import { EditAdvanceModal } from "@/features/revenue/components/EditAdvanceModal
 import { EditRequestDiffModal } from "@/features/registration/components/EditRequestDiffModal";
 import { RejectEditRequestModal } from "@/features/registration/components/RejectEditRequestModal";
 import type { RegistrationEditRequestItem } from "@/features/registration/types/registration-edit-request.types";
+import { AccountApprovalDiffModal } from "@/features/account-approval/components/AccountApprovalDiffModal";
+import { AccountApprovalRejectModal } from "@/features/account-approval/components/AccountApprovalRejectModal";
+import type { AccountApprovalItem } from "@/features/account-approval/types/account-approval.types";
 
 type ApprovalAction = "Approved" | "Rejected" | "Returned";
 type MainTabKey =
   | "edit_request"
+  | "account_approval"
   | "advance_payment"
   | "movement_approval"
   | "rd_approval"
@@ -178,6 +182,35 @@ export function PendingApprovalDashboard() {
     isSuperAdmin ||
     Boolean(
       currentUser?.permissions?.includes("edit_request.reject") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canViewAccountApproval =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.account_approval.view") ||
+      currentUser?.permissions?.includes("account_approval.view") ||
+      currentUser?.permissions?.includes("pending_approval.account_approval.approve") ||
+      currentUser?.permissions?.includes("account_approval.approve") ||
+      currentUser?.permissions?.includes("pending_approval.account_approval.reject") ||
+      currentUser?.permissions?.includes("account_approval.reject") ||
+      currentUser?.permissions?.includes("pending_approval.view") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canApproveAccountApproval =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.account_approval.approve") ||
+      currentUser?.permissions?.includes("account_approval.approve") ||
+      currentUser?.permissions?.includes("*")
+    );
+
+  const canRejectAccountApproval =
+    isSuperAdmin ||
+    Boolean(
+      currentUser?.permissions?.includes("pending_approval.account_approval.reject") ||
+      currentUser?.permissions?.includes("account_approval.reject") ||
       currentUser?.permissions?.includes("*")
     );
 
@@ -385,6 +418,10 @@ export function PendingApprovalDashboard() {
   const [approvingEditRequest, setApprovingEditRequest] = useState<RegistrationEditRequestItem | null>(null);
   const [rejectingEditRequest, setRejectingEditRequest] = useState<RegistrationEditRequestItem | null>(null);
 
+  const [accountApprovals, setAccountApprovals] = useState<AccountApprovalItem[]>([]);
+  const [approvingAccountItem, setApprovingAccountItem] = useState<AccountApprovalItem | null>(null);
+  const [rejectingAccountItem, setRejectingAccountItem] = useState<AccountApprovalItem | null>(null);
+
   const [advancePaymentRequests, setAdvancePaymentRequests] = useState<AdvancePaymentApprovalItem[]>([]);
   const [movementApprovals, setMovementApprovals] = useState<MovementApprovalItem[]>([]);
   const [rdApprovals, setRdApprovals] = useState<RDApprovalItem[]>([]);
@@ -428,6 +465,10 @@ export function PendingApprovalDashboard() {
       const pendingCount = editRequests.filter((r) => r.status === "PENDING").length;
       list.push({ key: "edit_request", label: "Edit Request", count: pendingCount });
     }
+    if (canViewAccountApproval) {
+      const pendingCount = accountApprovals.filter((r) => r.status === "Pending").length;
+      list.push({ key: "account_approval", label: "Account Approval", count: pendingCount });
+    }
     if (canViewAdvancePayment) {
       list.push({ key: "advance_payment", label: "Advance Payment Approvals", count: advancePaymentRequests.length });
     }
@@ -454,6 +495,7 @@ export function PendingApprovalDashboard() {
     }
     return list;
   }, [
+    canViewAccountApproval,
     canViewAdvancePayment,
     canViewMovement,
     canViewRDApproval,
@@ -462,6 +504,7 @@ export function PendingApprovalDashboard() {
     canViewLob,
     canViewInactive,
     canViewOverdue,
+    accountApprovals.length,
     advancePaymentRequests.length,
     movementApprovals.length,
     rdApprovals.length,
@@ -500,6 +543,9 @@ export function PendingApprovalDashboard() {
       const editRequestPromise = canViewEditRequests
         ? parseResponse<{ items: RegistrationEditRequestItem[] }>(await fetch("/api/registration-edit-requests?status=PENDING", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
+      const accountPromise = canViewAccountApproval
+        ? parseResponse<{ items: AccountApprovalItem[] }>(await fetch("/api/account-approvals?status=Pending", { cache: "no-store" })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
       const advancePromise = canViewAdvancePayment
         ? parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
@@ -523,8 +569,9 @@ export function PendingApprovalDashboard() {
         : Promise.resolve({ items: [] });
       const officesPromise = fetch("/api/offices/all", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ offices: [] }));
 
-      const [editRes, advanceRes, movementRes, rdRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
+      const [editRes, accountRes, advanceRes, movementRes, rdRes, corporateRes, inactiveRes, lobRes, overdueRes, officesRes] = await Promise.all([
         editRequestPromise,
+        accountPromise,
         advancePromise,
         movementPromise,
         rdApprovalPromise,
@@ -535,6 +582,7 @@ export function PendingApprovalDashboard() {
         officesPromise,
       ]);
       setEditRequests(editRes.items ?? []);
+      setAccountApprovals(accountRes.items ?? []);
       setAdvancePaymentRequests(advanceRes.items ?? []);
       setMovementApprovals(movementRes.items ?? []);
       setRdApprovals(rdRes.items ?? []);
@@ -963,6 +1011,104 @@ export function PendingApprovalDashboard() {
                                 )}
                                 {!canApproveEditRequests && !canRejectEditRequests && (
                                   <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </>
+                            ) : (
+                              <StatusBadge status={item.status} />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {activeTab === "account_approval" && (
+              <table className="min-w-345 text-left text-sm">
+                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                  <tr>
+                    <th className="px-5 py-4">Tracking / Invoice #</th>
+                    <th className="px-5 py-4">Customer / Item</th>
+                    <th className="px-5 py-4">Office</th>
+                    <th className="px-5 py-4">Category</th>
+                    <th className="px-5 py-4">Amount (Old → New)</th>
+                    <th className="px-5 py-4">Payment Mode</th>
+                    <th className="px-5 py-4">Requested By</th>
+                    <th className="px-5 py-4">Requested Date</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                  {accountApprovals.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-soft">
+                        No pending account statement approval requests.
+                      </td>
+                    </tr>
+                  ) : (
+                    accountApprovals.map((item) => (
+                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                          {item.trackingNumber ? (
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                              className="hover:underline"
+                            >
+                              {item.trackingNumber}
+                            </Link>
+                          ) : (
+                            item.newInvoiceNumber || item.oldInvoiceNumber || "-"
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            {item.customerName ? formatTitleCase(item.customerName) : "-"}
+                          </p>
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                          {item.office || "-"}
+                        </td>
+                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300 text-xs">
+                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                            {item.sourceType === "ADVANCE_PAYMENT" ? "Advance Payment" : "Account Panel"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap font-mono text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 line-through">₹{item.oldAmount.toLocaleString("en-IN")}</span>
+                            <span className="text-slate-400">→</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{item.newAmount.toLocaleString("en-IN")}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                          {item.newPaymentMode || item.oldPaymentMode || "Cash"}
+                        </td>
+                        <td className="px-5 py-4 text-xs">
+                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedByName || "Staff"}</p>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
+                          {formatDateTime(item.requestedAt)}
+                        </td>
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {item.status === "Pending" ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => setApprovingAccountItem(item)}
+                                >
+                                  Review & Approve
+                                </Button>
+                                {canRejectAccountApproval && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => setRejectingAccountItem(item)}
+                                  >
+                                    Reject
+                                  </Button>
                                 )}
                               </>
                             ) : (
@@ -2384,6 +2530,55 @@ export function PendingApprovalDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Account Approval Comparison Modal */}
+      {approvingAccountItem && (
+        <AccountApprovalDiffModal
+          isOpen={Boolean(approvingAccountItem)}
+          onClose={() => setApprovingAccountItem(null)}
+          request={approvingAccountItem}
+          onApprove={async (id, remarks) => {
+            const res = await fetch(`/api/account-approvals/${id}/approve`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ approvalRemarks: remarks }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || data.message || "Failed to approve transaction.");
+            }
+            setSuccess("Account transaction edit approved successfully.");
+            setApprovingAccountItem(null);
+            void loadData();
+          }}
+          onOpenReject={(item) => setRejectingAccountItem(item)}
+          canApprove={canApproveAccountApproval}
+          canReject={canRejectAccountApproval}
+        />
+      )}
+
+      {/* Account Approval Reject Modal */}
+      {rejectingAccountItem && (
+        <AccountApprovalRejectModal
+          isOpen={Boolean(rejectingAccountItem)}
+          onClose={() => setRejectingAccountItem(null)}
+          request={rejectingAccountItem}
+          onReject={async (id, reason) => {
+            const res = await fetch(`/api/account-approvals/${id}/reject`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rejectionReason: reason }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || data.message || "Failed to reject transaction.");
+            }
+            setSuccess("Account transaction edit rejected successfully.");
+            setRejectingAccountItem(null);
+            void loadData();
+          }}
+        />
       )}
     </div>
   );

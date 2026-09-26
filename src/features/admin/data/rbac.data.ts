@@ -636,6 +636,12 @@ export const permissionModules: PermissionModuleDefinition[] = [
     description: "Account Statements and financial ledger reporting access.",
     actions: ["view", "edit", "delete", "export"]
   },
+  {
+    key: "account_approval",
+    label: "Account Approval",
+    description: "Account Statements edit approval workflow access.",
+    actions: ["view", "approve", "reject"]
+  },
 ];
 
 export const defaultRoleDefinitions = [
@@ -668,6 +674,9 @@ export const defaultRoleDefinitions = [
       "pending_approval.edit",
       "edit_request.view",
       "edit_request.approve",
+      "account_approval.view",
+      "account_approval.approve",
+      "account_approval.reject",
       "edit_request.reject",
       "lob.view",
       "closed_leads.view",
