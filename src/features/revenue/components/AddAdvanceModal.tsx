@@ -317,7 +317,9 @@ export function AddAdvanceModal({
       formattedRef = [paymentReferenceNo.trim(), paymentDescription.trim()].filter(Boolean).join(" - ");
     }
 
-    if (proofFileIds.length === 0) {
+    const isProofRequired = modeKey !== "cash";
+
+    if (isProofRequired && proofFileIds.length === 0) {
       setError("Proof upload is mandatory for advance payment requests.");
       return;
     }
@@ -412,6 +414,7 @@ export function AddAdvanceModal({
   };
 
   const modeKey = (paymentMode || "").trim().toLowerCase();
+  const isProofRequired = modeKey !== "cash";
 
   return (
     <div
@@ -801,18 +804,20 @@ export function AddAdvanceModal({
 
               {/* Upload Proof Section (Full Width) */}
               <div className="sm:col-span-2 pt-1">
-                <FieldLabel required>Upload Proof</FieldLabel>
+                <FieldLabel required={isProofRequired}>Upload Proof</FieldLabel>
                 <div className="[&_label.flex]:py-2.5 [&_label.flex]:px-3 [&_label.flex]:min-h-0 [&_svg.text-blue-500]:size-5 [&_svg.text-blue-500]:mb-1 [&_.space-y-3]:space-y-2">
                   <MultiFileUpload
                     label=""
                     moduleName="Advance Payment Approval"
                     accept=".jpg,.jpeg,.png,.webp,.pdf"
                     onFilesChange={(ids) => setProofFileIds(ids)}
-                    required
+                    required={isProofRequired}
                   />
                 </div>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  Accepted: JPG, PNG, WEBP, PDF · Required
+                  {isProofRequired
+                    ? "Accepted: JPG, PNG, WEBP, PDF · Required"
+                    : "Accepted: JPG, PNG, WEBP, PDF · Optional for Cash"}
                 </p>
               </div>
             </div>
@@ -824,7 +829,9 @@ export function AddAdvanceModal({
           <p className="hidden sm:block text-[11px] text-slate-400 dark:text-slate-500 truncate">
             {proofFileIds.length > 0
               ? `✓ ${proofFileIds.length} proof file${proofFileIds.length > 1 ? "s" : ""} attached`
-              : "Upload proof to enable submission"}
+              : isProofRequired
+              ? "Upload proof to enable submission"
+              : "Direct cash payment · Proof upload optional"}
           </p>
 
           <div className="flex items-center gap-2.5 ml-auto">
@@ -840,7 +847,7 @@ export function AddAdvanceModal({
             <Button
               type="submit"
               form="advance-form"
-              disabled={submitting || !isAmountValid || proofFileIds.length === 0}
+              disabled={submitting || !isAmountValid || (isProofRequired && proofFileIds.length === 0)}
               className="h-9 px-5 text-xs font-bold gap-1.5"
             >
               <Save size={15} />

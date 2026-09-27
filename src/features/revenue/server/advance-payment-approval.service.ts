@@ -152,6 +152,200 @@ export async function submitAdvancePaymentApproval(args: {
   // New balance if approved
   const remainingBalance = Math.max(0, currentBalance - advanceAmount);
 
+  const isCash = (args.paymentMode || "").trim().toLowerCase() === "cash";
+
+  if (isCash) {
+    // ─── CASH PAYMENT MODE: Save Advance Payment Directly (No Approval Required) ───
+
+    // 1. Create AdvancePaymentApproval record directly with status "Approved"
+    const approval = await prisma.advancePaymentApproval.create({
+      data: {
+        registrationId: registration.id,
+        trackingNumber: registration.trackingNumber,
+        leadId: registration.lead?.leadCode || registration.leadId || null,
+        customerName: registration.customerName || null,
+        mobile: registration.mobile || null,
+        office: registration.regionOfRegistration || registration.deliveryLocation || null,
+        registeredPerson: registration.registeredPerson || performedByName,
+        registeredDate: registration.createdAt,
+        documentName: registration.documentName || registration.documentType || null,
+        totalAmount: new Prisma.Decimal(totalAmount),
+        advanceAmount: new Prisma.Decimal(advanceAmount),
+        remainingBalance: new Prisma.Decimal(remainingBalance),
+        currentAdvancePaid: new Prisma.Decimal(currentApprovedAdvance),
+        currentBalance: new Prisma.Decimal(currentBalance),
+        paymentDate: parsedPaymentDate,
+        paymentMode: args.paymentMode.trim(),
+        referenceNumber: args.referenceNumber?.trim() || null,
+        collectedBy: args.collectedBy?.trim() || registration.collectedPerson || null,
+        remarks: args.remarks?.trim() || null,
+        proofFileType: args.proofFileType?.trim() || null,
+        receiptFileId,
+        receiptFileUrl,
+        receiptFileName,
+        status: "Approved",
+        requestedById: args.performedByUserId || registration.createdBy,
+        requestedByName: performedByName,
+        requestedAt: new Date(),
+        approvedById: args.performedByUserId || null,
+        approvedByName: performedByName,
+        approvedAt: parsedPaymentDate,
+        approvalRemarks: args.remarks?.trim() || "Direct Cash Payment",
+        ownerAdminId: args.ownerAdminId,
+      },
+    });
+
+    // 2. Recalculate sum of all Approved advance payments for registration
+    const newTotalApprovedAdvance = await getApprovedAdvanceSum(registration.id);
+    const newBalanceAmount = Math.max(0, totalAmount - newTotalApprovedAdvance);
+
+    const newPaymentStatus = calculatePaymentStatus({
+      approvalStatus: registration.approvalStatus || "Pending",
+      advancePaymentStatus: "Approved",
+      totalCharges: totalAmount,
+      advancePaid: newTotalApprovedAdvance,
+      balanceAmount: newBalanceAmount,
+    });
+
+    const remainingPendingCount = await prisma.advancePaymentApproval.count({
+      where: {
+        registrationId: registration.id,
+        status: "Pending Approval",
+      },
+    });
+
+    const shouldAutoDeliver = newBalanceAmount === 0 && Boolean(registration.deliveryType || registration.deliveryStatus);
+
+    const isInitialRegistration =
+      !registration.trackingStatus ||
+      registration.trackingStatus === "Registered" ||
+      registration.trackingStatus === "Advance Payment Approval Pending" ||
+      registration.trackingStatus === "Movement Approval Rejected";
+
+    const nextTrackingStatus = shouldAutoDeliver
+      ? "Delivered"
+      : isInitialRegistration
+      ? "Document In Hand"
+      : registration.trackingStatus;
+
+    // 3. Update registration record with approved advance amount and payment details
+    await prisma.registration.update({
+      where: { id: registration.id },
+      data: {
+        advancePaid: new Prisma.Decimal(newTotalApprovedAdvance),
+        balanceAmount: new Prisma.Decimal(newBalanceAmount),
+        paymentStatus: newPaymentStatus,
+        advancePaymentStatus: remainingPendingCount > 0 ? "Pending Approval" : "Approved",
+        advancePaymentApprovedBy: performedByName,
+        advancePaymentApprovedAt: parsedPaymentDate,
+        advancePaymentRejectionReason: null,
+        paymentMode: args.paymentMode.trim(),
+        collectedPerson: args.collectedBy?.trim() || registration.collectedPerson || null,
+        paymentDescription: args.paymentDescription || args.remarks || registration.paymentDescription,
+        ...(nextTrackingStatus ? { trackingStatus: nextTrackingStatus } : {}),
+        ...(shouldAutoDeliver
+          ? {
+            deliveryStatus: "Delivered",
+            bmStatus: "Delivered",
+          }
+          : isInitialRegistration
+          ? {
+            bmStatus: "Accepted",
+          }
+          : {}),
+        auditTrail: {
+          create: [
+            {
+              action: "Advance Payment Added (Cash)",
+              description: `Direct cash advance payment of ₹${advanceAmount.toLocaleString()} recorded by ${performedByName}. Total Advance Paid is now ₹${newTotalApprovedAdvance.toLocaleString()}, Balance: ₹${newBalanceAmount.toLocaleString()}.`,
+              performedBy: performedByName,
+            },
+            ...(shouldAutoDeliver
+              ? [
+                {
+                  action: "DELIVERED",
+                  description: `Document status automatically updated to Delivered after advance payment (Balance = 0).`,
+                  performedBy: performedByName,
+                },
+              ]
+              : []),
+          ],
+        },
+      },
+    });
+
+    // 4. If initial registration, transition movement to HOME -> Document In Hand
+    if (!shouldAutoDeliver && isInitialRegistration) {
+      const initialMov = await prisma.documentMovement.findFirst({
+        where: {
+          registrationId: registration.id,
+          status: "REGISTRATION",
+        },
+      });
+
+      if (initialMov) {
+        await prisma.documentMovement.update({
+          where: { id: initialMov.id },
+          data: {
+            status: "HOME",
+            currentModule: "HOME",
+            currentStatus: "Document In Hand",
+          },
+        });
+
+        await prisma.movementHistory.create({
+          data: {
+            trackingNumber: registration.trackingNumber,
+            action: "Advance Payment Added (Cash)",
+            oldStatus: "REGISTRATION",
+            newStatus: "HOME",
+            oldOffice: registration.regionOfRegistration || registration.deliveryLocation || "Registration Office",
+            newOffice: registration.regionOfRegistration || registration.deliveryLocation || "Registration Office",
+            performedBy: performedByName,
+            remarks: `Direct cash advance payment (₹${advanceAmount.toLocaleString()}) recorded. Document moved to Home Document In Hand.`,
+          },
+        });
+      }
+    }
+
+    // 5. Create financial ledger entry (AccountStatementEntry)
+    await prisma.accountStatementEntry.create({
+      data: {
+        date: parsedPaymentDate,
+        trackingNumber: registration.trackingNumber,
+        particulars: `Advance Payment - ${registration.trackingNumber}`,
+        entryType: "Credit",
+        credit: new Prisma.Decimal(advanceAmount),
+        debit: new Prisma.Decimal(0),
+        sourceType: "AdvancePaymentApproval",
+        sourceId: approval.id,
+        registrationId: registration.id,
+        ownerAdminId: args.ownerAdminId,
+        createdBy: performedByName,
+      },
+    });
+
+    // Recalculate running balance in ledger
+    await recalculateRunningBalances(args.ownerAdminId);
+
+    // 6. Log in AdvancePaymentAuditLog
+    await prisma.advancePaymentAuditLog.create({
+      data: {
+        approvalId: approval.id,
+        registrationId: registration.id,
+        action: "Cash Payment Recorded",
+        performedBy: args.performedByUserId || "System",
+        performedByName,
+        remarks: args.remarks || `Direct cash advance payment of ₹${advanceAmount.toLocaleString()} recorded.`,
+        ipAddress: args.ipAddress || null,
+        ownerAdminId: args.ownerAdminId,
+      },
+    });
+
+    return approval;
+  }
+
+  // ─── NON-CASH PAYMENT MODES: Create Pending Approval Request Workflow ───
   // ALWAYS create a NEW AdvancePaymentApproval request entry
   const approval = await prisma.advancePaymentApproval.create({
     data: {
