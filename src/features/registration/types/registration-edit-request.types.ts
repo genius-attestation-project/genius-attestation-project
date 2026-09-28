@@ -63,3 +63,12 @@ export interface RejectEditRequestParams {
   rejectedById?: string;
   rejectedByName?: string;
 }
+
+export interface CreateEditRequestResult extends Partial<RegistrationEditRequestItem> {
+  isEditRequest: boolean;
+  editRequest: RegistrationEditRequestItem | null;
+  advanceApprovalCreated?: boolean;
+  advancePaymentApproval?: any;
+  message?: string;
+}
+

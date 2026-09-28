@@ -1,12 +1,13 @@
 import { Prisma, FollowupActionType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { REGISTRATION_FIELD_DEFINITIONS } from "@/features/registration/server/registration-fields";
-import { getApprovedAdvanceSum } from "@/features/revenue/server/advance-payment-approval.service";
+import { getApprovedAdvanceSum, submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import type {
   FieldChangeItem,
   RegistrationEditRequestItem,
   CreateEditRequestParams,
+  CreateEditRequestResult,
   ApproveEditRequestParams,
   RejectEditRequestParams,
 } from "@/features/registration/types/registration-edit-request.types";
@@ -132,7 +133,7 @@ export function computeFieldChanges(
   const changes: FieldChangeItem[] = [];
   const checkedKeys = new Set<string>();
 
-  // Ignored system fields that are not part of user edits
+  // Ignored system fields and advance payment fields that are not part of document edit approval requests
   const ignoredKeys = new Set([
     "id",
     "trackingNumber",
@@ -188,6 +189,37 @@ export function computeFieldChanges(
     "advancePaymentRejectionReason",
     "movementApproved",
     "advancePaymentSubmitted",
+    // Advance payment fields & calculated payment state (managed via Advance Payment Approval workflow)
+    "requestedAdvanceAmount",
+    "advancePaid",
+    "advancePaymentStatus",
+    "paymentStatus",
+    "balanceAmount",
+    "balanceReceivedAmount",
+    "paymentUpdateStatus",
+    "financeApprovalStatus",
+    "receiptFileId",
+    "proofFileType",
+    "proofFiles",
+    "proofFileId",
+    "upiTransactionId",
+    "bankName",
+    "transactionRefNo",
+    "transferDate",
+    "chequeNumber",
+    "chequeDate",
+    "ddNumber",
+    "ddDate",
+    "cardLast4",
+    "approvalCode",
+    "paymentGateway",
+    "onlineTransactionId",
+    "walletName",
+    "walletTransactionId",
+    "paymentMode",
+    "paymentReferenceNo",
+    "paymentDescription",
+    "regionOfRegistrationId",
   ]);
 
   const candidateKeys = Array.from(
@@ -378,7 +410,7 @@ export async function getActiveEditRequestForRegistration(ownerAdminId: string, 
   return record ? mapEditRequest(record) : null;
 }
 
-export async function createEditRequest(params: CreateEditRequestParams) {
+export async function createEditRequest(params: CreateEditRequestParams): Promise<CreateEditRequestResult> {
   const { ownerAdminId, registrationId, input, sourceOfficeName, requestedById, requestedByName } = params;
 
   // 1. Fetch current document from DB
@@ -405,8 +437,8 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     throw new Error("This registration is locked for BM Report processing and cannot be edited.");
   }
 
-  // 2. Duplicate Request Prevention: Check if active PENDING request already exists
-  const existingPending = await prisma.registrationEditRequest.findFirst({
+  // 2. Check if active PENDING edit request already exists
+  const existingPendingEdit = await prisma.registrationEditRequest.findFirst({
     where: {
       ownerAdminId,
       registrationId: existing.id,
@@ -414,20 +446,7 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     },
   });
 
-  if (existingPending) {
-    const error: any = new Error("An edit approval request is already pending for this document.");
-    error.statusCode = 409;
-    error.isDuplicate = true;
-    throw error;
-  }
-
-  const latestAdvanceApproval = existing.advancePaymentApprovals?.[0];
-  const pendingAdvanceAmount =
-    existing.advancePaymentStatus === "Pending Approval" && latestAdvanceApproval?.status === "Pending Approval"
-      ? Number(latestAdvanceApproval.advanceAmount)
-      : 0;
-
-  // 3. Compare original data and proposed data to compute field changes
+  // 3. Compare original data and proposed data to compute document field changes
   const originalSnapshot: Record<string, any> = {
     trackingNumber: existing.trackingNumber,
     customerName: existing.customerName,
@@ -449,26 +468,6 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     committedDuration: existing.committedDuration,
     deliveryLocation: existing.deliveryLocation,
     totalCharges: Number(existing.totalCharges),
-    advancePaid: Number(existing.advancePaid),
-    requestedAdvanceAmount: pendingAdvanceAmount,
-    paymentMode: existing.paymentMode,
-    upiTransactionId: existing.upiTransactionId,
-    bankName: existing.bankName,
-    transactionRefNo: existing.transactionRefNo,
-    transferDate: existing.transferDate ? existing.transferDate.toISOString().split("T")[0] : null,
-    chequeNumber: existing.chequeNumber,
-    chequeDate: existing.chequeDate ? existing.chequeDate.toISOString().split("T")[0] : null,
-    ddNumber: existing.ddNumber,
-    ddDate: existing.ddDate ? existing.ddDate.toISOString().split("T")[0] : null,
-    cardLast4: existing.cardLast4,
-    approvalCode: existing.approvalCode,
-    paymentGateway: existing.paymentGateway,
-    onlineTransactionId: existing.onlineTransactionId,
-    walletName: existing.walletName,
-    walletTransactionId: existing.walletTransactionId,
-    paymentReferenceNo: existing.paymentReferenceNo,
-    paymentDescription: existing.paymentDescription,
-    paymentStatus: existing.paymentStatus,
     collectedPerson: existing.collectedPerson,
     commissionToUserId: existing.commissionToUserId,
     commissionToName: existing.commissionToName,
@@ -488,9 +487,91 @@ export async function createEditRequest(params: CreateEditRequestParams) {
 
   const fieldChanges = computeFieldChanges(originalSnapshot, proposedSnapshot);
 
+  // 4. Handle Advance Payment changes
+  const requestedAdvance = Number(input.requestedAdvanceAmount ?? 0);
+  const latestAdvanceApproval = existing.advancePaymentApprovals?.[0];
+  const hasPendingAdvance =
+    existing.advancePaymentStatus === "Pending Approval" && latestAdvanceApproval?.status === "Pending Approval";
+
+  let advanceApprovalCreated = false;
+  let createdAdvanceApproval: any = null;
+
+  // If requestedAdvance > 0 and no advance approval is pending, submit advance payment approval
+  if (requestedAdvance > 0 && !hasPendingAdvance) {
+    try {
+      createdAdvanceApproval = await submitAdvancePaymentApproval({
+        ownerAdminId,
+        registrationId: existing.id,
+        advanceAmount: requestedAdvance,
+        paymentDate: input.paymentDate || new Date(),
+        paymentMode: input.paymentMode || "Cash",
+        referenceNumber: input.transactionRefNo || input.upiTransactionId || input.referenceNumber || null,
+        collectedBy: input.collectedPerson || null,
+        remarks: input.remarks || input.paymentDescription || null,
+        proofFileType: input.proofFileType || null,
+        receiptFileId: input.receiptFileId || input.proofFileId || null,
+        performedByUserId: requestedById,
+        bankName: input.bankName || null,
+        transactionRefNo: input.transactionRefNo || null,
+        transferDate: input.transferDate || null,
+        upiTransactionId: input.upiTransactionId || null,
+        chequeNumber: input.chequeNumber || null,
+        chequeDate: input.chequeDate || null,
+        ddNumber: input.ddNumber || null,
+        ddDate: input.ddDate || null,
+        cardLast4: input.cardLast4 || null,
+        approvalCode: input.approvalCode || null,
+        paymentGateway: input.paymentGateway || null,
+        onlineTransactionId: input.onlineTransactionId || null,
+        walletName: input.walletName || null,
+        walletTransactionId: input.walletTransactionId || null,
+        paymentReferenceNo: input.paymentReferenceNo || null,
+        paymentDescription: input.paymentDescription || null,
+      });
+      advanceApprovalCreated = true;
+    } catch (err) {
+      console.error("[createEditRequest] Failed to create advance payment approval:", err);
+    }
+  }
+
+  // 5. WORKFLOW SEPARATION:
+  // IF NO normal document field changes exist:
   if (fieldChanges.length === 0) {
+    if (advanceApprovalCreated) {
+      return {
+        isEditRequest: false,
+        editRequest: null,
+        advanceApprovalCreated: true,
+        advancePaymentApproval: createdAdvanceApproval,
+        message: "Advance payment approval request created successfully. No document field changes detected.",
+        id: existing.id,
+        registrationId: existing.id,
+        trackingNumber: existing.trackingNumber,
+      };
+    }
+
+    if (hasPendingAdvance) {
+      return {
+        isEditRequest: false,
+        editRequest: null,
+        advanceApprovalCreated: false,
+        message: "Advance payment approval request is already pending. No document field changes detected.",
+        id: existing.id,
+        registrationId: existing.id,
+        trackingNumber: existing.trackingNumber,
+      };
+    }
+
     const error: any = new Error("No field changes detected.");
     error.statusCode = 400;
+    throw error;
+  }
+
+  // IF document field changes exist:
+  if (existingPendingEdit) {
+    const error: any = new Error("An edit approval request is already pending for this document.");
+    error.statusCode = 409;
+    error.isDuplicate = true;
     throw error;
   }
 
@@ -500,7 +581,7 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     existing.regionOfRegistration ||
     sourceOfficeName;
 
-  // 4. Create the Edit Request record
+  // 6. Create the Edit Request record for normal document changes
   const created = await prisma.registrationEditRequest.create({
     data: {
       registrationId: existing.id,
@@ -524,7 +605,17 @@ export async function createEditRequest(params: CreateEditRequestParams) {
     },
   });
 
-  return mapEditRequest(created);
+  const mapped = mapEditRequest(created);
+  return {
+    ...mapped,
+    isEditRequest: true,
+    editRequest: mapped,
+    advanceApprovalCreated,
+    advancePaymentApproval: createdAdvanceApproval,
+    message: advanceApprovalCreated
+      ? "Edit approval request and Advance Payment approval request created successfully."
+      : "Edit approval request created successfully. Document changes will apply upon approval.",
+  };
 }
 
 export async function listEditRequests(

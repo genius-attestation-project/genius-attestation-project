@@ -2460,6 +2460,10 @@ export function RegistrationManager({
           }}
           onSuccess={() => {
             fetchRegistrations(query, filters);
+            if (selected) {
+              setDrawerMode(null);
+              setSuccess("Advance payment approval request submitted successfully. It has been sent to Pending Approvals.");
+            }
           }}
         />
       )}

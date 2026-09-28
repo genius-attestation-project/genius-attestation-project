@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     }
 
     const requestedByName = session.user?.name ?? session.user?.email ?? "User";
-    const editRequest = await createEditRequest({
+    const result = await createEditRequest({
       ownerAdminId,
       registrationId: id,
       input: parsed.data,
@@ -77,11 +77,14 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       requestedByName,
     });
 
+    const isEdit = Boolean(result && "status" in result && result.status === "PENDING" && (result.isEditRequest ?? true));
+
     return jsonOk({
-      message: "Edit approval request created successfully. Document changes will apply upon approval.",
-      editRequest,
+      message: result?.message || (isEdit ? "Edit approval request created successfully. Document changes will apply upon approval." : "Advance payment approval request created successfully."),
+      editRequest: isEdit ? (result.editRequest || result) : null,
       registration: { id },
-      isEditRequest: true,
+      isEditRequest: isEdit,
+      advanceApprovalCreated: Boolean(result?.advanceApprovalCreated),
     });
   } catch (error: any) {
     if (error?.statusCode) {
