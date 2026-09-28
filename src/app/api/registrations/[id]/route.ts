@@ -8,10 +8,7 @@ import {
   deleteRegistration,
   getRegistrationById,
 } from "@/features/registration/server/registration.service";
-import {
-  createEditRequest,
-  handleRegistrationUpdate,
-} from "@/features/registration/server/registration-edit-request.service";
+import { createEditRequest } from "@/features/registration/server/registration-edit-request.service";
 import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
 import { NextRequest } from "next/server";
 
@@ -71,29 +68,20 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     }
 
     const requestedByName = session.user?.name ?? session.user?.email ?? "User";
-    const updateResult = await handleRegistrationUpdate({
+    const editRequest = await createEditRequest({
       ownerAdminId,
       registrationId: id,
       input: parsed.data,
       sourceOfficeName,
       requestedById: session.user.id,
       requestedByName,
-      sessionUser: session.user,
     });
 
-    if (updateResult.isEditRequest) {
-      return jsonOk({
-        message: updateResult.message || "Edit approval request created successfully. Document changes will apply upon approval.",
-        editRequest: updateResult.editRequest,
-        registration: { id },
-        isEditRequest: true,
-      });
-    }
-
     return jsonOk({
-      message: updateResult.message || "Approved advance updated successfully.",
-      registration: updateResult.registration || { id },
-      isEditRequest: false,
+      message: "Edit approval request created successfully. Document changes will apply upon approval.",
+      editRequest,
+      registration: { id },
+      isEditRequest: true,
     });
   } catch (error: any) {
     if (error?.statusCode) {

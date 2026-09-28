@@ -679,8 +679,8 @@ export function RegistrationManager({
   }, [registrations, currentOfficeLocationName, currentUser?.officeLocationName, currentUser?.officeLocationId]);
 
   const approvedAdvance = useMemo(() => {
-    return Number(form.advancePaid || (selected ? selected.advancePaid : 0) || 0);
-  }, [form.advancePaid, selected]);
+    return selected ? Number(selected.advancePaid || 0) : 0;
+  }, [selected]);
 
   const pendingRequestedAdvance = useMemo(() => {
     if (selected?.advancePaymentStatus === "Pending Approval" && Number((selected as any).requestedAdvanceAmount || 0) > 0) {
@@ -1151,7 +1151,7 @@ export function RegistrationManager({
       }
       setSuccess(
         selected
-          ? data.message || (data.isEditRequest ? "Edit approval request submitted. The document will update once approved." : "Registration updated successfully.")
+          ? data.message || "Edit approval request submitted. The document will update once approved."
           : "Registration created."
       );
       setDrawerMode(null);
@@ -2075,34 +2075,59 @@ export function RegistrationManager({
               </div>
             )}
             <div className="grid gap-1.5">
-              <div className="flex items-center justify-end mb-[-4px]">
-                {isAdvancePaidEnabled && canAddAdvance && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddAdvanceOpen(true)}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600 transition-colors dark:text-blue-400 cursor-pointer"
-                  >
-                    <Plus size={12} /> Add Advance Payment
-                  </button>
-                )}
-              </div>
-              <Input
-                label="Approved Advance"
-                description={
-                  !canAddAdvance
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  Approved Advance
+                </span>
+                <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled && canAddAdvance ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  {!canAddAdvance
                     ? "Add Advance restricted for this office"
                     : isAdvancePaidEnabled
-                    ? "Direct advance updates"
-                    : "Enter Total Charges first"
-                }
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.advancePaid}
-                placeholder="Enter approved advance amount"
+                      ? "Click to request advance"
+                      : "Enter Total Charges first"}
+                </span>
+              </div>
+              <button
+                type="button"
                 disabled={!isAdvancePaidEnabled || !canAddAdvance}
-                onChange={(event) => updateField("advancePaid", event.target.value)}
-              />
+                onClick={() => {
+                  if (!isAdvancePaidEnabled || !canAddAdvance) return;
+                  setIsAddAdvanceOpen(true);
+                }}
+                title={
+                  !canAddAdvance
+                    ? "You do not have permission to add advance for documents registered in this office"
+                    : isAdvancePaidEnabled
+                    ? "Click to add an advance payment request"
+                    : "Enter Total Charges first to enable advance payment"
+                }
+                className={[
+                  "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
+                  "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
+                  "transition-all duration-150",
+                  isAdvancePaidEnabled && canAddAdvance
+                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
+                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
+                ].join(" ")}
+              >
+                <span className="flex items-center gap-2">
+                  <span>
+                    ₹ {approvedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  {isAdvancePaidEnabled && canAddAdvance && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                      <Plus size={12} /> Request Advance
+                    </span>
+                  )}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
+                  {!canAddAdvance
+                    ? "Permission Restricted"
+                    : !isAdvancePaidEnabled
+                    ? "Enter Total Charges First"
+                    : "Approved Only"}
+                </span>
+              </button>
             </div>
             <MultiFileUpload
               label="Advance Payment Upload"
