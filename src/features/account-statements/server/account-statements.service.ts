@@ -216,97 +216,6 @@ export async function getAccountStatements(
   const moreAdvancesList: AccountStatementItem[] = [];
   const bankPaymentDebitItems: AccountStatementItem[] = [];
 
-  let advanceSlNo = 1;
-  let moreAdvanceSlNo = 1;
-
-  for (const item of filteredAdvances) {
-    const isCash = (item.paymentMode || item.registration?.paymentMode || "").trim().toLowerCase() === "cash";
-    
-    // Original payment date from Advance Payment Request
-    const paymentDateObj = item.paymentDate || item.registration?.transferDate || item.requestedAt || item.createdAt;
-    const dateStr = paymentDateObj
-      ? new Date(paymentDateObj).toISOString().split("T")[0]
-      : new Date(item.createdAt).toISOString().split("T")[0];
-
-    // Original uploaded proof file from Advance Payment Request
-    let proofUrl: string | null = null;
-    let proofName: string = "Proof Document";
-
-    if (item.receiptFileUrl) {
-      proofUrl = item.receiptFileUrl;
-      proofName = item.receiptFileName || "Advance Payment Receipt";
-    } else if (item.receiptFileId) {
-      proofUrl = `/api/files/${item.receiptFileId}/view`;
-      proofName = item.receiptFileName || "Advance Payment Receipt";
-    } else if (item.registration?.files?.length > 0 && item.registration.files[0].fileStorage) {
-      const storage = item.registration.files[0].fileStorage;
-      proofUrl = storage.url || `/api/files/${storage.id}/view`;
-      proofName = storage.originalName || "Advance Payment Proof";
-    } else if (item.bankProofFileUrl || item.bankProofFileId) {
-      // Fallback only if no advance request receipt was attached
-      proofUrl = item.bankProofFileUrl || `/api/files/${item.bankProofFileId}/view`;
-      proofName = item.bankProofFileName || "Proof Document";
-    }
-
-    const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
-    const effectivePaymentMode = item.paymentMode || item.registration?.paymentMode || (isCash ? "Cash" : "Bank Transfer");
-    const effectiveCollectedBy = item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "Staff";
-    const bankName = item.registration?.bankName || null;
-    const refNumber = item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || item.registration?.paymentReferenceNo || "";
-    
-    // Original remarks/narration entered in Advance Payment Request
-    const createdAuditRemarks = (item.auditLogs?.[0]?.remarks || "").trim();
-    const originalRemarks = (item.remarks || item.registration?.paymentDescription || createdAuditRemarks || "").trim();
-    const cleanNarration = originalRemarks || (isCash ? `Cash Advance for ${trackingNum}` : `${effectivePaymentMode} Advance for ${trackingNum}`);
-
-    // Bank Account Name for debit Bank Payment Transactions
-    const bankAccountName = bankName || effectivePaymentMode;
-
-    const statementItem: AccountStatementItem = {
-      id: item.id,
-      sourceType: "ADVANCE_PAYMENT",
-      date: dateStr,
-      collectedBy: effectiveCollectedBy,
-      invoiceNumber: trackingNum || refNumber || "-",
-      amount: Number(item.advanceAmount ?? 0),
-      paymentMode: effectivePaymentMode,
-      narration: cleanNarration,
-      trackingNumber: trackingNum || null,
-      bankName,
-      referenceNumber: refNumber || null,
-      transferDate: item.registration?.transferDate ? new Date(item.registration.transferDate).toISOString().split("T")[0] : dateStr,
-      proofFileType: item.proofFileType || "Receipt",
-      remarks: originalRemarks || null,
-      accountName: bankAccountName,
-      proofFileUrl: proofUrl,
-      proofFileName: proofName,
-      bankProofFileUrl: item.bankProofFileUrl || null,
-      bankProofFileName: item.bankProofFileName || null,
-      officeName: item.office || item.registration?.regionOfRegistration || null,
-      canEdit,
-      canDelete,
-    };
-
-    if (isCash) {
-      // CASE 1: Cash Advance -> Credit -> Advances ONLY (No Debit entry)
-      statementItem.slNo = advanceSlNo++;
-      advancesList.push(statementItem);
-    } else {
-      // CASE 2: Non-Cash Advance -> Credit -> More Advances AND Debit -> Bank Transaction
-      statementItem.slNo = moreAdvanceSlNo++;
-      moreAdvancesList.push(statementItem);
-
-      // Create offsetting Debit entry for Bank Payment Transaction
-      bankPaymentDebitItems.push({
-        ...statementItem,
-        id: `debit_adv_${item.id}`,
-        accountName: bankAccountName,
-        trackingNumber: trackingNum || null,
-        narration: cleanNarration,
-      });
-    }
-  }
-
   // ----------------------------------------------------
   // 2. Fetch Account Panel Transactions
   // ----------------------------------------------------
@@ -407,6 +316,146 @@ export async function getAccountStatements(
     orderBy: { transactionDate: "desc" },
   });
 
+  // Helper to normalize tracking / invoice numbers for comparison
+  const normalizeTrackingKey = (str?: string | null): string => {
+    if (!str) return "";
+    const cleaned = str.trim().toLowerCase();
+    return cleaned.replace(/^(trk-|inv-|#)/i, "").trim();
+  };
+
+  // Calculate debit usage per tracking number from Account Panel debit transactions
+  const debitUsageMap = new Map<string, number>();
+
+  for (const tx of rawPanelTransactions) {
+    const isCredit = (tx.account?.type || "").toUpperCase() === "CREDIT";
+    if (!isCredit && tx.invoiceNumber) {
+      const rawKey = tx.invoiceNumber.trim().toLowerCase();
+      const normKey = normalizeTrackingKey(rawKey);
+      const amt = Number(tx.amount ?? 0);
+      if (amt > 0) {
+        debitUsageMap.set(rawKey, (debitUsageMap.get(rawKey) || 0) + amt);
+        if (normKey && normKey !== rawKey) {
+          debitUsageMap.set(normKey, (debitUsageMap.get(normKey) || 0) + amt);
+        }
+      }
+    }
+  }
+
+  // Create a mutable copy to allocate debit amounts to cash advances sequentially
+  const remainingDebitMap = new Map<string, number>(debitUsageMap);
+
+  let advanceSlNo = 1;
+  let moreAdvanceSlNo = 1;
+
+  for (const item of filteredAdvances) {
+    const isCash = (item.paymentMode || item.registration?.paymentMode || "").trim().toLowerCase() === "cash";
+    
+    // Original payment date from Advance Payment Request
+    const paymentDateObj = item.paymentDate || item.registration?.transferDate || item.requestedAt || item.createdAt;
+    const dateStr = paymentDateObj
+      ? new Date(paymentDateObj).toISOString().split("T")[0]
+      : new Date(item.createdAt).toISOString().split("T")[0];
+
+    // Original uploaded proof file from Advance Payment Request
+    let proofUrl: string | null = null;
+    let proofName: string = "Proof Document";
+
+    if (item.receiptFileUrl) {
+      proofUrl = item.receiptFileUrl;
+      proofName = item.receiptFileName || "Advance Payment Receipt";
+    } else if (item.receiptFileId) {
+      proofUrl = `/api/files/${item.receiptFileId}/view`;
+      proofName = item.receiptFileName || "Advance Payment Receipt";
+    } else if (item.registration?.files?.length > 0 && item.registration.files[0].fileStorage) {
+      const storage = item.registration.files[0].fileStorage;
+      proofUrl = storage.url || `/api/files/${storage.id}/view`;
+      proofName = storage.originalName || "Advance Payment Proof";
+    } else if (item.bankProofFileUrl || item.bankProofFileId) {
+      // Fallback only if no advance request receipt was attached
+      proofUrl = item.bankProofFileUrl || `/api/files/${item.bankProofFileId}/view`;
+      proofName = item.bankProofFileName || "Proof Document";
+    }
+
+    const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
+    const effectivePaymentMode = item.paymentMode || item.registration?.paymentMode || (isCash ? "Cash" : "Bank Transfer");
+    const effectiveCollectedBy = item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "Staff";
+    const bankName = item.registration?.bankName || null;
+    const refNumber = item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || item.registration?.paymentReferenceNo || "";
+    
+    // Original remarks/narration entered in Advance Payment Request
+    const createdAuditRemarks = (item.auditLogs?.[0]?.remarks || "").trim();
+    const originalRemarks = (item.remarks || item.registration?.paymentDescription || createdAuditRemarks || "").trim();
+    const cleanNarration = originalRemarks || (isCash ? `Cash Advance for ${trackingNum}` : `${effectivePaymentMode} Advance for ${trackingNum}`);
+
+    // Bank Account Name for debit Bank Payment Transactions
+    const bankAccountName = bankName || effectivePaymentMode;
+
+    const originalAdvanceAmount = Number(item.advanceAmount ?? 0);
+    let availableAdvanceAmount = originalAdvanceAmount;
+    let utilizedAdvanceAmount = 0;
+
+    const rawTrackKey = trackingNum.toLowerCase();
+    const normTrackKey = normalizeTrackingKey(rawTrackKey);
+
+    if (isCash && trackingNum) {
+      const currentDebitUsage = remainingDebitMap.get(rawTrackKey) ?? remainingDebitMap.get(normTrackKey) ?? 0;
+      if (currentDebitUsage > 0) {
+        utilizedAdvanceAmount = Math.min(originalAdvanceAmount, currentDebitUsage);
+        availableAdvanceAmount = Math.max(0, originalAdvanceAmount - utilizedAdvanceAmount);
+
+        const newRem = currentDebitUsage - utilizedAdvanceAmount;
+        remainingDebitMap.set(rawTrackKey, newRem);
+        if (normTrackKey) remainingDebitMap.set(normTrackKey, newRem);
+      }
+    }
+
+    const statementItem: AccountStatementItem = {
+      id: item.id,
+      sourceType: "ADVANCE_PAYMENT",
+      date: dateStr,
+      collectedBy: effectiveCollectedBy,
+      invoiceNumber: trackingNum || refNumber || "-",
+      amount: isCash ? availableAdvanceAmount : originalAdvanceAmount,
+      originalAmount: originalAdvanceAmount,
+      utilizedAmount: isCash ? utilizedAdvanceAmount : 0,
+      paymentMode: effectivePaymentMode,
+      narration: cleanNarration,
+      trackingNumber: trackingNum || null,
+      bankName,
+      referenceNumber: refNumber || null,
+      transferDate: item.registration?.transferDate ? new Date(item.registration.transferDate).toISOString().split("T")[0] : dateStr,
+      proofFileType: item.proofFileType || "Receipt",
+      remarks: originalRemarks || null,
+      accountName: bankAccountName,
+      proofFileUrl: proofUrl,
+      proofFileName: proofName,
+      bankProofFileUrl: item.bankProofFileUrl || null,
+      bankProofFileName: item.bankProofFileName || null,
+      officeName: item.office || item.registration?.regionOfRegistration || null,
+      canEdit,
+      canDelete,
+    };
+
+    if (isCash) {
+      // CASE 1: Cash Advance -> Credit -> Advances ONLY (No Debit entry)
+      statementItem.slNo = advanceSlNo++;
+      advancesList.push(statementItem);
+    } else {
+      // CASE 2: Non-Cash Advance -> Credit -> More Advances AND Debit -> Bank Transaction
+      statementItem.slNo = moreAdvanceSlNo++;
+      moreAdvancesList.push(statementItem);
+
+      // Create offsetting Debit entry for Bank Payment Transaction
+      bankPaymentDebitItems.push({
+        ...statementItem,
+        id: `debit_adv_${item.id}`,
+        accountName: bankAccountName,
+        trackingNumber: trackingNum || null,
+        narration: cleanNarration,
+      });
+    }
+  }
+
   const filteredPanelTransactions = rawPanelTransactions.filter((item: any) => {
     if (!searchFilter) return true;
     const inv = (item.invoiceNumber || "").toLowerCase();
@@ -450,6 +499,7 @@ export async function getAccountStatements(
       date: dateStr,
       collectedBy: item.createdByName || "System",
       invoiceNumber: item.invoiceNumber || "-",
+      trackingNumber: item.invoiceNumber || null,
       amount: Number(item.amount ?? 0),
       narration: item.narration || item.account?.name || "Account Panel Transaction",
       proofFileUrl: proofUrl,
@@ -581,9 +631,13 @@ export async function getAccountStatements(
   const panelCreditsTotal = panelCreditItems.reduce((sum, item) => sum + item.amount, 0);
   const creditTotal = advancesTotal + moreAdvancesTotal + panelCreditsTotal;
 
-  // Cash in hand formula: Net balance = Credit Total - Debit Total
+  // Calculate total cash advances consumed by debit transactions
+  const totalAdvanceSettledDebits = advancesList.reduce((sum, item) => sum + (item.utilizedAmount ?? 0), 0);
+
+  // Cash in hand formula:
+  // Net balance = Credit Total (with available advances) - Debit Total + Advance Debits Settled (to avoid double deduction) + Opening Balance
   const openingBalance = 0; // Default opening balance
-  const cashInHand = creditTotal - totalDebitAmount + openingBalance;
+  const cashInHand = creditTotal - totalDebitAmount + totalAdvanceSettledDebits + openingBalance;
 
   return {
     office: officeFilter || "All Offices",

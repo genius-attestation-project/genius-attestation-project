@@ -6,6 +6,8 @@ export interface AccountStatementItem {
   collectedBy: string; // Registrar / Collected By / Created By
   invoiceNumber: string; // Tracking No or Invoice No
   amount: number;
+  originalAmount?: number;
+  utilizedAmount?: number;
   paymentMode?: string;
   narration?: string;
   trackingNumber?: string | null;

@@ -191,3 +191,98 @@ export async function deleteAccountPanelTransaction(
   return { success: true };
 }
 
+/**
+ * Helper to check and calculate available advance balance for a given tracking number.
+ */
+export async function getAvailableAdvanceForTracking(
+  ownerAdminId: string,
+  trackingNumber: string
+) {
+  const cleanTracking = trackingNumber ? trackingNumber.trim() : "";
+  if (!cleanTracking) {
+    return {
+      hasAdvance: false,
+      trackingNumber: "",
+      totalApprovedAdvance: 0,
+      totalDebitsUsed: 0,
+      availableAdvance: 0,
+    };
+  }
+
+  // Find approved cash advances matching tracking number
+  const approvedAdvances = await db.advancePaymentApproval.findMany({
+    where: {
+      ownerAdminId,
+      status: "Approved",
+      OR: [
+        { trackingNumber: cleanTracking },
+        { registration: { trackingNumber: cleanTracking } },
+      ],
+    },
+    include: {
+      registration: {
+        select: {
+          customerName: true,
+          trackingNumber: true,
+          regionOfRegistration: true,
+          paymentMode: true,
+        },
+      },
+    },
+  });
+
+  // Filter for Cash advances
+  const cashAdvances = approvedAdvances.filter((a: any) => {
+    const mode = (a.paymentMode || a.registration?.paymentMode || "").trim().toLowerCase();
+    return mode === "cash";
+  });
+
+  const totalApprovedAdvance = cashAdvances.reduce(
+    (sum: number, a: any) => sum + Number(a.advanceAmount ?? 0),
+    0
+  );
+
+  // Find all existing debit transactions that used this tracking number
+  const allDebitTransactions = await db.accountPanelTransaction.findMany({
+    where: {
+      ownerAdminId,
+      account: {
+        type: { not: "CREDIT" },
+      },
+    },
+    select: {
+      id: true,
+      amount: true,
+      invoiceNumber: true,
+    },
+  });
+
+  const matchingDebits = allDebitTransactions.filter((tx: any) => {
+    if (!tx.invoiceNumber) return false;
+    const inv = tx.invoiceNumber.trim().toLowerCase();
+    const target = cleanTracking.toLowerCase();
+    return (
+      inv === target ||
+      inv.replace(/^(trk-|inv-|#)/i, "").trim() === target.replace(/^(trk-|inv-|#)/i, "").trim()
+    );
+  });
+
+  const totalDebitsUsed = matchingDebits.reduce(
+    (sum: number, tx: any) => sum + Number(tx.amount ?? 0),
+    0
+  );
+
+  const availableAdvance = Math.max(0, totalApprovedAdvance - totalDebitsUsed);
+  const sample = cashAdvances[0];
+
+  return {
+    hasAdvance: cashAdvances.length > 0,
+    trackingNumber: cleanTracking,
+    customerName: sample?.customerName || sample?.registration?.customerName || null,
+    office: sample?.office || sample?.registration?.regionOfRegistration || null,
+    totalApprovedAdvance,
+    totalDebitsUsed,
+    availableAdvance,
+  };
+}
+

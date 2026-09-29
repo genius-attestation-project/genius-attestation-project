@@ -6,6 +6,7 @@ import { createAccountPanelTransactionSchema } from "@/features/account-panel/va
 import {
   createAccountPanelTransaction,
   getAccountTransactions,
+  getAvailableAdvanceForTracking,
 } from "@/features/account-panel/server/account-panel-transaction.service";
 import { resolveOfficeLocationId } from "@/lib/office-location";
 
@@ -81,10 +82,16 @@ export async function GET(request: NextRequest) {
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
 
     const { searchParams } = new URL(request.url);
-    const accountId = searchParams.get("accountId");
+    const checkTracking = searchParams.get("checkTracking") || searchParams.get("trackingNumber");
 
+    if (checkTracking) {
+      const advanceInfo = await getAvailableAdvanceForTracking(ownerAdminId, checkTracking);
+      return jsonOk(advanceInfo);
+    }
+
+    const accountId = searchParams.get("accountId");
     if (!accountId) {
-      return jsonError("Account ID query parameter is required.", 400);
+      return jsonError("Account ID or trackingNumber query parameter is required.", 400);
     }
 
     const transactions = await getAccountTransactions(ownerAdminId, accountId);

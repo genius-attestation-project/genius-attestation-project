@@ -44,6 +44,14 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [advanceInfo, setAdvanceInfo] = useState<{
+    hasAdvance: boolean;
+    trackingNumber: string;
+    customerName?: string | null;
+    availableAdvance: number;
+    totalApprovedAdvance: number;
+  } | null>(null);
+  const [checkingAdvance, setCheckingAdvance] = useState(false);
 
   // Populate default date on modal open
   useEffect(() => {
@@ -56,8 +64,43 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
       setNarration("");
       setError("");
       setSuccessMsg("");
+      setAdvanceInfo(null);
     }
   }, [isOpen, account]);
+
+  // Debounced check for available advance balance by tracking number
+  useEffect(() => {
+    if (!isOpen || !invoiceNumber.trim() || invoiceNumber.trim().length < 2) {
+      setAdvanceInfo(null);
+      setCheckingAdvance(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setCheckingAdvance(true);
+        const res = await fetch(
+          `/api/account-panel/transactions?checkTracking=${encodeURIComponent(invoiceNumber.trim())}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.hasAdvance) {
+            setAdvanceInfo(data);
+          } else {
+            setAdvanceInfo(null);
+          }
+        } else {
+          setAdvanceInfo(null);
+        }
+      } catch {
+        setAdvanceInfo(null);
+      } finally {
+        setCheckingAdvance(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [invoiceNumber, isOpen]);
 
   if (!isOpen || !account) return null;
 
@@ -181,21 +224,47 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
 
           {/* Row 1: Invoice Number & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Invoice Number */}
+            {/* Invoice / Tracking Number */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Invoice Number
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Tracking / Invoice No
+                </label>
+                {checkingAdvance && (
+                  <span className="text-[10px] text-blue-500 font-medium animate-pulse">
+                    Checking advance...
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <FileText className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="e.g. INV-10025"
+                  placeholder="e.g. 9846 or INV-10025"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/50 pl-10 pr-3.5 py-2.5 text-xs font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
+              {advanceInfo && advanceInfo.hasAdvance && (
+                <div className="mt-1">
+                  {advanceInfo.availableAdvance > 0 ? (
+                    <div className="flex items-center justify-between rounded-xl bg-blue-50/90 px-3 py-1.5 text-[11px] font-semibold text-blue-800 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800/40">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        <span>Available Advance: ₹{advanceInfo.availableAdvance.toLocaleString("en-IN")}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-1.5 py-0.5 rounded-md">
+                        Auto-Settled
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-slate-100/90 px-3 py-1.5 text-[10px] font-medium text-slate-600 border border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10">
+                      Advance for #{advanceInfo.trackingNumber} fully consumed (₹0 available).
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Date */}
@@ -234,6 +303,19 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
                 className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/50 pl-10 pr-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none transition-all focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
             </div>
+            {advanceInfo && advanceInfo.hasAdvance && advanceInfo.availableAdvance > 0 && amount && Number(amount) > 0 && (
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 px-1">
+                {Number(amount) <= advanceInfo.availableAdvance ? (
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                    ✓ ₹{Number(amount).toLocaleString("en-IN")} will be deducted from advance (Remaining advance: ₹{(advanceInfo.availableAdvance - Number(amount)).toLocaleString("en-IN")})
+                  </span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                    ⓘ ₹{advanceInfo.availableAdvance.toLocaleString("en-IN")} will be deducted from advance, remaining ₹{(Number(amount) - advanceInfo.availableAdvance).toLocaleString("en-IN")} as direct expense.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bill Attachment */}

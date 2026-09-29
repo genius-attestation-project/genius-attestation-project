@@ -69,6 +69,11 @@ export const AdvanceTable: React.FC<AdvanceTableProps> = ({
                   </td>
                   <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
                     ₹{item.amount.toLocaleString("en-IN")}
+                    {item.utilizedAmount !== undefined && item.utilizedAmount > 0 && (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block">
+                        (₹{item.utilizedAmount.toLocaleString("en-IN")} used)
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
