@@ -346,6 +346,7 @@ export async function getAccountStatements(
 
   let advanceSlNo = 1;
   let moreAdvanceSlNo = 1;
+  let totalAdvanceSettledDebits = 0;
 
   for (const item of filteredAdvances) {
     const isCash = (item.paymentMode || item.registration?.paymentMode || "").trim().toLowerCase() === "cash";
@@ -437,9 +438,14 @@ export async function getAccountStatements(
     };
 
     if (isCash) {
+      totalAdvanceSettledDebits += utilizedAdvanceAmount;
+
       // CASE 1: Cash Advance -> Credit -> Advances ONLY (No Debit entry)
-      statementItem.slNo = advanceSlNo++;
-      advancesList.push(statementItem);
+      // Only include advance in Advances (Cash) if availableAmount > 0 (hide fully consumed advances)
+      if (availableAdvanceAmount > 0) {
+        statementItem.slNo = advanceSlNo++;
+        advancesList.push(statementItem);
+      }
     } else {
       // CASE 2: Non-Cash Advance -> Credit -> More Advances AND Debit -> Bank Transaction
       statementItem.slNo = moreAdvanceSlNo++;
@@ -630,9 +636,6 @@ export async function getAccountStatements(
   const moreAdvancesTotal = moreAdvancesList.reduce((sum, item) => sum + item.amount, 0);
   const panelCreditsTotal = panelCreditItems.reduce((sum, item) => sum + item.amount, 0);
   const creditTotal = advancesTotal + moreAdvancesTotal + panelCreditsTotal;
-
-  // Calculate total cash advances consumed by debit transactions
-  const totalAdvanceSettledDebits = advancesList.reduce((sum, item) => sum + (item.utilizedAmount ?? 0), 0);
 
   // Cash in hand formula:
   // Net balance = Credit Total (with available advances) - Debit Total + Advance Debits Settled (to avoid double deduction) + Opening Balance
