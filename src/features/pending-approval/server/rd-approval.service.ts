@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { broadcastRealtimeMovement } from "@/lib/realtime/broadcaster";
 
 export interface CreateRDApprovalParams {
   trackingNumbers: string[];
@@ -410,7 +411,7 @@ export async function approveRDApproval(params: ApproveRDApprovalParams) {
   const { id, userId, userName, ownerAdminId, approvalRemarks, allowedOfficeNames, allowedOfficeIds, isSuperAdmin } = params;
   const db = prisma as any;
 
-  return await db.$transaction(async (tx: any) => {
+  const result = await db.$transaction(async (tx: any) => {
     const approval = await tx.rDApproval.findFirst({
       where: { id, ownerAdminId },
       include: {
@@ -578,6 +579,17 @@ export async function approveRDApproval(params: ApproveRDApprovalParams) {
       destinationOfficeName,
     };
   }, { timeout: 25000 });
+
+  if (result?.trackingNumber) {
+    broadcastRealtimeMovement({
+      action: "rd",
+      ownerAdminId,
+      toOfficeName: result.destinationOfficeName,
+      trackingNumbers: [result.trackingNumber],
+    });
+  }
+
+  return result;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { broadcastRealtimeMovement } from "@/lib/realtime/broadcaster";
 
 export async function getDocumentMovementsByOffice(
   ownerAdminId: string,
@@ -88,6 +89,16 @@ export async function sendToOffice(
       ownerAdminId,
     },
   });
+
+  broadcastRealtimeMovement({
+    action: "send",
+    ownerAdminId,
+    fromOfficeId,
+    toOfficeId,
+    fromOfficeName: fromOffice?.officeName,
+    toOfficeName: toOffice?.officeName,
+    trackingNumbers: [trackingNumber],
+  });
 }
 
 export async function acceptDocument(
@@ -147,4 +158,12 @@ export async function acceptDocument(
       },
     });
   }
+
+  broadcastRealtimeMovement({
+    action: "accept",
+    ownerAdminId,
+    toOfficeId: movement.currentOfficeId,
+    toOfficeName: office?.officeName,
+    trackingNumbers: [trackingNumber],
+  });
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveOfficeLocationId } from "@/lib/office-location";
 import type { HomeItem, HomeStats } from "@/features/home/types/home.types";
 import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+import { broadcastRealtimeMovement } from "@/lib/realtime/broadcaster";
 
 function logHomeWorkflow(message: string, payload: Record<string, unknown>) {
   console.info(`[home] ${message}`, payload);
@@ -197,7 +198,7 @@ export async function acceptHomeRegistration(params: {
 
   if (!officeId) return null;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const movement = await tx.documentMovement.findFirst({
       where: {
         registrationId: params.id,
@@ -255,6 +256,18 @@ export async function acceptHomeRegistration(params: {
 
     return updated;
   });
+
+  if (result) {
+    broadcastRealtimeMovement({
+      action: "accept",
+      ownerAdminId: params.ownerAdminId,
+      toOfficeId: officeId,
+      toOfficeName: params.officeLocationName,
+      trackingNumbers: [result.trackingNumber],
+    });
+  }
+
+  return result;
 }
 
 export async function markReadyForDelivery(params: {
@@ -271,7 +284,7 @@ export async function markReadyForDelivery(params: {
 
   if (!officeId) return null;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const movement = await tx.documentMovement.findFirst({
       where: {
         registrationId: params.id,
@@ -367,4 +380,15 @@ export async function markReadyForDelivery(params: {
 
     return updated;
   });
+
+  if (result) {
+    broadcastRealtimeMovement({
+      action: "rd",
+      ownerAdminId: params.ownerAdminId,
+      toOfficeName: params.officeLocationName,
+      trackingNumbers: [result.trackingNumber],
+    });
+  }
+
+  return result;
 }

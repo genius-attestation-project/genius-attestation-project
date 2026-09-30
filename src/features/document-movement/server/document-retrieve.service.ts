@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/features/notifications/server/notification.service";
+import { broadcastRealtimeMovement } from "@/lib/realtime/broadcaster";
 
 export type RetrieveOutboundParams = {
   ownerAdminId: string;
@@ -30,8 +31,10 @@ export async function retrieveOutboundDocuments(
 ): Promise<RetrieveOutboundResult> {
   const { ownerAdminId, userId, userName, userOfficeId, userOfficeName, reason } = params;
 
-  return await prisma.$transaction(async (tx) => {
-    let targetTrackingNumbers: string[] = [];
+  let targetTrackingNumbers: string[] = [];
+  let destinationOfficeId: string | undefined = undefined;
+
+  const result = await prisma.$transaction(async (tx) => {
     let bundle: any = null;
 
     if (params.bundleId) {
@@ -76,6 +79,7 @@ export async function retrieveOutboundDocuments(
       }
 
       targetTrackingNumbers = unreceivedItems.map((item: any) => item.trackingNumber);
+      destinationOfficeId = bundle.toOfficeId;
     } else if (params.trackingNumbers && params.trackingNumbers.length > 0) {
       targetTrackingNumbers = params.trackingNumbers;
     } else {
@@ -368,4 +372,16 @@ export async function retrieveOutboundDocuments(
       message: `Successfully retrieved ${retrievedCount} document(s) back to ${userOfficeName}.`,
     };
   }, { timeout: 20000 });
+
+  broadcastRealtimeMovement({
+    action: "retrieve",
+    ownerAdminId,
+    fromOfficeId: userOfficeId,
+    toOfficeId: destinationOfficeId,
+    fromOfficeName: userOfficeName,
+    trackingNumbers: targetTrackingNumbers,
+    bundleId: params.bundleId,
+  });
+
+  return result;
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+import { broadcastRealtimeMovement } from "@/lib/realtime/broadcaster";
 
 import crypto from "crypto";
 
@@ -269,7 +270,7 @@ export async function createTransferBundle(params: {
 
   const bundleNumber = generateBundleNumber();
 
-  return prisma.$transaction(async (tx: any) => {
+  const resultBundle = await prisma.$transaction(async (tx: any) => {
     let fromLocation = await tx.officeLocation.findFirst({ where: { id: params.fromOfficeId } });
     if (!fromLocation) {
       const ao = await tx.assignedOffice.findUnique({ where: { id: params.fromOfficeId } });
@@ -331,6 +332,21 @@ export async function createTransferBundle(params: {
       });
 
       if (!reg) continue;
+
+      // Concurrency check: Ensure document is not already in transfer or delivered
+      const existingMov = await tx.documentMovement.findUnique({
+        where: { trackingNumber },
+        select: { status: true, currentOfficeId: true },
+      });
+
+      if (
+        reg.trackingStatus === "In Transfer" ||
+        reg.trackingStatus === "In Transit" ||
+        reg.trackingStatus === "INBOUND_PENDING" ||
+        (existingMov && (existingMov.status === "INBOUND_PENDING" || existingMov.status === "In Transfer" || existingMov.status === "In Transit"))
+      ) {
+        throw new Error(`Document ${trackingNumber} has already been transferred and is currently in transit.`);
+      }
 
       await tx.bundleItem.create({
         data: {
@@ -425,6 +441,17 @@ export async function createTransferBundle(params: {
 
     return bundle;
   }, { timeout: 20000 });
+
+  broadcastRealtimeMovement({
+    action: "transfer",
+    ownerAdminId: params.ownerAdminId,
+    fromOfficeId: params.fromOfficeId,
+    toOfficeId: params.toOfficeId,
+    trackingNumbers: params.trackingNumbers,
+    bundleId: resultBundle.id,
+  });
+
+  return resultBundle;
 }
 
 export async function listInboundBundles(params: {
@@ -617,8 +644,20 @@ export async function receiveBundle(params: {
 
   const receivedSet = new Set(params.receivedTrackingNumbers);
   const isFullReceive = (bundle.items as any[]).every((item: any) => receivedSet.has(item.trackingNumber));
+  const result = await prisma.$transaction(async (tx: any) => {
+    // Concurrency check: verify bundle is not already received
+    const currentBundle = await tx.bundle.findUnique({
+      where: { id: params.bundleId },
+      select: { id: true, status: true },
+    });
 
-  return prisma.$transaction(async (tx: any) => {
+    if (!currentBundle) {
+      throw new Error("Bundle not found");
+    }
+    if (currentBundle.status === "Received") {
+      throw new Error("This bundle has already been received.");
+    }
+
     for (const item of (bundle.items as any[])) {
       if (receivedSet.has(item.trackingNumber)) {
         await tx.bundleItem.update({
@@ -875,6 +914,19 @@ export async function receiveBundle(params: {
       };
     }
   }, { maxWait: 20000, timeout: 60000 });
+
+  broadcastRealtimeMovement({
+    action: "receive",
+    ownerAdminId: params.ownerAdminId,
+    fromOfficeId: bundle.fromOfficeId,
+    toOfficeId: bundle.toOfficeId,
+    fromOfficeName: bundle.fromOffice?.officeName,
+    toOfficeName: bundle.toOffice?.officeName,
+    trackingNumbers: params.receivedTrackingNumbers,
+    bundleId: bundle.id,
+  });
+
+  return result;
 }
 
 export async function getMovementHistory(params: {
@@ -1122,6 +1174,14 @@ export async function routeDocumentsToReadyForDelivery(params: {
         reason: err.message || "Unexpected error while routing document.",
       });
     }
+  }
+
+  if (results.routedDocuments.length > 0) {
+    broadcastRealtimeMovement({
+      action: "rd",
+      ownerAdminId: params.ownerAdminId,
+      trackingNumbers: results.routedDocuments.map((d) => d.trackingNumber),
+    });
   }
 
   return {

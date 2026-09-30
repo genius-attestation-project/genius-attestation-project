@@ -6,6 +6,7 @@ import { ArrowLeft, Clock, Download, Eye, History, Printer, RefreshCw } from "lu
 import { Button } from "@/components/ui/Button";
 import { formatDate, formatDateTime } from "@/utils/format";
 import { AdvanceHistoryTable } from "@/features/revenue/components/AdvanceHistoryTable";
+import { useDocumentMovementRealtime } from "@/features/document-movement/hooks/useDocumentMovementRealtime";
 
 type Props = { trackingNumber: string };
 type DetailField = { label: string; value: React.ReactNode };
@@ -61,6 +62,14 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
   };
 
   useEffect(() => { fetchDetails(); }, [trackingNumber]);
+
+  useDocumentMovementRealtime({
+    onMovement: (event) => {
+      if (!event?.trackingNumbers || event.trackingNumbers.includes(trackingNumber)) {
+        fetchDetails();
+      }
+    },
+  });
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 bg-white p-8 text-lg font-bold text-slate-700"><RefreshCw className="animate-spin text-[#195b8e]" /> Loading document details...</div>;
   if (error || !data) return <div className="mx-auto my-8 max-w-3xl bg-white p-8 text-center"><p className="mb-5 text-lg font-bold text-red-700">{error || "Unable to locate record."}</p><Link href="/dashboard/revenue-registration"><Button variant="secondary">Back to Registrations</Button></Link></div>;

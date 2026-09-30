@@ -33,6 +33,7 @@ import { BundlePreviewModal } from "@/components/ui/BundlePreviewModal";
 import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 import { DestinationOfficeSelect } from "./DestinationOfficeSelect";
+import { useDocumentMovementRealtime } from "@/features/document-movement/hooks/useDocumentMovementRealtime";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -168,12 +169,29 @@ export function HomeDashboard({
           setMovementHistory(body.data || []);
         }
       }
+
+      // Also keep inbound bundles count updated if user has inbound permission
+      if (canViewInbound && activeTab !== "inbound") {
+        fetch(`/api/home?section=inbound${officeParam}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((body) => {
+            if (body?.data) setInboundBundles(body.data);
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       console.error("Failed to fetch Home data", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Real-time listener for document movements
+  useDocumentMovementRealtime({
+    onMovement: () => {
+      fetchData();
+    },
+  });
 
   useEffect(() => {
     if (availableTabs.includes(activeTab)) {
