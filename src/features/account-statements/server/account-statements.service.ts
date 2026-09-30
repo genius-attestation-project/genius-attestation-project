@@ -145,76 +145,29 @@ export async function getAccountStatements(
     };
   }
 
-  const approvedAdvancesRaw = await db.advancePaymentApproval.findMany({
-    where: advanceWhere,
-    orderBy: { paymentDate: "desc" },
-    include: {
-      registration: {
-        select: {
-          id: true,
-          trackingNumber: true,
-          customerName: true,
-          regionOfRegistration: true,
-          registeredPerson: true,
-          collectedPerson: true,
-          bankName: true,
-          transactionRefNo: true,
-          transferDate: true,
-          paymentMode: true,
-          paymentDescription: true,
-          upiTransactionId: true,
-          chequeNumber: true,
-          chequeDate: true,
-          ddNumber: true,
-          ddDate: true,
-          cardLast4: true,
-          approvalCode: true,
-          paymentGateway: true,
-          onlineTransactionId: true,
-          walletName: true,
-          walletTransactionId: true,
-          paymentReferenceNo: true,
-          files: {
-            where: { fileCategory: "ADVANCE_PAYMENT" },
-            include: { fileStorage: true },
-            orderBy: { uploadedAt: "desc" },
-          },
-        },
-      },
-      auditLogs: {
-        where: { action: { in: ["Submitted", "Created"] } },
-        select: { remarks: true },
-        orderBy: { createdAt: "asc" },
-        take: 1,
-      },
-    },
-  });
+  // ----------------------------------------------------
+  // Prior Period Filters (Strictly before fromDate)
+  // For calculating Credit Opening Balance
+  // ----------------------------------------------------
+  const priorAdvanceWhere: any = {
+    ownerAdminId,
+    status: "Approved",
+    paymentDate: { lt: dateFrom },
+  };
 
-  // Filter advances by search term if provided
-  const filteredAdvances = approvedAdvancesRaw.filter((item: any) => {
-    if (!searchFilter) return true;
-    const tracking = (item.trackingNumber || item.registration?.trackingNumber || "").toLowerCase();
-    const customer = (item.customerName || item.registration?.customerName || "").toLowerCase();
-    const collector = (item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "").toLowerCase();
-    const mode = (item.paymentMode || item.registration?.paymentMode || "").toLowerCase();
-    const ref = (item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || "").toLowerCase();
-    const bank = (item.registration?.bankName || "").toLowerCase();
-    const remarks = (item.remarks || item.registration?.paymentDescription || "").toLowerCase();
-    return (
-      tracking.includes(searchFilter) ||
-      customer.includes(searchFilter) ||
-      collector.includes(searchFilter) ||
-      mode.includes(searchFilter) ||
-      ref.includes(searchFilter) ||
-      bank.includes(searchFilter) ||
-      remarks.includes(searchFilter)
-    );
-  });
-
-  // Split into Cash Advances vs Non-Cash Advances
-  const advancesList: AccountStatementItem[] = [];
-  const moreAdvancesList: AccountStatementItem[] = [];
-  const bankPaymentDebitItems: AccountStatementItem[] = [];
+  if (targetOfficeName) {
+    priorAdvanceWhere.OR = [
+      { office: { equals: targetOfficeName } },
+      { registration: { regionOfRegistration: { equals: targetOfficeName } } },
+      { registration: { deliveryLocation: { equals: targetOfficeName } } },
+    ];
+  } else if (!isSuperAdmin && allowedOfficeNames.length > 0) {
+    priorAdvanceWhere.OR = [
+      { office: { in: allowedOfficeNames } },
+      { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
+      { registration: { deliveryLocation: { in: allowedOfficeNames } } },
+    ];
+  }
 
   // ----------------------------------------------------
   // 2. Fetch Account Panel Transactions
@@ -247,18 +200,167 @@ export async function getAccountStatements(
     ];
   }
 
-  // Fetch complete account menu definitions to build hierarchy chains
-  const allAccountMenus = await db.accountMenu.findMany({
-    where: { ownerAdminId },
-    select: {
-      id: true,
-      name: true,
-      parentId: true,
-      type: true,
-      category: true,
-    },
+  const priorPanelWhere: any = {
+    ownerAdminId,
+    transactionDate: { lt: dateFrom },
+  };
+
+  if (targetOfficeId) {
+    priorPanelWhere.OR = [
+      { officeId: targetOfficeId },
+      { account: { officeAssignments: { some: { officeId: targetOfficeId } } } },
+    ];
+  } else if (targetOfficeName) {
+    priorPanelWhere.OR = [
+      { officeId: targetOfficeName },
+      { account: { officeAssignments: { some: { office: { officeName: targetOfficeName } } } } },
+    ];
+  } else if (!isSuperAdmin && allowedOfficeIds.length > 0) {
+    priorPanelWhere.OR = [
+      { officeId: { in: allowedOfficeIds } },
+      { account: { officeAssignments: { some: { officeId: { in: allowedOfficeIds } } } } },
+    ];
+  }
+
+  const [
+    approvedAdvancesRaw,
+    rawPanelTransactions,
+    allAccountMenus,
+    priorApprovedAdvancesRaw,
+    priorPanelTransactionsRaw,
+  ] = await Promise.all([
+    db.advancePaymentApproval.findMany({
+      where: advanceWhere,
+      orderBy: { paymentDate: "desc" },
+      include: {
+        registration: {
+          select: {
+            id: true,
+            trackingNumber: true,
+            customerName: true,
+            regionOfRegistration: true,
+            registeredPerson: true,
+            collectedPerson: true,
+            bankName: true,
+            transactionRefNo: true,
+            transferDate: true,
+            paymentMode: true,
+            paymentDescription: true,
+            upiTransactionId: true,
+            chequeNumber: true,
+            chequeDate: true,
+            ddNumber: true,
+            ddDate: true,
+            cardLast4: true,
+            approvalCode: true,
+            paymentGateway: true,
+            onlineTransactionId: true,
+            walletName: true,
+            walletTransactionId: true,
+            paymentReferenceNo: true,
+            files: {
+              where: { fileCategory: "ADVANCE_PAYMENT" },
+              include: { fileStorage: true },
+              orderBy: { uploadedAt: "desc" },
+            },
+          },
+        },
+        auditLogs: {
+          where: { action: { in: ["Submitted", "Created"] } },
+          select: { remarks: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
+    }),
+    db.accountPanelTransaction.findMany({
+      where: panelWhere,
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            code: true,
+            category: true,
+            parent: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { transactionDate: "desc" },
+    }),
+    db.accountMenu.findMany({
+      where: { ownerAdminId },
+      select: {
+        id: true,
+        name: true,
+        parentId: true,
+        type: true,
+        category: true,
+      },
+    }),
+    db.advancePaymentApproval.findMany({
+      where: priorAdvanceWhere,
+      select: {
+        id: true,
+        advanceAmount: true,
+        paymentMode: true,
+        trackingNumber: true,
+        registration: {
+          select: {
+            trackingNumber: true,
+            paymentMode: true,
+          },
+        },
+      },
+    }),
+    db.accountPanelTransaction.findMany({
+      where: priorPanelWhere,
+      select: {
+        id: true,
+        amount: true,
+        invoiceNumber: true,
+        account: {
+          select: {
+            type: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  // Filter advances by search term if provided
+  const filteredAdvances = approvedAdvancesRaw.filter((item: any) => {
+    if (!searchFilter) return true;
+    const tracking = (item.trackingNumber || item.registration?.trackingNumber || "").toLowerCase();
+    const customer = (item.customerName || item.registration?.customerName || "").toLowerCase();
+    const collector = (item.collectedBy || item.requestedByName || item.registration?.collectedPerson || item.registration?.registeredPerson || item.registeredPerson || "").toLowerCase();
+    const mode = (item.paymentMode || item.registration?.paymentMode || "").toLowerCase();
+    const ref = (item.referenceNumber || item.registration?.transactionRefNo || item.registration?.upiTransactionId || item.registration?.chequeNumber || "").toLowerCase();
+    const bank = (item.registration?.bankName || "").toLowerCase();
+    const remarks = (item.remarks || item.registration?.paymentDescription || "").toLowerCase();
+    return (
+      tracking.includes(searchFilter) ||
+      customer.includes(searchFilter) ||
+      collector.includes(searchFilter) ||
+      mode.includes(searchFilter) ||
+      ref.includes(searchFilter) ||
+      bank.includes(searchFilter) ||
+      remarks.includes(searchFilter)
+    );
   });
 
+  // Split into Cash Advances vs Non-Cash Advances
+  const advancesList: AccountStatementItem[] = [];
+  const moreAdvancesList: AccountStatementItem[] = [];
+  const bankPaymentDebitItems: AccountStatementItem[] = [];
+
+  // Build account menu map for hierarchy chains
   const accountMenuMap = new Map<
     string,
     { id: string; name: string; parentId: string | null; type: string | null; category: string | null }
@@ -293,28 +395,6 @@ export async function getAccountStatements(
 
     return path.length > 0 ? path : fallbackName ? [fallbackName] : [];
   };
-
-  const rawPanelTransactions = await db.accountPanelTransaction.findMany({
-    where: panelWhere,
-    include: {
-      account: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          code: true,
-          category: true,
-          parent: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: { transactionDate: "desc" },
-  });
 
   // Helper to normalize tracking / invoice numbers for comparison
   const normalizeTrackingKey = (str?: string | null): string => {
@@ -630,8 +710,69 @@ export async function getAccountStatements(
   }
 
   // ----------------------------------------------------
-  // 5. Calculate Totals
+  // 5. Calculate Credit Opening Balance & Totals
   // ----------------------------------------------------
+  // Calculate debit usage per tracking number from Prior Account Panel debit transactions
+  const priorDebitUsageMap = new Map<string, number>();
+  let priorGeneralDebitsTotal = 0;
+  let priorPanelCreditsTotal = 0;
+
+  for (const tx of priorPanelTransactionsRaw) {
+    const isCredit = (tx.account?.type || "").toUpperCase() === "CREDIT";
+    const amt = Number(tx.amount ?? 0);
+    if (isCredit) {
+      priorPanelCreditsTotal += amt;
+    } else {
+      priorGeneralDebitsTotal += amt;
+      if (tx.invoiceNumber) {
+        const rawKey = tx.invoiceNumber.trim().toLowerCase();
+        const normKey = normalizeTrackingKey(rawKey);
+        if (amt > 0) {
+          priorDebitUsageMap.set(rawKey, (priorDebitUsageMap.get(rawKey) || 0) + amt);
+          if (normKey && normKey !== rawKey) {
+            priorDebitUsageMap.set(normKey, (priorDebitUsageMap.get(normKey) || 0) + amt);
+          }
+        }
+      }
+    }
+  }
+
+  const remainingPriorDebitMap = new Map<string, number>(priorDebitUsageMap);
+  let priorAvailableCashAdvancesTotal = 0;
+  let priorAdvanceSettledDebits = 0;
+
+  for (const item of priorApprovedAdvancesRaw) {
+    const isCash = (item.paymentMode || item.registration?.paymentMode || "").trim().toLowerCase() === "cash";
+    if (!isCash) continue; // Non-cash advances offset with bank payment debits, net 0
+
+    const originalAdvanceAmount = Number(item.advanceAmount ?? 0);
+    let availableAdvanceAmount = originalAdvanceAmount;
+    let utilizedAdvanceAmount = 0;
+
+    const trackingNum = (item.trackingNumber || item.registration?.trackingNumber || "").trim();
+    const rawTrackKey = trackingNum.toLowerCase();
+    const normTrackKey = normalizeTrackingKey(rawTrackKey);
+
+    if (trackingNum) {
+      const currentDebitUsage = remainingPriorDebitMap.get(rawTrackKey) ?? remainingPriorDebitMap.get(normTrackKey) ?? 0;
+      if (currentDebitUsage > 0) {
+        utilizedAdvanceAmount = Math.min(originalAdvanceAmount, currentDebitUsage);
+        availableAdvanceAmount = Math.max(0, originalAdvanceAmount - utilizedAdvanceAmount);
+
+        const newRem = currentDebitUsage - utilizedAdvanceAmount;
+        remainingPriorDebitMap.set(rawTrackKey, newRem);
+        if (normTrackKey) remainingPriorDebitMap.set(normTrackKey, newRem);
+      }
+    }
+
+    priorAdvanceSettledDebits += utilizedAdvanceAmount;
+    priorAvailableCashAdvancesTotal += availableAdvanceAmount;
+  }
+
+  // Credit Opening Balance = Eligible Credit Balance Before From Date - Applicable Credit Adjustments / Consumption Before From Date
+  const priorNetBalance = priorAvailableCashAdvancesTotal + priorPanelCreditsTotal - priorGeneralDebitsTotal + priorAdvanceSettledDebits;
+  const openingBalance = Math.max(0, priorNetBalance);
+
   const advancesTotal = advancesList.reduce((sum, item) => sum + item.amount, 0);
   const moreAdvancesTotal = moreAdvancesList.reduce((sum, item) => sum + item.amount, 0);
   const panelCreditsTotal = panelCreditItems.reduce((sum, item) => sum + item.amount, 0);
@@ -639,7 +780,6 @@ export async function getAccountStatements(
 
   // Cash in hand formula:
   // Net balance = Credit Total (with available advances) - Debit Total + Advance Debits Settled (to avoid double deduction) + Opening Balance
-  const openingBalance = 0; // Default opening balance
   const cashInHand = creditTotal - totalDebitAmount + totalAdvanceSettledDebits + openingBalance;
 
   return {
