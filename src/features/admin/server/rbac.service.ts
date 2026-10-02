@@ -1173,7 +1173,9 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         key === "home.document_in_hand.view" ||
         key === "home.document_in_hand.transfer" ||
         key === "home.document_in_hand.rd_button" ||
-        key === "home.rd_button"
+        key === "home.rd_button" ||
+        key === "home.document_in_hand.movement_request" ||
+        key === "home.movement_request"
       ) {
         result.add("home.document_in_hand.view");
         if (key === "home.document_in_hand.transfer") {
@@ -1182,6 +1184,10 @@ export function expandEffectivePermissions(keys: string[]): string[] {
         if (key === "home.document_in_hand.rd_button" || key === "home.rd_button") {
           result.add("home.document_in_hand.rd_button");
           result.add("home.rd_button");
+        }
+        if (key === "home.document_in_hand.movement_request" || key === "home.movement_request") {
+          result.add("home.document_in_hand.movement_request");
+          result.add("home.movement_request");
         }
       } else if (key.startsWith("home.inbound.")) {
         result.add("home.inbound.view");

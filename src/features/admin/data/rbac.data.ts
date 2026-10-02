@@ -553,7 +553,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access.", actions: ["view", "create", "edit", "create_request", "movement_request", "add_advance", "delete", "manage", "export", "import", "downloadTemplate", "viewImportHistory"] },
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access.", actions: ["view", "search", "export"] },
-  { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export"] },
+  { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export", "movement_request"] },
   { key: "bm_report", label: "BM Report", description: "Real-time document movement tracking center access.", actions: ["view", "export"] },
   {
     key: "document_movement",

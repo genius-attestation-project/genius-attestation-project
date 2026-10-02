@@ -73,9 +73,20 @@ export async function listDocumentInHand(params: {
           some: {
             OR: [
               ...(params.officeId ? [{ currentOfficeId: params.officeId }] : []),
+              ...(params.allowedOfficeIds && params.allowedOfficeIds.length > 0
+                ? [{ currentOfficeId: { in: params.allowedOfficeIds } }]
+                : []),
               { currentOffice: { officeName: { in: officeNamesToMatch } } },
             ],
-            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND"] },
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND", "REGISTRATION"] },
+          },
+        },
+      },
+      {
+        regionOfRegistration: { in: officeNamesToMatch },
+        documentMovements: {
+          some: {
+            status: "REGISTRATION",
           },
         },
       },
@@ -86,39 +97,7 @@ export async function listDocumentInHand(params: {
     );
   }
 
-  // Mandatory Visibility Rule:
-  // 1. Transferred / Received documents arriving via Inbound Bundle at destination office.
-  // 2. Initial Registration Route 1: Advance Amount > 0 AND Advance Payment Approval status is Approved.
-  // 3. Initial Registration Route 2: Zero Advance (<= 0) AND Movement Approval status is Approved.
-  const approvalConditions: any = {
-    OR: [
-      // Condition 1: Transferred / Received from Inbound bundle / previous movement
-      {
-        documentMovements: {
-          some: {
-            OR: [
-              { bundleId: { not: null } },
-              { fromOfficeId: { not: null } },
-              { movementType: { not: "INITIAL" } },
-            ],
-            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND"] },
-          },
-        },
-      },
-      // Condition 2: Route 1 - Advance > 0 with Approved advance payment
-      {
-        advancePaid: { gt: 0 },
-        advancePaymentStatus: "Approved",
-      },
-      // Condition 3: Route 2 - Zero advance with Approved movement request
-      {
-        advancePaid: { lte: 0 },
-        movementApproved: true,
-      },
-    ],
-  };
-
-  const andConditions: any[] = [approvalConditions];
+  const andConditions: any[] = [];
 
   if (officeMatchConditions.length > 0) {
     andConditions.push({ OR: officeMatchConditions });
@@ -136,13 +115,9 @@ export async function listDocumentInHand(params: {
           "Ready for Delivery",
           "Delivered",
           "Cancelled",
-          "Movement Approval Rejected",
-          "Movement Approval Pending",
-          "Advance Payment Approval Pending",
-          "Registered",
         ],
       },
-      AND: andConditions,
+      ...(andConditions.length > 0 ? { AND: andConditions } : {}),
     },
     include: {
       documentMovements: {
@@ -175,13 +150,10 @@ export async function listDocumentInHand(params: {
       const latestApproval = reg.movementApprovals?.[0];
       const hasApprovedMovement = Boolean(reg.movementApproved || latestApproval?.status === "Approved");
 
-      const isVisible = isReceivedFromInbound || hasApprovedAdvance || (advancePaid <= 0 && hasApprovedMovement);
-      if (!isVisible) {
-        return null;
-      }
-
-      const hasMovementApprovalPending = !isReceivedFromInbound && !hasApprovedAdvance && !hasApprovedMovement;
       const canTransfer = isReceivedFromInbound || hasApprovedAdvance || hasApprovedMovement;
+      const hasMovementApprovalPending = !isReceivedFromInbound && !hasApprovedAdvance && !hasApprovedMovement && latestApproval?.status === "Pending";
+      const movementApprovalStatus = latestApproval?.status || (hasApprovedMovement ? "Approved" : null);
+      const movementApprovalRemarks = latestApproval?.remarks || null;
 
       const inHandCategory: "REGISTERED" | "RECEIVED" = isReceivedFromInbound ? "RECEIVED" : "REGISTERED";
 
@@ -189,6 +161,8 @@ export async function listDocumentInHand(params: {
         ...reg,
         inHandCategory,
         hasMovementApprovalPending,
+        movementApprovalStatus,
+        movementApprovalRemarks,
         canTransfer,
       };
     })

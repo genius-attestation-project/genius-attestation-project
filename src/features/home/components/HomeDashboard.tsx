@@ -34,6 +34,7 @@ import { ReceiveSelectionModal } from "@/components/ui/ReceiveSelectionModal";
 import { calculateNumberOfDays, calculateFinishedDays } from "@/utils/days-calculator";
 import { DestinationOfficeSelect } from "./DestinationOfficeSelect";
 import { useDocumentMovementRealtime } from "@/features/document-movement/hooks/useDocumentMovementRealtime";
+import { RequestMovementApprovalModal } from "@/features/registration/components/RequestMovementApprovalModal";
 
 type HomeDashboardProps = {
   currentOfficeLocationName: string;
@@ -66,6 +67,13 @@ export function HomeDashboard({
   const canViewOutbound = isSuperAdmin || perms.includes("home.outbound.view");
   const canRetrieve = isSuperAdmin || perms.includes("home.outbound.retrieve") || perms.includes("home.retrieve") || perms.includes("document_movement.retrieve");
   const canViewHistory = isSuperAdmin || perms.includes("home.movement_history.view") || perms.includes("movement_history.view") || perms.includes("document_movement.view");
+  const canRequestMovement =
+    isSuperAdmin ||
+    perms.includes("home.document_in_hand.movement_request") ||
+    perms.includes("home.movement_request") ||
+    perms.includes("revenue_registration.movement_request") ||
+    perms.includes("movement_approval.create") ||
+    perms.includes("*");
 
   const availableTabs = useMemo(() => {
     const tabs: TabKey[] = [];
@@ -115,6 +123,9 @@ export function HomeDashboard({
 
   // Retrieve Modal state
   const [retrieveBundle, setRetrieveBundle] = useState<any | null>(null);
+
+  // Movement Approval Modal state
+  const [movementApprovalTarget, setMovementApprovalTarget] = useState<any | null>(null);
 
   // Fetch offices
   useEffect(() => {
@@ -264,6 +275,7 @@ export function HomeDashboard({
               <th className="p-3 text-center">Number Of Days</th>
               <th className="p-3 text-right">Total Amount</th>
               <th className="p-3 text-right">Advance Amount</th>
+              <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -272,6 +284,7 @@ export function HomeDashboard({
               const isSelected = selectedTrackingNumbers.includes(tNum);
               const isPendingApproval = Boolean(doc.hasMovementApprovalPending);
               const canMove = Boolean(doc.canTransfer);
+              const hasZeroAdvance = Number(doc.advancePaid || 0) <= 0;
 
               return (
                 <tr
@@ -284,17 +297,26 @@ export function HomeDashboard({
                 >
                   {canTransfer && (
                     <td className="p-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSelectInHand(tNum)}
-                        className="text-slate-600 dark:text-slate-400 focus:outline-hidden cursor-pointer"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="h-5 w-5 text-blue-600" />
-                        ) : (
+                      {canMove ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectInHand(tNum)}
+                          className="text-slate-600 dark:text-slate-400 focus:outline-hidden cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <Square className="h-5 w-5 text-slate-400" />
+                          )}
+                        </button>
+                      ) : (
+                        <span
+                          title="Movement approval required before direct movement"
+                          className="inline-flex items-center justify-center cursor-not-allowed opacity-40"
+                        >
                           <Square className="h-5 w-5 text-slate-400" />
-                        )}
-                      </button>
+                        </span>
+                      )}
                     </td>
                   )}
                   <td className="p-3 text-center font-semibold text-slate-500">{startIndex + index + 1}</td>
@@ -335,6 +357,46 @@ export function HomeDashboard({
                   </td>
                   <td className="p-3 text-right text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                     ₹{Number(doc.advancePaid || 0).toFixed(2)}
+                  </td>
+                  <td className="p-3 text-right whitespace-nowrap">
+                    {hasZeroAdvance && !canMove ? (
+                      canRequestMovement ? (
+                        <Button
+                          variant={doc.movementApprovalStatus === "Pending" ? "secondary" : "primary"}
+                          size="sm"
+                          title={
+                            doc.movementApprovalStatus === "Pending"
+                              ? "Movement approval request is pending review"
+                              : "Request movement approval to allow document movement without advance payment"
+                          }
+                          onClick={() => setMovementApprovalTarget(doc)}
+                          className={`h-7 px-2.5 text-[11px] font-bold inline-flex items-center gap-1 shrink-0 ${
+                            doc.movementApprovalStatus === "Pending"
+                              ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 cursor-pointer"
+                              : doc.movementApprovalStatus === "Rejected"
+                              ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 cursor-pointer"
+                              : "bg-blue-600 text-white hover:bg-blue-700 shadow-xs cursor-pointer"
+                          }`}
+                        >
+                          <Send size={12} />
+                          <span>
+                            {doc.movementApprovalStatus === "Rejected"
+                              ? "Re-request Approval"
+                              : doc.movementApprovalStatus === "Pending"
+                              ? "Approval Pending"
+                              : "Movement Request"}
+                          </span>
+                        </Button>
+                      ) : doc.movementApprovalStatus === "Pending" ? (
+                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                          Approval Pending
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )
+                    ) : (
+                      <span className="text-slate-400 text-xs">-</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -1133,6 +1195,16 @@ export function HomeDashboard({
           }}
         />
       )}
+
+      {/* MOVEMENT APPROVAL REQUEST MODAL */}
+      <RequestMovementApprovalModal
+        open={Boolean(movementApprovalTarget)}
+        onClose={() => setMovementApprovalTarget(null)}
+        registration={movementApprovalTarget}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
     </div>
   );
 }

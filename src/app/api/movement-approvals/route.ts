@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
 
     const canCreate =
       session.user.isSuperAdmin ||
+      hasPermission(session.user, "home.document_in_hand.movement_request") ||
+      hasPermission(session.user, "home.movement_request") ||
       hasPermission(session.user, "revenue_registration.movement_request") ||
       hasPermission(session.user, "movement_approval.create");
 
