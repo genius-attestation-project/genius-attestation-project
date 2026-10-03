@@ -546,6 +546,10 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
   for (const code of rolePermissionCodes) {
     catalogKeys.add(code);
 
+    if (code === "dashboard" || code === "dashboard.view") {
+      catalogKeys.add("dashboard.view");
+    }
+
     if (code === "home.view") {
       catalogKeys.add("home.document_in_hand.view");
       catalogKeys.add("home.inbound.view");

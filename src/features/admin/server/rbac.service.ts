@@ -1024,6 +1024,12 @@ export function expandEffectivePermissions(keys: string[]): string[] {
   const result = new Set<string>(keys);
 
   for (const key of keys) {
+    // 0. Dashboard
+    if (key === "dashboard" || key.startsWith("dashboard.")) {
+      result.add("dashboard.view");
+      result.add("menu.dashboard");
+    }
+
     // 1. Revenue Registration
     if (key.startsWith("revenue_registration.")) {
       result.add("revenue_registration.view");
@@ -1481,12 +1487,25 @@ export async function getSessionAccess(userId: string): Promise<SessionAccess | 
   const permissions: string[] = [];
   const permissionScopes: Record<string, string> = {};
 
+  const isExplicitlyConfigured = userPermRows.length > 0;
+
   if (isSuperAdmin) {
-    permissions.push("*");
+    if (isExplicitlyConfigured) {
+      const rawKeys = userPermRows
+        .map((up) => up.permissionKey)
+        .filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
+
+      const hasDashboard = rawKeys.includes("dashboard.view") || rawKeys.includes("dashboard");
+      if (hasDashboard) {
+        permissions.push("*", "dashboard.view", "menu.dashboard");
+      } else {
+        permissions.push("*");
+      }
+    } else {
+      permissions.push("*", "dashboard.view", "menu.dashboard");
+    }
   } else {
     let rawKeys: string[] = [];
-    const isExplicitlyConfigured = userPermRows.length > 0;
-
     if (isExplicitlyConfigured) {
       // User permissions have been explicitly configured by Super Admin.
       // Use ONLY explicit permissions (excluding sentinel). Do NOT fall back to role defaults!
@@ -1610,6 +1629,15 @@ export function hasPermission(
   code: string,
 ): boolean {
   if (!access) return false;
+
+  // Specific requirement: Dashboard permission can be explicitly configured and enforced for Super Admin
+  if (code === "dashboard.view" || code === "menu.dashboard") {
+    if (Array.isArray(access.permissions)) {
+      return access.permissions.includes(code);
+    }
+    return Boolean(access.isSuperAdmin);
+  }
+
   if (access.isSuperAdmin) {
     return true;
   }
@@ -1646,7 +1674,9 @@ export function filterNavigationByPermissions(
       ? filterNavigationByPermissions(item.children, permissions, isSuperAdmin)
       : undefined;
     const canSeeSelf =
-      isSuperAdmin ||
+      (item.href === "/dashboard"
+        ? (permissions.includes("dashboard.view") || permissions.includes("menu.dashboard") || (!permissions.length && isSuperAdmin))
+        : isSuperAdmin) ||
       permissions.includes(item.menuPermission) ||
       permissions.includes(item.pagePermission);
     const canSeeByChildren = Boolean(visibleChildren && visibleChildren.length > 0);

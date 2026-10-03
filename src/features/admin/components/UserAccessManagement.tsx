@@ -101,6 +101,14 @@ type ModulePermissionDefinition = {
 
 const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
   {
+    key: "dashboard",
+    label: "DASHBOARD",
+    category: "Overview",
+    description: "System overview, business analytics, quick statistics, and recent activity monitoring.",
+    moduleAccessKey: "dashboard.view",
+    actions: [{ key: "dashboard.view", label: "View" }],
+  },
+  {
     key: "revenue_registration",
     label: "REVENUE REGISTRATION",
     category: "Operations",
@@ -715,6 +723,7 @@ export function UserAccessManagement() {
 
   // Accordion state for Tab 2
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    dashboard: true,
     revenue_registration: true,
     pending_approval: true,
     lead_management: true,
@@ -1638,17 +1647,15 @@ export function UserAccessManagement() {
                       <ClipboardPaste size={14} />
                       Paste Permissions
                     </Button>
-                    {!selectedUser.isSuperAdmin && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={savingPermissions}
-                        onClick={() => void handleSavePermissions()}
-                      >
-                        <Save size={14} />
-                        {savingPermissions ? "Saving..." : "Save Permissions"}
-                      </Button>
-                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={savingPermissions}
+                      onClick={() => void handleSavePermissions()}
+                    >
+                      <Save size={14} />
+                      {savingPermissions ? "Saving..." : "Save Permissions"}
+                    </Button>
                   </div>
                 </div>
 
@@ -1673,20 +1680,8 @@ export function UserAccessManagement() {
                 ) : null}
               </DashboardCard>
 
-              {/* Super Admin Notice */}
-              {selectedUser.isSuperAdmin ? (
-                <div className="rounded-3xl border border-purple-200 bg-purple-50 p-6 text-sm font-semibold text-purple-900 dark:border-purple-900/30 dark:bg-purple-950/40 dark:text-purple-300 flex items-start gap-4">
-                  <ShieldCheck className="h-8 w-8 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-extrabold text-base">Super Admin — Root System Access</h4>
-                    <p className="text-purple-700 dark:text-purple-300/80 font-normal mt-1 leading-relaxed">
-                      Super Admin users automatically hold unrestricted permissions across all system modules, approval queues, and actions.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {/* Permissions Search Filter */}
+              <div className="flex flex-col gap-4">
+                {/* Permissions Search Filter */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
                     <input
@@ -1798,7 +1793,6 @@ export function UserAccessManagement() {
                                           <input
                                             type="checkbox"
                                             checked={checked}
-                                            disabled={selectedUser.isSuperAdmin}
                                             onChange={() => togglePermissionKey(action.key)}
                                             className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
                                           />
@@ -1862,7 +1856,6 @@ export function UserAccessManagement() {
                                                 <input
                                                   type="checkbox"
                                                   checked={checked}
-                                                  disabled={selectedUser.isSuperAdmin}
                                                   onChange={() => togglePermissionKey(action.key)}
                                                   className="h-4 w-4 rounded border-(--border) text-blue-600 focus:ring-blue-500 cursor-pointer"
                                                 />
@@ -1885,7 +1878,6 @@ export function UserAccessManagement() {
                     })}
                   </div>
                 </div>
-              )}
             </div>
           ) : (
             <EmptyState

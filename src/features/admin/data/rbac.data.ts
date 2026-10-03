@@ -461,7 +461,7 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
 ];
 
 export const permissionModules: PermissionModuleDefinition[] = [
-  { key: "dashboard", label: "Dashboard", description: "Dashboard module access." },
+  { key: "dashboard", label: "Dashboard", description: "Dashboard module access.", actions: ["view"] },
   { key: "admin_management", label: "Admin Management", description: "Admin workspace access." },
   { key: "users", label: "Users", description: "User management access." },
   {

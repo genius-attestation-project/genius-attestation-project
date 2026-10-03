@@ -44,11 +44,12 @@ function filterNavigation(
       ? filterNavigation(item.children!, permissions, isSuperAdmin, hasMatch ? "" : query)
       : undefined;
 
-    const visible = isSuperAdmin
-      ? true
-      : hasChildren
-      ? Boolean(children && children.length > 0)
-      : (permissions.includes(item.menuPermission) || permissions.includes(item.pagePermission));
+    const visible =
+      (isSuperAdmin && item.href !== "/dashboard") ||
+      permissions.includes(item.menuPermission) ||
+      permissions.includes(item.pagePermission) ||
+      (hasChildren && Boolean(children && children.length > 0)) ||
+      (isSuperAdmin && item.href === "/dashboard" && (!permissions.length || permissions.includes("dashboard.view") || permissions.includes("menu.dashboard")));
 
     if (!visible) {
       return [];
