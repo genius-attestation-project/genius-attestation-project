@@ -34,65 +34,103 @@ export async function listDocumentInHand(params: {
   }
 
   let officeName: string | undefined = undefined;
+  let resolvedOfficeId: string | undefined = undefined;
   if (params.officeId) {
     const office = await prisma.officeLocation.findFirst({
       where: {
+        ownerAdminId: params.ownerAdminId,
         OR: [{ id: params.officeId }, { officeName: params.officeId }],
       },
       select: { officeName: true, id: true },
     });
     if (office) {
       officeName = office.officeName;
+      resolvedOfficeId = office.id;
+    } else {
+      const ao = await prisma.assignedOffice.findFirst({
+        where: {
+          ownerAdminId: params.ownerAdminId,
+          OR: [{ id: params.officeId }, { username: params.officeId }],
+        },
+        select: { username: true, id: true },
+      });
+      if (ao) {
+        officeName = ao.username;
+        resolvedOfficeId = ao.id;
+      } else {
+        resolvedOfficeId = params.officeId;
+      }
     }
-  }
-
-  const officeNamesToMatch = params.officeId ? [params.officeId] : [];
-  if (officeName && !officeNamesToMatch.includes(officeName)) {
-    officeNamesToMatch.push(officeName);
   }
 
   // Enforce Office Visibility Scope for non-Super-Admins
   if (!params.isSuperAdmin && params.allowedOfficeNames !== null && params.allowedOfficeNames !== undefined) {
     const allowed = params.allowedOfficeNames;
-    if (allowed.length === 0) {
+    const allowedIds = params.allowedOfficeIds || [];
+    if (allowed.length === 0 && allowedIds.length === 0) {
       return [];
     }
-    if (params.officeId && !allowed.includes(params.officeId) && (!officeName || !allowed.includes(officeName))) {
+    if (
+      params.officeId &&
+      !allowedIds.includes(params.officeId) &&
+      !allowed.includes(params.officeId) &&
+      (!resolvedOfficeId || !allowedIds.includes(resolvedOfficeId)) &&
+      (!officeName || !allowed.includes(officeName))
+    ) {
       return [];
-    }
-    if (officeNamesToMatch.length === 0) {
-      officeNamesToMatch.push(...allowed);
     }
   }
 
   const officeMatchConditions: any[] = [];
-  if (officeNamesToMatch.length > 0) {
+
+  if (resolvedOfficeId || officeName) {
+    // Specific office filtering: document's CURRENT assigned office must match this specific office
+    const targetIds = Array.from(new Set([resolvedOfficeId, params.officeId].filter(Boolean))) as string[];
+    const targetNames = Array.from(new Set([officeName].filter(Boolean))) as string[];
+
     officeMatchConditions.push(
       {
         documentMovements: {
           some: {
             OR: [
-              ...(params.officeId ? [{ currentOfficeId: params.officeId }] : []),
-              ...(params.allowedOfficeIds && params.allowedOfficeIds.length > 0
-                ? [{ currentOfficeId: { in: params.allowedOfficeIds } }]
-                : []),
-              { currentOffice: { officeName: { in: officeNamesToMatch } } },
+              ...(targetIds.length > 0 ? [{ currentOfficeId: { in: targetIds } }] : []),
+              ...(targetNames.length > 0 ? [{ currentOffice: { officeName: { in: targetNames } } }] : []),
             ],
             status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND", "REGISTRATION"] },
           },
         },
       },
       {
-        regionOfRegistration: { in: officeNamesToMatch },
+        documentMovements: { none: {} },
+        OR: [
+          ...(targetIds.length > 0 ? [{ regionOfRegistrationId: { in: targetIds } }] : []),
+          ...(targetNames.length > 0 ? [{ regionOfRegistration: { in: targetNames } }] : []),
+        ],
+      }
+    );
+  } else if (!params.isSuperAdmin && params.allowedOfficeIds && params.allowedOfficeIds.length > 0) {
+    // Non-super admin viewing without specific officeId: scope to authorized offices
+    const allowedIds = params.allowedOfficeIds;
+    const allowedNames = params.allowedOfficeNames || [];
+
+    officeMatchConditions.push(
+      {
         documentMovements: {
           some: {
-            status: "REGISTRATION",
+            OR: [
+              { currentOfficeId: { in: allowedIds } },
+              ...(allowedNames.length > 0 ? [{ currentOffice: { officeName: { in: allowedNames } } }] : []),
+            ],
+            status: { in: ["Received", "Document In Hand", "HOME", "Completed", "IN_HAND", "REGISTRATION"] },
           },
         },
       },
       {
-        regionOfRegistration: { in: officeNamesToMatch },
         documentMovements: { none: {} },
+        OR: [
+          { regionOfRegistrationId: { in: allowedIds } },
+          ...(allowedNames.length > 0 ? [{ regionOfRegistration: { in: allowedNames } }] : []),
+        ],
       }
     );
   }
