@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const stats = await getAdvancePaymentStats(session.user.ownerAdminId);
+    const stats = await getAdvancePaymentStats(session.user.ownerAdminId, session.user);
     return NextResponse.json(stats);
   } catch (error: any) {
     console.error("[GET /api/advance-payment-approvals/stats] Error:", error);

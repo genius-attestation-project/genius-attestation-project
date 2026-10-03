@@ -1319,7 +1319,95 @@ export async function getAdvancePaymentHistory(ownerAdminId: string, registratio
   }));
 }
 
-export async function getAdvancePaymentStats(ownerAdminId: string) {
+export async function getAdvancePaymentStats(
+  ownerAdminId: string,
+  user?: any,
+  explicitAllowedOfficeIds?: string[] | null,
+  explicitAllowedOfficeNames?: string[] | null,
+) {
+  let allowedOfficeIds: string[] | null = explicitAllowedOfficeIds ?? null;
+  let allowedOfficeNames: string[] | null = explicitAllowedOfficeNames ?? null;
+
+  if (explicitAllowedOfficeIds === undefined && explicitAllowedOfficeNames === undefined && user) {
+    if (user.isSuperAdmin === true || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
+      allowedOfficeIds = null;
+      allowedOfficeNames = null;
+    } else if (user.moduleOfficeVisibilities && typeof user.moduleOfficeVisibilities === "object") {
+      const modConfig =
+        user.moduleOfficeVisibilities["dashboard"] ??
+        user.moduleOfficeVisibilities["pending_approval"] ??
+        user.moduleOfficeVisibilities["revenue_registration"];
+      allowedOfficeIds = modConfig?.officeIds ?? [];
+      allowedOfficeNames = modConfig?.officeNames ?? [];
+    } else {
+      allowedOfficeIds = Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [];
+      allowedOfficeNames = Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [];
+    }
+  }
+
+  if (allowedOfficeIds !== null && allowedOfficeIds !== undefined) {
+    const ids = allowedOfficeIds ?? [];
+    const names = allowedOfficeNames ?? [];
+    if (ids.length === 0 && names.length === 0) {
+      return {
+        pendingAdvanceApprovals: 0,
+        approvedAdvances: 0,
+        rejectedAdvances: 0,
+        totalAdvanceAmount: 0,
+        approvedAdvanceAmount: 0,
+      };
+    }
+
+    const advanceOr: Prisma.AdvancePaymentApprovalWhereInput[] = [];
+    if (ids.length > 0) {
+      advanceOr.push({ registration: { regionOfRegistrationId: { in: ids } } });
+      advanceOr.push({ registration: { creator: { officeLocationId: { in: ids } } } });
+      advanceOr.push({ registration: { lead: { creator: { officeLocationId: { in: ids } } } } });
+    }
+    if (names.length > 0) {
+      advanceOr.push({ office: { in: names } });
+      advanceOr.push({ registration: { regionOfRegistration: { in: names } } });
+    }
+
+    const where: Prisma.AdvancePaymentApprovalWhereInput = {
+      ownerAdminId,
+      ...(advanceOr.length > 1
+        ? { OR: advanceOr }
+        : advanceOr.length === 1
+        ? advanceOr[0]
+        : { id: "none" }),
+    };
+
+    const [pendingCount, approvedCount, rejectedCount, totalAdvanceAggregate, approvedAdvanceAggregate] =
+      await Promise.all([
+        prisma.advancePaymentApproval.count({
+          where: { ...where, status: "Pending Approval" },
+        }),
+        prisma.advancePaymentApproval.count({
+          where: { ...where, status: "Approved" },
+        }),
+        prisma.advancePaymentApproval.count({
+          where: { ...where, status: "Rejected" },
+        }),
+        prisma.advancePaymentApproval.aggregate({
+          where,
+          _sum: { advanceAmount: true },
+        }),
+        prisma.advancePaymentApproval.aggregate({
+          where: { ...where, status: "Approved" },
+          _sum: { advanceAmount: true },
+        }),
+      ]);
+
+    return {
+      pendingAdvanceApprovals: pendingCount,
+      approvedAdvances: approvedCount,
+      rejectedAdvances: rejectedCount,
+      totalAdvanceAmount: Number(totalAdvanceAggregate._sum.advanceAmount ?? 0),
+      approvedAdvanceAmount: Number(approvedAdvanceAggregate._sum.advanceAmount ?? 0),
+    };
+  }
+
   const [pendingCount, approvedCount, rejectedCount, totalAdvanceAggregate, approvedAdvanceAggregate] =
     await Promise.all([
       prisma.advancePaymentApproval.count({

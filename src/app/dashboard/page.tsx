@@ -38,6 +38,7 @@ export default async function DashboardPage() {
           permissions={session.user.permissions}
           isSuperAdmin={session.user.isSuperAdmin}
           role={session.user.role}
+          user={session.user}
         />
       </Suspense>
     </div>

@@ -423,11 +423,30 @@ export async function rejectLeadApproval(args: {
   };
 }
 
-export async function getOwnerApprovalRequestCount(ownerAdminId: string) {
+export async function getOwnerApprovalRequestCount(
+  ownerAdminId: string,
+  allowedOfficeIds?: string[] | null,
+) {
+  if (allowedOfficeIds === null || allowedOfficeIds === undefined) {
+    return prisma.leadStatusApproval.count({
+      where: {
+        ownerAdminId,
+        approvalStatus: "Pending",
+      },
+    });
+  }
+
+  if (allowedOfficeIds.length === 0) {
+    return 0;
+  }
+
   return prisma.leadStatusApproval.count({
     where: {
       ownerAdminId,
       approvalStatus: "Pending",
+      lead: {
+        creator: { officeLocationId: { in: allowedOfficeIds } },
+      },
     },
   });
 }

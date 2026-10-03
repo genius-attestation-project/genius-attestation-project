@@ -713,13 +713,13 @@ function getHistoryActionType(
   return FollowupActionType.Rescheduled;
 }
 
-export function getLeadAllowedOfficeIds(user: any): string[] | null {
+export function getLeadAllowedOfficeIds(user: any, moduleKey: string = "lead_management"): string[] | null {
   if (!user || user.isSuperAdmin === true || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
     return null;
   }
 
   if (user.moduleOfficeVisibilities && typeof user.moduleOfficeVisibilities === "object") {
-    const modConfig = user.moduleOfficeVisibilities["lead_management"];
+    const modConfig = user.moduleOfficeVisibilities[moduleKey];
     if (modConfig) {
       return Array.isArray(modConfig.officeIds) ? modConfig.officeIds : [];
     }
@@ -733,8 +733,43 @@ export function getLeadAllowedOfficeIds(user: any): string[] | null {
   return [];
 }
 
-export function buildLeadOfficeCondition(user: any, requestedOfficeId?: string): Prisma.LeadWhereInput {
-  const allowedOfficeIds = getLeadAllowedOfficeIds(user);
+export function getDashboardAllowedOffices(user: any): {
+  allowedOfficeIds: string[] | null;
+  allowedOfficeNames: string[] | null;
+} {
+  if (!user || user.isSuperAdmin === true || user.allowedOfficeIds === null || user.allowedOfficeNames === null) {
+    return {
+      allowedOfficeIds: null,
+      allowedOfficeNames: null,
+    };
+  }
+
+  if (user.moduleOfficeVisibilities && typeof user.moduleOfficeVisibilities === "object") {
+    const dashConfig = user.moduleOfficeVisibilities["dashboard"];
+    if (dashConfig) {
+      return {
+        allowedOfficeIds: Array.isArray(dashConfig.officeIds) ? dashConfig.officeIds : [],
+        allowedOfficeNames: Array.isArray(dashConfig.officeNames) ? dashConfig.officeNames : [],
+      };
+    }
+    return {
+      allowedOfficeIds: [],
+      allowedOfficeNames: [],
+    };
+  }
+
+  return {
+    allowedOfficeIds: Array.isArray(user.allowedOfficeIds) ? user.allowedOfficeIds : [],
+    allowedOfficeNames: Array.isArray(user.allowedOfficeNames) ? user.allowedOfficeNames : [],
+  };
+}
+
+export function buildLeadOfficeCondition(
+  user: any,
+  requestedOfficeId?: string,
+  moduleKey: string = "lead_management"
+): Prisma.LeadWhereInput {
+  const allowedOfficeIds = getLeadAllowedOfficeIds(user, moduleKey);
 
   if (allowedOfficeIds === null) {
     if (requestedOfficeId?.trim()) {
@@ -2233,7 +2268,56 @@ export async function getLobSummary(ownerAdminId: string, officeLocationId?: str
   };
 }
 
-async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
+async function listApprovedClosedRegistrationRevenue(
+  ownerAdminId: string,
+  allowedOfficeIds?: string[] | null,
+  allowedOfficeNames?: string[] | null,
+) {
+  if (allowedOfficeIds !== null && allowedOfficeIds !== undefined) {
+    const ids = allowedOfficeIds ?? [];
+    const names = allowedOfficeNames ?? [];
+    if (ids.length === 0 && names.length === 0) {
+      return [];
+    }
+
+    const regOfficeOr: Prisma.RegistrationWhereInput[] = [];
+    if (ids.length > 0) {
+      regOfficeOr.push({ regionOfRegistrationId: { in: ids } });
+      regOfficeOr.push({ creator: { officeLocationId: { in: ids } } });
+      regOfficeOr.push({ lead: { creator: { officeLocationId: { in: ids } } } });
+    }
+    if (names.length > 0) {
+      regOfficeOr.push({ regionOfRegistration: { in: names } });
+    }
+
+    const registrations = await prisma.registration.findMany({
+      where: {
+        ownerAdminId,
+        lead: {
+          leadStatus: LeadStatus.Closed,
+        },
+        OR: regOfficeOr,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        totalCharges: true,
+        advancePaid: true,
+        balanceAmount: true,
+        leadId: true,
+        trackingNumber: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return registrations.map(reg => ({
+      credit: reg.totalCharges,
+      date: reg.createdAt,
+      createdAt: reg.createdAt,
+      trackingNumber: reg.trackingNumber,
+    }));
+  }
+
   const registrations = await prisma.registration.findMany({
     where: {
       ownerAdminId,
@@ -2263,7 +2347,8 @@ async function listApprovedClosedRegistrationRevenue(ownerAdminId: string) {
 
 export async function getDashboardStats(ownerAdminId: string, user?: any): Promise<DashboardStatsResponse> {
   const revenueWindowStart = new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1);
-  const officeCond = buildLeadOfficeCondition(user);
+  const { allowedOfficeIds, allowedOfficeNames } = getDashboardAllowedOffices(user);
+  const officeCond = buildLeadOfficeCondition(user, undefined, "dashboard");
 
   const [totalLeads, activeLeads, closedLeads, pendingLeads] = await Promise.all([
     prisma.lead.count({
@@ -2286,7 +2371,7 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
         ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
       },
     }),
-    getOwnerApprovalRequestCount(ownerAdminId),
+    getOwnerApprovalRequestCount(ownerAdminId, allowedOfficeIds),
   ]);
 
   let followups = 0;
@@ -2395,10 +2480,14 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
           where: {
             ownerAdminId,
             nextFollowupAt: { not: null },
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
           },
         }),
         prisma.lead.findMany({
-          where: { ownerAdminId },
+          where: {
+            ownerAdminId,
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+          },
           orderBy: { createdAt: "desc" },
           take: 5,
           select: legacyLeadSelect,
@@ -2407,6 +2496,7 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
           where: {
             ownerAdminId,
             nextFollowupAt: { not: null },
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
           },
           orderBy: [{ nextFollowupAt: "asc" }, { updatedAt: "desc" }],
           take: 5,
@@ -2414,7 +2504,10 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
         }),
         prisma.lead.groupBy({
           by: ["leadStatus"],
-          where: { ownerAdminId },
+          where: {
+            ownerAdminId,
+            ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+          },
           _count: { _all: true },
         }),
         Promise.all(
@@ -2425,10 +2518,18 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
 
             const [createdCount, followupCount] = await Promise.all([
               prisma.lead.count({
-                where: { ownerAdminId, createdAt: { gte: start, lt: end } },
+                where: {
+                  ownerAdminId,
+                  createdAt: { gte: start, lt: end },
+                  ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+                },
               }),
               prisma.lead.count({
-                where: { ownerAdminId, nextFollowupAt: { gte: start, lt: end } },
+                where: {
+                  ownerAdminId,
+                  nextFollowupAt: { gte: start, lt: end },
+                  ...(Object.keys(officeCond).length > 0 ? officeCond : {}),
+                },
               }),
             ]);
 
@@ -2452,7 +2553,11 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
     }
   }
 
-  const approvedRevenueRecords = await listApprovedClosedRegistrationRevenue(ownerAdminId);
+  const approvedRevenueRecords = await listApprovedClosedRegistrationRevenue(
+    ownerAdminId,
+    allowedOfficeIds,
+    allowedOfficeNames,
+  );
   const totalRevenue = approvedRevenueRecords.reduce((sum, item) => sum + Number(item.credit), 0);
   const statusTotal = totalLeads || 1;
   const revenueMap = new Map(monthLabels.map((item) => [item.key, 0]));
@@ -2470,7 +2575,12 @@ export async function getDashboardStats(ownerAdminId: string, user?: any): Promi
     }
   }
 
-  const advanceStats = await getAdvancePaymentStats(ownerAdminId).catch(() => ({
+  const advanceStats = await getAdvancePaymentStats(
+    ownerAdminId,
+    user,
+    allowedOfficeIds,
+    allowedOfficeNames,
+  ).catch(() => ({
     pendingAdvanceApprovals: 0,
     approvedAdvances: 0,
     rejectedAdvances: 0,

@@ -13,6 +13,7 @@ type DashboardOverviewProps = {
   permissions: string[];
   isSuperAdmin: boolean;
   role: string;
+  user?: any;
 };
 
 function canAccess(
@@ -28,10 +29,11 @@ export async function DashboardOverview({
   permissions,
   isSuperAdmin,
   role,
+  user,
 }: DashboardOverviewProps) {
   let stats;
   try {
-    stats = await getDashboardStats(ownerAdminId);
+    stats = await getDashboardStats(ownerAdminId, user);
   } catch (error) {
     console.error("Failed to load dashboard stats", error);
     return (
