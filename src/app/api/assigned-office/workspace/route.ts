@@ -20,15 +20,17 @@ export async function GET(req: NextRequest) {
     }
 
     const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
+    const isAssignedOfficePortalUser = Boolean(
+      (session.user as any)?.accountType === "ASSIGNED_OFFICE" ||
+      session.user?.role === "AssignedOffice"
+    );
+    const defaultOfficeId = (session.user as any)?.assignedOfficeId || session.user?.officeId || session.user?.id;
+
     // Office ID comes from office user session or query param if admin
     const searchParams = req.nextUrl.searchParams;
     const cookieOfficeId = req.cookies.get("activeAssignedOfficeId")?.value;
-    const officeId =
-      searchParams.get("officeId") ||
-      cookieOfficeId ||
-      session.user.officeId ||
-      (session.user as any).assignedOfficeId ||
-      session.user.id;
+    const requestedOfficeId = searchParams.get("officeId") || cookieOfficeId || defaultOfficeId;
+    const officeId = isAssignedOfficePortalUser ? defaultOfficeId : requestedOfficeId;
 
     const action = searchParams.get("action"); // 'stats' | 'documents' | 'subpackage_items' | 'subpackages_for_process_type'
     const tab = searchParams.get("tab") || "in_hand";
@@ -75,17 +77,22 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
     const userName = session.user.name || session.user.email || "Office User";
 
+    const isAssignedOfficePortalUser = Boolean(
+      (session.user as any)?.accountType === "ASSIGNED_OFFICE" ||
+      session.user?.role === "AssignedOffice"
+    );
+    const defaultOfficeId = (session.user as any)?.assignedOfficeId || session.user?.officeId || session.user?.id;
+
     const body = await req.json();
     const { action, officeId: reqOfficeId } = body;
     const cookieOfficeId = req.cookies.get("activeAssignedOfficeId")?.value;
     const searchOfficeId = req.nextUrl.searchParams.get("officeId");
-    const officeId =
+    const requestedOfficeId =
       reqOfficeId ||
       searchOfficeId ||
       cookieOfficeId ||
-      session.user.officeId ||
-      (session.user as any).assignedOfficeId ||
-      session.user.id;
+      defaultOfficeId;
+    const officeId = isAssignedOfficePortalUser ? defaultOfficeId : requestedOfficeId;
 
     if (action === "receive_bundle") {
       const { bundleId, selectedTrackingNumbers } = body;

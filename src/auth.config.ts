@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
+import { env } from "@/config/env";
 
-const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "LwohKo6gq7QYj4Y4MK5DdofKcFYdIrj8a31MbqkPJMS";
+const secret = env.authSecret;
 
 export const authConfig = {
   basePath: "/api/auth",

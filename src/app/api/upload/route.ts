@@ -6,7 +6,10 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    const performedBy = session?.user?.name || session?.user?.email;
+    if (!session?.user) {
+      return jsonError("Authentication required.", 401);
+    }
+    const performedBy = session.user.name || session.user.email || "Authenticated User";
 
     const formData = await request.formData();
     const file = formData.get("file") as File;

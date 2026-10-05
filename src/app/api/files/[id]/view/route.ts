@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionAccess, hasPermission } from "@/features/admin/server/rbac.service";
+import { getSessionAccess, hasPermission, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSignedFileUrl } from "@/services/storage/view";
@@ -16,7 +16,7 @@ export async function GET(
     }
 
     const userAccess = await getSessionAccess(session.user.id);
-    const isSuperAdmin = userAccess?.isSuperAdmin || (session.user as any).role?.name === "Super Admin";
+    const isSuperAdmin = Boolean(userAccess?.isSuperAdmin || (session.user as any).role?.name === "Super Admin" || (session.user as any).role === "Super Admin");
 
     // RBAC Check for file access
     if (!isSuperAdmin && userAccess) {
@@ -56,6 +56,18 @@ export async function GET(
       return NextResponse.json({ error: "File not found." }, { status: 404 });
     }
 
+    const ownerAdminId = session.user.ownerAdminId || session.user.id;
+    const linkedReg = fileStorage.registrationFiles?.[0]?.registration;
+    if (linkedReg && !isSuperAdmin) {
+      if (linkedReg.ownerAdminId && linkedReg.ownerAdminId !== ownerAdminId) {
+        return NextResponse.json({ error: "Forbidden: Access denied to this file." }, { status: 403 });
+      }
+      const regOffice = linkedReg.invoiceOfficeId || linkedReg.currentOffice;
+      if (regOffice && userAccess && !hasOfficeAccess(userAccess, regOffice, "revenue_registration")) {
+        return NextResponse.json({ error: "Forbidden: Access denied to file for this office." }, { status: 403 });
+      }
+    }
+
     // Resolve bucketKey with backward compatibility for legacy URL records
     let bucketKey = fileStorage.bucketKey;
     if (!bucketKey && fileStorage.url && fileStorage.url.startsWith("http")) {
@@ -76,7 +88,6 @@ export async function GET(
     const performedBy = session.user.name || session.user.email || "User";
 
     // Linked registration info for audit trail if present
-    const linkedReg = fileStorage.registrationFiles?.[0]?.registration;
     const registrationId = linkedReg?.id || null;
 
     if (registrationId) {

@@ -7,13 +7,10 @@ import { resolveOfficeLocationId, resolveOfficeLocationName } from "@/lib/office
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
-  // Allow access if user has account_panel.view permission OR account_menu.view or is authenticated
   const authError = await requireApiPermission("account_panel.view");
-  const session = await auth();
+  if (authError) return authError;
 
-  if (authError && !session?.user) {
-    return authError;
-  }
+  const session = await auth();
 
   try {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

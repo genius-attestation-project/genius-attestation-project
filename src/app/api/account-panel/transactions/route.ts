@@ -11,13 +11,10 @@ import {
 import { resolveOfficeLocationId } from "@/lib/office-location";
 
 export async function POST(request: NextRequest) {
-  // Authorization: require account_panel.create OR account_panel.view permission
   const authError = await requireApiPermission("account_panel.create");
-  const session = await auth();
+  if (authError) return authError;
 
-  if (authError && !session?.user) {
-    return authError;
-  }
+  const session = await auth();
 
   try {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
@@ -71,11 +68,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const authError = await requireApiPermission("account_panel.view");
-  const session = await auth();
+  if (authError) return authError;
 
-  if (authError && !session?.user) {
-    return authError;
-  }
+  const session = await auth();
 
   try {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;

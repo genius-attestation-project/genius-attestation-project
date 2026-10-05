@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
+import { auth } from "@/lib/auth";
 
 export async function GET() {
+  const session = await auth();
+  const isSuperAdmin = session?.user?.isSuperAdmin || (session?.user as any)?.role === "Super Admin" || (session?.user as any)?.role?.name === "Super Admin";
+
+  if (!session?.user || !isSuperAdmin) {
+    return jsonError("Forbidden: Super Admin access required.", 403);
+  }
   try {
     // Detect the actual Lead table name
     const tableNameResult = await prisma.$queryRawUnsafe<{ tablename: string }[]>(

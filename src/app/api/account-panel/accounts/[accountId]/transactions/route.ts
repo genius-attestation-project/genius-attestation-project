@@ -9,11 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ accountId: string }> }
 ) {
   const authError = await requireApiPermission("account_panel.view");
-  const session = await auth();
+  if (authError) return authError;
 
-  if (authError && !session?.user) {
-    return authError;
-  }
+  const session = await auth();
 
   try {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
