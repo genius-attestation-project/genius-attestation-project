@@ -184,7 +184,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">Lead Owner (Creator)</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={leadOwner}
               onChange={(e) => setLeadOwner(e.target.value)}
             >
@@ -197,7 +197,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">Assigned User</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={assignedUser}
               onChange={(e) => setAssignedUser(e.target.value)}
             >
@@ -210,7 +210,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">Office Location</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={officeLocationId}
               onChange={(e) => setOfficeLocationId(e.target.value)}
             >
@@ -223,7 +223,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">Lead Status</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={leadStatus}
               onChange={(e) => setLeadStatus(e.target.value)}
             >
@@ -237,7 +237,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">Country</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
             >
@@ -250,7 +250,7 @@ export function FollowupsReportManagement() {
           <div>
             <label className="mb-1 block text-sm font-semibold">State</label>
             <select
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
               value={state}
               onChange={(e) => setState(e.target.value)}
             >
@@ -297,8 +297,8 @@ export function FollowupsReportManagement() {
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="border-b bg-slate-50 text-slate-900">
+          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+            <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100">
               <tr>
                 <th className="px-4 py-3 font-semibold">Lead Name</th>
                 <th className="px-4 py-3 font-semibold">Mobile</th>
@@ -310,10 +310,10 @@ export function FollowupsReportManagement() {
                 <th className="px-4 py-3 font-semibold">Created By</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{item.leadName}</td>
+                <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{item.leadName}</td>
                   <td className="px-4 py-3">{item.mobile}</td>
                   <td className="px-4 py-3">
                     {item.followupDate ? formatDate(item.followupDate) : ""}
@@ -329,7 +329,7 @@ export function FollowupsReportManagement() {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     No followups found for the selected criteria.
                   </td>
                 </tr>

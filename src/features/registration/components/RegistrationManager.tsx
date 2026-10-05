@@ -276,11 +276,11 @@ function PhoneField({
         onChange={(phone) => onChange(normalizePhoneValue(phone))}
         forceDialCode
         preferredCountries={["in", "ae", "sa", "qa", "om", "kw", "bh", "us", "gb"]}
-        className="registration-phone-input flex h-14 w-full items-center rounded-xl border border-gray-200 bg-white px-3 text-slate-700 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100"
-        inputClassName="registration-phone-input__field flex-1 border-0 bg-transparent px-3 outline-none focus:ring-0"
+        className="registration-phone-input flex h-14 w-full items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-100 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/40"
+        inputClassName="registration-phone-input__field flex-1 border-0 bg-transparent px-3 outline-none focus:ring-0 text-slate-900 dark:text-slate-100"
         countrySelectorStyleProps={{
           className: "registration-phone-input__country",
-          buttonClassName: "registration-phone-input__country-button flex items-center gap-2 border-r border-gray-200 pr-3",
+          buttonClassName: "registration-phone-input__country-button flex items-center gap-2 border-r border-gray-200 dark:border-slate-700 pr-3 text-slate-700 dark:text-slate-200",
           buttonContentWrapperClassName: "registration-phone-input__country-content flex items-center gap-2",
           dropdownStyleProps: {
             className: "registration-phone-input__dropdown",

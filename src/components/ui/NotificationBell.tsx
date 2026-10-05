@@ -89,9 +89,9 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-(--border) bg-white shadow-lg z-50">
-          <div className="flex items-center justify-between border-b border-(--border) px-4 py-3">
-            <h3 className="font-bold text-slate-900">Notifications</h3>
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-(--border) bg-white shadow-lg z-50 dark:border-white/10 dark:bg-[#0f1422]">
+          <div className="flex items-center justify-between border-b border-(--border) px-4 py-3 dark:border-white/10">
+            <h3 className="font-bold text-slate-900 dark:text-white">Notifications</h3>
             {unreadCount > 0 && (
               <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => void markAllRead()}>
                 Mark all read
@@ -105,12 +105,12 @@ export function NotificationBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`flex flex-col gap-1 border-b border-(--border) px-4 py-3 last:border-b-0 ${
-                    n.isRead ? "opacity-70" : "bg-blue-50/50"
+                  className={`flex flex-col gap-1 border-b border-(--border) px-4 py-3 last:border-b-0 dark:border-white/10 ${
+                    n.isRead ? "opacity-70" : "bg-blue-50/50 dark:bg-blue-950/30"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-900">{n.title}</span>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{n.title}</span>
                     <span className="text-[10px] text-soft">
                       {new Intl.DateTimeFormat("en-IN", {
                         hour: "numeric",
@@ -120,7 +120,7 @@ export function NotificationBell() {
                       }).format(new Date(n.createdAt))}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600">{n.message}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">{n.message}</p>
                 </div>
               ))
             )}

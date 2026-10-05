@@ -98,7 +98,7 @@ export function DocumentMovementDetailsModal({
         ) : error ? (
           <div className="p-8 text-center">
             <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
-            <p className="mt-2 text-sm font-bold text-slate-800">{error}</p>
+            <p className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-200">{error}</p>
           </div>
         ) : details ? (
           <div className="flex flex-1 flex-col min-h-0 overflow-hidden">

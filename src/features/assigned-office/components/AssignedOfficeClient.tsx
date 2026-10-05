@@ -794,7 +794,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     id="createStatus"
                     checked={formStatus}
                     onChange={(e) => setFormStatus(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="createStatus" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Active Account Status
@@ -873,7 +873,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                             type="checkbox"
                             checked={isSelected}
                             readOnly
-                            className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-0.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold truncate leading-tight">{sp.name}</p>
@@ -1008,7 +1008,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                     id="editStatus"
                     checked={formStatus}
                     onChange={(e) => setFormStatus(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="editStatus" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Active Account Status
@@ -1087,7 +1087,7 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
                             type="checkbox"
                             checked={isSelected}
                             readOnly
-                            className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-0.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold truncate leading-tight">{sp.name}</p>
@@ -1260,14 +1260,14 @@ export function AssignedOfficeClient({ permissions = {} }: PermissionProps) {
               </h2>
               <button
                 onClick={() => setIsResetPasswordOpen(false)}
-                className="text-slate-400 hover:text-slate-900"
+                className="text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 ✕
               </button>
             </div>
 
             {resetError && (
-              <div className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 p-3 text-xs font-semibold text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
                 {resetError}
               </div>
             )}

@@ -457,7 +457,7 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                           type="checkbox"
                           checked={selectedCount > 0 && selectedCount === previewData.summary.validCount}
                           onChange={(e) => toggleSelectAll(e.target.checked)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </th>
                       <th className="px-3 py-2.5 w-12">Row</th>
@@ -515,7 +515,7 @@ export function ImportRegistrationWizard({ open, onOpenChange, onSuccess }: Impo
                                   checked={Boolean(row.isSelected)}
                                   disabled={isMismatch}
                                   onChange={() => toggleRowSelect(originalIndex)}
-                                  className={`rounded border-slate-300 text-blue-600 focus:ring-blue-500 ${
+                                  className={`rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 ${
                                     isMismatch ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
                                   }`}
                                 />

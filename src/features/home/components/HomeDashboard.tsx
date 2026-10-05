@@ -604,14 +604,14 @@ export function HomeDashboard({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         {/* Tabs Bar */}
         {availableTabs.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/80 bg-slate-100/80 p-1.5 rounded-2xl shadow-2xs">
+          <div className="flex flex-wrap items-center gap-1.5 border border-slate-200/80 bg-slate-100/80 p-1.5 rounded-2xl shadow-2xs dark:border-white/10 dark:bg-white/5">
             {canViewDocumentInHand && (
               <button
                 onClick={() => setActiveTab("document_in_hand")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "document_in_hand"
-                    ? "bg-white text-blue-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-blue-600 shadow-xs dark:bg-white/10 dark:text-blue-400"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 <Package className="h-4 w-4" />
@@ -624,14 +624,14 @@ export function HomeDashboard({
                 onClick={() => setActiveTab("inbound")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "inbound"
-                    ? "bg-white text-blue-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-blue-600 shadow-xs dark:bg-white/10 dark:text-blue-400"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 <Inbox className="h-4 w-4" />
                 Inbound Bundles
                 {inboundBundles.length > 0 && (
-                  <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold">
+                  <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold dark:bg-blue-500/20 dark:text-blue-300">
                     {inboundBundles.length}
                   </span>
                 )}
@@ -643,8 +643,8 @@ export function HomeDashboard({
                 onClick={() => setActiveTab("outbound")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "outbound"
-                    ? "bg-white text-blue-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-blue-600 shadow-xs dark:bg-white/10 dark:text-blue-400"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 <Send className="h-4 w-4" />
@@ -657,8 +657,8 @@ export function HomeDashboard({
                 onClick={() => setActiveTab("history")}
                 className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                   activeTab === "history"
-                    ? "bg-white text-blue-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-blue-600 shadow-xs dark:bg-white/10 dark:text-blue-400"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 <Clock className="h-4 w-4" />
@@ -670,14 +670,14 @@ export function HomeDashboard({
 
         {/* Office Location Selector */}
         <div className="flex items-center gap-3 self-end lg:self-center">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-xs">
-            <Building2 className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Office Location:</span>
+          <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-xs dark:border-white/10 dark:bg-white/5">
+            <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">Office Location:</span>
             {isSuperAdmin ? (
               <select
                 value={selectedOfficeId}
                 onChange={(e) => setSelectedOfficeId(e.target.value)}
-                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none"
+                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="">All Offices</option>
                 {offices.map((off) => (
@@ -693,7 +693,7 @@ export function HomeDashboard({
                     currentOfficeLocationName ||
                     (offices[0]?.officeName ?? "Assigned Office")}
                 </span>
-                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                   Assigned
                 </span>
               </div>
@@ -706,7 +706,7 @@ export function HomeDashboard({
         <>
 
           {/* Main Tab Content */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-white/10 dark:bg-[#0f1422]">
             {/* Search Bar */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
@@ -716,7 +716,7 @@ export function HomeDashboard({
                   placeholder="Search tracking number, customer, document..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -726,8 +726,8 @@ export function HomeDashboard({
               <div className="space-y-6">
                 {/* Action Toolbar */}
                 {(canTransfer || canUseRDButton) && (
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-blue-50/80 border border-blue-200 p-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-blue-50/80 border border-blue-200 p-4 dark:bg-blue-950/20 dark:border-blue-500/20">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
                       <span>Selected: {selectedTrackingNumbers.length} documents</span>
                     </div>
 
@@ -747,7 +747,7 @@ export function HomeDashboard({
 
                       {canTransfer && (
                         <>
-                          <span className="text-xs font-semibold text-slate-600 tracking-wider">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tracking-wider">
                             Select Destination Office:
                           </span>
                           <DestinationOfficeSelect
@@ -827,9 +827,9 @@ export function HomeDashboard({
                     description="There are currently no inbound document bundles waiting to be received."
                   />
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm text-slate-700">
-                      <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white dark:border-white/10 dark:bg-white/5">
+                    <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                      <thead className="bg-slate-50/90 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200 dark:bg-white/5 dark:text-slate-200 dark:border-white/10">
                         <tr>
                           <th className="p-4 text-center w-12">SL No.</th>
                           <th className="p-4">Bundle Number</th>
@@ -839,23 +839,23 @@ export function HomeDashboard({
                           {canReceive && <th className="p-4 text-right">Actions</th>}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
+                      <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/5 dark:bg-transparent">
                         {inboundBundles.map((bundle: any, index: number) => (
-                          <tr key={bundle.id} className="hover:bg-slate-50">
-                            <td className="p-4 text-center font-semibold text-slate-500">{index + 1}</td>
+                          <tr key={bundle.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                            <td className="p-4 text-center font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
                             <td
                               onClick={() => setPreviewBundle(bundle)}
-                              className="p-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                              className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                             >
                               {formatBundleNumber(bundle.bundleNumber)}
                             </td>
-                            <td className="p-4 font-semibold text-slate-800">
+                            <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
                               {bundle.fromOffice?.officeName || "Origin Office"}
                             </td>
-                            <td className="p-4 text-center text-xs text-slate-600">
+                            <td className="p-4 text-center text-xs text-slate-600 dark:text-slate-400">
                               {formatDate(bundle.createdAt)}
                             </td>
-                            <td className="p-4 text-center text-xs font-bold text-amber-700">
+                            <td className="p-4 text-center text-xs font-bold text-amber-700 dark:text-amber-400">
                               {calculateFinishedDays(bundle.createdAt)}
                             </td>
                             {canReceive && (
@@ -888,9 +888,9 @@ export function HomeDashboard({
                     description="Bundles created and transferred from this office will appear here."
                   />
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm text-slate-700">
-                      <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white dark:border-white/10 dark:bg-white/5">
+                    <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                      <thead className="bg-slate-50/90 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200 dark:bg-white/5 dark:text-slate-200 dark:border-white/10">
                         <tr>
                           <th className="p-4 text-center w-12">SL No.</th>
                           <th className="p-4">Bundle Number</th>
@@ -901,28 +901,28 @@ export function HomeDashboard({
                           {canRetrieve && <th className="p-4 text-right">Actions</th>}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
+                      <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/5 dark:bg-transparent">
                         {outboundBundles.map((bundle: any, index: number) => {
                           const isFullyReceived = bundle.status === "Received";
                           const isRetrieved = bundle.status === "Retrieved";
                           const canPerformRetrieve = !isFullyReceived && !isRetrieved;
 
                           return (
-                            <tr key={bundle.id} className="hover:bg-slate-50">
-                              <td className="p-4 text-center font-semibold text-slate-500">{index + 1}</td>
-                              <td className="p-4 font-mono font-bold text-blue-600">
+                            <tr key={bundle.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                              <td className="p-4 text-center font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
+                              <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                                 {formatBundleNumber(bundle.bundleNumber)}
                               </td>
-                              <td className="p-4 font-semibold text-slate-800">
+                              <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
                                 {bundle.fromOffice?.officeName || "Current Office"}
                               </td>
-                              <td className="p-4 font-semibold text-slate-800">
+                              <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
                                 {bundle.toOffice?.officeName || "Destination"}
                               </td>
-                              <td className="p-4 text-center text-xs text-slate-600">
+                              <td className="p-4 text-center text-xs text-slate-600 dark:text-slate-400">
                                 {formatDate(bundle.createdAt)}
                               </td>
-                              <td className="p-4 text-center text-xs font-bold text-amber-700">
+                              <td className="p-4 text-center text-xs font-bold text-amber-700 dark:text-amber-400">
                                 {calculateFinishedDays(bundle.createdAt)}
                               </td>
                               {canRetrieve && (
@@ -932,7 +932,7 @@ export function HomeDashboard({
                                       size="sm"
                                       variant="secondary"
                                       onClick={() => setRetrieveBundle(bundle)}
-                                      className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                                      className="gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-blue-200 dark:border-blue-500/30"
                                     >
                                       <RotateCcw size={14} /> Retrieve
                                     </Button>
@@ -973,9 +973,9 @@ export function HomeDashboard({
                     description="All bundle and document movements are tracked here."
                   />
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm text-slate-700">
-                      <thead className="bg-slate-50 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white dark:border-white/10 dark:bg-white/5">
+                    <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                      <thead className="bg-slate-50/90 text-xs font-bold text-slate-700 tracking-wider border-b border-slate-200 dark:bg-white/5 dark:text-slate-200 dark:border-white/10">
                         <tr>
                           <th className="p-4">Tracking Number</th>
                           <th className="p-4">Action</th>
@@ -986,10 +986,10 @@ export function HomeDashboard({
                           <th className="p-4">Remarks</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
+                      <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/5 dark:bg-transparent">
                         {movementHistory.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="p-4 font-bold text-blue-600">
+                          <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                            <td className="p-4 font-bold text-blue-600 dark:text-blue-400">
                               <div className="flex items-center gap-2">
                                 <PriorityDot priority={item.priority || item.registration?.priority} size={10} />
                                 <Link
@@ -1000,16 +1000,16 @@ export function HomeDashboard({
                                 </Link>
                               </div>
                             </td>
-                            <td className="p-4 font-semibold">{item.action}</td>
-                            <td className="p-4 text-xs text-slate-500">{item.oldStatus || "-"}</td>
-                            <td className="p-4 text-xs font-semibold text-emerald-600">
+                            <td className="p-4 font-semibold text-slate-900 dark:text-white">{item.action}</td>
+                            <td className="p-4 text-xs text-slate-500 dark:text-slate-400">{item.oldStatus || "-"}</td>
+                            <td className="p-4 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                               {item.newStatus || "-"}
                             </td>
-                            <td className="p-4">{item.performedBy || "-"}</td>
-                            <td className="p-4 text-xs text-slate-500">
+                            <td className="p-4 text-slate-800 dark:text-slate-200">{item.performedBy || "-"}</td>
+                            <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
                               {new Date(item.performedAt).toLocaleString()}
                             </td>
-                            <td className="p-4 text-xs max-w-xs truncate">{item.remarks || "-"}</td>
+                            <td className="p-4 text-xs max-w-xs truncate text-slate-600 dark:text-slate-300">{item.remarks || "-"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1048,20 +1048,20 @@ export function HomeDashboard({
 
       {/* Bundle Receive Modal */}
       {selectedBundle && canReceive && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-6 dark:bg-[#0f1422] dark:border-white/10">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-white/10">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Inbound Bundle Details ({formatBundleNumber(selectedBundle.bundleNumber)})
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   From: {selectedBundle.fromOffice?.officeName || "Origin Office"}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedBundle(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-slate-200"
               >
                 <XCircle className="h-6 w-6" />
               </button>
@@ -1069,17 +1069,17 @@ export function HomeDashboard({
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-700">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                   Bundle Items ({selectedBundle.items?.length || 0})
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   Selected for Receive: {bundleReceivedSelections.length} / {selectedBundle.items?.length || 0}
                 </span>
               </div>
 
-              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200">
-                <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 text-xs font-bold text-slate-700">
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-white/10">
+                <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                  <thead className="bg-slate-50 text-xs font-bold text-slate-700 dark:bg-white/5 dark:text-slate-200 border-b border-slate-200 dark:border-white/10">
                     <tr>
                       <th className="p-3 w-10 text-center">Receive</th>
                       <th className="p-3 text-center w-12">SL No.</th>
@@ -1097,47 +1097,47 @@ export function HomeDashboard({
                       <th className="p-3 text-right">Balance Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/5 dark:bg-transparent">
                     {selectedBundle.items?.map((item: any, index: number) => {
                       const isChecked = bundleReceivedSelections.includes(item.trackingNumber);
                       const reg = item.registration;
                       const docName = reg?.documentName || reg?.customerName || "-";
                       const procType = reg?.processType || reg?.externalProcess || "-";
                       return (
-                        <tr key={item.id} className={isChecked ? "bg-emerald-50/30" : ""}>
+                        <tr key={item.id} className={isChecked ? "bg-emerald-50/30 dark:bg-emerald-950/20" : "hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"}>
                           <td className="p-3">
                             <button
                               onClick={() => handleToggleReceiveItem(item.trackingNumber)}
-                              className="text-slate-600"
+                              className="text-slate-600 dark:text-slate-400 cursor-pointer"
                             >
                               {isChecked ? (
-                                <CheckSquare className="h-5 w-5 text-emerald-600" />
+                                <CheckSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                               ) : (
                                 <Square className="h-5 w-5 text-slate-400" />
                               )}
                             </button>
                           </td>
-                          <td className="p-3 font-semibold text-slate-500">{index + 1}</td>
-                          <td className="p-3 font-mono font-bold text-blue-600">
+                          <td className="p-3 font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
+                          <td className="p-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                             {item.trackingNumber}
                           </td>
-                          <td className="p-3 text-xs font-semibold text-slate-800">{reg?.regionOfRegistration || "-"}</td>
-                          <td className="p-3 text-xs text-slate-600">{reg?.deliveryLocation || "-"}</td>
-                          <td className="p-3 text-xs text-slate-700">{reg?.collectedPerson || "-"}</td>
-                          <td className="p-3 font-medium text-slate-900">{docName}</td>
-                          <td className="p-3 text-xs">{reg?.documentType || "-"}</td>
-                          <td className="p-3 text-xs font-semibold text-slate-800">{procType}</td>
-                          <td className="p-3 font-mono text-xs text-slate-600">{reg?.mobile || "-"}</td>
+                          <td className="p-3 text-xs font-semibold text-slate-800 dark:text-slate-200">{reg?.regionOfRegistration || "-"}</td>
+                          <td className="p-3 text-xs text-slate-600 dark:text-slate-400">{reg?.deliveryLocation || "-"}</td>
+                          <td className="p-3 text-xs text-slate-700 dark:text-slate-300">{reg?.collectedPerson || "-"}</td>
+                          <td className="p-3 font-medium text-slate-900 dark:text-white">{docName}</td>
+                          <td className="p-3 text-xs text-slate-700 dark:text-slate-300">{reg?.documentType || "-"}</td>
+                          <td className="p-3 text-xs font-semibold text-slate-800 dark:text-slate-200">{procType}</td>
+                          <td className="p-3 font-mono text-xs text-slate-600 dark:text-slate-400">{reg?.mobile || "-"}</td>
                           <td className="p-3 text-xs">
                             <PriorityBadge priority={reg?.priority} size="xs" />
                           </td>
-                          <td className="p-3 text-xs font-bold text-slate-900">
+                          <td className="p-3 text-xs font-bold text-slate-900 dark:text-white">
                             {reg?.totalCharges ? `₹${Number(reg.totalCharges).toFixed(2)}` : "-"}
                           </td>
-                          <td className="p-3 text-xs font-bold text-emerald-700">
+                          <td className="p-3 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                             {reg?.advancePaid !== undefined && reg?.advancePaid !== null ? `₹${Number(reg.advancePaid).toFixed(2)}` : "-"}
                           </td>
-                          <td className="p-3 text-xs font-bold text-blue-700">
+                          <td className="p-3 text-xs font-bold text-blue-700 dark:text-blue-400">
                             {reg?.balanceAmount !== undefined && reg?.balanceAmount !== null ? `₹${Number(reg.balanceAmount).toFixed(2)}` : "-"}
                           </td>
                         </tr>
@@ -1148,7 +1148,7 @@ export function HomeDashboard({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-white/10">
               <Button variant="secondary" onClick={() => setSelectedBundle(null)}>
                 Cancel
               </Button>

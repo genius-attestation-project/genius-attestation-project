@@ -539,7 +539,7 @@ export function AllLeadsManagement({
           </div>
 
           {isServerFilteredEndpoint ? (
-            <div className="grid gap-3 rounded-2xl border border-(--border) bg-slate-50/70 p-3 sm:p-4">
+            <div className="grid gap-3 rounded-2xl border border-(--border) bg-slate-50/70 dark:bg-slate-800/40 p-3 sm:p-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <FilterDropdown
                   key={`created-${createdByFilter}`}

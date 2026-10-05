@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <section className="grid min-h-screen overflow-x-hidden bg-white lg:grid-cols-[1.05fr_0.95fr]">
+    <section className="grid min-h-screen overflow-x-hidden bg-white dark:bg-[var(--bg)] lg:grid-cols-[1.05fr_0.95fr]">
       <div className="relative min-h-56 overflow-hidden bg-neutral-950 sm:min-h-64 lg:min-h-full">
         <Image
           src="/uploads/login.jpg"
@@ -38,9 +38,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <div className="flex min-w-0 items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
         <div className="w-full max-w-[440px]">
           <LoginForm callbackUrl={params?.callbackUrl} error={params?.error} />
-          <p className="mt-6 text-center text-neutral-600">
+          <p className="mt-6 text-center text-neutral-600 dark:text-slate-400">
             New here?{" "}
-            <Link className="font-extrabold text-blue-600" href="/register">
+            <Link className="font-extrabold text-blue-600 dark:text-blue-400" href="/register">
               Create an account
             </Link>
           </p>

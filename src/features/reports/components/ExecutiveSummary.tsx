@@ -78,11 +78,11 @@ export default function ExecutiveSummary() {
     <div className="space-y-8">
       {/* Workflow Approvals */}
       <section>
-        <div className="flex justify-between items-end border-b pb-2 mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">Pending Workflow Approvals</h2>
+        <div className="flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-2 mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Pending Workflow Approvals</h2>
           <button 
             type="button"
-            className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
+            className="flex items-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition border border-blue-200 dark:border-blue-900/50"
             onClick={() => window.open('/api/reports/workflow-approvals/export', '_blank')}
           >
             <Download size={16} />
@@ -119,10 +119,10 @@ export default function ExecutiveSummary() {
 
       {/* Overview Section */}
       <section>
-        <div className="flex justify-between items-end border-b pb-2 mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">Overview</h2>
-          <span className="text-sm font-medium text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-            Reporting User: <span className="font-semibold text-slate-800">{data.userName || "All Users"}</span>
+        <div className="flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-2 mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Overview</h2>
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+            Reporting User: <span className="font-semibold text-slate-800 dark:text-slate-100">{data.userName || "All Users"}</span>
           </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -163,7 +163,7 @@ export default function ExecutiveSummary() {
 
       {/* Followups & Calls */}
       <section>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Communications</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">Communications</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard
             label="Followups Created"
@@ -194,7 +194,7 @@ export default function ExecutiveSummary() {
 
       {/* Operations */}
       <section>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Operations</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">Operations</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard
             label="Process Actions"
@@ -225,7 +225,7 @@ export default function ExecutiveSummary() {
 
       {/* Attendance */}
       <section>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Attendance & Staff</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">Attendance & Staff</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard
             label="Present Days"
@@ -256,10 +256,10 @@ export default function ExecutiveSummary() {
 
       {/* Analytics Charts */}
       <section className="print:break-before-page">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Analytics</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">Analytics</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-md font-medium text-slate-700 mb-6">Revenue Trend (Last 7 Days)</h3>
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h3 className="text-md font-medium text-slate-700 dark:text-slate-300 mb-6">Revenue Trend (Last 7 Days)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.charts.revenueTrend}>
@@ -281,8 +281,8 @@ export default function ExecutiveSummary() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-md font-medium text-slate-700 mb-6">Lead Source Analysis</h3>
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h3 className="text-md font-medium text-slate-700 dark:text-slate-300 mb-6">Lead Source Analysis</h3>
             <div className="h-64 flex items-center justify-center">
               {data.charts.leadSources.length === 0 ? (
                 <div className="text-slate-400">No data available</div>
@@ -312,7 +312,7 @@ export default function ExecutiveSummary() {
             {/* Custom Legend */}
             <div className="flex flex-wrap gap-4 mt-4 justify-center">
               {data.charts.leadSources.map((entry, index) => (
-                <div key={`legend-${index}`} className="flex items-center gap-2 text-sm text-slate-600">
+                <div key={`legend-${index}`} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
                   <span>{entry.name}: {entry.value}</span>
                 </div>

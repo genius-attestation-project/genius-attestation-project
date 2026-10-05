@@ -48,11 +48,11 @@ export function ApprovalTimeline({ leadId }: { leadId: string }) {
 
   return (
     <div className="mt-6">
-      <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900">Approval Timeline</h3>
-      <div className="relative border-l border-blue-200 ml-3 pl-4">
+      <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Approval Timeline</h3>
+      <div className="relative border-l border-blue-200 dark:border-blue-900 ml-3 pl-4">
         {logs.map((log) => (
           <div key={log.id} className="mb-6 last:mb-0 relative">
-            <div className="absolute left-[-21px] top-1 h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-white" />
+            <div className="absolute left-[-21px] top-1 h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-white dark:ring-slate-900" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-soft">
                 {new Intl.DateTimeFormat("en-IN", {
@@ -63,11 +63,11 @@ export function ApprovalTimeline({ leadId }: { leadId: string }) {
                   minute: "2-digit",
                 }).format(new Date(log.createdAt))}
               </span>
-              <p className="text-sm text-slate-800">
-                <span className="font-bold">{log.actorName}</span> performed <span className="font-semibold text-blue-700">{log.action}</span> on <span className="font-semibold">{log.requestType.replace("_", " ")}</span>
+              <p className="text-sm text-slate-800 dark:text-slate-200">
+                <span className="font-bold">{log.actorName}</span> performed <span className="font-semibold text-blue-700 dark:text-blue-400">{log.action}</span> on <span className="font-semibold">{log.requestType.replace("_", " ")}</span>
               </p>
               {log.remarks && (
-                <p className="mt-1 text-xs text-slate-600 bg-slate-100 p-2 rounded-xl italic">"{log.remarks}"</p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/70 p-2 rounded-xl italic">"{log.remarks}"</p>
               )}
             </div>
           </div>

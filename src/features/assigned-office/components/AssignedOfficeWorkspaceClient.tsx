@@ -442,7 +442,7 @@ export function AssignedOfficeWorkspaceClient({
             )}
             <button
               onClick={() => setNotification(null)}
-              className="rounded-lg p-1.5 text-slate-500 hover:bg-black/5 hover:text-slate-800 transition-colors"
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-black/5 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200 transition-colors"
             >
               <X size={16} />
             </button>
@@ -505,7 +505,7 @@ export function AssignedOfficeWorkspaceClient({
               type="checkbox"
               checked={items.length > 0 && selectedTrackingNumbers.length === items.length}
               onChange={toggleSelectAllDocuments}
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               {selectedTrackingNumbers.length} selected
@@ -756,7 +756,7 @@ export function AssignedOfficeWorkspaceClient({
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectDocument(row.trackingNumber)}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                             />
                           </td>
                           <td className="p-4 font-semibold text-slate-500">{index + 1}</td>

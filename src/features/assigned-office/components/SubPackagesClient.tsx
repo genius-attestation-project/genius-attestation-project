@@ -393,7 +393,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                     type="checkbox"
                     checked={filteredItems.length > 0 && selectedMovementIds.length === filteredItems.length}
                     onChange={toggleSelectAll}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
                 <th className="p-4 w-16">SL No.</th>
@@ -423,7 +423,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                     <p className="mt-3 text-sm font-bold text-slate-800 dark:text-slate-200">
                       No documents assigned to this Sub Process.
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Documents transferred from Document In Hand to {activeTabName} will appear here.
                     </p>
                   </td>
@@ -447,7 +447,7 @@ export function SubPackagesClient({ officeId }: SubPackagesClientProps) {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelectMovement(item.id)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </td>
                       <td className="p-4 text-xs font-semibold text-slate-400">

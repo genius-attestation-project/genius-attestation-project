@@ -302,14 +302,14 @@ export default function DetailedReports() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
         {loading ? (
           <div className="py-20 flex justify-center"><Loader /></div>
         ) : error ? (
-          <div className="py-10 text-center text-red-500">{error}</div>
+          <div className="py-10 text-center text-red-500 dark:text-red-400">{error}</div>
         ) : (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800 capitalize mb-4 hidden print:block">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 capitalize mb-4 hidden print:block">
               {activeTab} Report
             </h3>
             

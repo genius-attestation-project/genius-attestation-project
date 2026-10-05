@@ -228,7 +228,7 @@ export function AssignLeadsManagement() {
         ))}
       </section>
 
-      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
+      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 dark:bg-slate-900/80 p-4 shadow-(--shadow-card) sm:p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Input
             label="From Date"
@@ -290,7 +290,7 @@ export function AssignLeadsManagement() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
+      <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 dark:bg-slate-900/80 p-4 shadow-(--shadow-card) sm:p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-70 flex-1">
             <SearchableSelect
@@ -315,18 +315,18 @@ export function AssignLeadsManagement() {
         </div>
 
         {error ? (
-          <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
+          <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-400">
             {error}
           </p>
         ) : null}
         {success ? (
-          <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
             {success}
           </p>
         ) : null}
 
         {loading ? (
-          <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card)">
+          <div className="rounded-[28px] border border-(--border) bg-white dark:bg-slate-900 p-8 text-center text-sm text-soft shadow-(--shadow-card)">
             Loading assignable leads...
           </div>
         ) : items.length === 0 ? (
@@ -336,10 +336,10 @@ export function AssignLeadsManagement() {
             description="Adjust the date, assigned user, status, or service filters to find leads for reassignment."
           />
         ) : (
-          <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
+          <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white dark:bg-slate-900 shadow-(--shadow-card)">
             <div className="overflow-x-auto">
               <table className="min-w-280 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+                <thead className="bg-blue-50 dark:bg-slate-800/80 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                   <tr>
                     <th className="px-5 py-4">
                       <input
@@ -352,7 +352,7 @@ export function AssignLeadsManagement() {
                             clearSelection();
                           }
                         }}
-                        className="h-4 w-4 rounded border-slate-300"
+                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                       />
                     </th>
                     <th className="px-5 py-4">Lead ID</th>
@@ -364,18 +364,18 @@ export function AssignLeadsManagement() {
                     <th className="px-5 py-4">Created Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-(--border) bg-white">
+                <tbody className="divide-y divide-(--border) bg-white dark:bg-slate-900">
                   {items.map((lead) => (
-                    <tr key={lead.id} className="transition hover:bg-blue-50/70">
+                    <tr key={lead.id} className="transition hover:bg-blue-50/70 dark:hover:bg-slate-800/60">
                       <td className="px-5 py-4">
                         <input
                           type="checkbox"
                           checked={selectedLeadIds.includes(lead.id)}
                           onChange={() => toggleLead(lead.id)}
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                         />
                       </td>
-                      <td className="px-5 py-4 font-bold text-blue-700">{lead.leadCode}</td>
+                      <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{lead.leadCode}</td>
                       <td className="px-5 py-4">{lead.clientName}</td>
                       <td className="px-5 py-4">{lead.mobile}</td>
                       <td className="px-5 py-4">{lead.service}</td>

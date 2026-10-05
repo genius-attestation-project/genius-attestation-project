@@ -172,7 +172,7 @@ export const AccountNodeSettingsModal: React.FC<AccountNodeSettingsModalProps> =
               id="settingsStatus"
               checked={status}
               onChange={(e) => setStatus(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
             />
             <label
               htmlFor="settingsStatus"

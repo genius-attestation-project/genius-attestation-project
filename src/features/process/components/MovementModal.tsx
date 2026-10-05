@@ -141,7 +141,7 @@ export function MovementModal({
         )}
 
         {selectedDocuments && selectedDocuments.length > 0 && (
-          <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-white/10 bg-slate-50/50">
+          <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2.5 dark:border-white/10 bg-slate-50/50 dark:bg-slate-800/40">
             {selectedDocuments.map((doc: any, i: number) => (
               <DocumentInfoCard key={doc.trackingNumber || i} document={doc} compact />
             ))}
@@ -150,13 +150,13 @@ export function MovementModal({
 
         {needsOfficeSelector && (
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+            <label className="block text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
               {officeLabel}
             </label>
             {loadingOffices ? (
-              <p className="text-sm text-slate-500">Loading Offices...</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Loading Offices...</p>
             ) : offices.length === 0 ? (
-              <p className="text-sm text-amber-600">No Available Offices Found.</p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">No Available Offices Found.</p>
             ) : (
               <SearchableSelect
                 value={selectedOfficeId}

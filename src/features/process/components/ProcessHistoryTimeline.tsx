@@ -96,27 +96,27 @@ export function ProcessHistoryTimeline({ open, onClose, trackingNumber }: Proces
             {history.map((item, index) => (
               <div key={item.id} className="relative pl-6">
                 {index !== history.length - 1 && (
-                  <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-slate-200" />
+                  <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-slate-200 dark:bg-white/10" />
                 )}
-                <div className="absolute left-0 top-1.5 h-6 w-6 rounded-full border-4 border-white bg-blue-500 shadow-sm" />
+                <div className="absolute left-0 top-1.5 h-6 w-6 rounded-full border-4 border-white bg-blue-500 shadow-sm dark:border-[#0f1422]" />
                 
                 <div>
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="font-bold text-slate-900">{item.action}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{item.action}</span>
                     <span className="text-xs text-soft">
                       {new Date(item.createdAt).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-sm mt-1 text-slate-600">
+                  <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">
                     {item.fromModule} → {item.toModule}
                   </p>
                   {item.userName && (
-                    <p className="text-xs font-medium text-slate-500 mt-1">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
                       By: {item.userName}
                     </p>
                   )}
                   {item.remarks && (
-                    <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 italic border border-slate-100">
+                    <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 italic border border-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
                       "{item.remarks}"
                     </div>
                   )}

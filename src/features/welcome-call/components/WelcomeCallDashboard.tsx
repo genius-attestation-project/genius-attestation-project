@@ -67,9 +67,9 @@ function StatusBadge({ status }: { status: string }) {
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-(--border) bg-white/70 p-4">
+    <div className="rounded-2xl border border-(--border) bg-white/70 dark:bg-slate-800/70 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-soft">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-800">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">{value}</p>
     </div>
   );
 }
@@ -217,10 +217,10 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <div className="flex items-center justify-end">
-        <div className="rounded-2xl border border-blue-200 bg-white/90 px-4 py-3 text-right shadow-xs">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Current Office</p>
-          <p className="mt-1 text-base font-bold text-slate-900">{currentOfficeLocationName || "Unassigned"}</p>
-          <p className="mt-0.5 text-xs text-slate-500">
+        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-white/90 dark:bg-slate-900/90 px-4 py-3 text-right shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-400">Current Office</p>
+          <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">{currentOfficeLocationName || "Unassigned"}</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             Queue date: {queueDate ? formatQueueDate(queueDate) : "-"}
           </p>
         </div>
@@ -239,9 +239,9 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
           description="Assign an office location to this user to load the welcome call queue for that office."
         />
       ) : (
-        <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5">
+        <section className="grid gap-4 rounded-[28px] border border-(--border) bg-white/80 dark:bg-slate-900/80 p-4 shadow-(--shadow-card) sm:p-5">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/80 px-4 text-sm">
+            <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-(--border) bg-white/80 dark:bg-slate-800/80 px-4 text-sm">
               <Search size={17} className="text-muted" />
               <input
                 value={search}
@@ -262,7 +262,7 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
                 setSelectedStatus(nextStatus);
                 void loadWelcomeCalls(search, nextStatus);
               }}
-              className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400"
+              className="h-12 rounded-2xl border border-(--border) bg-white dark:bg-slate-800 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-400"
             >
               <option value="Today">Today</option>
               {welcomeCallStatuses.map((status) => (
@@ -287,25 +287,25 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
           </div>
 
           {error ? (
-            <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
+            <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-400">
               {error}
             </p>
           ) : null}
           {success ? (
-            <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
+            <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
               {success}
             </p>
           ) : null}
 
           {loading ? (
-            <div className="rounded-[28px] border border-(--border) bg-white p-8 text-center text-sm text-soft shadow-(--shadow-card)">
+            <div className="rounded-[28px] border border-(--border) bg-white dark:bg-slate-900 p-8 text-center text-sm text-soft shadow-(--shadow-card)">
               Loading welcome calls...
             </div>
           ) : items.length ? (
-            <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
+            <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white dark:bg-slate-900 shadow-(--shadow-card)">
               <div className="overflow-x-auto">
                 <table className="min-w-[1380px] text-left text-sm">
-                  <thead className="bg-blue-50 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
+                  <thead className="bg-blue-50 dark:bg-slate-800/80 text-xs font-semibold uppercase tracking-[0.16em] text-soft">
                     <tr>
                       <th className="px-5 py-4">Registration Number</th>
                       <th className="px-5 py-4">Client Name</th>
@@ -321,10 +321,10 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
                       <th className="px-5 py-4">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-(--border) bg-white">
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-slate-900">
                     {items.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70">
-                        <td className="px-5 py-4 font-bold text-blue-700">{item.registrationNumber}</td>
+                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-slate-800/60">
+                        <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.registrationNumber}</td>
                         <td className="px-5 py-4">{item.clientName}</td>
                         <td className="px-5 py-4">{item.mobile}</td>
                         <td className="px-5 py-4">{item.processType}</td>
@@ -341,7 +341,7 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
                               value={item.welcomeCallStatus}
                               onChange={(event) => void updateStatus(item, event.target.value)}
                               disabled={updatingId === item.id}
-                              className="h-10 rounded-xl border border-(--border) bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-400"
+                              className="h-10 rounded-xl border border-(--border) bg-white dark:bg-slate-800 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-400"
                             >
                               {welcomeCallStatuses.map((status) => (
                                 <option key={status} value={status}>

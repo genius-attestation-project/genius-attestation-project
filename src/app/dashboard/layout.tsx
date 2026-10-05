@@ -16,13 +16,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (session.user.isLocked) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-50 p-6">
-        <div className="max-w-xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-lg">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">
+      <div className="grid min-h-screen place-items-center bg-slate-50 dark:bg-[var(--bg)] p-6">
+        <div className="max-w-xl rounded-3xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 p-8 text-center shadow-lg">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">
             Account Locked
           </p>
-          <h1 className="mt-3 text-2xl font-bold text-slate-900">CRM access restricted</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <h1 className="mt-3 text-2xl font-bold text-slate-900 dark:text-slate-100">CRM access restricted</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">
             {session.user.lockReason ?? FOLLOWUP_LOCK_MESSAGE}
           </p>
         </div>

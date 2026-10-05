@@ -71,7 +71,7 @@ function DaysBadge({ days }: { days: string | number | null | undefined }) {
 
   const num = parseInt(String(days), 10);
   if (isNaN(num)) {
-    return <span className="text-slate-700 font-medium">{days}</span>;
+    return <span className="text-slate-700 dark:text-slate-300 font-medium">{days}</span>;
   }
 
   let badgeStyle = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
@@ -606,7 +606,7 @@ export function ReadyForDeliveryDashboard({
             variant="ghost"
             size="sm"
             onClick={() => void clearFilters()}
-            className="w-full rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800"
+            className="w-full rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
           >
             Clear
           </Button>
@@ -818,7 +818,7 @@ export function ReadyForDeliveryDashboard({
         onClose={() => setDrawerOpen(false)}
       >
         {detailLoading ? (
-          <div className="rounded-2xl border border-slate-200 p-6 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
             Loading document details...
           </div>
         ) : selected ? (

@@ -524,11 +524,11 @@ export function ProcessDashboard({
           </div>
 
           {/* Structured Controls Section with Explicit Labels */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-xs sm:flex-row sm:items-end sm:gap-3 shrink-0">
+          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-xs sm:flex-row sm:items-end sm:gap-3 shrink-0 dark:border-white/10 dark:bg-white/5">
             {/* Process Office Selector Group */}
             <div className="flex flex-col gap-1.5 w-full sm:w-60">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Building2 size={14} className="text-blue-600" />
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <Building2 size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>Process Office</span>
               </label>
               <SearchableSelect
@@ -548,8 +548,8 @@ export function ProcessDashboard({
             {/* Assigned Office Workspace Quick Jump */}
             {assignedOfficeAccounts.length > 0 && (
               <div className="flex flex-col gap-1.5 w-full sm:w-52">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <ExternalLink size={14} className="text-indigo-600" />
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <ExternalLink size={14} className="text-indigo-600 dark:text-indigo-400" />
                   <span>Assigned Workspace</span>
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -571,7 +571,7 @@ export function ProcessDashboard({
                         router.push(`/dashboard/assigned-office/workspace?officeId=${selectedAssignedOfficeId}`);
                       }
                     }}
-                    className="h-10.5 rounded-xl bg-slate-800 px-3 text-xs font-bold text-white hover:bg-slate-900 shrink-0"
+                    className="h-10.5 rounded-xl bg-slate-800 px-3 text-xs font-bold text-white hover:bg-slate-900 shrink-0 dark:bg-slate-700 dark:hover:bg-slate-600"
                     title="Open Assigned Office Workspace"
                   >
                     <span>Open</span>
@@ -582,7 +582,7 @@ export function ProcessDashboard({
 
             {/* Process Type Filter Group */}
             <div className="flex flex-col gap-1.5 w-full sm:w-44">
-              <label className="text-xs font-bold text-slate-700">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
                 Process Type
               </label>
               <SearchableSelect
@@ -595,7 +595,7 @@ export function ProcessDashboard({
 
             {/* Priority Filter Group */}
             <div className="flex flex-col gap-1.5 w-full sm:w-40">
-              <label className="text-xs font-bold text-slate-700">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
                 Priority
               </label>
               <SearchableSelect
@@ -618,7 +618,7 @@ export function ProcessDashboard({
       </section>
 
       {/* Workflow Navigation Tabs */}
-      <section className="rounded-[28px] border border-(--border) bg-white/80 p-3 shadow-(--shadow-card)">
+      <section className="rounded-[28px] border border-(--border) bg-white/80 p-3 shadow-(--shadow-card) dark:bg-white/5">
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {tabsConfig.map((tab) => {
             const active = tab.key === activeTab;
@@ -631,20 +631,20 @@ export function ProcessDashboard({
                   "flex-1 min-w-37.5 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
                   active
                     ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50",
+                    : "border-(--border) bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
                 ].join(" ")}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{tab.label}</span>
                   {tab.count > 0 && (
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                      active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"
                     }`}>
                       {tab.count}
                     </span>
                   )}
                 </div>
-                <span className={`mt-1 block text-xs ${active ? "text-blue-100" : "text-slate-500"}`}>
+                <span className={`mt-1 block text-xs ${active ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
                   {tab.description}
                 </span>
               </button>
@@ -655,14 +655,14 @@ export function ProcessDashboard({
 
       {/* Error Message if any */}
       {error && (
-        <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700">
+        <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-300">
           <ShieldAlert size={18} />
           <p>{error}</p>
         </div>
       )}
 
       {successMessage && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 size={18} />
           <p>{successMessage}</p>
         </div>
@@ -678,13 +678,13 @@ export function ProcessDashboard({
               placeholder="Search tracking number, customer, document..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white pl-9 pr-9 py-2 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-300 bg-white pl-9 pr-9 py-2 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 title="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -696,8 +696,8 @@ export function ProcessDashboard({
 
       {/* Bulk Operations Toolbar */}
       {items.length > 0 && (activeTab === "in_hand" || activeTab === "inbound") && (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50/80 border border-blue-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50/80 border border-blue-200 p-4 shadow-sm dark:bg-blue-950/20 dark:border-blue-500/20">
+          <div className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
             <span>
               {activeTab === "in_hand"
                 ? `Selected: ${selectedTrackingNumbers.length} Documents`
@@ -708,11 +708,11 @@ export function ProcessDashboard({
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === "in_hand" && (
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-semibold text-slate-700">Select Destination Office:</span>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Select Destination Office:</span>
                 <select
                   value={destinationOfficeId}
                   onChange={(event) => setDestinationOfficeId(event.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
                 >
                   <option value="">Select Office</option>
                   {(() => {
@@ -784,9 +784,9 @@ export function ProcessDashboard({
 
       {/* Main Operations Table */}
       {loading ? (
-        <div className="rounded-[28px] border border-(--border) bg-white p-12 text-center shadow-(--shadow-card)">
+        <div className="rounded-[28px] border border-(--border) bg-white p-12 text-center shadow-(--shadow-card) dark:bg-white/5">
           <LoaderCircle size={28} className="mx-auto animate-spin text-blue-600" />
-          <p className="mt-3 text-sm font-medium text-slate-600">Loading process documents...</p>
+          <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-400">Loading process documents...</p>
         </div>
       ) : displayedItems.length === 0 ? (
         <EmptyState
@@ -795,14 +795,14 @@ export function ProcessDashboard({
           description="There are currently no document assignments matching this stage or filter."
         />
       ) : (
-        <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card)">
+        <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:border-white/10 dark:bg-[#0f1422]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-255 text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 dark:bg-white/5">
+            <table className="w-full min-w-255 text-left text-sm text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-200 border-b border-slate-200 dark:border-white/10">
                 <tr>
                   {(activeTab === "in_hand" || activeTab === "inbound") && (
                     <th className="px-4 py-4 w-10">
-                      <button type="button" onClick={handleSelectAll} className="text-slate-600">
+                      <button type="button" onClick={handleSelectAll} className="text-slate-600 dark:text-slate-400">
                         {selectedTrackingNumbers.length > 0 && allVisibleTrackingNumbers.length > 0 && allVisibleTrackingNumbers.every((t) => selectedTrackingNumbers.includes(t)) ? (
                           <CheckSquare className="h-5 w-5 text-blue-600" />
                         ) : (
@@ -851,17 +851,17 @@ export function ProcessDashboard({
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-(--border) bg-white">
+              <tbody className="divide-y divide-(--border) bg-white dark:divide-white/5 dark:bg-transparent">
                 {displayedItems.map((item: any, index: number) => {
                   const itemTrackings = item.items && item.items.length > 0
                     ? item.items.map((child: any) => child.trackingNumber)
                     : [item.trackingNumber];
                   const isSelected = itemTrackings.length > 0 && itemTrackings.every((t: string) => selectedTrackingNumbers.includes(t));
                   return (
-                    <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/70"}`}>
+                    <tr key={item.id} className={`transition ${isSelected ? "bg-blue-50/50 dark:bg-blue-950/20" : "hover:bg-slate-50/70 dark:hover:bg-white/5"}`}>
                       {(activeTab === "in_hand" || activeTab === "inbound") && (
                         <td className="px-4 py-4">
-                          <button type="button" onClick={() => handleToggleItem(item)} className="text-slate-600">
+                          <button type="button" onClick={() => handleToggleItem(item)} className="text-slate-600 dark:text-slate-400">
                             {isSelected ? (
                               <CheckSquare className="h-5 w-5 text-blue-600" />
                             ) : (
@@ -870,11 +870,11 @@ export function ProcessDashboard({
                           </button>
                         </td>
                       )}
-                      <td className="px-4 py-4 font-semibold text-slate-500">{index + 1}</td>
+                      <td className="px-4 py-4 font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
 
                       {activeTab === "in_hand" && (
                         <>
-                          <td className="px-5 py-4 font-bold text-blue-600">
+                          <td className="px-5 py-4 font-bold text-blue-600 dark:text-blue-400">
                             <div className="flex items-center gap-2">
                               <PriorityDot priority={item.priority} size={10} />
                               <Link
@@ -885,31 +885,31 @@ export function ProcessDashboard({
                               </Link>
                             </div>
                           </td>
-                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
                             {formatDate(item.registrationDate || item.receivedDate || item.createdAt)}
                           </td>
-                          <td className="px-5 py-4 text-xs font-semibold text-slate-800">
+                          <td className="px-5 py-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
                             {item.registeredOffice ? formatTitleCase(item.registeredOffice) : item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Main"}
                           </td>
-                          <td className="px-5 py-4 font-semibold text-slate-900 text-xs sm:text-sm">
+                          <td className="px-5 py-4 font-semibold text-slate-900 dark:text-white text-xs sm:text-sm">
                             {item.customerName ? formatTitleCase(item.customerName) : item.clientName ? formatTitleCase(item.clientName) : "-"}
                           </td>
-                          <td className="px-5 py-4 text-xs font-medium text-slate-800">
+                          <td className="px-5 py-4 text-xs font-medium text-slate-800 dark:text-slate-300">
                             {item.documentType ? formatTitleCase(item.documentType) : "-"}
                           </td>
-                          <td className="px-5 py-4 text-xs text-slate-600">
+                          <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-400">
                             {item.deliveryLocation ? formatTitleCase(item.deliveryLocation) : "-"}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-blue-800">
+                          <td className="px-5 py-4 text-xs font-bold text-blue-800 dark:text-blue-300">
                             {item.mainProcess ? formatTitleCase(item.mainProcess) : item.processType ? formatTitleCase(item.processType) : "-"}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700 dark:text-amber-400">
                             {calculateNumberOfDays(item.currentStageEnteredAt)}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-slate-900">
+                          <td className="px-5 py-4 text-xs font-bold text-slate-900 dark:text-white">
                             ₹{Number(item.totalAmount || item.totalCharges || 0).toFixed(2)}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-emerald-700">
+                          <td className="px-5 py-4 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                             ₹{Number(item.advancePaid || 0).toFixed(2)}
                           </td>
                           <td className="px-5 py-4 text-right">
@@ -917,7 +917,7 @@ export function ProcessDashboard({
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                className="border-amber-200 text-amber-700 hover:bg-amber-50 text-xs px-2 py-1"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-700/50 dark:text-amber-300 dark:hover:bg-amber-950/40 text-xs px-2 py-1"
                                 onClick={() => openBulkMovementModal("RETURN", item.trackingNumber, item.id)}
                               >
                                 Return
@@ -931,17 +931,17 @@ export function ProcessDashboard({
                         <>
                           <td
                             onClick={() => setPreviewItem(item)}
-                            className="px-5 py-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                            className="px-5 py-4 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                           >
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
-                          <td className="px-5 py-4 font-semibold text-slate-800">
+                          <td className="px-5 py-4 font-semibold text-slate-800 dark:text-slate-200">
                             {item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : item.registeredOffice ? formatTitleCase(item.registeredOffice) : "Origin Office"}
                           </td>
-                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
                             {formatDate(item.receivedDate || item.receivedAt)}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700 dark:text-amber-400">
                             {calculateFinishedDays(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-right">
@@ -962,20 +962,20 @@ export function ProcessDashboard({
                         <>
                           <td
                             onClick={() => setPreviewItem(item)}
-                            className="px-5 py-4 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                            className="px-5 py-4 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                           >
                             {item.bundleNumber ? formatBundleNumber(item.bundleNumber) : item.trackingNumber}
                           </td>
-                          <td className="px-5 py-4 font-semibold text-slate-800">
+                          <td className="px-5 py-4 font-semibold text-slate-800 dark:text-slate-200">
                             {item.fromOfficeName ? formatTitleCase(item.fromOfficeName) : "Current Office"}
                           </td>
-                          <td className="px-5 py-4 font-semibold text-slate-800">
+                          <td className="px-5 py-4 font-semibold text-slate-800 dark:text-slate-200">
                             {item.toOfficeName ? formatTitleCase(item.toOfficeName) : "Destination"}
                           </td>
-                          <td className="px-5 py-4 text-xs font-medium text-slate-700">
+                          <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
                             {formatDate(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-700">
+                          <td className="px-5 py-4 text-xs font-bold text-amber-700 dark:text-amber-400">
                             {calculateFinishedDays(item.sentDate || item.sentAt || item.createdAt)}
                           </td>
                           <td className="px-5 py-4 text-right">
@@ -985,7 +985,7 @@ export function ProcessDashboard({
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => setRetrieveItem(item)}
-                                  className="gap-1.5 text-xs text-blue-600 hover:bg-blue-50 border-blue-200"
+                                  className="gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-blue-200 dark:border-blue-500/30"
                                 >
                                   <RotateCcw size={14} /> Retrieve
                                 </Button>

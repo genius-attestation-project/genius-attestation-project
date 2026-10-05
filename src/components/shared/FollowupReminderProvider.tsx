@@ -256,47 +256,47 @@ export function FollowupReminderProvider({
   return (
     <>
       {toastMessage ? (
-        <div className="fixed right-4 top-4 z-[120] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-2xl shadow-slate-950/15">
+        <div className="fixed right-4 top-4 z-[120] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-2xl shadow-slate-950/15 dark:border-white/10 dark:bg-[#0f1422] dark:text-slate-100">
           {toastMessage}
         </div>
       ) : null}
 
       {activeReminder ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl shadow-slate-950/20">
-            <div className="flex items-start justify-between gap-4 px-6 pb-3 pt-5">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-[#0f1422]">
+            <div className="flex items-start justify-between gap-4 px-6 pb-3 pt-5 border-b border-slate-100 dark:border-white/10">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
                   Follow-up Reminder
                 </h2>
-                <p className="mt-1 truncate text-sm text-slate-500">{reminderSubtitle}</p>
+                <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{reminderSubtitle}</p>
               </div>
               <button
                 type="button"
                 onClick={closeActiveReminder}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
                 aria-label="Close reminder"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="grid gap-3 px-6 pb-5 pt-2">
-              <section className="rounded-2xl border border-blue-100/70 bg-blue-50/65 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500">Lead</p>
+            <div className="grid gap-3 px-6 pb-5 pt-4">
+              <section className="rounded-2xl border border-blue-100/70 bg-blue-50/65 p-4 dark:border-blue-500/20 dark:bg-blue-950/30">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-400">Lead</p>
                 <div className="mt-2.5 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-slate-950">
+                    <p className="truncate text-base font-semibold text-slate-950 dark:text-white">
                       {activeReminder.leadName}
                     </p>
-                    <p className="mt-0.5 text-sm text-slate-500">{activeReminder.mobile}</p>
+                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{activeReminder.mobile}</p>
                   </div>
                   {activeReminder.whatsappNumber ? (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-green-600 shadow-sm ring-1 ring-green-100">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-green-600 shadow-sm ring-1 ring-green-100 dark:bg-white/10 dark:text-green-400 dark:ring-green-500/30">
                       <MessageCircle size={19} />
                     </span>
                   ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm ring-1 ring-blue-100 dark:bg-white/10 dark:text-blue-400 dark:ring-blue-500/30">
                       <PhoneCall size={19} />
                     </span>
                   )}
@@ -304,19 +304,19 @@ export function FollowupReminderProvider({
               </section>
 
               <section className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
-                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500">
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-400">
                     Follow-up Type
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">
+                  <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
                     {activeReminder.followupType || "Call"}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500">
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-400">
                     Follow-up Note
                   </p>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     {activeReminder.followupNote}
                   </p>
                 </div>
@@ -325,7 +325,7 @@ export function FollowupReminderProvider({
               <div className="grid gap-2 pt-1 sm:grid-cols-2">
                 <Button
                   type="button"
-                  className="h-11 rounded-xl bg-green-600 text-sm font-semibold shadow-sm shadow-green-600/20 hover:bg-green-700"
+                  className="h-11 rounded-xl bg-green-600 text-sm font-semibold shadow-sm shadow-green-600/20 hover:bg-green-700 text-white"
                   onClick={() => window.open(`https://wa.me/${activeReminder.whatsappNumber}`, "_blank")}
                   disabled={!activeReminder.whatsappNumber}
                 >
@@ -335,7 +335,7 @@ export function FollowupReminderProvider({
                 <Button
                   type="button"
                   variant="secondary"
-                  className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  className="h-11 rounded-xl text-sm font-semibold"
                   onClick={() => {
                     closeActiveReminder();
                     router.push("/dashboard/lead-management/all-leads");
@@ -345,7 +345,7 @@ export function FollowupReminderProvider({
                 </Button>
                 <Button
                   type="button"
-                  className="h-11 rounded-xl bg-green-600 text-sm font-semibold shadow-sm shadow-green-600/20 hover:bg-green-700"
+                  className="h-11 rounded-xl bg-green-600 text-sm font-semibold shadow-sm shadow-green-600/20 hover:bg-green-700 text-white"
                   onClick={openCompleteModal}
                   disabled={submitting}
                 >
@@ -354,7 +354,7 @@ export function FollowupReminderProvider({
                 </Button>
                 <Button
                   type="button"
-                  className="h-11 rounded-xl bg-blue-600 text-sm font-semibold shadow-sm shadow-blue-600/20 hover:bg-blue-700"
+                  className="h-11 rounded-xl bg-blue-600 text-sm font-semibold shadow-sm shadow-blue-600/20 hover:bg-blue-700 text-white"
                   onClick={openSnoozeModal}
                   disabled={submitting}
                 >
@@ -366,7 +366,7 @@ export function FollowupReminderProvider({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                className="h-10 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                 onClick={closeActiveReminder}
               >
                 Close
@@ -377,19 +377,19 @@ export function FollowupReminderProvider({
       ) : null}
 
       {activeReminder && snoozeOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl shadow-slate-950/20">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-[#0f1422]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-950">Snooze Follow-up</h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Snooze Follow-up</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Current follow-up: {formatReminderDate(activeReminder.nextFollowupAt)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSnoozeOpen(false)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
                 aria-label="Close snooze"
               >
                 <X size={17} />
@@ -401,19 +401,19 @@ export function FollowupReminderProvider({
                 value={snoozeNote}
                 onChange={(event) => setSnoozeNote(event.target.value)}
                 placeholder="Snooze note / reason"
-                className="min-h-24 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                className="min-h-24 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               <input
                 type="date"
                 value={snoozeDate}
                 onChange={(event) => setSnoozeDate(event.target.value)}
-                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
               />
               <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
                 <select
                   value={snoozeHour}
                   onChange={(event) => setSnoozeHour(event.target.value)}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
                   aria-label="Hour"
                 >
                   {hourOptions.map((hour) => (
@@ -425,7 +425,7 @@ export function FollowupReminderProvider({
                 <select
                   value={snoozeMinute}
                   onChange={(event) => setSnoozeMinute(event.target.value)}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
                   aria-label="Minute"
                 >
                   {minuteOptions.map((minute) => (
@@ -437,7 +437,7 @@ export function FollowupReminderProvider({
                 <select
                   value={snoozePeriod}
                   onChange={(event) => setSnoozePeriod(event.target.value)}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
                   aria-label="AM or PM"
                 >
                   <option value="AM">AM</option>
@@ -450,7 +450,6 @@ export function FollowupReminderProvider({
               <Button
                 type="button"
                 variant="secondary"
-                className="rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                 onClick={() => setSnoozeOpen(false)}
                 disabled={submitting}
               >
@@ -470,19 +469,19 @@ export function FollowupReminderProvider({
       ) : null}
 
       {activeReminder && completeOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl shadow-slate-950/20">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-[#0f1422]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-950">Complete Follow-up</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Complete Follow-up</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
                   Mark {activeReminder.followupType || "follow-up"} for lead {activeReminder.leadName} as completed.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCompleteOpen(false)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
                 aria-label="Close complete follow-up"
               >
                 <X size={17} />
@@ -493,14 +492,13 @@ export function FollowupReminderProvider({
               value={completionNote}
               onChange={(event) => setCompletionNote(event.target.value)}
               placeholder="Add the follow-up outcome, next context, or visit notes..."
-              className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-300 focus:ring-4 focus:ring-green-100"
+              className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-300 focus:ring-4 focus:ring-green-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
 
             <div className="mt-5 flex justify-end gap-2">
               <Button
                 type="button"
                 variant="secondary"
-                className="rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 onClick={() => setCompleteOpen(false)}
                 disabled={submitting}
               >

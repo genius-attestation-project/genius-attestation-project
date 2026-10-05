@@ -124,27 +124,27 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       <div className="fixed inset-0 z-10 flex items-center justify-center p-4 sm:p-6">
-        <div className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="relative w-full max-w-5xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-100 dark:border-slate-800">
           
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-20 shrink-0">
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 z-20 shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <MapPin className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold leading-6 text-gray-900">
+                <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-slate-100">
                   Live Document Movement
                 </h3>
-                <p className="mt-1 text-sm text-gray-500 flex items-center gap-2">
-                  Tracking Number: <span className="font-medium text-gray-900">{trackingNumber}</span>
+                <p className="mt-1 text-sm text-gray-500 dark:text-slate-400 flex items-center gap-2">
+                  Tracking Number: <span className="font-medium text-gray-900 dark:text-slate-100">{trackingNumber}</span>
                   <PriorityBadge priority={data?.registration?.priority} />
                 </p>
               </div>
             </div>
             <button
               type="button"
-              className="rounded-full bg-white p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:outline-none shrink-0"
+              className="rounded-full bg-white dark:bg-slate-800 p-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none shrink-0"
               onClick={onClose}
             >
               <span className="sr-only">Close</span>
@@ -153,7 +153,7 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50/50 px-6 py-6">
+          <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-slate-950/50 px-6 py-6">
             {isLoading && !data && (
               <div className="flex justify-center items-center py-20">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -161,14 +161,14 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
             )}
 
             {error && (
-              <div className="rounded-md bg-red-50 p-4 mb-6">
+              <div className="rounded-md bg-red-50 dark:bg-red-950/40 p-4 mb-6">
                 <div className="flex">
                   <div className="shrink-0">
                     <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">Error loading timeline</h3>
-                    <div className="mt-2 text-sm text-red-700">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-300">Error loading timeline</h3>
+                    <div className="mt-2 text-sm text-red-700 dark:text-red-400">
                       <p>{error.message || "An unexpected error occurred."}</p>
                     </div>
                   </div>
@@ -179,37 +179,37 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
             {data && data.registration && (
               <div className="space-y-8">
                 {/* Current Location Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="bg-linear-to-r from-primary/5 to-transparent px-6 py-4 border-b border-gray-100">
-                    <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                  <div className="bg-linear-to-r from-primary/5 to-transparent px-6 py-4 border-b border-gray-100 dark:border-slate-800">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-primary" />
                       CURRENT LOCATION
                     </h4>
                   </div>
                   <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Office Name</p>
-                      <p className="mt-1 text-base font-bold text-gray-900">{data.currentLocation?.officeName || "-"}</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Office Name</p>
+                      <p className="mt-1 text-base font-bold text-gray-900 dark:text-slate-100">{data.currentLocation?.officeName || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Current Status</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Current Status</p>
                       <div className="mt-1">
                         <StatusBadge status={data.currentLocation?.status || data.registration.status} />
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Last Updated</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-slate-100">
                         {data.currentLocation?.updatedAt ? format(new Date(data.currentLocation.updatedAt), "dd MMM yyyy, p") : "-"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Current Responsible</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Current Responsible</p>
                       <div className="mt-1 flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <User className="w-3 h-3 text-primary" />
                         </div>
-                        <span className="text-sm font-semibold text-gray-900 truncate">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate">
                           {data.currentLocation?.handledBy || "System"}
                         </span>
                       </div>
@@ -219,38 +219,38 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
 
                 {/* Timeline */}
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-gray-500" /> Movement Journey
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-6 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-gray-500 dark:text-slate-400" /> Movement Journey
                   </h4>
                   
                   {data.timeline.length === 0 ? (
-                    <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
+                    <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
                       <Clock className="mx-auto h-8 w-8 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No movements yet</h3>
-                      <p className="mt-1 text-sm text-gray-500">This document hasn't been transferred to any other branch.</p>
+                      <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-slate-100">No movements yet</h3>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">This document hasn't been transferred to any other branch.</p>
                     </div>
                   ) : (
                     <div className="relative pb-10">
                       {/* Vertical Line */}
-                      <div className="absolute left-8 top-4 bottom-4 w-0.5 bg-gray-200" aria-hidden="true" />
+                      <div className="absolute left-8 top-4 bottom-4 w-0.5 bg-gray-200 dark:bg-slate-700" aria-hidden="true" />
                       
                       <ul role="list" className="space-y-8">
                         {data.timeline.map((movement) => (
                           <li key={movement.id} className="relative pl-20">
                             {/* Timeline Node */}
-                            <div className="absolute left-8 top-6 -ml-1.25 h-3 w-3 rounded-full border-2 border-white bg-primary shadow-sm ring-4 ring-white z-10" />
+                            <div className="absolute left-8 top-6 -ml-1.25 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 bg-primary shadow-sm ring-4 ring-white dark:ring-slate-800 z-10" />
                             
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow relative">
-                              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4 bg-gray-50/50 rounded-t-xl">
+                            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow relative">
+                              <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4 bg-gray-50/50 dark:bg-slate-800/40 rounded-t-xl">
                                 <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-2 text-base font-bold text-gray-900 uppercase">
+                                  <div className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-slate-100 uppercase">
                                     <span>{movement.from}</span>
                                     <ArrowRight className="w-5 h-5 text-primary" />
                                     <span>{movement.to}</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-xs font-semibold text-gray-500 bg-white border border-gray-200 px-2.5 py-1 rounded-md">
+                                  <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 px-2.5 py-1 rounded-md">
                                     {movement.module}
                                   </span>
                                   <StatusBadge status={movement.status} />
@@ -262,8 +262,8 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                                   <div className="flex items-start gap-3">
                                     <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                                     <div>
-                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</p>
-                                      <p className="text-sm text-gray-900 mt-0.5 font-medium">
+                                      <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">Date & Time</p>
+                                      <p className="text-sm text-gray-900 dark:text-slate-100 mt-0.5 font-medium">
                                         {format(new Date(movement.date), "dd MMM yyyy, p")}
                                       </p>
                                     </div>
@@ -272,8 +272,8 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                                   <div className="flex items-start gap-3">
                                     <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                                     <div>
-                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transferred By</p>
-                                      <p className="text-sm text-gray-900 mt-0.5">
+                                      <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">Transferred By</p>
+                                      <p className="text-sm text-gray-900 dark:text-slate-100 mt-0.5">
                                         {movement.transferredBy || "-"}
                                       </p>
                                     </div>
@@ -284,8 +284,8 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                                   <div className="flex items-start gap-3">
                                     <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                                     <div>
-                                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</p>
-                                      <p className="text-sm text-gray-900 mt-0.5">
+                                      <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">Received By</p>
+                                      <p className="text-sm text-gray-900 dark:text-slate-100 mt-0.5">
                                         {movement.receivedBy || "-"}
                                       </p>
                                     </div>
@@ -297,8 +297,8 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                                       <div>
                                         {movement.courierNumber && (
                                           <div className="mb-2">
-                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Courier</p>
-                                            <p className="text-sm font-medium text-blue-600 mt-0.5">
+                                            <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">Courier</p>
+                                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-0.5">
                                               <Truck className="w-3 h-3 inline mr-1" />
                                               {movement.courierNumber}
                                             </p>
@@ -306,8 +306,8 @@ export function LiveTimelineModal({ isOpen, onClose, trackingNumber }: LiveTimel
                                         )}
                                         {movement.remarks && (
                                           <div>
-                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</p>
-                                            <p className="text-sm text-gray-600 mt-0.5 italic">{movement.remarks}</p>
+                                            <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">Remarks</p>
+                                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-0.5 italic">{movement.remarks}</p>
                                           </div>
                                         )}
                                       </div>

@@ -77,7 +77,7 @@ export function MasterDataTable({
               <tr>
                 <td colSpan={columns.length + 1} className="p-12 text-center text-sm font-medium text-slate-500">
                   <div className="flex items-center justify-center gap-3 animate-pulse">
-                    <div className="h-4 w-4 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
+                    <div className="h-4 w-4 rounded-full border-2 border-slate-300 dark:border-slate-700 border-t-blue-600 animate-spin" />
                     Loading records...
                   </div>
                 </td>
@@ -91,7 +91,7 @@ export function MasterDataTable({
                     </div>
                     <div className="space-y-1">
                       <p className="font-semibold text-slate-900 dark:text-white">No records found</p>
-                      <p className="text-sm text-slate-500">We couldn't find anything matching your search criteria.</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">We couldn't find anything matching your search criteria.</p>
                     </div>
                   </div>
                 </td>

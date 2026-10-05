@@ -464,14 +464,14 @@ export function FollowupsCalendarManagement() {
       </div>
 
       {notificationItem ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-blue-200 bg-linear-to-r from-blue-50 to-cyan-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-blue-200 dark:border-blue-500/30 bg-linear-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 px-5 py-4 shadow-sm">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">
               <BellRing size={18} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-900">Followup reminder</p>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Followup reminder</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 {notificationItem.clientName} - {notificationItem.mobile} - {notificationItem.followupTimeLabel}
               </p>
             </div>
@@ -496,11 +496,11 @@ export function FollowupsCalendarManagement() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{card.label}</p>
-                    <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                    <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
                       {card.value}
                     </p>
                   </div>
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/75 text-slate-900 shadow-sm">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/75 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 shadow-sm">
                     <Icon size={20} />
                   </span>
                 </div>
@@ -604,7 +604,7 @@ export function FollowupsCalendarManagement() {
           ) : (
             <>
               <div className="hidden md:block">
-                <div className="followup-calendar min-w-0 overflow-x-auto rounded-2xl border border-(--border) bg-white/85 p-3 shadow-sm sm:rounded-[28px]">
+                <div className="followup-calendar min-w-0 overflow-x-auto rounded-2xl border border-(--border) bg-white/85 dark:bg-slate-900/90 p-3 shadow-sm sm:rounded-[28px]">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
@@ -631,12 +631,12 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={item.id}
                     type="button"
-                    className="rounded-[24px] border border-(--border) bg-white/80 p-4 text-left shadow-sm transition hover:border-blue-500/25 hover:shadow-md"
+                    className="rounded-[24px] border border-(--border) bg-white/80 dark:bg-slate-800/80 p-4 text-left shadow-sm transition hover:border-blue-500/25 hover:shadow-md"
                     onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900">{item.clientName}</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.clientName}</p>
                         <p className="mt-1 text-sm text-soft">{item.service}</p>
                       </div>
                       <FollowupToneBadge item={item} />
@@ -656,7 +656,7 @@ export function FollowupsCalendarManagement() {
           <DashboardCard title="Today's Followups" description="Everything due today for this admin.">
             <div className="grid gap-3">
               {todayData.items.length === 0 ? (
-                <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
+                <p className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-5 text-sm text-soft">
                   No followups scheduled for today.
                 </p>
               ) : (
@@ -670,7 +670,7 @@ export function FollowupsCalendarManagement() {
           <DashboardCard title="Upcoming Reminders" description="Upcoming followups in time order.">
             <div className="grid gap-3">
               {upcomingData.items.length === 0 ? (
-                <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
+                <p className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-5 text-sm text-soft">
                   No upcoming reminders right now.
                 </p>
               ) : (
@@ -678,15 +678,15 @@ export function FollowupsCalendarManagement() {
                   <button
                     key={item.id}
                     type="button"
-                    className="rounded-2xl border border-(--border) bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
+                    className="rounded-2xl border border-(--border) bg-white/80 dark:bg-slate-800/80 px-4 py-3 text-left transition hover:border-blue-500/25"
                     onClick={() => void openFollowupDetails(item)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.clientName}</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.clientName}</p>
                         <p className="mt-1 text-xs text-soft">{item.service}</p>
                       </div>
-                      <span className="text-xs font-semibold text-blue-600">{item.followupTimeLabel}</span>
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{item.followupTimeLabel}</span>
                     </div>
                   </button>
                 ))
@@ -703,7 +703,7 @@ export function FollowupsCalendarManagement() {
         description="Browse all followups scheduled for the selected date."
       >
         {feedbackMessage ? (
-          <p className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <p className="mb-4 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
             {feedbackMessage}
           </p>
         ) : null}
@@ -726,17 +726,17 @@ export function FollowupsCalendarManagement() {
               <button
                 key={item.id}
                 type="button"
-                className="rounded-[26px] border border-(--border) bg-white/90 p-5 text-left shadow-sm transition hover:border-blue-500/25"
+                className="rounded-[26px] border border-(--border) bg-white/90 dark:bg-slate-800/90 p-5 text-left shadow-sm transition hover:border-blue-500/25"
                 onClick={() => void openFollowupDetails(item)}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-lg font-semibold text-slate-900">{item.clientName}</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{item.clientName}</p>
                     <p className="mt-1 text-sm text-soft">{item.service}</p>
                   </div>
                   <FollowupToneBadge item={item} />
                 </div>
-                <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                <div className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <p>{item.followupDateTimeLabel}</p>
                   <p>{item.mobile}</p>
                   <p>{item.assignedUser || "Unassigned"}</p>
@@ -756,21 +756,21 @@ export function FollowupsCalendarManagement() {
         {selectedFollowup ? (
           <div className="grid gap-5">
             {feedbackMessage ? (
-              <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <p className="rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
                 {feedbackMessage}
               </p>
             ) : null}
 
-            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
+            <div className="rounded-[26px] border border-(--border) bg-white/90 dark:bg-slate-800/90 p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xl font-semibold text-slate-900">{selectedFollowup.clientName}</p>
+                  <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">{selectedFollowup.clientName}</p>
                   <p className="mt-1 text-sm text-soft">{selectedFollowup.service}</p>
                 </div>
                 <FollowupToneBadge item={selectedFollowup} />
               </div>
 
-              <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50/80 p-4 text-sm text-slate-700">
+              <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 p-4 text-sm text-slate-700 dark:text-slate-300">
                 <InfoRow label="Lead Name" value={selectedFollowup.clientName} />
                 <InfoRow label="Client Name" value={selectedFollowup.clientName} />
                 <InfoRow label="Mobile" value={selectedFollowup.mobile} />
@@ -827,7 +827,7 @@ export function FollowupsCalendarManagement() {
                 </Button>
                 <a
                   href={selectedFollowup.callLink}
-                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-(--border) bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500/35 hover:bg-blue-50"
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-(--border) bg-white dark:bg-slate-800 px-3 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:border-blue-500/35 hover:bg-blue-50 dark:hover:bg-slate-700"
                 >
                   <Phone size={16} />
                   Call
@@ -836,7 +836,7 @@ export function FollowupsCalendarManagement() {
                   href={selectedFollowup.whatsappLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15"
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 dark:bg-emerald-950/30 px-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-500/15"
                 >
                   <UserRound size={16} />
                   WhatsApp
@@ -844,10 +844,10 @@ export function FollowupsCalendarManagement() {
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
+            <div className="rounded-[26px] border border-(--border) bg-white/90 dark:bg-slate-800/90 p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
-                <History size={16} className="text-blue-600" />
-                <p className="text-sm font-semibold text-slate-900">Followup History</p>
+                <History size={16} className="text-blue-600 dark:text-blue-400" />
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Followup History</p>
               </div>
 
               {isHistoryLoading ? (
@@ -857,18 +857,18 @@ export function FollowupsCalendarManagement() {
                   ))}
                 </div>
               ) : selectedFollowup.history.length === 0 ? (
-                <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-soft">
+                <p className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-5 text-sm text-soft">
                   No followup history yet.
                 </p>
               ) : (
                 <div className="grid gap-3">
                   {selectedFollowup.history.map((entry) => (
-                    <div key={entry.id} className="rounded-2xl border border-slate-100 bg-slate-50/90 p-4">
+                    <div key={entry.id} className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-900/70 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{entry.actionType}</p>
-                        <p className="text-xs font-medium text-slate-500">{entry.createdAtLabel}</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{entry.actionType}</p>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{entry.createdAtLabel}</p>
                       </div>
-                      <div className="mt-2 grid gap-1 text-sm text-slate-600">
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600 dark:text-slate-400">
                         {entry.oldDateLabel ? <p>From: {entry.oldDateLabel}</p> : null}
                         {entry.newDateLabel ? <p>To: {entry.newDateLabel}</p> : null}
                         <p>{entry.description || "No description provided."}</p>
@@ -913,8 +913,8 @@ export function FollowupsCalendarManagement() {
       >
         {snoozingLead ? (
           <div className="grid gap-6">
-            <div className="rounded-[26px] border border-(--border) bg-white/90 p-5 shadow-sm">
-              <p className="text-base font-semibold text-slate-900">{snoozingLead.clientName}</p>
+            <div className="rounded-[26px] border border-(--border) bg-white/90 dark:bg-slate-800/90 p-5 shadow-sm">
+              <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{snoozingLead.clientName}</p>
               <p className="mt-1 text-sm text-soft">Current: {snoozingLead.followupDateTimeLabel}</p>
             </div>
 
@@ -950,8 +950,8 @@ export function FollowupsCalendarManagement() {
       >
         {completionLead ? (
           <div className="grid gap-5">
-            <div className="rounded-2xl border border-(--border) bg-slate-50/90 p-4 text-sm text-slate-700">
-              <p className="font-semibold text-slate-900">{completionLead.clientName}</p>
+            <div className="rounded-2xl border border-(--border) bg-slate-50/90 dark:bg-slate-800/80 p-4 text-sm text-slate-700 dark:text-slate-300">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{completionLead.clientName}</p>
               <p className="mt-1">{completionLead.followupDateTimeLabel}</p>
             </div>
 
@@ -991,6 +991,19 @@ export function FollowupsCalendarManagement() {
           --fc-today-bg-color: rgba(59, 130, 246, 0.08);
         }
 
+        :is(.dark, [data-theme="dark"]) .followup-calendar .fc {
+          --fc-border-color: rgba(255, 255, 255, 0.1);
+          --fc-button-bg-color: rgba(59, 130, 246, 0.15);
+          --fc-button-border-color: transparent;
+          --fc-button-text-color: #93c5fd;
+          --fc-button-hover-bg-color: rgba(59, 130, 246, 0.25);
+          --fc-button-hover-border-color: transparent;
+          --fc-button-active-bg-color: #2563eb;
+          --fc-button-active-border-color: #2563eb;
+          --fc-button-active-text-color: #ffffff;
+          --fc-today-bg-color: rgba(59, 130, 246, 0.15);
+        }
+
         .followup-calendar .fc-toolbar {
           gap: 12px;
           flex-wrap: wrap;
@@ -1001,6 +1014,10 @@ export function FollowupsCalendarManagement() {
           font-size: 1.15rem;
           font-weight: 700;
           color: #0f172a;
+        }
+
+        :is(.dark, [data-theme="dark"]) .followup-calendar .fc-toolbar-title {
+          color: #f1f5f9;
         }
 
         .followup-calendar .fc-button {
@@ -1023,6 +1040,11 @@ export function FollowupsCalendarManagement() {
           text-decoration: none;
         }
 
+        :is(.dark, [data-theme="dark"]) .followup-calendar .fc-col-header-cell-cushion,
+        :is(.dark, [data-theme="dark"]) .followup-calendar .fc-daygrid-day-number {
+          color: #94a3b8;
+        }
+
         .followup-calendar .fc-event {
           border-radius: 12px;
           padding: 2px;
@@ -1041,28 +1063,28 @@ function QuickFollowupCard({ item, onOpen }: { item: FollowupItem; onOpen: () =>
   return (
     <button
       type="button"
-      className="rounded-2xl border border-(--border) bg-white/80 px-4 py-3 text-left transition hover:border-blue-500/25"
+      className="rounded-2xl border border-(--border) bg-white/80 dark:bg-slate-800/80 px-4 py-3 text-left transition hover:border-blue-500/25"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900">{item.clientName}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.clientName}</p>
           <p className="mt-1 text-xs text-soft">{item.service}</p>
         </div>
         <FollowupToneBadge item={item} />
       </div>
-      <p className="mt-3 text-xs font-medium text-blue-600">{item.followupTimeLabel}</p>
+      <p className="mt-3 text-xs font-medium text-blue-600 dark:text-blue-400">{item.followupTimeLabel}</p>
     </button>
   );
 }
 
 function FollowupToneBadge({ item }: { item: FollowupItem }) {
   const styles: Record<FollowupItem["statusTone"], string> = {
-    pending: "bg-blue-50 text-blue-700",
-    today: "bg-green-50 text-green-700",
-    completed: "bg-emerald-50 text-emerald-700",
-    rescheduled: "bg-orange-50 text-orange-700",
-    missed: "bg-rose-50 text-rose-700",
+    pending: "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
+    today: "bg-green-50 text-green-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+    completed: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+    rescheduled: "bg-orange-50 text-orange-700 dark:bg-amber-950/50 dark:text-amber-300",
+    missed: "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
   };
 
   return (
@@ -1075,10 +1097,10 @@ function FollowupToneBadge({ item }: { item: FollowupItem }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
         {label}
       </span>
-      <span className="max-w-full wrap-break-word text-left text-sm font-medium text-slate-900 sm:max-w-[65%] sm:text-right">
+      <span className="max-w-full wrap-break-word text-left text-sm font-medium text-slate-900 dark:text-slate-100 sm:max-w-[65%] sm:text-right">
         {value}
       </span>
     </div>

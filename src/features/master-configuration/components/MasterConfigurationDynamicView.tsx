@@ -459,7 +459,7 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
                                       setSelectedSubPackageIds(selectedSubPackageIds.filter((id) => id !== sp.id));
                                     }
                                   }}
-                                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                                 />
                                 {sp.name}
                               </label>
@@ -485,7 +485,7 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
                   id="isActive"
                   checked={formData.isActive}
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Active Status

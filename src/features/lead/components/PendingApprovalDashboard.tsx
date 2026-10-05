@@ -1270,7 +1270,7 @@ export function PendingApprovalDashboard() {
                           checked={isAllMovementSelected}
                           onChange={handleToggleSelectAllMovement}
                           aria-label="Select all pending movement approvals"
-                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </th>
                       <th className="px-4 py-4">Tracking Number</th>
@@ -1298,7 +1298,7 @@ export function PendingApprovalDashboard() {
                               checked={selectedMovementIds.includes(item.id)}
                               onChange={() => handleToggleSelectMovement(item.id)}
                               aria-label={`Select document ${item.trackingNumber}`}
-                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
                           </td>
                           <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">

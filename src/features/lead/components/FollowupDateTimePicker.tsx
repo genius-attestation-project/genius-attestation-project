@@ -135,18 +135,18 @@ export function FollowupDateTimePicker({
     <div className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-slate-900">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
             {label}
-            {required ? <span className="ml-1 text-rose-600">*</span> : null}
+            {required ? <span className="ml-1 text-rose-600 dark:text-rose-400">*</span> : null}
           </p>
           {description ? <p className="mt-1 text-xs text-soft">{description}</p> : null}
         </div>
-        <div className="inline-flex rounded-full border border-(--border) bg-white/80 p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-full border border-(--border) bg-white/80 dark:bg-slate-800/80 p-1 text-xs font-semibold">
           <button
             type="button"
             className={cn(
               "rounded-full px-3 py-1.5 transition",
-              !use24Hour ? "bg-blue-600 text-white" : "text-slate-600",
+              !use24Hour ? "bg-blue-600 text-white" : "text-slate-600 dark:text-slate-400",
             )}
             onClick={() => setUse24Hour(false)}
           >
@@ -156,7 +156,7 @@ export function FollowupDateTimePicker({
             type="button"
             className={cn(
               "rounded-full px-3 py-1.5 transition",
-              use24Hour ? "bg-blue-600 text-white" : "text-slate-600",
+              use24Hour ? "bg-blue-600 text-white" : "text-slate-600 dark:text-slate-400",
             )}
             onClick={() => setUse24Hour(true)}
           >
@@ -165,12 +165,12 @@ export function FollowupDateTimePicker({
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-(--border) bg-white/85 p-4 shadow-sm">
+      <div className="rounded-[26px] border border-(--border) bg-white/85 dark:bg-slate-900/90 p-4 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-(--border) bg-slate-50 px-2 py-1">
+          <div className="inline-flex items-center gap-2 rounded-full border border-(--border) bg-slate-50 dark:bg-slate-800 px-2 py-1">
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 transition hover:bg-white hover:text-slate-900"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 dark:text-slate-300 transition hover:bg-white dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100"
               onClick={() =>
                 setVisibleMonth(
                   (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
@@ -179,12 +179,12 @@ export function FollowupDateTimePicker({
             >
               <ChevronLeft size={16} />
             </button>
-            <p className="min-w-28 text-center text-sm font-semibold text-slate-900">
+            <p className="min-w-28 text-center text-sm font-semibold text-slate-900 dark:text-slate-100">
               {visibleMonth.toLocaleString("en-IN", { month: "long", year: "numeric" })}
             </p>
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 transition hover:bg-white hover:text-slate-900"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 dark:text-slate-300 transition hover:bg-white dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100"
               onClick={() =>
                 setVisibleMonth(
                   (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
@@ -198,14 +198,14 @@ export function FollowupDateTimePicker({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+              className="rounded-full border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 transition hover:bg-blue-100 dark:hover:bg-blue-900/40"
               onClick={() => setShortcut(0)}
             >
               Today
             </button>
             <button
               type="button"
-              className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+              className="rounded-full border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 transition hover:bg-blue-100 dark:hover:bg-blue-900/40"
               onClick={() => setShortcut(1)}
             >
               Tomorrow
@@ -215,7 +215,7 @@ export function FollowupDateTimePicker({
 
         <div className="grid grid-cols-7 gap-2">
           {WEEKDAY_LABELS.map((day) => (
-            <span key={day} className="px-1 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            <span key={day} className="px-1 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
               {day}
             </span>
           ))}
@@ -230,11 +230,11 @@ export function FollowupDateTimePicker({
                 className={cn(
                   "aspect-square rounded-2xl text-sm font-semibold transition",
                   isPast
-                    ? "cursor-not-allowed text-slate-300 opacity-50"
+                    ? "cursor-not-allowed text-slate-300 dark:text-slate-600 opacity-50"
                     : day.isCurrentMonth
-                      ? "text-slate-800 hover:bg-blue-50"
-                      : "text-slate-300 hover:bg-slate-50",
-                  isSelected ? "bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-600" : "",
+                      ? "text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800"
+                      : "text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800",
+                  isSelected ? "bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-600 dark:hover:bg-blue-600" : "",
                 )}
                 onClick={() => updateDate(day.isoDate)}
               >
@@ -244,9 +244,9 @@ export function FollowupDateTimePicker({
           })}
         </div>
 
-        <div className="mt-5 grid gap-3 rounded-2xl bg-slate-50/90 p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <Clock3 size={16} className="text-blue-600" />
+        <div className="mt-5 grid gap-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <Clock3 size={16} className="text-blue-600 dark:text-blue-400" />
             Time
           </div>
           {use24Hour ? (
@@ -256,14 +256,14 @@ export function FollowupDateTimePicker({
               value={selectedTime}
               min={selectedIsToday ? currentTime : undefined}
               onChange={(event) => updateTime(event.target.value)}
-              className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
+              className="h-12 rounded-2xl border border-(--border) bg-white dark:bg-slate-800 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none transition focus:border-blue-500/35 focus:ring-4 focus:ring-[color:var(--ring)]"
             />
           ) : (
             <div className="grid grid-cols-3 gap-3">
               <select
                 value={String(hour12)}
                 onChange={(event) => update12Hour(event.target.value, selectedMinute, meridiem)}
-                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white dark:bg-slate-800 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none transition focus:border-blue-500/35"
               >
                 {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((hour) => (
                   <option key={hour} value={hour}>
@@ -274,7 +274,7 @@ export function FollowupDateTimePicker({
               <select
                 value={selectedMinute}
                 onChange={(event) => update12Hour(String(hour12), event.target.value, meridiem)}
-                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white dark:bg-slate-800 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none transition focus:border-blue-500/35"
               >
                 {MINUTE_OPTIONS.map((minute) => (
                   <option
@@ -289,7 +289,7 @@ export function FollowupDateTimePicker({
               <select
                 value={meridiem}
                 onChange={(event) => update12Hour(String(hour12), selectedMinute, event.target.value)}
-                className="h-12 rounded-2xl border border-(--border) bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500/35"
+                className="h-12 rounded-2xl border border-(--border) bg-white dark:bg-slate-800 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none transition focus:border-blue-500/35"
               >
                 <option value="AM">AM</option>
                 <option value="PM">PM</option>
@@ -305,7 +305,7 @@ export function FollowupDateTimePicker({
               const nextValue = event.target.value;
               onChange(nextValue < minimumDateTime ? minimumDateTime : nextValue);
             }}
-            className="h-12 rounded-2xl border border-dashed border-(--border) bg-white/80 px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500/35"
+            className="h-12 rounded-2xl border border-dashed border-(--border) bg-white/80 dark:bg-slate-800/80 px-4 text-sm text-slate-700 dark:text-slate-300 outline-none transition focus:border-blue-500/35"
           />
         </div>
       </div>

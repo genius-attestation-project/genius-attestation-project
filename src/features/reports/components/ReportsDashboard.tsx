@@ -29,13 +29,13 @@ export default function ReportsDashboard() {
         </div>
 
         {/* View Toggles */}
-        <div className="flex gap-4 border-b border-slate-200 pb-2 print:hidden">
+        <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 print:hidden">
           <button
             onClick={() => setViewMode("executive")}
             className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors ${
               viewMode === "executive"
-                ? "border-primary-600 text-primary-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
             Executive Summary
@@ -44,8 +44,8 @@ export default function ReportsDashboard() {
             onClick={() => setViewMode("detailed")}
             className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors ${
               viewMode === "detailed"
-                ? "border-primary-600 text-primary-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
             Detailed Reports

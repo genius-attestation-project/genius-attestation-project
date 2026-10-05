@@ -64,10 +64,10 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="grid w-full min-w-0 max-w-[440px] gap-5 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_50px_rgba(22,32,29,0.09)] sm:gap-6 sm:p-7">
+    <div className="grid w-full min-w-0 max-w-[440px] gap-5 rounded-lg border border-stone-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-slate-950 dark:text-slate-100 shadow-[0_18px_50px_rgba(22,32,29,0.09)] sm:gap-6 sm:p-7">
       <div className="grid gap-2">
-        <h1 className="text-2xl font-black leading-tight sm:text-3xl">Create account</h1>
-        <p className="text-neutral-600">Register with email and password.</p>
+        <h1 className="text-2xl font-black leading-tight text-slate-950 dark:text-slate-100 sm:text-3xl">Create account</h1>
+        <p className="text-neutral-600 dark:text-slate-400">Register with email and password.</p>
       </div>
 
       <form className="grid gap-4" action={onSubmit}>
@@ -81,13 +81,13 @@ export function RegisterForm() {
           minLength={8}
           required
         />
-        {message ? <p className="text-sm text-red-700">{message}</p> : null}
+        {message ? <p className="text-sm text-red-700 dark:text-red-400">{message}</p> : null}
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? <Loader /> : "Create account"}
         </Button>
       </form>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-neutral-500 before:h-px before:bg-stone-200 before:content-[''] after:h-px after:bg-stone-200 after:content-['']">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-neutral-500 dark:text-slate-400 before:h-px before:bg-stone-200 dark:before:bg-slate-800 before:content-[''] after:h-px after:bg-stone-200 dark:after:bg-slate-800 after:content-['']">
         or
       </div>
       <GoogleButton />

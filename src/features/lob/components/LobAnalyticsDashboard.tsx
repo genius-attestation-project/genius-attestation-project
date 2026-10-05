@@ -163,14 +163,14 @@ function MetricCard({
     <article
       className={`relative overflow-hidden rounded-3xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${accent}`}
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-white/40" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-white/40 dark:bg-white/10" />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</p>
           <strong className="mt-3 block wrap-break-word text-2xl font-bold tracking-tight sm:text-3xl">{value}</strong>
           <p className="mt-1 text-xs opacity-70">{sub}</p>
         </div>
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/25 shadow-sm">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/25 dark:bg-white/10 shadow-sm">
           <Icon size={20} />
         </span>
       </div>

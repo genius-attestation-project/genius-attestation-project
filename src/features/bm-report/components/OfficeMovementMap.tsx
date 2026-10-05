@@ -76,7 +76,7 @@ export function OfficeMovementMap({
 
   if (!nodes || nodes.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
         No movement tracking nodes recorded yet.
       </div>
     );

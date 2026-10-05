@@ -5,7 +5,7 @@ import { RegisterForm } from "@/features/auth/components/RegisterForm";
 
 export default function RegisterPage() {
   return (
-    <section className="grid min-h-screen overflow-x-hidden bg-white lg:grid-cols-[1.05fr_0.95fr]">
+    <section className="grid min-h-screen overflow-x-hidden bg-white dark:bg-[var(--bg)] lg:grid-cols-[1.05fr_0.95fr]">
       <div className="relative min-h-56 overflow-hidden bg-neutral-950 sm:min-h-64 lg:min-h-full">
         <Image
           src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1400&q=80"
@@ -29,9 +29,9 @@ export default function RegisterPage() {
       <div className="flex min-w-0 items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
         <div className="w-full max-w-[440px]">
           <RegisterForm />
-          <p className="mt-6 text-center text-neutral-600">
+          <p className="mt-6 text-center text-neutral-600 dark:text-slate-400">
             Already have an account?{" "}
-            <Link className="font-extrabold text-blue-600" href="/login">
+            <Link className="font-extrabold text-blue-600 dark:text-blue-400" href="/login">
               Sign in
             </Link>
           </p>
