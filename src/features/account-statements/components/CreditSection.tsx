@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Link from "next/link";
 import { AdvanceTable } from "./AdvanceTable";
 import { MoreAdvanceTable } from "./MoreAdvanceTable";
 import type { AccountStatementItem, AccountStatementsData, CreditAccountGroup } from "../types/account-statements.types";
@@ -173,8 +174,20 @@ export const CreditSection: React.FC<CreditSectionProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                      {item.invoiceNumber}
+                    <td className="py-2.5 px-3 font-bold whitespace-nowrap">
+                      {item.trackingNumber ? (
+                        <Link
+                          href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                          title={`View Document Details (${item.trackingNumber})`}
+                          className="inline-flex items-center text-emerald-600 hover:text-emerald-800 hover:underline focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30 rounded-sm dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                        >
+                          {item.invoiceNumber}
+                        </Link>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          {item.invoiceNumber}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
                       ₹{item.amount.toLocaleString("en-IN")}

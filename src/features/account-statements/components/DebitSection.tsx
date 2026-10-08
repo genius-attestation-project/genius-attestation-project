@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { ArrowDownLeft, Edit2, Trash2, Image as ImageIcon, Download } from "lucide-react";
 import type { AccountStatementItem, DebitAccountGroup } from "../types/account-statements.types";
 
@@ -119,8 +120,20 @@ export const DebitSection: React.FC<DebitSectionProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                        {item.invoiceNumber}
+                      <td className="py-2.5 px-3 font-bold whitespace-nowrap">
+                        {item.trackingNumber ? (
+                          <Link
+                            href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                            title={`View Document Details (${item.trackingNumber})`}
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 hover:underline focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 rounded-sm dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                          >
+                            {item.invoiceNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {item.invoiceNumber}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-right font-black text-rose-600 dark:text-rose-400">
                         ₹{item.amount.toLocaleString("en-IN")}

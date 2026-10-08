@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Eye, Edit2, Trash2, Image as ImageIcon } from "lucide-react";
 import type { AccountStatementItem } from "../types/account-statements.types";
 
@@ -64,8 +65,20 @@ export const AdvanceTable: React.FC<AdvanceTableProps> = ({
                   <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white uppercase tracking-tight">
                     {item.collectedBy}
                   </td>
-                  <td className="py-2.5 px-3 font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                    {item.invoiceNumber}
+                  <td className="py-2.5 px-3 font-bold whitespace-nowrap">
+                    {item.trackingNumber ? (
+                      <Link
+                        href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                        title={`View Document Details (${item.trackingNumber})`}
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 hover:underline focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 rounded-sm dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                      >
+                        {item.invoiceNumber}
+                      </Link>
+                    ) : (
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {item.invoiceNumber}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
                     ₹{item.amount.toLocaleString("en-IN")}

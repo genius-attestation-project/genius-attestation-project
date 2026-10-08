@@ -403,6 +403,127 @@ export async function getAccountStatements(
     return cleaned.replace(/^(trk-|inv-|#)/i, "").trim();
   };
 
+  // ----------------------------------------------------
+  // Resolve authoritative document tracking numbers for Account Panel transactions
+  // ----------------------------------------------------
+  const panelCandidateInvoices: string[] = Array.from(
+    new Set(
+      rawPanelTransactions
+        .map((tx: any) => tx.invoiceNumber?.trim())
+        .filter((inv: any): inv is string => Boolean(inv && inv !== "-"))
+    )
+  );
+
+  const resolvedDocumentMap = new Map<string, string>();
+  if (panelCandidateInvoices.length > 0) {
+    const termToCandidateMap = new Map<string, string[]>();
+    for (const cand of panelCandidateInvoices) {
+      const directTerm = cand;
+      const normalizedTerm = cand.replace(/^(trk-|inv-|#)/i, "").trim();
+
+      if (!termToCandidateMap.has(directTerm)) termToCandidateMap.set(directTerm, []);
+      termToCandidateMap.get(directTerm)!.push(cand);
+
+      if (normalizedTerm && normalizedTerm !== directTerm) {
+        if (!termToCandidateMap.has(normalizedTerm)) termToCandidateMap.set(normalizedTerm, []);
+        termToCandidateMap.get(normalizedTerm)!.push(cand);
+      }
+    }
+
+    const allTerms = Array.from(termToCandidateMap.keys());
+
+    // 1. Check Registration table directly by trackingNumber
+    const matchingRegistrations = await db.registration.findMany({
+      where: {
+        ownerAdminId,
+        trackingNumber: { in: allTerms },
+      },
+      select: { id: true, trackingNumber: true },
+    });
+
+    for (const reg of matchingRegistrations) {
+      const mappedCandidates = termToCandidateMap.get(reg.trackingNumber) || [];
+      for (const cand of mappedCandidates) {
+        if (!resolvedDocumentMap.has(cand)) {
+          resolvedDocumentMap.set(cand, reg.trackingNumber);
+        }
+      }
+    }
+
+    // 2. For candidates still unresolved, match with PaymentUpdate.invoiceNumber
+    const unresolvedCandidates: string[] = panelCandidateInvoices.filter((c: string) => !resolvedDocumentMap.has(c));
+    if (unresolvedCandidates.length > 0) {
+      const unresolvedTerms: string[] = Array.from(
+        new Set(
+          unresolvedCandidates.flatMap((c: string) => [
+            c,
+            c.replace(/^(trk-|inv-|#)/i, "").trim(),
+          ]).filter((v): v is string => Boolean(v))
+        )
+      );
+
+      const matchingPaymentUpdates = await db.paymentUpdate.findMany({
+        where: {
+          ownerAdminId,
+          invoiceNumber: { in: unresolvedTerms },
+        },
+        select: { invoiceNumber: true, trackingNumber: true },
+      });
+
+      for (const pu of matchingPaymentUpdates) {
+        const mappedCandidates = termToCandidateMap.get(pu.invoiceNumber) || [];
+        for (const cand of mappedCandidates) {
+          if (!resolvedDocumentMap.has(cand)) {
+            resolvedDocumentMap.set(cand, pu.trackingNumber);
+          }
+        }
+      }
+    }
+
+    // 3. For candidates still unresolved, match with AdvancePaymentApproval (trackingNumber or referenceNumber)
+    const stillUnresolved: string[] = panelCandidateInvoices.filter((c: string) => !resolvedDocumentMap.has(c));
+    if (stillUnresolved.length > 0) {
+      const unresolvedTerms: string[] = Array.from(
+        new Set(
+          stillUnresolved.flatMap((c: string) => [
+            c,
+            c.replace(/^(trk-|inv-|#)/i, "").trim(),
+          ]).filter((v): v is string => Boolean(v))
+        )
+      );
+
+      const matchingAdvances = await db.advancePaymentApproval.findMany({
+        where: {
+          ownerAdminId,
+          OR: [
+            { trackingNumber: { in: unresolvedTerms } },
+            { referenceNumber: { in: unresolvedTerms } },
+          ],
+        },
+        select: { trackingNumber: true, referenceNumber: true },
+      });
+
+      for (const adv of matchingAdvances) {
+        if (adv.trackingNumber) {
+          const mappedByTrack = termToCandidateMap.get(adv.trackingNumber) || [];
+          for (const cand of mappedByTrack) {
+            if (!resolvedDocumentMap.has(cand)) {
+              resolvedDocumentMap.set(cand, adv.trackingNumber);
+            }
+          }
+        }
+        if (adv.referenceNumber) {
+          const mappedByRef = termToCandidateMap.get(adv.referenceNumber) || [];
+          for (const cand of mappedByRef) {
+            if (!resolvedDocumentMap.has(cand) && adv.trackingNumber) {
+              resolvedDocumentMap.set(cand, adv.trackingNumber);
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Calculate debit usage per tracking number from Account Panel debit transactions
   const debitUsageMap = new Map<string, number>();
 
@@ -578,6 +699,8 @@ export async function getAccountStatements(
       : null;
 
     const accountHierarchy = getAccountHierarchy(item.accountId, item.account?.name);
+    const rawInvoice = (item.invoiceNumber || "").trim();
+    const resolvedTracking = rawInvoice ? resolvedDocumentMap.get(rawInvoice) || null : null;
 
     const statementItem: AccountStatementItem = {
       id: item.id,
@@ -585,7 +708,7 @@ export async function getAccountStatements(
       date: dateStr,
       collectedBy: item.createdByName || "System",
       invoiceNumber: item.invoiceNumber || "-",
-      trackingNumber: item.invoiceNumber || null,
+      trackingNumber: resolvedTracking,
       amount: Number(item.amount ?? 0),
       narration: item.narration || item.account?.name || "Account Panel Transaction",
       proofFileUrl: proofUrl,
