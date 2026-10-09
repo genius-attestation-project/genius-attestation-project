@@ -1,18 +1,47 @@
-import { Suspense } from "react";
 import { AccessDenied } from "@/components/shared/AccessDenied";
-import { SearchReportClient } from "@/features/registration/components/SearchReportClient";
-import { requirePermission } from "@/middleware/auth.middleware";
+import { requireAuth } from "@/middleware/auth.middleware";
+import { hasPermission } from "@/features/admin/server/rbac.service";
+import { redirect } from "next/navigation";
 
-export default async function SearchReportPage() {
-  const session = await requirePermission("search_report.view", "/dashboard/search-report");
+export default async function SearchReportPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const session = await requireAuth("/dashboard/search-report");
 
-  if (!session) {
+  if (!session || !session.user) {
     return <AccessDenied description="Your role cannot access search and reports." />;
   }
 
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-sm text-soft">Loading search...</div>}>
-      <SearchReportClient />
-    </Suspense>
-  );
+  const canViewGeneral =
+    Boolean(session.user.isSuperAdmin) ||
+    hasPermission(session.user, "search_report.view") ||
+    hasPermission(session.user, "search_report.search");
+
+  const canViewTracking =
+    Boolean(session.user.isSuperAdmin) ||
+    hasPermission(session.user, "search_report.tracking_report.view");
+
+  if (!canViewGeneral && !canViewTracking) {
+    return <AccessDenied description="Your role cannot access search and reports." />;
+  }
+
+  const resolvedParams = searchParams ? await searchParams : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedParams)) {
+    if (typeof value === "string") {
+      query.set(key, value);
+    } else if (Array.isArray(value)) {
+      value.forEach((v) => query.append(key, v));
+    }
+  }
+  const queryString = query.toString();
+  const searchPart = queryString ? `?${queryString}` : "";
+
+  if (!canViewGeneral && canViewTracking) {
+    redirect(`/dashboard/search-report/tracking-report${searchPart}`);
+  }
+
+  redirect(`/dashboard/search-report/general-search${searchPart}`);
 }

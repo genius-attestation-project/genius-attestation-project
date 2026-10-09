@@ -283,7 +283,7 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     children: [
       {
         label: "General Search",
-        href: "/dashboard/search-report",
+        href: "/dashboard/search-report/general-search",
         icon: FileSearch,
         menuPermission: "menu.search-report.general",
         pagePermission: "search_report.view",

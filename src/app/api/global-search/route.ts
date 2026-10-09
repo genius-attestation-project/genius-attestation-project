@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
         id: registration.id,
         title: registration.trackingNumber,
         subtitle: `${registration.customerName} • ${registration.paymentStatus} • ${registration.trackingStatus}`,
-        href: `/dashboard/search-report?trackingNumber=${encodeURIComponent(registration.trackingNumber)}`,
+        href: `/dashboard/search-report/general-search?trackingNumber=${encodeURIComponent(registration.trackingNumber)}`,
       })),
       bundles: bundles.map((bundle) => ({
         id: bundle.id,

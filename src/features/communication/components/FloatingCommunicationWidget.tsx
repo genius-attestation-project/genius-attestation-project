@@ -223,7 +223,7 @@ export function FloatingCommunicationWidget() {
                     size="sm" 
                     onClick={() => {
                       setIsOpen(false);
-                      router.push(`/dashboard/search-report?trackingNumber=${activeTrackingNumber}`);
+                      router.push(`/dashboard/search-report/general-search?trackingNumber=${activeTrackingNumber}`);
                     }}
                   >
                     View Document Details
