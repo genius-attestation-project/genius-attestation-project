@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import type { TrackingReportResult } from "@/features/registration/server/tracking-report.service";
 
@@ -248,29 +247,6 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
   return (
     <div className="grid min-w-0 gap-6">
-      <PageHeader
-        eyebrow="Search / Report"
-        title="Tracking Report"
-        description="Office-wise and country-wise document tracking, registration details, and financial summary."
-        actions={
-          canExport && hasResults ? (
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              disabled={exporting}
-              className="gap-2 border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-            >
-              {exporting ? (
-                <RefreshCw size={16} className="animate-spin text-emerald-600" />
-              ) : (
-                <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
-              )}
-              Export to Excel
-            </Button>
-          ) : null
-        }
-      />
-
       {/* Main Filter / Search Bar */}
       <section className="rounded-2xl border border-(--border) bg-white/80 p-4 shadow-sm sm:rounded-[24px] sm:p-6 dark:bg-white/5">
         <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
@@ -431,47 +407,67 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         )}
       </section>
 
-      {/* Financial Summary Statistics Cards */}
+      {/* Financial Summary Statistics Cards & Export */}
       {hasResults && reportData && (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Documents</span>
-              <FileText size={18} className="text-blue-500" />
+        <div className="space-y-4">
+          {canExport && (
+            <div className="flex justify-end print:hidden">
+              <Button
+                variant="secondary"
+                onClick={handleExport}
+                disabled={exporting}
+                className="gap-2 border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+              >
+                {exporting ? (
+                  <RefreshCw size={16} className="animate-spin text-emerald-600" />
+                ) : (
+                  <FileSpreadsheet size={16} className="text-emerald-600 dark:text-emerald-400" />
+                )}
+                Export to Excel
+              </Button>
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-              {reportData.summary.totalDocuments.toLocaleString("en-IN")}
-            </p>
-          </div>
+          )}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Charges</span>
-              <DollarSign size={18} className="text-emerald-500" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider">Total Documents</span>
+                <FileText size={18} className="text-blue-500" />
+              </div>
+              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
+                {reportData.summary.totalDocuments.toLocaleString("en-IN")}
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-              {formatCurrency(reportData.summary.totalCharges)}
-            </p>
-          </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Paid</span>
-              <DollarSign size={18} className="text-indigo-500" />
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider">Total Charges</span>
+                <DollarSign size={18} className="text-emerald-500" />
+              </div>
+              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
+                {formatCurrency(reportData.summary.totalCharges)}
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-              {formatCurrency(reportData.summary.totalPaid)}
-            </p>
-          </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Balance</span>
-              <DollarSign size={18} className="text-amber-500" />
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider">Total Paid</span>
+                <DollarSign size={18} className="text-indigo-500" />
+              </div>
+              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
+                {formatCurrency(reportData.summary.totalPaid)}
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-              {formatCurrency(reportData.summary.totalBalance)}
-            </p>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider">Total Balance</span>
+                <DollarSign size={18} className="text-amber-500" />
+              </div>
+              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
+                {formatCurrency(reportData.summary.totalBalance)}
+              </p>
+            </div>
           </div>
         </div>
       )}
