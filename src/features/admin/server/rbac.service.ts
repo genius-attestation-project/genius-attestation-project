@@ -1267,10 +1267,24 @@ export function expandEffectivePermissions(keys: string[]): string[] {
     }
 
     // 8. Search / Report
-    if (key.startsWith("search_report.")) {
+    if (key.startsWith("search_report.") || key.startsWith("tracking_report.")) {
       result.add("search_report.view");
       result.add("menu.search-report");
-      result.add("menu.search-report.general");
+      if (
+        key === "search_report.view" ||
+        key === "search_report.search" ||
+        key === "search_report.export" ||
+        key.startsWith("search_report.general")
+      ) {
+        result.add("menu.search-report.general");
+      }
+      if (
+        key.startsWith("search_report.tracking_report") ||
+        key.startsWith("tracking_report.")
+      ) {
+        result.add("search_report.tracking_report.view");
+        result.add("menu.search-report.tracking");
+      }
     }
 
     // 9. Reports & Analytics
@@ -1609,7 +1623,10 @@ export function hasOfficeAccess(
 
   // If moduleKey is provided and module-specific visibilities exist for this user, check strictly
   if (moduleKey && access.moduleOfficeVisibilities !== null && access.moduleOfficeVisibilities !== undefined) {
-    const modConfig = access.moduleOfficeVisibilities[moduleKey];
+    let modConfig = access.moduleOfficeVisibilities[moduleKey];
+    if (!modConfig && moduleKey === "tracking_report" && access.moduleOfficeVisibilities["search_report"]) {
+      modConfig = access.moduleOfficeVisibilities["search_report"];
+    }
     if (!modConfig || (modConfig.officeIds.length === 0 && modConfig.officeNames.length === 0)) {
       return false;
     }

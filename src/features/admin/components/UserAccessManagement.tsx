@@ -485,6 +485,14 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
           { key: "search_report.export", label: "Export" },
         ],
       },
+      {
+        label: "Tracking Report",
+        actions: [
+          { key: "search_report.tracking_report.view", label: "View" },
+          { key: "search_report.tracking_report.search", label: "Search" },
+          { key: "search_report.tracking_report.export", label: "Export" },
+        ],
+      },
     ],
   },
   {
