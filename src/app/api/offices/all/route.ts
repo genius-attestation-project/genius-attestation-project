@@ -5,7 +5,8 @@ import { getOfficeVisibilityOptions } from "@/features/admin/server/user-access.
 export async function GET(req: NextRequest) {
   try {
     const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.ownerAdminId) {
+    const ownerAdminId = currentUser?.ownerAdminId ?? currentUser?.id;
+    if (!currentUser || !ownerAdminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const { assignedOffices, globalOffices, offices } = await getOfficeVisibilityOptions(
       currentUser.id,
-      currentUser.ownerAdminId,
+      ownerAdminId,
       moduleKey
     );
 

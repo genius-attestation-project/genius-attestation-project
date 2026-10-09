@@ -42,6 +42,10 @@ export async function GET(request: NextRequest) {
       return jsonError("Office selection is required to export the tracking report.", 400);
     }
 
+    if (fromDate && toDate && fromDate > toDate) {
+      return jsonError("From Date cannot be later than To Date.", 400);
+    }
+
     const { buffer, fileName } = await getTrackingReportExport(
       ownerAdminId,
       {

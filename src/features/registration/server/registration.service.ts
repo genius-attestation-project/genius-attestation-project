@@ -22,6 +22,21 @@ const registrationInclude = {
   corporateDetail: {
     select: { id: true, companyName: true, contactPersonName: true, contactPersonMobile: true },
   },
+  regionOfRegistrationRef: {
+    select: {
+      id: true,
+      officeName: true,
+      location: true,
+    },
+  },
+  documentMovements: {
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+    include: {
+      currentOffice: { select: { id: true, officeName: true } },
+      toOffice: { select: { id: true, officeName: true } },
+    },
+  },
   files: {
     orderBy: { uploadedAt: "desc" as const },
     include: {
@@ -84,7 +99,17 @@ function mapRegistration(registration: RegistrationRecord) {
 
   const creatorOfficeLocationId = (registration.creator as any)?.officeLocationId ?? null;
   const creatorOfficeName = (registration.creator as any)?.officeLocationRef?.officeName ?? null;
-  const resolvedOfficeName = creatorOfficeName || registration.regionOfRegistration || "Unassigned";
+  const resolvedOfficeName =
+    registration.regionOfRegistration ||
+    (registration as any).regionOfRegistrationRef?.officeName ||
+    creatorOfficeName ||
+    "Unassigned";
+
+  const latestMovement = (registration as any).documentMovements?.[0];
+  const currentOffice =
+    latestMovement?.currentOffice?.officeName ||
+    latestMovement?.toOffice?.officeName ||
+    resolvedOfficeName;
 
   return {
     ...registration,
@@ -144,6 +169,8 @@ function mapRegistration(registration: RegistrationRecord) {
     } : null,
     officeLocationId: creatorOfficeLocationId,
     officeLocationName: resolvedOfficeName,
+    regionOfRegistration: resolvedOfficeName,
+    currentOffice,
     regionOfRegistrationId: registration.regionOfRegistrationId ?? null,
     movementApproved: Boolean(registration.movementApproved),
     movementApprovalStatus,
@@ -504,8 +531,15 @@ export async function getRegistrationById(ownerAdminId: string, id: string) {
 }
 
 export async function getRegistrationByTrackingNumber(ownerAdminId: string, trackingNumber: string) {
+  const cleanTracking = (trackingNumber || "").trim();
   const registration = await prisma.registration.findFirst({
-    where: { ownerAdminId, trackingNumber },
+    where: {
+      ownerAdminId,
+      OR: [
+        { trackingNumber: cleanTracking },
+        { trackingNumber },
+      ],
+    },
     include: registrationInclude,
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import Link from "next/link";
 import {
   FileSearch,
@@ -88,12 +88,11 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
           const opts: SelectOption[] = [];
 
-          // If multiple offices are available, include "All Authorized Offices" option
+          // If multiple offices are available, include "All Offices" option
           if (officesList.length > 1) {
             opts.push({
-              label: "All Authorized Offices",
+              label: "All Offices",
               value: "all",
-              description: "View tracking data across all permitted offices",
             });
           }
 
@@ -101,7 +100,6 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
             opts.push({
               label: o.officeName,
               value: o.id,
-              description: o.location || undefined,
             });
           });
 
@@ -110,8 +108,6 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
           // If exactly 1 office is available, pre-select it
           if (officesList.length === 1) {
             setOffice(officesList[0].id);
-          } else if (opts.length > 0 && !office) {
-            setOffice("all");
           }
         }
       } catch (err) {
@@ -155,6 +151,11 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
       if (!office) {
         setError("Please select an office to search.");
+        return;
+      }
+
+      if (fromDate && toDate && fromDate > toDate) {
+        setError("From Date cannot be later than To Date.");
         return;
       }
 
@@ -277,13 +278,13 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
           <div className="lg:col-span-4 min-w-0">
             <SearchableSelect
               label="Select Office"
-              placeholder="Choose office..."
+              placeholder="Select Office..."
               value={office}
               onChange={(val) => setOffice(val)}
               options={officeOptions}
               loading={officesLoading}
               groupByCategory={false}
-              showDescription={true}
+              showDescription={false}
             />
           </div>
 
@@ -479,7 +480,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
       {!searched && !loading ? (
         <EmptyState
           icon={FileSearch}
-          title="No search executed"
+          title="No Search Executed"
           description="Select an office and date, then click Search to generate the Tracking Report."
         />
       ) : loading ? (
@@ -522,7 +523,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[12px]">
                 {reportData?.sections.map((section) => (
-                  <tr key={`section-wrapper-${section.country}`} className="contents">
+                  <React.Fragment key={`section-${section.country}`}>
                     {/* Country Header Banner */}
                     <tr className="bg-slate-100/90 dark:bg-slate-800/80 border-t-2 border-b border-slate-300 dark:border-slate-700">
                       <td
@@ -535,7 +536,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
                     {/* Offices within this Country */}
                     {section.offices.map((officeGroup) => (
-                      <tr key={`office-wrapper-${section.country}-${officeGroup.officeName}`} className="contents">
+                      <React.Fragment key={`office-${section.country}-${officeGroup.officeName}`}>
                         {/* Office Subheader */}
                         <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
                           <td
@@ -622,9 +623,9 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
                             {formatCurrency(officeGroup.subtotal.balance)}
                           </td>
                         </tr>
-                      </tr>
+                      </React.Fragment>
                     ))}
-                  </tr>
+                  </React.Fragment>
                 ))}
 
                 {/* Grand Total Row */}

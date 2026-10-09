@@ -139,7 +139,12 @@ async function buildTrackingReportWhere(
 ): Promise<Prisma.RegistrationWhereInput> {
   const officeQuery = (params.office || "").trim();
   const isSuperAdmin = Boolean(userAccess?.isSuperAdmin);
-  const isAllOfficesSelected = !officeQuery || officeQuery.toLowerCase() === "all";
+
+  if (!officeQuery) {
+    throw new Error("Office selection is required to generate the tracking report.");
+  }
+
+  const isAllOfficesSelected = officeQuery.toLowerCase() === "all";
 
   const andConditions: Prisma.RegistrationWhereInput[] = [
     { ownerAdminId },
@@ -199,6 +204,10 @@ async function buildTrackingReportWhere(
   }
 
   // 2. Date Range Filter
+  if (params.fromDate && params.toDate && params.fromDate > params.toDate) {
+    throw new Error("From Date cannot be later than To Date.");
+  }
+
   if (params.fromDate || params.toDate) {
     const createdAtFilter: Prisma.DateTimeFilter = {};
     if (params.fromDate) {
@@ -323,7 +332,7 @@ export async function getTrackingReport(
       regDate: reg.createdAt.toISOString().split("T")[0],
       regOffice: resolvedOffice,
       registeredBy: reg.registeredPerson || reg.creator?.name || "-",
-      collectedBy: reg.collectedPerson || reg.registeredPerson || reg.creator?.name || "-",
+      collectedBy: reg.collectedPerson || "-",
       customerName: reg.customerName || "-",
       documentType: reg.documentType || reg.documentName || "-",
       processType: reg.processType || "-",

@@ -65,6 +65,7 @@ export type Registration = {
   commissionToEmail: string | null;
   registeredPerson: string | null;
   regionOfRegistration: string | null;
+  currentOffice?: string | null;
   regionOfRegistrationId?: string | null;
   bmStatus: string;
   acceptedBy: string | null;

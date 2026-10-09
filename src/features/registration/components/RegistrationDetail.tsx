@@ -261,6 +261,7 @@ export function RegistrationDetail({
           <Field label="Commission To" value={commissionTo} />
           <Field label="Registered Person" value={registration.registeredPerson} />
           <Field label="Region of Registration" value={registration.regionOfRegistration} />
+          <Field label="Current Office" value={registration.currentOffice || registration.regionOfRegistration} />
         </div>
 
         {/* Advance Payment History Table */}
