@@ -28,6 +28,8 @@ interface SearchableSelectProps {
   errorMessage?: string;
   groupByCategory?: boolean;
   showDescription?: boolean;
+  className?: string;
+  triggerClassName?: string;
 }
 
 function getCategoryIcon(categoryName: string) {
@@ -55,6 +57,8 @@ export function SearchableSelect({
   errorMessage = "",
   groupByCategory = true,
   showDescription = true,
+  className,
+  triggerClassName,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -152,19 +156,35 @@ export function SearchableSelect({
   let globalIndexCounter = 0;
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
+    <div className={`relative w-full ${className || ""}`} ref={dropdownRef}>
       {label && (
         <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
           {formatTitleCase(label)}
         </label>
       )}
       <div
-        className={`flex min-h-10.5 w-full items-center justify-between rounded-xl border bg-white px-3 py-2 text-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:bg-slate-900 ${
-          error ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
-        } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+        className={
+          triggerClassName
+            ? `flex w-full items-center justify-between transition-all ${
+                error ? "border-rose-500" : ""
+              } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${triggerClassName}`
+            : `flex min-h-10.5 w-full items-center justify-between rounded-xl border bg-white px-3 py-2 text-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:bg-slate-900 ${
+                error ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+              } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`
+        }
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
-        <span className={`truncate ${!selectedOption ? "text-slate-500" : "font-semibold text-slate-900 dark:text-slate-100"}`}>
+        <span
+          className={`truncate ${
+            triggerClassName
+              ? !selectedOption
+                ? "text-slate-400 dark:text-slate-500 text-xs font-normal"
+                : "text-slate-800 dark:text-white text-xs font-medium"
+              : !selectedOption
+                ? "text-slate-500"
+                : "font-semibold text-slate-900 dark:text-slate-100"
+          }`}
+        >
           {selectedOption?.customRender ? selectedOption.customRender : (selectedOption ? formatTitleCase(selectedOption.label) : formatTitleCase(placeholder))}
         </span>
         <div className="flex items-center gap-1">
@@ -177,11 +197,11 @@ export function SearchableSelect({
                 onChange("");
               }}
             >
-              <X size={14} />
+              <X size={triggerClassName ? 12 : 14} />
             </button>
           )}
           <ChevronDown
-            size={16}
+            size={triggerClassName ? 14 : 16}
             className={`text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           />
         </div>

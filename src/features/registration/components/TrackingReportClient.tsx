@@ -248,12 +248,15 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
   return (
     <div className="grid min-w-0 gap-6">
       {/* Main Filter / Search Bar */}
-      <section className="rounded-2xl border border-(--border) bg-white/80 p-4 shadow-sm sm:rounded-[24px] sm:p-6 dark:bg-white/5">
+      <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-slate-900">
         <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
           {/* Office Selection */}
-          <div className="lg:col-span-4 min-w-0">
+          <div className="space-y-1.5 lg:col-span-4 min-w-0">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-blue-500" />
+              Office *
+            </label>
             <SearchableSelect
-              label="Select Office"
               placeholder="Select Office..."
               value={office}
               onChange={(val) => setOffice(val)}
@@ -261,54 +264,66 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
               loading={officesLoading}
               groupByCategory={false}
               showDescription={false}
+              triggerClassName="h-9 min-h-9 rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus-within:border-blue-500 focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
             />
           </div>
 
           {/* From Date */}
-          <div className="lg:col-span-3 min-w-0">
-            <Input
-              label="From Date"
+          <div className="space-y-1.5 lg:col-span-3 min-w-0">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-blue-500" />
+              From Date *
+            </label>
+            <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
+              className="h-9 min-h-9 w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
             />
           </div>
 
           {/* To Date */}
-          <div className="lg:col-span-3 min-w-0">
-            <Input
-              label="To Date"
+          <div className="space-y-1.5 lg:col-span-3 min-w-0">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-blue-500" />
+              To Date *
+            </label>
+            <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
+              className="h-9 min-h-9 w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
             />
           </div>
 
           {/* Action Buttons */}
           <div className="lg:col-span-2 flex items-center gap-2">
-            <Button
+            <button
               type="button"
-              variant={showFilters ? "primary" : "secondary"}
               onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 justify-center gap-1.5"
+              className={`flex-1 h-9 min-h-9 inline-flex items-center justify-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-bold transition-all cursor-pointer ${
+                showFilters
+                  ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-300"
+                  : "border-slate-200/80 bg-slate-50/60 text-slate-700 hover:bg-slate-100 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              }`}
               title="Toggle additional filters"
             >
-              <Filter size={16} /> Filters
-            </Button>
+              <Filter className="h-3.5 w-3.5" />
+              Filters
+            </button>
 
-            <Button
+            <button
               type="submit"
-              variant="primary"
               disabled={loading}
-              className="flex-1 justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 h-9 min-h-9 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
             >
               {loading ? (
-                <RefreshCw size={16} className="animate-spin" />
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Search size={16} />
+                <Search className="h-3.5 w-3.5" />
               )}
               Search
-            </Button>
+            </button>
           </div>
         </form>
 
