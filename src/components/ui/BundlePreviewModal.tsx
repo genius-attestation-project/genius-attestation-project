@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { X, Package } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDate, formatBundleNumber } from "@/utils/format";
@@ -21,29 +22,36 @@ export type BundlePreviewModalProps = {
   onClose: () => void;
   onContinueReceive?: () => void;
   bundleData: any; // Can be a Bundle object or single ProcessItem object
+  isLoading?: boolean;
+  error?: string | null;
+  canViewDocumentDetails?: boolean;
 };
 
 export function BundlePreviewModal({
   open,
   onClose,
   bundleData,
+  isLoading = false,
+  error = null,
+  canViewDocumentDetails = true,
 }: BundlePreviewModalProps) {
-  if (!open || !bundleData) return null;
+  if (!open) return null;
 
   // Extract bundle identifier / from office name
-  const rawBundleNo = bundleData.bundleNumber || bundleData.trackingNumber || "-";
+  const rawBundleNo = bundleData?.bundleNumber || bundleData?.trackingNumber || "-";
   const displayBundleNo = formatBundleNumber(rawBundleNo);
   const fromOfficeName =
-    bundleData.fromOffice?.officeName ||
-    bundleData.fromOfficeName ||
-    bundleData.registeredOffice ||
+    bundleData?.fromOffice?.officeName ||
+    bundleData?.fromOfficeName ||
+    bundleData?.registeredOffice ||
     "Origin Office";
 
   // Parse items into strict 7 fields list
-  const rawItems: any[] =
-    Array.isArray(bundleData.items) && bundleData.items.length > 0
-      ? bundleData.items
-      : [bundleData];
+  const rawItems: any[] = Array.isArray(bundleData?.items)
+    ? bundleData.items
+    : bundleData
+    ? [bundleData]
+    : [];
 
   const items: BundlePreviewItemData[] = rawItems.map((item: any, idx: number) => {
     const reg = item.registration || item;
@@ -94,7 +102,10 @@ export function BundlePreviewModal({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                From: <span className="font-semibold text-slate-700 dark:text-slate-200">{fromOfficeName}</span> • Total Documents: {items.length}
+                From: <span className="font-semibold text-slate-700 dark:text-slate-200">{fromOfficeName}</span>
+                {!isLoading && !error && (
+                  <> • Total Documents: {items.length}</>
+                )}
               </p>
             </div>
           </div>
@@ -102,6 +113,7 @@ export function BundlePreviewModal({
           <button
             onClick={onClose}
             className="rounded-xl p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 dark:hover:bg-white/10 transition-colors"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
@@ -109,98 +121,151 @@ export function BundlePreviewModal({
 
         {/* Scrollable Content Body */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="border-b border-slate-200 bg-slate-100/80 font-extrabold tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                <tr>
-                  <th className="px-4 py-3.5 w-16 text-center">SL No.</th>
-                  <th className="px-4 py-3.5">Tracking Number</th>
-                  <th className="px-4 py-3.5">Registration Date</th>
-                  <th className="px-4 py-3.5">Document Name</th>
-                  <th className="px-4 py-3.5">Document Type</th>
-                  <th className="px-4 py-3.5">Process Type</th>
-                  <th className="px-4 py-3.5">Number Of Days</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/10 bg-white dark:bg-[#12151c]">
-                {items.map((doc) => (
-                  <tr key={doc.slNo} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3.5 font-bold text-slate-600 dark:text-slate-400">{doc.slNo}</td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
-                      {doc.trackingNumber}
-                    </td>
-                    <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-200">
-                      {doc.registrationDate}
-                    </td>
-                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
-                      {doc.documentName}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
-                      {doc.documentType}
-                    </td>
-                    <td className="px-4 py-3.5 font-bold text-blue-800 dark:text-blue-300">
-                      {doc.processType}
-                    </td>
-                    <td className="px-4 py-3.5 font-bold text-amber-700 dark:text-amber-400">
-                      {doc.numberOfDays}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card Grid View */}
-          <div className="md:hidden space-y-4">
-            {items.map((doc) => (
-              <div
-                key={doc.slNo}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#12151c] space-y-3 text-xs"
-              >
-                <div>
-                  <span className="text-slate-400 font-medium block">SL No:</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{doc.slNo}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Tracking Number:</span>
-                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
-                    {doc.trackingNumber}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Registration Date:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {doc.registrationDate}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Document Name:</span>
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {doc.documentName}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Document Type:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {doc.documentType}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Process Type:</span>
-                  <span className="font-bold text-blue-800 dark:text-blue-300">
-                    {doc.processType}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Number Of Days:</span>
-                  <span className="font-bold text-amber-700 dark:text-amber-400">
-                    {doc.numberOfDays}
-                  </span>
-                </div>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Loading bundle documents...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+              <div className="rounded-full bg-red-100 p-3 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                <X className="h-6 w-6" />
               </div>
-            ))}
-          </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {error}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Please try again or contact your administrator.
+              </p>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+              <div className="rounded-full bg-slate-100 p-3 text-slate-400 dark:bg-white/5">
+                <Package className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                No Documents In This Bundle
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                There are no documents currently associated with this bundle.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs">
+                <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                  <thead className="border-b border-slate-200 bg-slate-100/80 font-extrabold tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                    <tr>
+                      <th className="px-4 py-3.5 w-16 text-center">SL No.</th>
+                      <th className="px-4 py-3.5">Tracking Number</th>
+                      <th className="px-4 py-3.5">Registration Date</th>
+                      <th className="px-4 py-3.5">Document Name</th>
+                      <th className="px-4 py-3.5">Document Type</th>
+                      <th className="px-4 py-3.5">Process Type</th>
+                      <th className="px-4 py-3.5">Number Of Days</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-white/10 bg-white dark:bg-[#12151c]">
+                    {items.map((doc) => (
+                      <tr key={doc.slNo} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3.5 font-bold text-slate-600 dark:text-slate-400">{doc.slNo}</td>
+                        <td className="px-4 py-3.5 font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+                          {doc.trackingNumber && doc.trackingNumber !== "-" && canViewDocumentDetails !== false ? (
+                            <Link
+                              href={`/dashboard/document-details/${encodeURIComponent(doc.trackingNumber)}`}
+                              className="hover:underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                            >
+                              {doc.trackingNumber}
+                            </Link>
+                          ) : (
+                            doc.trackingNumber
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-200">
+                          {doc.registrationDate}
+                        </td>
+                        <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                          {doc.documentName}
+                        </td>
+                        <td className="px-4 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
+                          {doc.documentType}
+                        </td>
+                        <td className="px-4 py-3.5 font-bold text-blue-800 dark:text-blue-300">
+                          {doc.processType}
+                        </td>
+                        <td className="px-4 py-3.5 font-bold text-amber-700 dark:text-amber-400">
+                          {doc.numberOfDays}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card Grid View */}
+              <div className="md:hidden space-y-4">
+                {items.map((doc) => (
+                  <div
+                    key={doc.slNo}
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#12151c] space-y-3 text-xs"
+                  >
+                    <div>
+                      <span className="text-slate-400 font-medium block">SL No:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{doc.slNo}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Tracking Number:</span>
+                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+                        {doc.trackingNumber && doc.trackingNumber !== "-" && canViewDocumentDetails !== false ? (
+                          <Link
+                            href={`/dashboard/document-details/${encodeURIComponent(doc.trackingNumber)}`}
+                            className="hover:underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                          >
+                            {doc.trackingNumber}
+                          </Link>
+                        ) : (
+                          doc.trackingNumber
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Registration Date:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {doc.registrationDate}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Document Name:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {doc.documentName}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Document Type:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {doc.documentType}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Process Type:</span>
+                      <span className="font-bold text-blue-800 dark:text-blue-300">
+                        {doc.processType}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium block">Number Of Days:</span>
+                      <span className="font-bold text-amber-700 dark:text-amber-400">
+                        {doc.numberOfDays}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -218,4 +283,3 @@ export function BundlePreviewModal({
     </div>
   );
 }
-

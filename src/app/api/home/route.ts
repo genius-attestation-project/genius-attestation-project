@@ -7,6 +7,7 @@ import {
   createTransferBundle,
   listInboundBundles,
   listOutboundBundles,
+  getOutboundBundleDetails,
   receiveBundle,
   getMovementHistory,
   routeDocumentsToReadyForDelivery,
@@ -114,6 +115,53 @@ export async function GET(req: NextRequest) {
         ownerAdminId: currentUser.ownerAdminId,
       });
       return NextResponse.json({ data });
+    }
+
+    if (section === "bundle_details" || section === "outbound_bundle_details") {
+      if (!hasPermission(currentUser, "home.outbound.view")) {
+        return NextResponse.json(
+          { error: "Forbidden. You do not have permission to view Outbound Bundles." },
+          { status: 403 }
+        );
+      }
+
+      const bundleId = searchParams.get("bundleId");
+      if (!bundleId) {
+        return NextResponse.json(
+          { error: "Bundle ID is required." },
+          { status: 400 }
+        );
+      }
+
+      const bundle = await getOutboundBundleDetails({
+        bundleId,
+        ownerAdminId: currentUser.ownerAdminId,
+      });
+
+      if (!bundle) {
+        return NextResponse.json(
+          { error: "Bundle not found." },
+          { status: 404 }
+        );
+      }
+
+      // Office visibility verification for non-Super Admin users
+      if (!isSuperAdmin) {
+        const fromOfficeId = bundle.fromOfficeId;
+        const fromOfficeName = bundle.fromOffice?.officeName;
+        const hasAccess =
+          (fromOfficeId && hasOfficeAccess(currentUser, fromOfficeId, "home")) ||
+          (fromOfficeName && hasOfficeAccess(currentUser, fromOfficeName, "home"));
+
+        if (!hasAccess) {
+          return NextResponse.json(
+            { error: "You do not have permission to view this bundle." },
+            { status: 403 }
+          );
+        }
+      }
+
+      return NextResponse.json({ data: bundle });
     }
 
     if (section === "history") {

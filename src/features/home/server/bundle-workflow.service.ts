@@ -636,6 +636,59 @@ export async function listOutboundBundles(params: {
   return [];
 }
 
+export async function getOutboundBundleDetails(params: {
+  bundleId: string;
+  ownerAdminId: string;
+}) {
+  const db = prisma as any;
+
+  if (!params.bundleId || typeof params.bundleId !== "string") {
+    return null;
+  }
+
+  const bundle = await db.bundle.findFirst({
+    where: {
+      OR: [
+        { id: params.bundleId },
+        { bundleNumber: params.bundleId },
+      ],
+      ownerAdminId: params.ownerAdminId,
+    },
+    include: {
+      fromOffice: true,
+      toOffice: true,
+      items: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  if (!bundle) {
+    return null;
+  }
+
+  const trackingNumbers = (bundle.items || [])
+    .map((item: any) => item.trackingNumber)
+    .filter(Boolean);
+
+  if (trackingNumbers.length > 0) {
+    const registrations = await db.registration.findMany({
+      where: {
+        trackingNumber: { in: trackingNumbers },
+        ownerAdminId: params.ownerAdminId,
+      },
+    });
+
+    const regMap = new Map(registrations.map((r: any) => [r.trackingNumber, r]));
+
+    for (const item of bundle.items) {
+      item.registration = regMap.get(item.trackingNumber) || null;
+    }
+  }
+
+  return bundle;
+}
+
 export async function receiveBundle(params: {
   bundleId: string;
   receivedTrackingNumbers: string[];

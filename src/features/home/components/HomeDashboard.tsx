@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { formatDate, formatBundleNumber } from "@/utils/format";
 import {
   Package,
@@ -112,6 +112,74 @@ export function HomeDashboard({
 
   // Bundle Preview state before receiving
   const [previewBundle, setPreviewBundle] = useState<any | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const activePreviewFetchRef = useRef<string | null>(null);
+
+  const handleClosePreview = () => {
+    activePreviewFetchRef.current = null;
+    setPreviewBundle(null);
+    setIsPreviewLoading(false);
+    setPreviewError(null);
+  };
+
+  const handleOpenOutboundBundlePreview = async (bundle: any) => {
+    if (!bundle || (!bundle.id && !bundle.bundleNumber)) {
+      setPreviewBundle({ bundleNumber: "-" });
+      setPreviewError("Bundle not found or invalid bundle selected.");
+      setIsPreviewLoading(false);
+      return;
+    }
+
+    const targetId = bundle.id || bundle.bundleNumber;
+    activePreviewFetchRef.current = targetId;
+
+    // Immediately open modal with selected bundle metadata to prevent showing stale data
+    setPreviewBundle({
+      ...bundle,
+      items: [],
+    });
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      const res = await fetch(
+        `/api/home?section=bundle_details&bundleId=${encodeURIComponent(targetId)}`
+      );
+
+      if (activePreviewFetchRef.current !== targetId) {
+        return;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        if (res.status === 404) {
+          setPreviewError(body?.error || "Bundle not found.");
+        } else if (res.status === 403) {
+          setPreviewError(
+            body?.error || "You do not have permission to view this bundle."
+          );
+        } else {
+          setPreviewError(body?.error || "Unable to load bundle details.");
+        }
+        return;
+      }
+
+      const body = await res.json();
+      const loadedBundle = body.data || body;
+      setPreviewBundle(loadedBundle);
+    } catch (err) {
+      if (activePreviewFetchRef.current !== targetId) {
+        return;
+      }
+      console.error("Failed to load outbound bundle details:", err);
+      setPreviewError("Unable to load bundle details.");
+    } finally {
+      if (activePreviewFetchRef.current === targetId) {
+        setIsPreviewLoading(false);
+      }
+    }
+  };
 
   // Receive Selection state for Inbound Receive button
   const [receiveSelectionBundle, setReceiveSelectionBundle] = useState<any | null>(null);
@@ -844,7 +912,12 @@ export function HomeDashboard({
                           <tr key={bundle.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                             <td className="p-4 text-center font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
                             <td
-                              onClick={() => setPreviewBundle(bundle)}
+                              onClick={() => {
+                                activePreviewFetchRef.current = null;
+                                setIsPreviewLoading(false);
+                                setPreviewError(null);
+                                setPreviewBundle(bundle);
+                              }}
                               className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                             >
                               {formatBundleNumber(bundle.bundleNumber)}
@@ -910,7 +983,10 @@ export function HomeDashboard({
                           return (
                             <tr key={bundle.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                               <td className="p-4 text-center font-semibold text-slate-500 dark:text-slate-400">{index + 1}</td>
-                              <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">
+                              <td
+                                onClick={() => handleOpenOutboundBundlePreview(bundle)}
+                                className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                              >
                                 {formatBundleNumber(bundle.bundleNumber)}
                               </td>
                               <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
@@ -1031,8 +1107,10 @@ export function HomeDashboard({
       {/* Bundle Information Preview Modal */}
       <BundlePreviewModal
         open={Boolean(previewBundle)}
-        onClose={() => setPreviewBundle(null)}
+        onClose={handleClosePreview}
         bundleData={previewBundle}
+        isLoading={isPreviewLoading}
+        error={previewError}
       />
 
       {/* Receive Selection Modal */}
