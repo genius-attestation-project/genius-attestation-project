@@ -1,4 +1,4 @@
-import { Prisma, FollowupActionType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { REGISTRATION_FIELD_DEFINITIONS } from "@/features/registration/server/registration-fields";
 import { getApprovedAdvanceSum, submitAdvancePaymentApproval } from "@/features/revenue/server/advance-payment-approval.service";
@@ -266,9 +266,9 @@ export function buildRegistrationDataForApproval(
   input: Record<string, any>,
   options?: { approvedAdvance?: number }
 ) {
-  const totalCharges = new Prisma.Decimal(input.totalCharges ?? 0);
-  const approvedAdvance = new Prisma.Decimal(options?.approvedAdvance ?? 0);
-  const balanceAmount = Prisma.Decimal.max(new Prisma.Decimal(0), totalCharges.minus(approvedAdvance));
+  const totalCharges = Number(input.totalCharges ?? 0);
+  const approvedAdvance = Number(options?.approvedAdvance ?? 0);
+  const balanceAmount = Math.max(0, totalCharges - approvedAdvance);
   const hasCommissionTarget = Boolean(
     input.commissionToUserId || input.commissionToName || input.commissionToEmail
   );
@@ -642,9 +642,9 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
       documentName: proposedSnapshot.documentName || existing.documentName || null,
       registrationOffice: existing.regionOfRegistration || sourceOfficeName,
       currentOffice: currentOfficeLocation,
-      originalSnapshot: originalSnapshot as unknown as Prisma.InputJsonValue,
-      proposedSnapshot: proposedSnapshot as unknown as Prisma.InputJsonValue,
-      fieldChanges: fieldChanges as unknown as Prisma.InputJsonValue,
+      originalSnapshot: originalSnapshot as any,
+      proposedSnapshot: proposedSnapshot as any,
+      fieldChanges: fieldChanges as any,
       status: "PENDING",
       requestedById: requestedById || null,
       requestedBy: requestedByName || "System User",
@@ -709,7 +709,7 @@ export async function listEditRequests(
     }
   }
 
-  const where: Prisma.RegistrationEditRequestWhereInput = {
+  const where: Record<string, any> = {
     ownerAdminId,
     ...(params.status && params.status !== "ALL" ? { status: params.status } : {}),
     ...(params.trackingNumber ? { trackingNumber: { contains: params.trackingNumber } } : {}),
@@ -781,7 +781,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
     throw new Error("Edit request ID is required for approval.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     // 1. Verify request is still PENDING
     const editRequest = await tx.registrationEditRequest.findFirst({
       where: { ownerAdminId, id },
@@ -977,7 +977,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
         await tx.leadFollowupHistory.create({
           data: {
             leadId: lead.id,
-            actionType: FollowupActionType.Rescheduled,
+            actionType: "Rescheduled",
             description: `Field: Document Issued Country | Old: ${leadOldCountry} | New: ${newCountry} | Updated From: Approved Edit Request | Approved By: ${approvedByName || "Current Approver"}`,
             userId: approvedById || null,
             ownerAdminId,
@@ -992,7 +992,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       .join(", ");
 
     const remarksText = params.approvalRemarks?.trim() ? ` | Approval Remarks: ${params.approvalRemarks.trim()}` : "";
-    const auditEntries: Prisma.AuditTrailCreateWithoutRegistrationInput[] = [
+    const auditEntries = [
       {
         action: "Edit request approved",
         description: `Edit request approved by ${approvedByName || "Approver"}. Changes applied: ${changesSummary}${remarksText}`,
@@ -1176,7 +1176,7 @@ export async function rejectEditRequest(params: RejectEditRequestParams) {
     throw new Error("Rejection reason is required to reject an edit request.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: any) => {
     const editRequest = await tx.registrationEditRequest.findFirst({
       where: { ownerAdminId, id },
     });
