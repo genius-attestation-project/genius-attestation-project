@@ -10,7 +10,7 @@ type EditRequestDiffModalProps = {
   isOpen: boolean;
   onClose: () => void;
   request: RegistrationEditRequestItem | null;
-  onApprove: (id: string) => Promise<void>;
+  onApprove: (id: string, approvalRemarks?: string) => Promise<void>;
 };
 
 export function EditRequestDiffModal({
@@ -20,7 +20,15 @@ export function EditRequestDiffModal({
   onApprove,
 }: EditRequestDiffModalProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [approvalRemarks, setApprovalRemarks] = useState("");
   const [error, setError] = useState("");
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setApprovalRemarks("");
+      setError("");
+    }
+  }, [isOpen]);
 
   if (!isOpen || !request) return null;
 
@@ -29,7 +37,7 @@ export function EditRequestDiffModal({
     setSubmitting(true);
     setError("");
     try {
-      await onApprove(request.id);
+      await onApprove(request.id, approvalRemarks.trim() || undefined);
       onClose();
     } catch (err: any) {
       setError(err.message || "Failed to approve edit request.");
@@ -209,6 +217,39 @@ export function EditRequestDiffModal({
               </div>
             )}
           </div>
+
+          {isPending ? (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="edit-request-approval-remarks"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Approval Remarks <span className="font-normal text-slate-400 normal-case">(Optional)</span>
+              </label>
+              <textarea
+                id="edit-request-approval-remarks"
+                rows={3}
+                value={approvalRemarks}
+                onChange={(e) => setApprovalRemarks(e.target.value)}
+                disabled={submitting}
+                placeholder="Enter any approval notes or instructions for this document edit..."
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-blue-400"
+              />
+            </div>
+          ) : (
+            <>
+              {request.approvalRemarks && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">
+                  <span className="font-bold">Approval Remarks:</span> {request.approvalRemarks}
+                </div>
+              )}
+              {request.rejectionReason && (
+                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-800 dark:text-rose-300">
+                  <span className="font-bold">Rejection Reason:</span> {request.rejectionReason}
+                </div>
+              )}
+            </>
+          )}
 
           {isPending && (
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">

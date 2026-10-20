@@ -2220,12 +2220,13 @@ export function PendingApprovalDashboard() {
         isOpen={Boolean(approvingEditRequest)}
         onClose={() => setApprovingEditRequest(null)}
         request={approvingEditRequest}
-        onApprove={async (id) => {
+        onApprove={async (id, remarks) => {
           try {
             const res = await parseResponse<{ message?: string }>(
               await fetch(`/api/registration-edit-requests/${id}/approve`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ approvalRemarks: remarks }),
               })
             );
             setSuccess(res.message || "Edit request approved successfully.");

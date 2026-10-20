@@ -23,6 +23,8 @@ for (const def of REGISTRATION_FIELD_DEFINITIONS) {
 
 // Additional fields not in import/export definitions
 const EXTRA_FIELD_LABELS: Record<string, { label: string; category?: string }> = {
+  trackingNumber: { label: "Tracking Number", category: "Registration & Workflow" },
+  tracking_number: { label: "Tracking Number", category: "Registration & Workflow" },
   commissionToUserId: { label: "Commission To (User)", category: "Commercial & Payment" },
   commissionToName: { label: "Commission To Name", category: "Commercial & Payment" },
   commissionToEmail: { label: "Commission To Email", category: "Commercial & Payment" },
@@ -64,6 +66,12 @@ export function areFieldValuesEqual(key: string, a: any, b: any): boolean {
   if (normA === null && normB === null) return true;
 
   // 2. Field-specific normalization and equivalence rules
+  if (key === "trackingNumber" || key === "tracking_number") {
+    const strA = normA === null ? "" : String(normA).trim();
+    const strB = normB === null ? "" : String(normB).trim();
+    return strA === strB;
+  }
+
   if (key === "requestedAdvanceAmount") {
     // In Revenue Registration, requestedAdvanceAmount represents a pending advance request.
     // If no advance was requested, it is 0 / null / empty.
@@ -136,8 +144,6 @@ export function computeFieldChanges(
   // Ignored system fields and advance payment fields that are not part of document edit approval requests
   const ignoredKeys = new Set([
     "id",
-    "trackingNumber",
-    "tracking_number",
     "createdAt",
     "updatedAt",
     "created_at",
@@ -288,6 +294,7 @@ export function buildRegistrationDataForApproval(
   const parseDate = (d?: string | null) => (d ? new Date(d) : null);
 
   return {
+    ...(input.trackingNumber ? { trackingNumber: String(input.trackingNumber).trim() } : {}),
     customerName: input.customerName || null,
     mobile: input.mobile || null,
     email: input.email || null,
@@ -374,6 +381,7 @@ function mapEditRequest(record: any): RegistrationEditRequestItem {
     rejectedBy: record.rejectedBy ?? null,
     rejectedAt: record.rejectedAt instanceof Date ? record.rejectedAt.toISOString() : record.rejectedAt ?? null,
     rejectionReason: record.rejectionReason ?? null,
+    approvalRemarks: record.approvalRemarks ?? null,
     documentVersion: record.documentVersion ?? null,
     documentUpdatedAtSnapshot:
       record.documentUpdatedAtSnapshot instanceof Date
@@ -479,10 +487,53 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
     leadId: existing.leadId,
   };
 
+  const proposedTrackingNumber =
+    input.trackingNumber !== undefined && input.trackingNumber !== null
+      ? String(input.trackingNumber).trim()
+      : existing.trackingNumber;
+
+  if (!proposedTrackingNumber) {
+    const error: any = new Error("Tracking number is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Duplicate Tracking Number Validation before creating edit request
+  if (proposedTrackingNumber !== existing.trackingNumber) {
+    const duplicateReg = await prisma.registration.findFirst({
+      where: {
+        ownerAdminId,
+        trackingNumber: proposedTrackingNumber,
+        NOT: { id: existing.id },
+      },
+      select: { id: true },
+    });
+    if (duplicateReg) {
+      const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document.`);
+      error.statusCode = 409;
+      error.status = 409;
+      throw error;
+    }
+
+    const duplicateMov = await prisma.documentMovement.findFirst({
+      where: {
+        trackingNumber: proposedTrackingNumber,
+        NOT: { registrationId: existing.id },
+      },
+      select: { id: true },
+    });
+    if (duplicateMov) {
+      const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document movement.`);
+      error.statusCode = 409;
+      error.status = 409;
+      throw error;
+    }
+  }
+
   const proposedSnapshot: Record<string, any> = {
     ...originalSnapshot,
     ...input,
-    trackingNumber: existing.trackingNumber,
+    trackingNumber: proposedTrackingNumber,
   };
 
   const fieldChanges = computeFieldChanges(originalSnapshot, proposedSnapshot);
@@ -605,6 +656,20 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
     },
   });
 
+  // Log audit trail for edit request creation
+  const changesSummary = fieldChanges
+    .map((c) => `${c.fieldLabel}: ${c.oldValue ?? "Empty"} → ${c.newValue ?? "Empty"}`)
+    .join(", ");
+
+  await prisma.auditTrail.create({
+    data: {
+      registrationId: existing.id,
+      action: "Edit request created",
+      description: `Edit request created by ${requestedByName || "User"}. Changes proposed: ${changesSummary}`,
+      performedBy: requestedByName || null,
+    },
+  }).catch(() => null);
+
   const mapped = mapEditRequest(created);
   return {
     ...mapped,
@@ -709,7 +774,12 @@ export async function getEditRequestById(ownerAdminId: string, id: string) {
 }
 
 export async function approveEditRequest(params: ApproveEditRequestParams) {
-  const { ownerAdminId, id, approvedById, approvedByName } = params;
+  const { ownerAdminId, approvedById, approvedByName } = params;
+  const id = params.id || (params as any).editRequestId;
+
+  if (!id) {
+    throw new Error("Edit request ID is required for approval.");
+  }
 
   return prisma.$transaction(async (tx) => {
     // 1. Verify request is still PENDING
@@ -767,6 +837,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
           "Document changed after request creation. Please review and create a new request."
         );
         error.statusCode = 409;
+        error.status = 409;
         error.isStale = true;
         throw error;
       }
@@ -774,6 +845,42 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
 
     const proposed = (editRequest.proposedSnapshot as unknown as Record<string, any>) || {};
     const fieldChanges = (editRequest.fieldChanges as unknown as FieldChangeItem[]) || [];
+
+    const newTrackingNumber = proposed.trackingNumber ? String(proposed.trackingNumber).trim() : null;
+    const oldTrackingNumber = currentReg.trackingNumber;
+    const isTrackingNumberChanged = Boolean(newTrackingNumber && newTrackingNumber !== oldTrackingNumber);
+
+    if (isTrackingNumberChanged) {
+      // Revalidate uniqueness at approval time against live database
+      const duplicateReg = await tx.registration.findFirst({
+        where: {
+          ownerAdminId,
+          trackingNumber: newTrackingNumber!,
+          NOT: { id: currentReg.id },
+        },
+        select: { id: true },
+      });
+      if (duplicateReg) {
+        const error: any = new Error(`Tracking number ${newTrackingNumber} is already assigned to another document.`);
+        error.statusCode = 409;
+        error.status = 409;
+        throw error;
+      }
+
+      const duplicateMov = await tx.documentMovement.findFirst({
+        where: {
+          trackingNumber: newTrackingNumber!,
+          NOT: { registrationId: currentReg.id },
+        },
+        select: { id: true },
+      });
+      if (duplicateMov) {
+        const error: any = new Error(`Tracking number ${newTrackingNumber} is already assigned to another document movement.`);
+        error.statusCode = 409;
+        error.status = 409;
+        throw error;
+      }
+    }
 
     // 4. Ready For Delivery Special Workflow Check
     const isCurrentlyInRfd =
@@ -884,10 +991,11 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       .map((c) => `${c.fieldLabel}: ${c.oldValue ?? "Empty"} → ${c.newValue ?? "Empty"}`)
       .join(", ");
 
+    const remarksText = params.approvalRemarks?.trim() ? ` | Approval Remarks: ${params.approvalRemarks.trim()}` : "";
     const auditEntries: Prisma.AuditTrailCreateWithoutRegistrationInput[] = [
       {
         action: "Edit request approved",
-        description: `Edit request approved by ${approvedByName || "Approver"}. Changes applied: ${changesSummary}`,
+        description: `Edit request approved by ${approvedByName || "Approver"}. Changes applied: ${changesSummary}${remarksText}`,
         performedBy: approvedByName || null,
       },
     ];
@@ -905,6 +1013,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       where: { id: currentReg.id },
       data: {
         ...updateData,
+        ...(isTrackingNumberChanged ? { trackingNumber: newTrackingNumber! } : {}),
         trackingStatus: finalTrackingStatus,
         bmStatus: finalBmStatus,
         movementApproved: rfdSpecialHandled ? true : currentReg.movementApproved,
@@ -914,6 +1023,127 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       },
     });
 
+    // Synchronize related operational references across the system if Tracking Number changed
+    if (isTrackingNumberChanged) {
+      // 1. Synchronize DocumentMovement
+      await tx.documentMovement.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 2. Synchronize BundleItem
+      await tx.bundleItem.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 3. Synchronize ProcessAssignment
+      await tx.processAssignment.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 4. Synchronize PaymentUpdate
+      await tx.paymentUpdate.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 5. Synchronize AccountStatementEntry
+      await tx.accountStatementEntry.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 6. Synchronize AdvancePaymentApproval
+      await tx.advancePaymentApproval.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 7. Synchronize MovementApproval
+      await tx.movementApproval.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 8. Synchronize RDApproval
+      await tx.rDApproval.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 9. Synchronize AccountApproval
+      const advanceApprovals = await tx.advancePaymentApproval.findMany({
+        where: { registrationId: currentReg.id },
+        select: { id: true },
+      });
+      const advIds = advanceApprovals.map((a: any) => a.id);
+      await tx.accountApproval.updateMany({
+        where: {
+          OR: [
+            ...(advIds.length > 0 ? [{ targetId: { in: advIds } }] : []),
+            { trackingNumber: oldTrackingNumber, office: currentReg.regionOfRegistration },
+          ],
+        },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 10. Synchronize DocumentCommunication
+      await tx.documentCommunication.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 11. Synchronize DocumentReadState
+      await tx.documentReadState.updateMany({
+        where: { trackingNumber: oldTrackingNumber, ownerAdminId },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 12. Synchronize SubPackageMovement
+      await tx.subPackageMovement.updateMany({
+        where: { documentId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 13. Synchronize DocumentWorkflowHistory
+      await tx.documentWorkflowHistory.updateMany({
+        where: { documentId: currentReg.id },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 14. Synchronize MovementHistory and record tracking change event
+      await tx.movementHistory.updateMany({
+        where: { trackingNumber: oldTrackingNumber },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber: newTrackingNumber!,
+          action: "Tracking Number Changed",
+          oldStatus: oldTrackingNumber,
+          newStatus: newTrackingNumber!,
+          oldOffice: currentReg.regionOfRegistration || null,
+          newOffice: currentReg.regionOfRegistration || null,
+          performedBy: approvedByName || "System Approver",
+          remarks: `Tracking number changed from ${oldTrackingNumber} to ${newTrackingNumber}${params.approvalRemarks ? ` | Remarks: ${params.approvalRemarks.trim()}` : ""}`.slice(0, 190),
+        },
+      });
+
+      // 15. Synchronize BranchMovementRecord
+      await tx.branchMovementRecord.updateMany({
+        where: { trackingNumber: oldTrackingNumber, ownerAdminId },
+        data: { trackingNumber: newTrackingNumber! },
+      });
+
+      // 16. Synchronize FileStorage
+      await tx.fileStorage.updateMany({
+        where: { recordId: oldTrackingNumber },
+        data: { recordId: newTrackingNumber! },
+      });
+    }
+
     // 6. Update Edit Request Status to APPROVED
     const updatedRequest = await tx.registrationEditRequest.update({
       where: { id: editRequest.id },
@@ -922,6 +1152,7 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
         approvedById: approvedById || null,
         approvedBy: approvedByName || "System Approver",
         approvedAt: new Date(),
+        approvalRemarks: params.approvalRemarks?.trim() || null,
       },
     });
 
@@ -934,7 +1165,12 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
 }
 
 export async function rejectEditRequest(params: RejectEditRequestParams) {
-  const { ownerAdminId, id, rejectionReason, rejectedById, rejectedByName } = params;
+  const { ownerAdminId, rejectionReason, rejectedById, rejectedByName } = params;
+  const id = params.id || (params as any).editRequestId;
+
+  if (!id) {
+    throw new Error("Edit request ID is required for rejection.");
+  }
 
   if (!rejectionReason || !rejectionReason.trim()) {
     throw new Error("Rejection reason is required to reject an edit request.");
@@ -965,16 +1201,22 @@ export async function rejectEditRequest(params: RejectEditRequestParams) {
       },
     });
 
+    const proposed = (editRequest.proposedSnapshot as unknown as Record<string, any>) || {};
+    const trackingInfo =
+      proposed.trackingNumber && proposed.trackingNumber !== editRequest.trackingNumber
+        ? ` Proposed Tracking Number: ${editRequest.trackingNumber} → ${proposed.trackingNumber}.`
+        : "";
+
     // Log audit trail on Registration
     await tx.auditTrail.create({
       data: {
         registrationId: editRequest.registrationId,
         action: "Edit request rejected",
-        description: `Edit request rejected by ${rejectedByName || "Approver"}. Reason: ${rejectionReason.trim()}`,
+        description: `Edit request rejected by ${rejectedByName || "Approver"}.${trackingInfo} Reason: ${rejectionReason.trim()}`,
         performedBy: rejectedByName || null,
       },
     });
 
     return mapEditRequest(updatedRequest);
-  });
+  }, { timeout: 30000, maxWait: 10000 });
 }

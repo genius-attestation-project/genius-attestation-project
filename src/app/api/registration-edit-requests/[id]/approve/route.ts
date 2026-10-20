@@ -4,7 +4,7 @@ import { jsonError, jsonOk } from "@/utils/response";
 import { hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
 import { approveEditRequest, getEditRequestById } from "@/features/registration/server/registration-edit-request.service";
 
-export async function POST(_: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const ownerAdminId = session?.user?.ownerAdminId;
@@ -32,6 +32,14 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
       }
     }
 
+    const body = await request.json().catch(() => ({}));
+    const approvalRemarks =
+      typeof body?.approvalRemarks === "string"
+        ? body.approvalRemarks.trim()
+        : typeof body?.remarks === "string"
+          ? body.remarks.trim()
+          : undefined;
+
     const approverName = session.user.name ?? session.user.email ?? "Approver";
 
     const result = await approveEditRequest({
@@ -39,6 +47,7 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
       id,
       approvedById: session.user.id,
       approvedByName: approverName,
+      approvalRemarks,
     });
 
     return jsonOk({

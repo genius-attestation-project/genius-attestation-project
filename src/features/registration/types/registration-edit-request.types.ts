@@ -31,6 +31,7 @@ export interface RegistrationEditRequestItem {
   rejectedBy: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  approvalRemarks: string | null;
   documentVersion?: string | null;
   documentUpdatedAtSnapshot?: string | null;
   workspaceId?: string | null;
@@ -54,6 +55,7 @@ export interface ApproveEditRequestParams {
   id: string;
   approvedById?: string;
   approvedByName?: string;
+  approvalRemarks?: string;
 }
 
 export interface RejectEditRequestParams {

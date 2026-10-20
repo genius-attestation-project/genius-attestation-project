@@ -1782,6 +1782,7 @@ model RegistrationEditRequest {
   rejectedBy                String?      @map("rejected_by")
   rejectedAt                DateTime?    @map("rejected_at")
   rejectionReason           String?      @db.Text @map("rejection_reason")
+  approvalRemarks           String?      @db.Text @map("approval_remarks")
   documentVersion           String?      @map("document_version")
   documentUpdatedAtSnapshot DateTime?    @map("document_updated_at_snapshot")
   workspaceId               String?      @map("workspace_id")
