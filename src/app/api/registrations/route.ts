@@ -94,14 +94,13 @@ export async function GET(request: NextRequest) {
       maxTotalCharge: searchParams.get("maxTotalCharge") ?? undefined,
       minAdvancePaid: searchParams.get("minAdvancePaid") ?? undefined,
       maxAdvancePaid: searchParams.get("maxAdvancePaid") ?? undefined,
-      batchId: searchParams.get("batchId") ?? searchParams.get("registrationBatchId") ?? undefined,
     });
     
     console.log("[GET /api/registrations] Success! Response items length:", data.items.length);
     return jsonOk(data);
   } catch (error: any) {
     console.error("[GET /api/registrations] FATAL ERROR:", error);
-    if (error?.code) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
       console.error("[GET /api/registrations] Prisma error code:", error.code, "meta:", error.meta);
     }
     return jsonError(error?.message || "Unable to fetch registrations.", 500);
@@ -153,12 +152,12 @@ export async function POST(request: NextRequest) {
     const userId = session.user?.id;
     const registration = await createRegistration(ownerAdminId, parsed.data, sourceOfficeName, performedBy, userId);
     return jsonOk({ registration }, 201);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof Error && error.message === "Office location is required to create a registration.") {
       return jsonError(error.message, 400);
     }
 
-    if (error?.code === "P2002") {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return jsonError("Tracking number already exists.", 409);
     }
 

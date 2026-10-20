@@ -1,6 +1,5 @@
 import { AccessDenied } from "@/components/shared/AccessDenied";
 import { RegistrationManager } from "@/features/registration/components/RegistrationManager";
-import { RegistrationBatchManager } from "@/features/registration/components/RegistrationBatchManager";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { requirePermission } from "@/middleware/auth.middleware";
 
@@ -31,23 +30,12 @@ export default async function RevenueRegistrationNewPage({
     userId: session.user.id,
   });
 
-  const leadId = params.leadId ? decodeURIComponent(params.leadId) : "";
-
-  if (leadId) {
-    return (
-      <RegistrationBatchManager
-        leadId={leadId}
-        currentOfficeLocationName={currentOfficeLocationName ?? ""}
-      />
-    );
-  }
-
   return (
     <RegistrationManager
       currentOfficeLocationName={currentOfficeLocationName ?? ""}
       initialOpen
       initialTrackingNumber={params.trackingNumber ? decodeURIComponent(params.trackingNumber) : ""}
-      initialLeadId=""
+      initialLeadId={params.leadId ? decodeURIComponent(params.leadId) : ""}
     />
   );
 }

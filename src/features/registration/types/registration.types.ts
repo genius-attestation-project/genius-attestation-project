@@ -85,8 +85,6 @@ export type Registration = {
   welcomeCalledBy: string | null;
   welcomeCalledAt: string | null;
   leadId?: string | null;
-  registrationBatchId?: string | null;
-  registrationBatchNumber?: string | null;
   corporateDetailId?: string | null;
   corporateDetail?: { id: string; companyName: string; contactPersonName: string; contactPersonMobile: string } | null;
   ownerAdminId?: string | null;
@@ -101,20 +99,6 @@ export type Registration = {
   auditTrail: AuditTrailItem[];
   hasPendingEditRequest?: boolean;
   pendingEditRequestId?: string | null;
-};
-
-export type RegistrationBatchResponse = {
-  success: boolean;
-  batch: {
-    id: string;
-    batchNumber: string;
-    leadId: string | null;
-  };
-  registrations: {
-    draftId: string;
-    id: string;
-    trackingNumber: string;
-  }[];
 };
 
 export type RegistrationFormState = {

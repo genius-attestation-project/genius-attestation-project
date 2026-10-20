@@ -31,15 +31,6 @@ export type ClosedAnalyticsCards = {
   };
 };
 
-export type ClosedLeadRegistrationItem = {
-  id: string;
-  trackingNumber: string;
-  documentType: string | null;
-  documentName: string | null;
-  approvalStatus: string;
-  trackingStatus: string;
-};
-
 export type ClosedLeadRow = {
   id: string;
   leadCode: string;
@@ -54,7 +45,6 @@ export type ClosedLeadRow = {
   previousStatus: string | null;
   createdDate: string;
   registrationTrackingNumber: string | null;
-  registrations: ClosedLeadRegistrationItem[];
 };
 
 export type ClosedTrendPoint = {
@@ -114,12 +104,7 @@ type ClosedLeadSnapshot = Prisma.LeadGetPayload<{
     };
     registrations: {
       select: {
-        id: true,
-        trackingNumber: true,
-        documentType: true,
-        documentName: true,
-        approvalStatus: true,
-        trackingStatus: true,
+        trackingNumber: true;
       };
     };
   };
@@ -406,12 +391,7 @@ async function listCurrentClosedSnapshots(
       closedAt: true,
       registrations: {
         select: {
-          id: true,
           trackingNumber: true,
-          documentType: true,
-          documentName: true,
-          approvalStatus: true,
-          trackingStatus: true,
         },
       },
     },
@@ -703,14 +683,6 @@ export async function getClosedLeadsTable(
         : null,
       createdDate: snapshot.createdAt.toISOString(),
       registrationTrackingNumber: snapshot.registrations?.[0]?.trackingNumber ?? null,
-      registrations: (snapshot.registrations ?? []).map((reg) => ({
-        id: reg.id,
-        trackingNumber: reg.trackingNumber,
-        documentType: reg.documentType ?? null,
-        documentName: reg.documentName ?? null,
-        approvalStatus: reg.approvalStatus ?? "Pending",
-        trackingStatus: reg.trackingStatus ?? "Registered",
-      })),
     }));
 
   const totalItems = rows.length;

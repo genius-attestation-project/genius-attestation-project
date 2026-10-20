@@ -283,7 +283,6 @@ model Lead {
   updatedAt              DateTime       @updatedAt
 
   registrations Registration[]
-  registrationBatches RegistrationBatch[]
 
   statusHistory     LeadStatusHistory[]
   assignmentHistory LeadAssignmentHistory[]
@@ -459,8 +458,6 @@ model Registration {
   bmExtensionApprovedAt  DateTime? @map("bm_extension_approved_at")
   leadId                 String?   @map("lead_id")
   lead                   Lead?     @relation(fields: [leadId], references: [id])
-  registrationBatchId    String?   @map("registration_batch_id")
-  registrationBatch      RegistrationBatch? @relation(fields: [registrationBatchId], references: [id], onDelete: SetNull)
   corporateDetailId      String?   @map("corporate_detail_id")
   corporateDetail        CorporateDetail? @relation(fields: [corporateDetailId], references: [id], onDelete: SetNull)
   ownerAdminId           String?   @map("owner_admin_id")
@@ -503,7 +500,6 @@ model Registration {
   editRequests            RegistrationEditRequest[]
   rdApprovals             RDApproval[]
 
-  @@index([registrationBatchId])
   @@index([ownerAdminId])
   @@index([createdAt])
   @@index([paymentStatus])
@@ -517,23 +513,6 @@ model Registration {
   @@index([ownerAdminId, paymentStatus])
   @@index([ownerAdminId, trackingStatus])
   @@map("registrations")
-}
-
-model RegistrationBatch {
-  id           String         @id @default(cuid())
-  batchNumber  String         @unique @map("batch_number")
-  leadId       String?        @map("lead_id")
-  lead         Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  ownerAdminId String         @map("owner_admin_id")
-  createdBy    String?        @map("created_by")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-
-  registrations Registration[]
-
-  @@index([leadId])
-  @@index([ownerAdminId])
-  @@map("registration_batches")
 }
 
 model PaymentUpdate {
