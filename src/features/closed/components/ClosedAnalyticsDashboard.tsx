@@ -30,6 +30,7 @@ import {
   Eye,
   Pencil,
   FileCheck2,
+  Plus,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -57,6 +58,15 @@ type AnalyticsCards = {
   };
 };
 
+type ClosedLeadRegistrationItem = {
+  id: string;
+  trackingNumber: string;
+  documentType: string | null;
+  documentName: string | null;
+  approvalStatus: string;
+  trackingStatus: string;
+};
+
 type ClosedLeadRow = {
   id: string;
   leadCode: string;
@@ -71,6 +81,7 @@ type ClosedLeadRow = {
   previousStatus: string | null;
   createdDate: string;
   registrationTrackingNumber: string | null;
+  registrations?: ClosedLeadRegistrationItem[];
 };
 
 type TrendPoint = { date: string; label: string; count: number };
@@ -709,24 +720,57 @@ export function ClosedAnalyticsDashboard() {
                         <td className="py-3 pr-4"><TransitionBadge from={lead.previousStatus} /></td>
                         <td className="py-3 pr-4 text-soft">{formatDate(lead.createdDate)}</td>
                         <td className="py-3 pr-4">
-                          <div className="flex items-center gap-2">
-                            <Link href={`/dashboard/leads?id=${lead.id}&view=true`} className="text-soft transition hover:text-white" title="View Lead">
-                              <Eye size={16} />
-                            </Link>
-                            <Link href={`/dashboard/leads?id=${lead.id}&edit=true`} className="text-soft transition hover:text-white" title="Edit Lead">
-                              <Pencil size={16} />
-                            </Link>
-                            {lead.registrationTrackingNumber ? (
-                              <Link href={`/dashboard/revenue-registration?trackingNumber=${lead.registrationTrackingNumber}`} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20" title="View Registration">
-                                <FileCheck2 size={12} />
-                                {lead.registrationTrackingNumber}
+                          <div className="flex flex-col gap-1.5">
+                            {lead.registrations && lead.registrations.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-1.5 max-w-[280px]">
+                                {lead.registrations.map((reg) => (
+                                  <Link
+                                    key={reg.id}
+                                    href={`/dashboard/revenue-registration?trackingNumber=${encodeURIComponent(reg.trackingNumber)}`}
+                                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-500/20 dark:text-emerald-400"
+                                    title={`${reg.documentType || "Document"} - ${reg.trackingStatus} (${reg.approvalStatus})`}
+                                  >
+                                    <FileCheck2 size={12} className="shrink-0" />
+                                    <span>{reg.trackingNumber}</span>
+                                  </Link>
+                                ))}
+                              </div>
+                            ) : lead.registrationTrackingNumber ? (
+                              <Link
+                                href={`/dashboard/revenue-registration?trackingNumber=${encodeURIComponent(lead.registrationTrackingNumber)}`}
+                                className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-500/20 dark:text-emerald-400"
+                                title="View Registration"
+                              >
+                                <FileCheck2 size={12} className="shrink-0" />
+                                <span>{lead.registrationTrackingNumber}</span>
                               </Link>
-                            ) : (
-                              <Link href={`/dashboard/revenue-registration/new?leadId=${lead.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-400 hover:shadow" title="Register Revenue">
-                                <FileCheck2 size={14} />
-                                Register Revenue
+                            ) : null}
+
+                            <div className="flex items-center gap-2">
+                              <Link href={`/dashboard/leads?id=${lead.id}&view=true`} className="text-soft transition hover:text-white" title="View Lead">
+                                <Eye size={16} />
                               </Link>
-                            )}
+                              <Link href={`/dashboard/leads?id=${lead.id}&edit=true`} className="text-soft transition hover:text-white" title="Edit Lead">
+                                <Pencil size={16} />
+                              </Link>
+                              <Link
+                                href={`/dashboard/revenue-registration/new?leadId=${lead.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-400 hover:shadow"
+                                title={lead.registrations && lead.registrations.length > 0 ? "Register Additional Revenue Documents" : "Register Revenue"}
+                              >
+                                {lead.registrations && lead.registrations.length > 0 ? (
+                                  <>
+                                    <Plus size={13} className="shrink-0" />
+                                    <span>Register More</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileCheck2 size={13} className="shrink-0" />
+                                    <span>Register Revenue</span>
+                                  </>
+                                )}
+                              </Link>
+                            </div>
                           </div>
                         </td>
                       </tr>

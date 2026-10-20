@@ -1,8 +1,9 @@
 import { Prisma, FollowupActionType } from "@prisma/client";
+import { randomBytes } from "crypto";
 
 import { submitAdvancePaymentApproval, getApprovedAdvanceSum } from "@/features/revenue/server/advance-payment-approval.service";
 import { prisma } from "@/lib/prisma";
-import type { RegistrationInput } from "@/features/registration/validations/registration.schema";
+import type { BatchDocumentItemInput, RegistrationInput } from "@/features/registration/validations/registration.schema";
 
 const registrationInclude = {
   creator: {
@@ -21,6 +22,9 @@ const registrationInclude = {
   },
   corporateDetail: {
     select: { id: true, companyName: true, contactPersonName: true, contactPersonMobile: true },
+  },
+  registrationBatch: {
+    select: { id: true, batchNumber: true },
   },
   regionOfRegistrationRef: {
     select: {
@@ -172,6 +176,8 @@ function mapRegistration(registration: RegistrationRecord) {
     regionOfRegistration: resolvedOfficeName,
     currentOffice,
     regionOfRegistrationId: registration.regionOfRegistrationId ?? null,
+    registrationBatchId: (registration as any).registrationBatchId ?? null,
+    registrationBatchNumber: (registration as any).registrationBatch?.batchNumber ?? null,
     movementApproved: Boolean(registration.movementApproved),
     movementApprovalStatus,
     movementApprovalRemarks,
@@ -327,6 +333,7 @@ export async function listRegistrations(
     maxTotalCharge?: string;
     minAdvancePaid?: string;
     maxAdvancePaid?: string;
+    batchId?: string;
     isSuperAdmin?: boolean;
     allowedOfficeIds?: string[] | null;
     allowedOfficeNames?: string[] | null;
@@ -446,6 +453,14 @@ export async function listRegistrations(
     ...(params.paymentMode ? { paymentMode: params.paymentMode } : {}),
     ...(params.approvalStatus ? { approvalStatus: params.approvalStatus } : {}),
     ...(statusFilter ? { trackingStatus: { contains: statusFilter } } : {}),
+    ...(params.batchId
+      ? {
+          OR: [
+            { registrationBatchId: params.batchId },
+            { registrationBatch: { batchNumber: params.batchId } },
+          ],
+        }
+      : {}),
   };
 
   const andConditions: Prisma.RegistrationWhereInput[] = [];
@@ -546,6 +561,131 @@ export async function getRegistrationByTrackingNumber(ownerAdminId: string, trac
   return registration ? mapRegistration(registration) : null;
 }
 
+export async function createRegistrationRecord(
+  tx: Prisma.TransactionClient,
+  input: RegistrationInput,
+  options: {
+    ownerAdminId: string;
+    sourceOfficeName: string;
+    sourceOfficeId: string | null;
+    performedBy?: string;
+    userId?: string;
+    registrationBatchId?: string | null;
+    batchNumber?: string;
+    syncLeadCountry?: boolean;
+  },
+) {
+  let countryChangedFromLead: { previous: string; new: string } | null = null;
+
+  if (options.syncLeadCountry && input.leadId) {
+    const lead = await tx.lead.findFirst({
+      where: { id: input.leadId, ownerAdminId: options.ownerAdminId },
+      select: { id: true, documentIssuedCountry: true },
+    });
+
+    if (lead) {
+      const leadCountry = (lead.documentIssuedCountry ?? "").trim();
+      const selectedCountry = (input.documentIssuedCountry ?? "").trim();
+
+      if (selectedCountry && selectedCountry !== leadCountry) {
+        countryChangedFromLead = {
+          previous: leadCountry || "N/A",
+          new: selectedCountry,
+        };
+
+        // 1. Update linked Lead in the same transaction
+        await tx.lead.update({
+          where: { id: lead.id },
+          data: { documentIssuedCountry: selectedCountry },
+        });
+
+        // 2. Lead Audit log
+        await tx.leadFollowupHistory.create({
+          data: {
+            leadId: lead.id,
+            actionType: FollowupActionType.Rescheduled,
+            description: `Field: Document Issued Country | Old: ${leadCountry || "N/A"} | New: ${selectedCountry} | Updated From: Revenue Registration | Updated By: ${options.performedBy ?? "Current User"}`,
+            userId: options.userId ?? null,
+            ownerAdminId: options.ownerAdminId,
+          },
+        });
+      }
+    }
+  }
+
+  // Newly registered documents always start with trackingStatus "Registered" and movement status "REGISTRATION"
+  const isHomeDelivery = input.deliveryLocation?.toLowerCase() === options.sourceOfficeName.toLowerCase();
+  const initialTrackingStatus = "Registered";
+  const initialMovementStatus = "REGISTRATION";
+
+  const auditDesc = options.batchNumber
+    ? `Registration ${input.trackingNumber} was created in Registration Batch ${options.batchNumber}.`
+    : `Registration ${input.trackingNumber} was created.`;
+
+  const reg = await tx.registration.create({
+    data: {
+      ...buildRegistrationData(
+        { ...input, regionOfRegistration: options.sourceOfficeName, regionOfRegistrationId: options.sourceOfficeId || "" },
+        { approvedAdvance: 0 },
+      ),
+      registrationBatchId: options.registrationBatchId ?? null,
+      regionOfRegistrationId: options.sourceOfficeId ?? null,
+      movementApproved: false,
+      trackingStatus: initialTrackingStatus,
+      welcomeCallStatus: "Pending",
+      ownerAdminId: options.ownerAdminId,
+      createdBy: options.userId ?? null,
+      bmStatus: isHomeDelivery ? "Accepted" : "Pending",
+      acceptedAt: isHomeDelivery ? new Date() : null,
+      acceptedBy: isHomeDelivery ? (options.performedBy ?? null) : null,
+      auditTrail: {
+        create: [
+          {
+            action: "Registration created",
+            description: auditDesc,
+            performedBy: options.performedBy ?? null,
+          },
+          ...(countryChangedFromLead
+            ? [
+              {
+                action: "Document Issued Country updated",
+                description: `Field: Document Issued Country | Old: ${countryChangedFromLead.previous} | New: ${countryChangedFromLead.new} | Changed By: ${options.performedBy ?? "Current User"}`,
+                performedBy: options.performedBy ?? null,
+              },
+            ]
+            : []),
+        ],
+      },
+      documentMovements: {
+        create: {
+          trackingNumber: input.trackingNumber,
+          currentOfficeId: options.sourceOfficeId ?? null,
+          currentModule: "REGISTRATION",
+          status: initialMovementStatus,
+          currentStatus: initialTrackingStatus,
+          movementType: "INITIAL",
+          createdBy: options.performedBy ?? null,
+          originOfficeId: options.sourceOfficeId ?? null,
+          processChain: [],
+        },
+      },
+    },
+    include: registrationInclude,
+  });
+
+  await tx.movementHistory.create({
+    data: {
+      trackingNumber: input.trackingNumber,
+      action: "Created",
+      newStatus: initialMovementStatus,
+      newOffice: options.sourceOfficeName,
+      performedBy: options.performedBy ?? null,
+    },
+  });
+
+  return reg;
+}
+
 export async function createRegistration(
   ownerAdminId: string,
   input: RegistrationInput,
@@ -561,8 +701,6 @@ export async function createRegistration(
   if (requestedAdvance > (input.totalCharges ?? 0)) {
     throw new Error("Advance amount cannot exceed Total Charges.");
   }
-
-  const isHomeDelivery = input.deliveryLocation?.toLowerCase() === sourceOfficeName.toLowerCase();
 
   let sourceOffice = await prisma.officeLocation.findFirst({
     where: { officeName: sourceOfficeName, ownerAdminId },
@@ -582,114 +720,15 @@ export async function createRegistration(
   }
 
   const registrationResult = await prisma.$transaction(async (tx) => {
-    let countryChangedFromLead: { previous: string; new: string } | null = null;
-
-    if (input.leadId) {
-      const lead = await tx.lead.findFirst({
-        where: { id: input.leadId, ownerAdminId },
-        select: { id: true, documentIssuedCountry: true },
-      });
-
-      if (lead) {
-        const leadCountry = (lead.documentIssuedCountry ?? "").trim();
-        const selectedCountry = (input.documentIssuedCountry ?? "").trim();
-
-        if (selectedCountry && selectedCountry !== leadCountry) {
-          countryChangedFromLead = {
-            previous: leadCountry || "N/A",
-            new: selectedCountry,
-          };
-
-          // 1. Update linked Lead in the same transaction
-          await tx.lead.update({
-            where: { id: lead.id },
-            data: { documentIssuedCountry: selectedCountry },
-          });
-
-          // 2. Lead Audit log
-          await tx.leadFollowupHistory.create({
-            data: {
-              leadId: lead.id,
-              actionType: FollowupActionType.Rescheduled,
-              description: `Field: Document Issued Country | Old: ${leadCountry || "N/A"} | New: ${selectedCountry} | Updated From: Revenue Registration | Updated By: ${performedBy ?? "Current User"}`,
-              userId: userId ?? null,
-              ownerAdminId,
-            },
-          });
-        }
-      }
-    }
-
-    // 3. Create Revenue Registration
-    // Newly registered documents always start with trackingStatus "Registered" and movement status "REGISTRATION"
-    // They may only enter "Document In Hand" (status "HOME") upon approval:
-    // Route 1: Advance Payment Approval (for advance > 0)
-    // Route 2: Movement Approval (for zero advance)
-    const initialTrackingStatus = "Registered";
-    const initialMovementStatus = "REGISTRATION";
-
-    const reg = await tx.registration.create({
-      data: {
-        ...buildRegistrationData(
-          { ...input, regionOfRegistration: sourceOfficeName, regionOfRegistrationId: sourceOffice?.id },
-          { approvedAdvance: 0 },
-        ),
-        regionOfRegistrationId: sourceOffice?.id ?? null,
-        movementApproved: false,
-        trackingStatus: initialTrackingStatus,
-        welcomeCallStatus: "Pending",
-        ownerAdminId,
-        createdBy: userId ?? null,
-        bmStatus: isHomeDelivery ? "Accepted" : "Pending",
-        acceptedAt: isHomeDelivery ? new Date() : null,
-        acceptedBy: isHomeDelivery ? (performedBy ?? null) : null,
-        auditTrail: {
-          create: [
-            {
-              action: "Registration created",
-              description: `Registration ${input.trackingNumber} was created.`,
-              performedBy: performedBy ?? null,
-            },
-            ...(countryChangedFromLead
-              ? [
-                {
-                  action: "Document Issued Country updated",
-                  description: `Field: Document Issued Country | Old: ${countryChangedFromLead.previous} | New: ${countryChangedFromLead.new} | Changed By: ${performedBy ?? "Current User"}`,
-                  performedBy: performedBy ?? null,
-                },
-              ]
-              : []),
-          ],
-        },
-        documentMovements: {
-          create: {
-            trackingNumber: input.trackingNumber,
-            currentOfficeId: sourceOffice?.id ?? null,
-            currentModule: "REGISTRATION",
-            status: initialMovementStatus,
-            currentStatus: initialTrackingStatus,
-            movementType: "INITIAL",
-            createdBy: performedBy ?? null,
-            originOfficeId: sourceOffice?.id ?? null,
-            processChain: [],
-          },
-        },
-      },
-      include: registrationInclude,
+    return createRegistrationRecord(tx, input, {
+      ownerAdminId,
+      sourceOfficeName,
+      sourceOfficeId: sourceOffice.id,
+      performedBy,
+      userId,
+      syncLeadCountry: true,
     });
-
-    await tx.movementHistory.create({
-      data: {
-        trackingNumber: input.trackingNumber,
-        action: "Created",
-        newStatus: initialMovementStatus,
-        newOffice: sourceOfficeName,
-        performedBy: performedBy ?? null,
-      },
-    });
-
-    return reg;
-  }, { timeout: 20000 });
+  }, { timeout: 30000, maxWait: 10000 });
 
   logRegistrationWorkflow("Created registration.", {
     trackingNumber: registrationResult.trackingNumber,
@@ -719,6 +758,270 @@ export async function createRegistration(
   });
 
   return mapRegistration(reloaded || registrationResult);
+}
+
+export async function createRegistrationBatch(params: {
+  ownerAdminId: string;
+  leadId: string;
+  documents: BatchDocumentItemInput[];
+  sourceOfficeName: string;
+  performedBy?: string;
+  userId?: string;
+  user?: any;
+}) {
+  const { ownerAdminId, leadId, documents, sourceOfficeName, performedBy, userId, user } = params;
+
+  if (!sourceOfficeName.trim()) {
+    throw new Error("Office location is required to create registrations.");
+  }
+
+  if (!documents || documents.length === 0) {
+    throw new Error("At least one document is required.");
+  }
+
+  // 1. Authoritative Lead validation
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, ownerAdminId },
+    include: {
+      corporateDetail: true,
+      creator: {
+        select: {
+          officeLocationId: true,
+          officeLocationName: true,
+        },
+      },
+    },
+  });
+
+  if (!lead) {
+    const error = new Error("Lead not found.");
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (lead.leadStatus !== "Closed") {
+    const error = new Error("Only Closed leads can be registered for revenue.");
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  // 2. Data scope / office visibility check
+  if (user && !user.isSuperAdmin) {
+    const allowedOfficeIds = user.allowedOfficeIds ?? null;
+    if (allowedOfficeIds !== null) {
+      const leadOfficeId = lead.creator?.officeLocationId;
+      if (leadOfficeId && !allowedOfficeIds.includes(leadOfficeId)) {
+        const error = new Error("You do not have permission to access leads from this office location.");
+        (error as any).statusCode = 403;
+        throw error;
+      }
+    }
+  }
+
+  // 3. Normalize tracking numbers and check duplicates inside submitted array
+  const normalizedDocs = documents.map((doc) => ({
+    ...doc,
+    trackingNumber: (doc.trackingNumber || "").trim(),
+  }));
+
+  const seenTrackingNumbers = new Set<string>();
+  for (const doc of normalizedDocs) {
+    if (!doc.trackingNumber) {
+      throw new Error("Tracking number cannot be empty.");
+    }
+    const lower = doc.trackingNumber.toLowerCase();
+    if (seenTrackingNumbers.has(lower)) {
+      const error = new Error(`Tracking number ${doc.trackingNumber} is duplicated within the batch.`);
+      (error as any).statusCode = 409;
+      throw error;
+    }
+    seenTrackingNumbers.add(lower);
+
+    // Validate advance <= total
+    const reqAdvance = Number(doc.requestedAdvanceAmount ?? doc.advancePaid ?? 0);
+    const totalCharges = Number(doc.totalCharges ?? 0);
+    if (reqAdvance > totalCharges) {
+      throw new Error(`Document with tracking number ${doc.trackingNumber}: advance amount cannot exceed Total Charges.`);
+    }
+  }
+
+  // 4. Check duplicate tracking numbers against database BEFORE any write
+  const existingRegistrations = await prisma.registration.findMany({
+    where: {
+      trackingNumber: {
+        in: normalizedDocs.map((d) => d.trackingNumber),
+      },
+    },
+    select: { trackingNumber: true },
+  });
+
+  if (existingRegistrations.length > 0) {
+    const error = new Error(`Tracking number ${existingRegistrations[0].trackingNumber} is already assigned to another document.`);
+    (error as any).statusCode = 409;
+    throw error;
+  }
+
+  // 5. Source office check / create
+  let sourceOffice = await prisma.officeLocation.findFirst({
+    where: { officeName: sourceOfficeName, ownerAdminId },
+    select: { id: true },
+  });
+
+  if (!sourceOffice) {
+    sourceOffice = await prisma.officeLocation.create({
+      data: {
+        officeName: sourceOfficeName,
+        location: "Office",
+        timezone: "UTC",
+        ownerAdminId,
+      },
+      select: { id: true },
+    });
+  }
+
+  // 6. Generate unique batch number: RB-TIMESTAMP-RANDOM
+  const randomSuffix = randomBytes(3).toString("hex").toUpperCase();
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const batchNumber = `RB-${timestamp}-${randomSuffix}`;
+
+  // Shared customer data snapshot from authoritative Lead record
+  const sharedCustomerData = {
+    customerName: [lead.firstName, lead.lastName].filter(Boolean).join(" "),
+    mobile: `${lead.countryCode} ${lead.mobileNumber}`.trim(),
+    email: lead.email,
+    country: lead.country,
+    state: lead.state ?? null,
+    customerType: lead.clientType ?? null,
+    corporateDetailId: lead.corporateDetailId ?? null,
+  };
+
+  // 7. Transaction: create RegistrationBatch and all Registrations
+  const transactionResult = await prisma.$transaction(
+    async (tx) => {
+      const batch = await tx.registrationBatch.create({
+        data: {
+          batchNumber,
+          leadId: lead.id,
+          ownerAdminId,
+          createdBy: userId ?? null,
+        },
+      });
+
+      const createdList: { draftId: string; reg: any; requestedAdvance: number; docInput: any }[] = [];
+
+      for (const doc of normalizedDocs) {
+        const fullInput: RegistrationInput = {
+          trackingNumber: doc.trackingNumber,
+          customerName: sharedCustomerData.customerName || "",
+          mobile: sharedCustomerData.mobile || "",
+          email: sharedCustomerData.email || "",
+          address: "",
+          country: sharedCustomerData.country || "",
+          state: sharedCustomerData.state || "",
+          city: "",
+          customerType: sharedCustomerData.customerType || "",
+          corporateDetailId: sharedCustomerData.corporateDetailId || "",
+          documentType: doc.documentType || "",
+          documentName: doc.documentName || "",
+          documentIssuedCountry: doc.documentIssuedCountry || "",
+          processType: doc.processType || "",
+          subPackage: doc.subPackage || "",
+          externalProcess: doc.externalProcess || "",
+          priority: doc.priority || "",
+          committedDuration: doc.committedDuration || "",
+          deliveryLocation: doc.deliveryLocation || "",
+          totalCharges: doc.totalCharges || 0,
+          advancePaid: doc.advancePaid || 0,
+          requestedAdvanceAmount: doc.requestedAdvanceAmount || 0,
+          paymentMode: doc.paymentMode || "",
+          upiTransactionId: doc.upiTransactionId || "",
+          bankName: doc.bankName || "",
+          transactionRefNo: doc.transactionRefNo || "",
+          transferDate: doc.transferDate || "",
+          chequeNumber: doc.chequeNumber || "",
+          chequeDate: doc.chequeDate || "",
+          ddNumber: doc.ddNumber || "",
+          ddDate: doc.ddDate || "",
+          cardLast4: doc.cardLast4 || "",
+          approvalCode: doc.approvalCode || "",
+          paymentGateway: doc.paymentGateway || "",
+          onlineTransactionId: doc.onlineTransactionId || "",
+          walletName: doc.walletName || "",
+          walletTransactionId: doc.walletTransactionId || "",
+          paymentReferenceNo: doc.paymentReferenceNo || "",
+          paymentDescription: doc.paymentDescription || "",
+          paymentStatus: "Pending",
+          collectedPerson: doc.collectedPerson || "",
+          commissionToUserId: doc.commissionToUserId || "",
+          commissionToName: doc.commissionToName || "",
+          commissionToEmail: doc.commissionToEmail || "",
+          registeredPerson: doc.registeredPerson || "",
+          regionOfRegistration: sourceOfficeName,
+          regionOfRegistrationId: sourceOffice.id,
+          approvalStatus: "Pending",
+          trackingStatus: "Registered",
+          leadId: lead.id,
+        };
+
+        const reg = await createRegistrationRecord(tx, fullInput, {
+          ownerAdminId,
+          sourceOfficeName,
+          sourceOfficeId: sourceOffice.id,
+          performedBy,
+          userId,
+          registrationBatchId: batch.id,
+          batchNumber: batch.batchNumber,
+          syncLeadCountry: false, // In batch mode, do NOT repeatedly overwrite Lead country
+        });
+
+        const reqAdv = Number(doc.requestedAdvanceAmount ?? doc.advancePaid ?? 0);
+        createdList.push({
+          draftId: doc.draftId,
+          reg,
+          requestedAdvance: reqAdv,
+          docInput: doc,
+        });
+      }
+
+      return {
+        batch,
+        createdList,
+      };
+    },
+    { timeout: 30000, maxWait: 10000 },
+  );
+
+  // 8. Post-transaction: Submit advance payment approval for each registration with requested advance > 0
+  for (const item of transactionResult.createdList) {
+    if (item.requestedAdvance > 0) {
+      await submitAdvancePaymentApproval({
+        ownerAdminId,
+        registrationId: item.reg.id,
+        advanceAmount: item.requestedAdvance,
+        paymentDate: new Date(),
+        paymentMode: item.docInput.paymentMode || "Cash",
+        referenceNumber: item.docInput.transactionRefNo || item.docInput.upiTransactionId || null,
+        collectedBy: item.docInput.collectedPerson || null,
+        performedByUserId: userId,
+      }).catch((err) =>
+        console.error(`[registration] Advance payment approval error for ${item.reg.trackingNumber}:`, err),
+      );
+    }
+  }
+
+  return {
+    success: true,
+    batch: {
+      id: transactionResult.batch.id,
+      batchNumber: transactionResult.batch.batchNumber,
+      leadId: lead.id,
+    },
+    registrations: transactionResult.createdList.map((item) => ({
+      draftId: item.draftId,
+      id: item.reg.id,
+      trackingNumber: item.reg.trackingNumber,
+    })),
+  };
 }
 
 export async function updateRegistration(
