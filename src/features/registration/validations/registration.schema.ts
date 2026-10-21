@@ -113,7 +113,63 @@ export const registrationInputSchema = z.object({
   path: ["requestedAdvanceAmount"],
 });
 
-export type RegistrationInput = z.infer<typeof registrationInputSchema>;
+export type RegistrationSchemaType = z.infer<typeof registrationInputSchema>;
+export type RegistrationInput = {
+  trackingNumber: string;
+  customerName?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  customerType?: string;
+  corporateDetailId?: string;
+  documentType?: string;
+  documentName?: string;
+  documentIssuedCountry?: string;
+  processType?: string;
+  subPackage?: string;
+  externalProcess?: string;
+  priority?: string;
+  committedDuration?: string;
+  deliveryLocation?: string;
+  totalCharges?: number;
+  advancePaid?: number;
+  requestedAdvanceAmount?: number;
+  paymentMode?: string;
+  upiTransactionId?: string;
+  bankName?: string;
+  transactionRefNo?: string;
+  transferDate?: string;
+  chequeNumber?: string;
+  chequeDate?: string;
+  ddNumber?: string;
+  ddDate?: string;
+  cardLast4?: string;
+  approvalCode?: string;
+  paymentGateway?: string;
+  onlineTransactionId?: string;
+  walletName?: string;
+  walletTransactionId?: string;
+  paymentReferenceNo?: string;
+  paymentDescription?: string;
+  paymentStatus?: string;
+  collectedPerson?: string;
+  commissionToUserId?: string;
+  commissionToName?: string;
+  commissionToEmail?: string;
+  registeredPerson?: string;
+  regionOfRegistration?: string;
+  regionOfRegistrationId?: string;
+  approvalStatus?: (typeof approvalStatusOptions)[number];
+  trackingStatus?: string;
+  leadId?: string;
+  documentFileIds?: string[];
+  invoiceFileIds?: string[];
+  supportingFileIds?: string[];
+  advancePaymentFileIds?: string[];
+};
 
 export const documentItemInputSchema = z.object({
   trackingNumber: requiredText("Tracking number"),
@@ -168,7 +224,53 @@ export const documentItemInputSchema = z.object({
   path: ["requestedAdvanceAmount"],
 });
 
-export type DocumentItemInput = z.infer<typeof documentItemInputSchema>;
+export type DocumentItemSchemaType = z.infer<typeof documentItemInputSchema>;
+export type DocumentItemInput = {
+  trackingNumber: string;
+  documentType?: string;
+  documentName?: string;
+  documentIssuedCountry?: string;
+  processType?: string;
+  subPackage?: string;
+  externalProcess?: string;
+  priority?: string;
+  committedDuration?: string;
+  deliveryLocation?: string;
+  totalCharges?: number;
+  advancePaid?: number;
+  requestedAdvanceAmount?: number;
+  paymentMode?: string;
+  upiTransactionId?: string;
+  bankName?: string;
+  transactionRefNo?: string;
+  transferDate?: string;
+  chequeNumber?: string;
+  chequeDate?: string;
+  ddNumber?: string;
+  ddDate?: string;
+  cardLast4?: string;
+  approvalCode?: string;
+  paymentGateway?: string;
+  onlineTransactionId?: string;
+  walletName?: string;
+  walletTransactionId?: string;
+  paymentReferenceNo?: string;
+  paymentDescription?: string;
+  paymentStatus?: string;
+  collectedPerson?: string;
+  commissionToUserId?: string;
+  commissionToName?: string;
+  commissionToEmail?: string;
+  registeredPerson?: string;
+  regionOfRegistration?: string;
+  regionOfRegistrationId?: string;
+  approvalStatus?: (typeof approvalStatusOptions)[number];
+  trackingStatus?: string;
+  documentFileIds?: string[];
+  invoiceFileIds?: string[];
+  supportingFileIds?: string[];
+  advancePaymentFileIds?: string[];
+};
 
 export const sharedCustomerInputSchema = z.object({
   leadId: optionalText,
@@ -183,7 +285,19 @@ export const sharedCustomerInputSchema = z.object({
   corporateDetailId: optionalText,
 });
 
-export type SharedCustomerInput = z.infer<typeof sharedCustomerInputSchema>;
+export type SharedCustomerSchemaType = z.infer<typeof sharedCustomerInputSchema>;
+export type SharedCustomerInput = {
+  leadId?: string;
+  customerName?: string;
+  mobile?: string;
+  email?: string;
+  address?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  customerType?: string;
+  corporateDetailId?: string;
+};
 
 export const multiRegistrationInputSchema = z.object({
   shared: sharedCustomerInputSchema,
@@ -201,5 +315,9 @@ export const multiRegistrationInputSchema = z.object({
   path: ["documents"],
 });
 
-export type MultiRegistrationInput = z.infer<typeof multiRegistrationInputSchema>;
+export type MultiRegistrationSchemaType = z.infer<typeof multiRegistrationInputSchema>;
+export type MultiRegistrationInput = {
+  shared: SharedCustomerInput;
+  documents: DocumentItemInput[];
+};
 
