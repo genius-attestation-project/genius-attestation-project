@@ -97,8 +97,78 @@ export type Registration = {
   createdDate: string;
   files: RegistrationFileItem[];
   auditTrail: AuditTrailItem[];
+  registrationBatchId?: string | null;
+  linkedDocuments?: Array<{
+    id: string;
+    trackingNumber: string;
+    documentType: string | null;
+    documentName: string | null;
+    trackingStatus: string;
+    approvalStatus: string;
+  }>;
+  linkedDocumentsCount?: number;
   hasPendingEditRequest?: boolean;
   pendingEditRequestId?: string | null;
+};
+
+export type SharedCustomerState = {
+  leadId: string;
+  customerName: string;
+  mobile: string;
+  email: string;
+  address: string;
+  country: string;
+  state: string;
+  city: string;
+  customerType: string;
+  corporateDetailId: string;
+};
+
+export type DocumentFormState = {
+  clientId: string;
+  trackingNumber: string;
+  documentType: string;
+  documentName: string;
+  documentIssuedCountry: string;
+  processType: string;
+  subPackage: string;
+  externalProcess: string;
+  priority: string;
+  committedDuration: string;
+  deliveryLocation: string;
+  totalCharges: string;
+  advancePaid: string;
+  requestedAdvanceAmount?: string;
+  paymentMode: string;
+  upiTransactionId?: string;
+  bankName?: string;
+  transactionRefNo?: string;
+  transferDate?: string;
+  chequeNumber?: string;
+  chequeDate?: string;
+  ddNumber?: string;
+  ddDate?: string;
+  cardLast4?: string;
+  approvalCode?: string;
+  paymentGateway?: string;
+  onlineTransactionId?: string;
+  walletName?: string;
+  walletTransactionId?: string;
+  paymentReferenceNo?: string;
+  paymentDescription?: string;
+  collectedPerson: string;
+  commissionToUserId: string;
+  commissionToName: string;
+  commissionToEmail: string;
+  registeredPerson: string;
+  regionOfRegistration: string;
+  regionOfRegistrationId?: string;
+  approvalStatus: "Pending" | "Approved" | "Accepted" | "Rejected";
+  trackingStatus: string;
+  documentFileIds: string[];
+  invoiceFileIds: string[];
+  supportingFileIds: string[];
+  advancePaymentFileIds: string[];
 };
 
 export type RegistrationFormState = {

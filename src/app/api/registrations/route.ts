@@ -3,8 +3,8 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
-import { bulkDeleteRegistrations, createRegistration, listRegistrations } from "@/features/registration/server/registration.service";
-import { registrationInputSchema } from "@/features/registration/validations/registration.schema";
+import { bulkDeleteRegistrations, createRegistration, createRegistrationsInTransaction, listRegistrations } from "@/features/registration/server/registration.service";
+import { registrationInputSchema, multiRegistrationInputSchema, SharedCustomerInput, DocumentItemInput } from "@/features/registration/validations/registration.schema";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { NextRequest } from "next/server";
 
@@ -119,19 +119,55 @@ export async function POST(request: NextRequest) {
       return jsonError("You do not have permission to create revenue registrations.", 403);
     }
 
-    const parsed = registrationInputSchema.safeParse(body);
+    let normalizedPayload: {
+      shared: SharedCustomerInput;
+      documents: DocumentItemInput[];
+    };
 
-    if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
-      const fieldPath = firstIssue?.path.join(".");
-      console.error("[POST /api/registrations] Validation error:", {
-        issues: parsed.error.issues,
-        receivedBody: body,
-      });
-      const errorMsg = fieldPath
-        ? `${fieldPath}: ${firstIssue.message}`
-        : firstIssue?.message ?? "Invalid registration payload.";
-      return jsonError(errorMsg, 400);
+    if (body && Array.isArray(body.documents)) {
+      const parsedMulti = multiRegistrationInputSchema.safeParse(body);
+      if (!parsedMulti.success) {
+        const firstIssue = parsedMulti.error.issues[0];
+        const fieldPath = firstIssue?.path.join(".");
+        console.error("[POST /api/registrations] Multi-registration validation error:", {
+          issues: parsedMulti.error.issues,
+          receivedBody: body,
+        });
+        const errorMsg = fieldPath
+          ? `${fieldPath}: ${firstIssue.message}`
+          : firstIssue?.message ?? "Invalid registration payload.";
+        return jsonError(errorMsg, 400);
+      }
+      normalizedPayload = parsedMulti.data;
+    } else {
+      const parsedSingle = registrationInputSchema.safeParse(body);
+      if (!parsedSingle.success) {
+        const firstIssue = parsedSingle.error.issues[0];
+        const fieldPath = firstIssue?.path.join(".");
+        console.error("[POST /api/registrations] Single registration validation error:", {
+          issues: parsedSingle.error.issues,
+          receivedBody: body,
+        });
+        const errorMsg = fieldPath
+          ? `${fieldPath}: ${firstIssue.message}`
+          : firstIssue?.message ?? "Invalid registration payload.";
+        return jsonError(errorMsg, 400);
+      }
+      normalizedPayload = {
+        shared: {
+          leadId: parsedSingle.data.leadId,
+          customerName: parsedSingle.data.customerName,
+          mobile: parsedSingle.data.mobile,
+          email: parsedSingle.data.email,
+          address: parsedSingle.data.address,
+          country: parsedSingle.data.country,
+          state: parsedSingle.data.state,
+          city: parsedSingle.data.city,
+          customerType: parsedSingle.data.customerType,
+          corporateDetailId: parsedSingle.data.corporateDetailId,
+        },
+        documents: [parsedSingle.data],
+      };
     }
 
     const sourceOfficeName = await resolveOfficeLocationName({
@@ -150,11 +186,25 @@ export async function POST(request: NextRequest) {
 
     const performedBy = session.user?.name ?? session.user?.email ?? undefined;
     const userId = session.user?.id;
-    const registration = await createRegistration(ownerAdminId, parsed.data, sourceOfficeName, performedBy, userId);
-    return jsonOk({ registration }, 201);
+    const registrations = await createRegistrationsInTransaction(
+      ownerAdminId,
+      normalizedPayload,
+      sourceOfficeName,
+      performedBy,
+      userId,
+    );
+
+    return jsonOk({
+      registration: registrations[0],
+      registrations,
+    }, 201);
   } catch (error) {
     if (error instanceof Error && error.message === "Office location is required to create a registration.") {
       return jsonError(error.message, 400);
+    }
+
+    if (error instanceof Error && (error.message.includes("already exists") || error.message.includes("already used") || error.message.includes("is duplicated"))) {
+      return jsonError(error.message, 409);
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

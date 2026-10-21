@@ -283,6 +283,7 @@ model Lead {
   updatedAt              DateTime       @updatedAt
 
   registrations Registration[]
+  registrationBatches RegistrationBatch[]
 
   statusHistory     LeadStatusHistory[]
   assignmentHistory LeadAssignmentHistory[]
@@ -488,6 +489,9 @@ model Registration {
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
+  registrationBatchId    String?            @map("registration_batch_id")
+  registrationBatch      RegistrationBatch? @relation(fields: [registrationBatchId], references: [id], onDelete: SetNull)
+
   files                   RegistrationFile[]
   auditTrail              AuditTrail[]
   paymentUpdates          PaymentUpdate[]
@@ -512,7 +516,25 @@ model Registration {
   @@index([isBmLocked])
   @@index([ownerAdminId, paymentStatus])
   @@index([ownerAdminId, trackingStatus])
+  @@index([registrationBatchId])
   @@map("registrations")
+}
+
+model RegistrationBatch {
+  id           String         @id @default(cuid())
+  batchNumber  String         @unique @map("batch_number")
+  leadId       String?        @map("lead_id")
+  lead         Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  ownerAdminId String         @map("owner_admin_id")
+  createdBy    String?        @map("created_by")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  registrations Registration[]
+
+  @@index([leadId])
+  @@index([ownerAdminId])
+  @@map("registration_batches")
 }
 
 model PaymentUpdate {

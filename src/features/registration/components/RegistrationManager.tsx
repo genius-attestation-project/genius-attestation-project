@@ -25,6 +25,7 @@ import {
   Clock,
   AlertCircle,
   Building2,
+  Files,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
@@ -51,7 +52,7 @@ import { ImportRegistrationWizard } from "@/features/registration/components/Imp
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { AddAdvanceModal } from "@/features/revenue/components/AddAdvanceModal";
 import { RequestMovementApprovalModal } from "@/features/registration/components/RequestMovementApprovalModal";
-import type { Registration, RegistrationFormState } from "@/features/registration/types/registration.types";
+import type { Registration, RegistrationFormState, SharedCustomerState, DocumentFormState } from "@/features/registration/types/registration.types";
 import {
   paymentStatusOptions,
   registrationInputSchema,
@@ -525,6 +526,129 @@ export function RegistrationManager({
   const [invoiceFileIds, setInvoiceFileIds] = useState<string[]>([]);
   const [supportingFileIds, setSupportingFileIds] = useState<string[]>([]);
   const [advancePaymentFileIds, setAdvancePaymentFileIds] = useState<string[]>([]);
+  const defaultSharedCustomer: SharedCustomerState = useMemo(() => ({
+    leadId: initialLeadId || "",
+    customerName: "",
+    mobile: "",
+    email: "",
+    address: "",
+    country: "",
+    state: "",
+    city: "",
+    customerType: "",
+    corporateDetailId: "",
+  }), [initialLeadId]);
+
+  const [sharedCustomer, setSharedCustomer] = useState<SharedCustomerState>(defaultSharedCustomer);
+
+  function createBlankDocument(
+    clientId: string,
+    officeName?: string,
+    userName?: string,
+    initTracking = ""
+  ): DocumentFormState {
+    return {
+      clientId,
+      trackingNumber: initTracking,
+      documentType: "",
+      documentName: "",
+      documentIssuedCountry: "",
+      processType: "",
+      subPackage: "",
+      externalProcess: "",
+      priority: "",
+      committedDuration: "",
+      deliveryLocation: "",
+      totalCharges: "",
+      advancePaid: "0",
+      requestedAdvanceAmount: "0",
+      paymentMode: "",
+      upiTransactionId: "",
+      bankName: "",
+      transactionRefNo: "",
+      transferDate: "",
+      chequeNumber: "",
+      chequeDate: "",
+      ddNumber: "",
+      ddDate: "",
+      cardLast4: "",
+      approvalCode: "",
+      paymentGateway: "",
+      onlineTransactionId: "",
+      walletName: "",
+      walletTransactionId: "",
+      paymentReferenceNo: "",
+      paymentDescription: "",
+      collectedPerson: "",
+      commissionToUserId: "",
+      commissionToName: "",
+      commissionToEmail: "",
+      registeredPerson: userName || currentUserName || "",
+      regionOfRegistration: officeName || currentOfficeLocationName || "",
+      regionOfRegistrationId: "",
+      approvalStatus: "Pending",
+      trackingStatus: "Registered",
+      documentFileIds: [],
+      invoiceFileIds: [],
+      supportingFileIds: [],
+      advancePaymentFileIds: [],
+    };
+  }
+
+  const [documents, setDocuments] = useState<DocumentFormState[]>([
+    createBlankDocument("doc-1", currentOfficeLocationName, currentUserName, initialTrackingNumber),
+  ]);
+
+  const [activeAdvanceDocIndex, setActiveAdvanceDocIndex] = useState<number | null>(null);
+
+  const [linkedDocsModal, setLinkedDocsModal] = useState<{
+    customerName: string | null;
+    documents: Array<{
+      id: string;
+      trackingNumber: string;
+      documentType: string | null;
+      documentName: string | null;
+      trackingStatus: string;
+      approvalStatus: string;
+    }>;
+  } | null>(null);
+
+  function addDocument() {
+    setDocuments((prev) => [
+      ...prev,
+      createBlankDocument(
+        `doc-${Date.now()}-${prev.length + 1}`,
+        currentOfficeLocationName,
+        currentUserName
+      ),
+    ]);
+  }
+
+  function removeDocument(index: number) {
+    if (documents.length <= 1) return;
+    setDocuments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateDocumentField<K extends keyof DocumentFormState>(
+    index: number,
+    field: K,
+    value: DocumentFormState[K]
+  ) {
+    setDocuments((prev) => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], [field]: value };
+      }
+      return next;
+    });
+  }
+
+  function updateSharedCustomer<K extends keyof SharedCustomerState>(
+    field: K,
+    value: SharedCustomerState[K]
+  ) {
+    setSharedCustomer((prev) => ({ ...prev, [field]: value }));
+  }
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -853,12 +977,39 @@ export function RegistrationManager({
         .then((data) => {
           if (data.lead) {
             const lead = data.lead;
+            const customerName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+            const mobile = `${lead.countryCode || ""}${lead.mobileNumber || ""}`.trim();
+
+            setSharedCustomer({
+              leadId: lead.id,
+              customerName,
+              mobile,
+              email: lead.email || "",
+              address: lead.address || "",
+              country: lead.country || "",
+              state: lead.state || "",
+              city: lead.city || "",
+              customerType: lead.clientType || "",
+              corporateDetailId: lead.corporateDetailId || "",
+            });
+
+            setDocuments([
+              {
+                ...createBlankDocument("doc-1", currentOfficeLocationName, currentUserName, initialTrackingNumber),
+                documentType: lead.docType || "",
+                documentName: lead.documentName || "",
+                documentIssuedCountry: lead.documentIssuedCountry || "",
+                processType: lead.service || "",
+              },
+            ]);
+
             setForm((prev) => ({
               ...prev,
               leadId: lead.id,
-              customerName: [lead.firstName, lead.lastName].filter(Boolean).join(" "),
-              mobile: `${lead.countryCode}${lead.mobileNumber}`,
+              customerName,
+              mobile,
               email: lead.email || "",
+              address: lead.address || "",
               country: lead.country || "",
               state: lead.state || "",
               documentType: lead.docType || "",
@@ -1052,6 +1203,13 @@ export function RegistrationManager({
       regionOfRegistration: currentOfficeLocationName,
       registeredPerson: currentUserName,
     });
+    setSharedCustomer({
+      ...defaultSharedCustomer,
+    });
+    setDocuments([
+      createBlankDocument("doc-1", currentOfficeLocationName, currentUserName, initialTrackingNumber),
+    ]);
+    setActiveAdvanceDocIndex(null);
     setDocumentFileIds([]);
     setInvoiceFileIds([]);
     setSupportingFileIds([]);
@@ -1119,40 +1277,155 @@ export function RegistrationManager({
         return;
       }
 
-      const payload = { ...form };
-      const parsed = registrationInputSchema.safeParse(payload);
+      if (selected) {
+        // Edit mode (strictly one registration)
+        const payload = { ...form };
+        const parsed = registrationInputSchema.safeParse(payload);
 
-      if (!parsed.success) {
-        const firstIssue = parsed.error.issues[0];
-        const fieldPath = firstIssue?.path.join(".");
-        console.error("[RegistrationManager] Form validation error:", {
-          issues: parsed.error.issues,
-          payload,
+        if (!parsed.success) {
+          const firstIssue = parsed.error.issues[0];
+          const fieldPath = firstIssue?.path.join(".");
+          console.error("[RegistrationManager] Form validation error:", {
+            issues: parsed.error.issues,
+            payload,
+          });
+          const errorMsg = fieldPath
+            ? `${fieldPath}: ${firstIssue.message}`
+            : firstIssue?.message ?? "Please complete all required fields.";
+          setError(errorMsg);
+          return;
+        }
+
+        const response = await fetch(`/api/registrations/${selected.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parsed.data),
         });
-        const errorMsg = fieldPath
-          ? `${fieldPath}: ${firstIssue.message}`
-          : firstIssue?.message ?? "Please complete all required fields.";
-        setError(errorMsg);
+        const data = await parseResponse(response);
+        if (data.registration?.id) {
+          await uploadSelectedFiles(data.registration.id);
+        }
+        setSuccess(
+          data.message || "Edit approval request submitted. The document will update once approved."
+        );
+        setDrawerMode(null);
+        await fetchRegistrations();
+        router.push("/dashboard/revenue-registration");
         return;
       }
 
-      const hasDocumentFile = documentFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "DOCUMENT"));
-      const hasInvoiceFile = invoiceFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL"));
-      const hasSupportingFile = supportingFileIds.length > 0 || Boolean(selected?.files.some((f) => f.fileCategory === "SUPPORTING_DOCUMENT"));
-
-      const response = await fetch(selected ? `/api/registrations/${selected.id}` : "/api/registrations", {
-        method: selected ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-      const data = await parseResponse(response);
-      if (data.registration?.id) {
-        await uploadSelectedFiles(data.registration.id);
+      // Create mode (one or multiple independent documents)
+      if (documents.length === 0) {
+        setError("At least one document is required.");
+        return;
       }
+
+      if (!sharedCustomer.customerName?.trim() && !sharedCustomer.mobile?.trim()) {
+        setError("Customer Name or Mobile Number is required.");
+        return;
+      }
+
+      const trackingSet = new Set<string>();
+      for (let i = 0; i < documents.length; i++) {
+        const doc = documents[i];
+        const docLabel = `Document ${i + 1}`;
+        const trk = (doc.trackingNumber || "").trim();
+
+        if (!trk) {
+          setError(`${docLabel}: Tracking Number is required.`);
+          return;
+        }
+
+        if (trackingSet.has(trk.toLowerCase())) {
+          setError(`Tracking Number "${trk}" is duplicated in this submission (${docLabel}). Each document must have a unique Tracking Number.`);
+          return;
+        }
+        trackingSet.add(trk.toLowerCase());
+
+        const totalChargesNum = Number(doc.totalCharges || 0);
+        const advanceNum = Number(doc.advancePaid || 0);
+        const reqAdvanceNum = Number(doc.requestedAdvanceAmount || 0);
+
+        if (advanceNum > totalChargesNum) {
+          setError(`${docLabel}: Advance payment (₹${advanceNum}) cannot exceed total charges (₹${totalChargesNum}).`);
+          return;
+        }
+        if (reqAdvanceNum > totalChargesNum) {
+          setError(`${docLabel}: Requested advance (₹${reqAdvanceNum}) cannot exceed total charges (₹${totalChargesNum}).`);
+          return;
+        }
+      }
+
+      const multiPayload = {
+        shared: {
+          leadId: sharedCustomer.leadId || undefined,
+          customerName: sharedCustomer.customerName.trim(),
+          mobile: sharedCustomer.mobile.trim(),
+          email: sharedCustomer.email?.trim() || undefined,
+          address: sharedCustomer.address?.trim() || undefined,
+          country: sharedCustomer.country?.trim() || undefined,
+          state: sharedCustomer.state?.trim() || undefined,
+          city: sharedCustomer.city?.trim() || undefined,
+          customerType: sharedCustomer.customerType || undefined,
+          corporateDetailId: sharedCustomer.corporateDetailId || undefined,
+        },
+        documents: documents.map((doc) => ({
+          trackingNumber: doc.trackingNumber.trim(),
+          documentType: doc.documentType || undefined,
+          documentName: doc.documentName?.trim() || undefined,
+          documentIssuedCountry: doc.documentIssuedCountry || undefined,
+          processType: doc.processType || undefined,
+          subPackage: doc.subPackage?.trim() || undefined,
+          externalProcess: doc.externalProcess?.trim() || undefined,
+          priority: doc.priority || undefined,
+          committedDuration: doc.committedDuration?.trim() || undefined,
+          deliveryLocation: doc.deliveryLocation || undefined,
+          totalCharges: doc.totalCharges ? Number(doc.totalCharges) : 0,
+          advancePaid: doc.advancePaid ? Number(doc.advancePaid) : 0,
+          requestedAdvanceAmount: doc.requestedAdvanceAmount ? Number(doc.requestedAdvanceAmount) : 0,
+          paymentMode: doc.paymentMode || undefined,
+          upiTransactionId: doc.upiTransactionId || undefined,
+          bankName: doc.bankName || undefined,
+          transactionRefNo: doc.transactionRefNo || undefined,
+          transferDate: doc.transferDate ? new Date(doc.transferDate).toISOString() : undefined,
+          chequeNumber: doc.chequeNumber || undefined,
+          chequeDate: doc.chequeDate ? new Date(doc.chequeDate).toISOString() : undefined,
+          ddNumber: doc.ddNumber || undefined,
+          ddDate: doc.ddDate ? new Date(doc.ddDate).toISOString() : undefined,
+          cardLast4: doc.cardLast4 || undefined,
+          approvalCode: doc.approvalCode || undefined,
+          paymentGateway: doc.paymentGateway || undefined,
+          onlineTransactionId: doc.onlineTransactionId || undefined,
+          walletName: doc.walletName || undefined,
+          walletTransactionId: doc.walletTransactionId || undefined,
+          paymentReferenceNo: doc.paymentReferenceNo || undefined,
+          paymentDescription: doc.paymentDescription || undefined,
+          collectedPerson: doc.collectedPerson || undefined,
+          commissionToUserId: doc.commissionToUserId || undefined,
+          commissionToName: doc.commissionToName || undefined,
+          commissionToEmail: doc.commissionToEmail || undefined,
+          registeredPerson: doc.registeredPerson || currentUserName || undefined,
+          regionOfRegistration: doc.regionOfRegistration || currentOfficeLocationName || undefined,
+          regionOfRegistrationId: doc.regionOfRegistrationId || undefined,
+          documentFileIds: doc.documentFileIds || [],
+          invoiceFileIds: doc.invoiceFileIds || [],
+          supportingFileIds: doc.supportingFileIds || [],
+          advancePaymentFileIds: doc.advancePaymentFileIds || [],
+        })),
+      };
+
+      const response = await fetch("/api/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(multiPayload),
+      });
+
+      const data = await parseResponse(response);
+
       setSuccess(
-        selected
-          ? data.message || "Edit approval request submitted. The document will update once approved."
-          : "Registration created."
+        documents.length > 1
+          ? `${documents.length} independent document registrations created successfully.`
+          : "Registration created successfully."
       );
       setDrawerMode(null);
       await fetchRegistrations();
@@ -1658,6 +1931,31 @@ export function RegistrationManager({
                                     >
                                       {registration.trackingNumber}
                                     </Link>
+                                    {Boolean(registration.linkedDocumentsCount && registration.linkedDocumentsCount > 1) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setLinkedDocsModal({
+                                            customerName: registration.customerName,
+                                            documents: registration.linkedDocuments || [
+                                              {
+                                                id: registration.id,
+                                                trackingNumber: registration.trackingNumber,
+                                                documentType: registration.documentType ?? null,
+                                                documentName: registration.documentName ?? null,
+                                                trackingStatus: registration.trackingStatus,
+                                                approvalStatus: registration.approvalStatus,
+                                              },
+                                            ],
+                                          });
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-900/60 dark:hover:bg-blue-900 dark:text-blue-200 px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer"
+                                        title={`${registration.linkedDocumentsCount} documents linked to this lead`}
+                                      >
+                                        <Files size={11} className="shrink-0" />
+                                        <span>{registration.linkedDocumentsCount}</span>
+                                      </button>
+                                    )}
                                   </div>
                                   {registration.hasPendingEditRequest && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/50 dark:text-amber-300 w-fit">
@@ -1868,497 +2166,1084 @@ export function RegistrationManager({
               </span>
             </div>
           )}
-          <Section title="Section 1: Customer Info">
-            <Input
-              label="Tracking Number"
-              value={form.trackingNumber}
-              onChange={(event) => updateField("trackingNumber", event.target.value)}
-              required
-            />
-            <Input
-              label="Customer Name"
-              value={form.customerName}
-              onChange={(event) => updateField("customerName", event.target.value)}
-            />
-            <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} defaultCountry={defaultPhoneCountry} />
-            <Input
-              label="Email"
-              value={form.email}
-              onChange={(event) => updateField("email", event.target.value)}
-            />
-            <Input
-              label="Address"
-              value={form.address}
-              onChange={(event) => updateField("address", event.target.value)}
-            />
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Country</span>
-              <SearchableSelect
-                value={form.country}
-                options={countrySelectOptions}
-                onChange={(nextValue: string) => updateField("country", nextValue)}
-                placeholder="Select country"
-                name="country"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Customer Type</span>
-              <SearchableSelect
-                value={form.customerType}
-                options={toSelectOptions(customerTypeOptions)}
-                onChange={(val) => {
-                  updateField("customerType", val);
-                  if (val !== "Corporate") updateField("corporateDetailId", "");
-                }}
-                placeholder="Select customer type"
-                name="customerType"
-              />
-            </label>
+          {selected ? (
+            <>
+              <Section title="Section 1: Customer Info">
+                <Input
+                  label="Tracking Number"
+                  value={form.trackingNumber}
+                  onChange={(event) => updateField("trackingNumber", event.target.value)}
+                  required
+                />
+                <Input
+                  label="Customer Name"
+                  value={form.customerName}
+                  onChange={(event) => updateField("customerName", event.target.value)}
+                />
+                <PhoneField value={form.mobile} onChange={(value) => updateField("mobile", value)} defaultCountry={defaultPhoneCountry} />
+                <Input
+                  label="Email"
+                  value={form.email}
+                  onChange={(event) => updateField("email", event.target.value)}
+                />
+                <Input
+                  label="Address"
+                  value={form.address}
+                  onChange={(event) => updateField("address", event.target.value)}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Country</span>
+                  <SearchableSelect
+                    value={form.country}
+                    options={countrySelectOptions}
+                    onChange={(nextValue: string) => updateField("country", nextValue)}
+                    placeholder="Select country"
+                    name="country"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Customer Type</span>
+                  <SearchableSelect
+                    value={form.customerType}
+                    options={toSelectOptions(customerTypeOptions)}
+                    onChange={(val) => {
+                      updateField("customerType", val);
+                      if (val !== "Corporate") updateField("corporateDetailId", "");
+                    }}
+                    placeholder="Select customer type"
+                    name="customerType"
+                  />
+                </label>
 
-            {form.customerType === "Corporate" && (
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold">Company</span>
+                {form.customerType === "Corporate" && (
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold">Company</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCompanyModalOpen(true)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Add New Company"
+                      >
+                        <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <SearchableSelect
+                          value={form.corporateDetailId || ""}
+                          options={corporateOptions}
+                          onChange={(val) => updateField("corporateDetailId", val)}
+                          placeholder="Select corporate company"
+                          name="corporateDetailId"
+                          groupByCategory={false}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setIsCompanyModalOpen(true)}
+                        className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                        title="Add New Company"
+                      >
+                        <Plus size={18} />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Section>
+
+              <Section title="Section 2: Document Details">
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Document Type</span>
+                  <SearchableSelect
+                    value={form.documentType}
+                    options={documentTypeSelectOptions}
+                    onChange={(nextValue: string) => updateField("documentType", nextValue)}
+                    placeholder="Select document type"
+                    name="documentType"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Document Issued Country</span>
+                  <SearchableSelect
+                    value={form.documentIssuedCountry}
+                    options={countrySelectOptions}
+                    onChange={(nextValue: string) => updateField("documentIssuedCountry", nextValue)}
+                    placeholder="Select document issued country"
+                    name="documentIssuedCountry"
+                  />
+                </label>
+                <Input
+                  label="Document Name"
+                  value={form.documentName}
+                  placeholder="Enter document name"
+                  onChange={(event) => updateField("documentName", event.target.value)}
+                  maxLength={255}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Process Type</span>
+                  <SearchableSelect
+                    value={form.processType}
+                    options={processTypeSelectOptions}
+                    onChange={(nextValue: string) => updateField("processType", nextValue)}
+                    placeholder="Select process type"
+                    name="processType"
+                  />
+                </label>
+                <Input
+                  label="Additional Process"
+                  value={form.externalProcess}
+                  onChange={(event) => updateField("externalProcess", event.target.value)}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Special Processing Priority</span>
+                  <SearchableSelect
+                    value={form.priority}
+                    options={prioritySelectOptions}
+                    onChange={(nextValue: string) => updateField("priority", nextValue)}
+                    placeholder="Select priority"
+                    name="priority"
+                  />
+                </label>
+                <Input
+                  label="Committed Duration / SLA"
+                  value={form.committedDuration}
+                  onChange={(event) => updateField("committedDuration", event.target.value)}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Delivery Location</span>
+                  <SearchableSelect
+                    value={form.deliveryLocation}
+                    options={toSelectOptions(deliveryLocationOptions)}
+                    onChange={(nextValue: string) => updateField("deliveryLocation", nextValue)}
+                    placeholder={officeLocationsLoading ? "Loading office locations..." : "Select delivery location"}
+                    name="deliveryLocation"
+                    loading={officeLocationsLoading}
+                    loadingMessage="Loading office locations..."
+                    emptyMessage="No office locations found"
+                    errorMessage={officeLocationsError}
+                  />
+                </label>
+                <MultiFileUpload
+                  label="Customer Document Upload"
+                  moduleName="Revenue Registration"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                  onFilesChange={(ids) => setDocumentFileIds(ids)}
+                  onRemoveExistingFile={handleRemoveExistingFile}
+                  existingFiles={selected?.files.filter((f) => f.fileCategory === "DOCUMENT")}
+                  required={false}
+                />
+              </Section>
+
+              <Section title="Section 3: Payment Details">
+                {selected?.advancePaymentStatus === "Rejected" && (
+                  <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                    <span className="font-bold">Advance Payment Was Rejected:</span>{" "}
+                    {selected.advancePaymentRejectionReason || "No reason specified."}
+                    <br />
+                    <span className="text-[11px] text-rose-600 dark:text-rose-400">
+                      Update the Advance Paid amount or upload a new receipt file to re-submit for approval.
+                    </span>
+                  </div>
+                )}
+                <Input
+                  label="Total Charges"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.totalCharges}
+                  placeholder="Enter amount"
+                  onChange={(event) => updateField("totalCharges", event.target.value)}
+                />
+                {pendingRequestedAdvance > 0 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-950/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                        Requested Advance
+                      </span>
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                        Pending Approval
+                      </span>
+                    </div>
+                    <p className="mt-1 text-base font-extrabold text-amber-900 dark:text-amber-100">
+                      ₹ {pendingRequestedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                      Does not reduce balance amount until approved by admin.
+                    </p>
+                  </div>
+                )}
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      Approved Advance
+                    </span>
+                    <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled && canAddAdvance ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
+                      {!canAddAdvance
+                        ? "Add Advance restricted for this office"
+                        : isAdvancePaidEnabled
+                          ? "Click to request advance"
+                          : "Enter Total Charges first"}
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setIsCompanyModalOpen(true)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                    title="Add New Company"
+                    disabled={!isAdvancePaidEnabled || !canAddAdvance}
+                    onClick={() => {
+                      if (!isAdvancePaidEnabled || !canAddAdvance) return;
+                      setIsAddAdvanceOpen(true);
+                    }}
+                    title={
+                      !canAddAdvance
+                        ? "You do not have permission to add advance for documents registered in this office"
+                        : isAdvancePaidEnabled
+                        ? "Click to add an advance payment request"
+                        : "Enter Total Charges first to enable advance payment"
+                    }
+                    className={[
+                      "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
+                      "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
+                      "transition-all duration-150",
+                      isAdvancePaidEnabled && canAddAdvance
+                        ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
+                        : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
+                    ].join(" ")}
                   >
-                    <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                    <span className="flex items-center gap-2">
+                      <span>
+                        ₹ {approvedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                      {isAdvancePaidEnabled && canAddAdvance && (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
+                          <Plus size={12} /> Request Advance
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
+                      {!canAddAdvance
+                        ? "Permission Restricted"
+                        : !isAdvancePaidEnabled
+                        ? "Enter Total Charges First"
+                        : "Approved Only"}
+                    </span>
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <SearchableSelect
-                      value={form.corporateDetailId || ""}
-                      options={corporateOptions}
-                      onChange={(val) => updateField("corporateDetailId", val)}
-                      placeholder="Select corporate company"
-                      name="corporateDetailId"
-                      groupByCategory={false}
-                    />
+                <MultiFileUpload
+                  label="Advance Payment Upload"
+                  moduleName="Revenue Registration"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  onFilesChange={(ids) => setAdvancePaymentFileIds(ids)}
+                  onRemoveExistingFile={handleRemoveExistingFile}
+                  existingFiles={selected?.files.filter((f) => f.fileCategory === "ADVANCE_PAYMENT")}
+                  required={false}
+                />
+                <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
+                <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} />
+                {(() => {
+                  const mode = (form.paymentMode || "").trim().toLowerCase();
+                  if (!mode || mode === "cash") return null;
+
+                  if (mode === "upi") {
+                    return (
+                      <Input
+                        label="UPI Transaction ID"
+                        value={form.upiTransactionId || ""}
+                        placeholder="Enter UPI Transaction ID"
+                        onChange={(e) => updateField("upiTransactionId", e.target.value)}
+                      />
+                    );
+                  }
+
+                  if (mode.includes("bank") || mode === "bank transfer") {
+                    return (
+                      <>
+                        <Input
+                          label="Bank Name"
+                          value={form.bankName || ""}
+                          placeholder="Enter Bank Name"
+                          onChange={(e) => updateField("bankName", e.target.value)}
+                        />
+                        <Input
+                          label="Transaction Reference Number"
+                          value={form.transactionRefNo || ""}
+                          placeholder="Enter Reference Number"
+                          onChange={(e) => updateField("transactionRefNo", e.target.value)}
+                        />
+                        <Input
+                          label="Transfer Date"
+                          type="date"
+                          value={form.transferDate || ""}
+                          onChange={(e) => updateField("transferDate", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode === "cheque" || mode === "check") {
+                    return (
+                      <>
+                        <Input
+                          label="Cheque Number"
+                          value={form.chequeNumber || ""}
+                          placeholder="Enter Cheque Number"
+                          onChange={(e) => updateField("chequeNumber", e.target.value)}
+                        />
+                        <Input
+                          label="Bank Name"
+                          value={form.bankName || ""}
+                          placeholder="Enter Bank Name"
+                          onChange={(e) => updateField("bankName", e.target.value)}
+                        />
+                        <Input
+                          label="Cheque Date"
+                          type="date"
+                          value={form.chequeDate || ""}
+                          onChange={(e) => updateField("chequeDate", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode.includes("demand draft") || mode === "dd" || mode === "demand draft") {
+                    return (
+                      <>
+                        <Input
+                          label="DD Number"
+                          value={form.ddNumber || ""}
+                          placeholder="Enter Demand Draft Number"
+                          onChange={(e) => updateField("ddNumber", e.target.value)}
+                        />
+                        <Input
+                          label="Bank Name"
+                          value={form.bankName || ""}
+                          placeholder="Enter Bank Name"
+                          onChange={(e) => updateField("bankName", e.target.value)}
+                        />
+                        <Input
+                          label="DD Date"
+                          type="date"
+                          value={form.ddDate || ""}
+                          onChange={(e) => updateField("ddDate", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode === "credit card" || mode === "debit card" || mode.includes("credit") || mode.includes("debit")) {
+                    return (
+                      <>
+                        <Input
+                          label="Card Last 4 Digits"
+                          value={form.cardLast4 || ""}
+                          placeholder="e.g. 4321"
+                          maxLength={4}
+                          onChange={(e) => updateField("cardLast4", e.target.value)}
+                        />
+                        <Input
+                          label="Approval Code"
+                          value={form.approvalCode || ""}
+                          placeholder="Enter Approval Code"
+                          onChange={(e) => updateField("approvalCode", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode.includes("online") || mode === "online payment") {
+                    return (
+                      <>
+                        <Input
+                          label="Payment Gateway"
+                          value={form.paymentGateway || ""}
+                          placeholder="e.g. Razorpay / Stripe"
+                          onChange={(e) => updateField("paymentGateway", e.target.value)}
+                        />
+                        <Input
+                          label="Transaction ID"
+                          value={form.onlineTransactionId || ""}
+                          placeholder="Enter Transaction ID"
+                          onChange={(e) => updateField("onlineTransactionId", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode === "wallet") {
+                    return (
+                      <>
+                        <Input
+                          label="Wallet Name"
+                          value={form.walletName || ""}
+                          placeholder="e.g. Paytm / PhonePe"
+                          onChange={(e) => updateField("walletName", e.target.value)}
+                        />
+                        <Input
+                          label="Wallet Transaction ID"
+                          value={form.walletTransactionId || ""}
+                          placeholder="Enter Wallet Transaction ID"
+                          onChange={(e) => updateField("walletTransactionId", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  if (mode === "other") {
+                    return (
+                      <>
+                        <Input
+                          label="Reference Number"
+                          value={form.paymentReferenceNo || ""}
+                          placeholder="Enter Reference Number"
+                          onChange={(e) => updateField("paymentReferenceNo", e.target.value)}
+                        />
+                        <Input
+                          label="Description"
+                          value={form.paymentDescription || ""}
+                          placeholder="Enter Payment Description"
+                          onChange={(e) => updateField("paymentDescription", e.target.value)}
+                        />
+                      </>
+                    );
+                  }
+
+                  return null;
+                })()}
+                <Input label="Payment Status" value={computedPaymentStatus} readOnly placeholder="System Generated" />
+                <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Commission To</span>
+                  <SearchableSelect
+                    value={form.commissionToUserId}
+                    options={commissionToOptions}
+                    onChange={updateCommissionTo}
+                    placeholder={usersLoading ? "Loading users..." : "Select user"}
+                    name="commissionToUserId"
+                    loading={usersLoading}
+                    loadingMessage="Loading users..."
+                    emptyMessage="No users found"
+                    errorMessage={usersError}
+                    groupByCategory={false}
+                    showDescription={false}
+                  />
+                </label>
+                <Input
+                  label="Registered Person"
+                  name="registeredPerson"
+                  value={form.registeredPerson}
+                  readOnly
+                  className="bg-slate-100 dark:bg-white/5 cursor-not-allowed text-slate-700 dark:text-slate-300 font-medium"
+                />
+                <Input
+                  label="Region of Registration"
+                  value={form.regionOfRegistration}
+                  readOnly
+                  description="Auto-filled from the logged-in user's office location"
+                />
+                <MultiFileUpload
+                  label="Bill Upload"
+                  moduleName="Revenue Registration"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                  onFilesChange={(ids) => setInvoiceFileIds(ids)}
+                  onRemoveExistingFile={handleRemoveExistingFile}
+                  existingFiles={selected?.files.filter((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
+                  required={false}
+                />
+                <MultiFileUpload
+                  label="Supporting Documents Upload"
+                  moduleName="Revenue Registration"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                  onFilesChange={(ids) => setSupportingFileIds(ids)}
+                  onRemoveExistingFile={handleRemoveExistingFile}
+                  existingFiles={selected?.files.filter((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
+                  required={false}
+                />
+              </Section>
+            </>
+          ) : (
+            <>
+              {/* CREATE MODE: Section 1 (Shared Customer Info) */}
+              <Section title="Section 1: Customer Information">
+                <Input
+                  label="Customer Name"
+                  value={sharedCustomer.customerName}
+                  onChange={(event) => updateSharedCustomer("customerName", event.target.value)}
+                  required
+                />
+                <PhoneField
+                  value={sharedCustomer.mobile}
+                  onChange={(value) => updateSharedCustomer("mobile", value)}
+                  defaultCountry={defaultPhoneCountry}
+                />
+                <Input
+                  label="Email"
+                  value={sharedCustomer.email}
+                  onChange={(event) => updateSharedCustomer("email", event.target.value)}
+                />
+                <Input
+                  label="Address"
+                  value={sharedCustomer.address}
+                  onChange={(event) => updateSharedCustomer("address", event.target.value)}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Country</span>
+                  <SearchableSelect
+                    value={sharedCustomer.country}
+                    options={countrySelectOptions}
+                    onChange={(nextValue: string) => updateSharedCustomer("country", nextValue)}
+                    placeholder="Select country"
+                    name="country"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold">Customer Type</span>
+                  <SearchableSelect
+                    value={sharedCustomer.customerType}
+                    options={toSelectOptions(customerTypeOptions)}
+                    onChange={(val) => {
+                      updateSharedCustomer("customerType", val);
+                      if (val !== "Corporate") updateSharedCustomer("corporateDetailId", "");
+                    }}
+                    placeholder="Select customer type"
+                    name="customerType"
+                  />
+                </label>
+
+                {sharedCustomer.customerType === "Corporate" && (
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold">Company</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCompanyModalOpen(true)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Add New Company"
+                      >
+                        <Plus size={14} className="h-3.5 w-3.5 rounded-full bg-blue-100 p-0.5 dark:bg-blue-900/60" /> Add Company
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <SearchableSelect
+                          value={sharedCustomer.corporateDetailId || ""}
+                          options={corporateOptions}
+                          onChange={(val) => updateSharedCustomer("corporateDetailId", val)}
+                          placeholder="Select corporate company"
+                          name="corporateDetailId"
+                          groupByCategory={false}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setIsCompanyModalOpen(true)}
+                        className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                        title="Add New Company"
+                      >
+                        <Plus size={18} />
+                      </Button>
+                    </div>
                   </div>
+                )}
+              </Section>
+
+              {/* CREATE MODE: Section 2 (Independent Document Registrations) */}
+              <div className="grid gap-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Files size={18} className="text-blue-600 dark:text-blue-400" />
+                    Section 2: Document Registrations ({documents.length})
+                  </h3>
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setIsCompanyModalOpen(true)}
-                    className="h-10 w-10 shrink-0 p-0 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
-                    title="Add New Company"
+                    size="sm"
+                    onClick={addDocument}
+                    className="flex items-center gap-1.5 font-bold text-xs"
                   >
-                    <Plus size={18} />
+                    <Plus size={14} /> Add Another Document
                   </Button>
                 </div>
+
+                {documents.map((doc, index) => {
+                  const docBalance = Math.max(0, Number(doc.totalCharges || 0) - Number(doc.advancePaid || 0));
+                  const isDocAdvanceEnabled = Number(doc.totalCharges || 0) > 0;
+                  const reqAdvance = Number(doc.requestedAdvanceAmount || 0);
+
+                  return (
+                    <section
+                      key={doc.clientId}
+                      className="relative grid min-w-0 gap-4 rounded-2xl border-2 border-blue-100 bg-white/80 p-4 sm:rounded-3xl dark:border-blue-900/40 dark:bg-white/5"
+                    >
+                      <div className="flex items-center justify-between border-b border-blue-100 pb-3 dark:border-blue-900/40">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-extrabold text-white">
+                            {index + 1}
+                          </span>
+                          <span className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                            Document {index + 1}
+                          </span>
+                          {doc.documentType && (
+                            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                              {doc.documentType}
+                            </span>
+                          )}
+                        </div>
+                        {index > 0 && (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={() => removeDocument(index)}
+                            className="h-7 px-2 text-xs font-bold"
+                          >
+                            <Trash2 size={13} className="mr-1" /> Remove
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {/* Tracking Number with [+] button */}
+                        <div className="grid gap-2">
+                          <span className="text-sm font-bold flex items-center justify-between">
+                            <span>
+                              Tracking Number <span className="text-rose-500">*</span>
+                            </span>
+                            <span className="text-[11px] font-normal text-muted">Unique per document</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={doc.trackingNumber}
+                              onChange={(e) => updateDocumentField(index, "trackingNumber", e.target.value)}
+                              placeholder="e.g. 7854"
+                              required
+                              className="flex h-11 w-full rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-sm text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={addDocument}
+                              title="Add Another Document"
+                              className="h-11 w-11 shrink-0 p-0 rounded-2xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                            >
+                              <Plus size={18} />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-bold">Document Type</span>
+                          <SearchableSelect
+                            value={doc.documentType}
+                            options={documentTypeSelectOptions}
+                            onChange={(nextValue: string) => updateDocumentField(index, "documentType", nextValue)}
+                            placeholder="Select document type"
+                            name={`documentType-${index}`}
+                          />
+                        </label>
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-bold">Document Issued Country</span>
+                          <SearchableSelect
+                            value={doc.documentIssuedCountry}
+                            options={countrySelectOptions}
+                            onChange={(nextValue: string) => updateDocumentField(index, "documentIssuedCountry", nextValue)}
+                            placeholder="Select document issued country"
+                            name={`documentIssuedCountry-${index}`}
+                          />
+                        </label>
+
+                        <Input
+                          label="Document Name"
+                          value={doc.documentName}
+                          placeholder="Enter document name"
+                          onChange={(event) => updateDocumentField(index, "documentName", event.target.value)}
+                          maxLength={255}
+                        />
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-bold">Process Type</span>
+                          <SearchableSelect
+                            value={doc.processType}
+                            options={processTypeSelectOptions}
+                            onChange={(nextValue: string) => updateDocumentField(index, "processType", nextValue)}
+                            placeholder="Select process type"
+                            name={`processType-${index}`}
+                          />
+                        </label>
+
+                        <Input
+                          label="Additional Process"
+                          value={doc.externalProcess}
+                          onChange={(event) => updateDocumentField(index, "externalProcess", event.target.value)}
+                        />
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-bold">Special Processing Priority</span>
+                          <SearchableSelect
+                            value={doc.priority}
+                            options={prioritySelectOptions}
+                            onChange={(nextValue: string) => updateDocumentField(index, "priority", nextValue)}
+                            placeholder="Select priority"
+                            name={`priority-${index}`}
+                          />
+                        </label>
+
+                        <Input
+                          label="Committed Duration / SLA"
+                          value={doc.committedDuration}
+                          onChange={(event) => updateDocumentField(index, "committedDuration", event.target.value)}
+                        />
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-bold">Delivery Location</span>
+                          <SearchableSelect
+                            value={doc.deliveryLocation}
+                            options={toSelectOptions(deliveryLocationOptions)}
+                            onChange={(nextValue: string) => updateDocumentField(index, "deliveryLocation", nextValue)}
+                            placeholder={officeLocationsLoading ? "Loading office locations..." : "Select delivery location"}
+                            name={`deliveryLocation-${index}`}
+                            loading={officeLocationsLoading}
+                            loadingMessage="Loading office locations..."
+                            emptyMessage="No office locations found"
+                            errorMessage={officeLocationsError}
+                          />
+                        </label>
+
+                        <div className="col-span-full">
+                          <MultiFileUpload
+                            label="Customer Document Upload"
+                            moduleName="Revenue Registration"
+                            accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                            onFilesChange={(ids) => updateDocumentField(index, "documentFileIds", ids)}
+                            required={false}
+                          />
+                        </div>
+
+                        {/* Commercial & Payment sub-section per document */}
+                        <div className="col-span-full mt-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-900/30">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                            Document {index + 1} - Commercial & Payment
+                          </h4>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <Input
+                              label="Total Charges"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={doc.totalCharges}
+                              placeholder="Enter amount"
+                              onChange={(event) => updateDocumentField(index, "totalCharges", event.target.value)}
+                            />
+
+                            <div className="grid gap-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                  Advance Payment
+                                </span>
+                                <span className={`text-[11px] font-semibold ${isDocAdvanceEnabled ? "text-blue-500 dark:text-blue-400" : "text-slate-400"}`}>
+                                  {isDocAdvanceEnabled ? "Click to request advance" : "Enter Total Charges first"}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!isDocAdvanceEnabled}
+                                onClick={() => {
+                                  if (!isDocAdvanceEnabled) return;
+                                  setActiveAdvanceDocIndex(index);
+                                  setIsAddAdvanceOpen(true);
+                                }}
+                                className={[
+                                  "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
+                                  "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
+                                  "transition-all duration-150",
+                                  isDocAdvanceEnabled
+                                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
+                                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
+                                ].join(" ")}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span>₹ {reqAdvance > 0 ? reqAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}</span>
+                                  {reqAdvance > 0 && (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                                      Requested
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
+                                  {reqAdvance > 0 ? "Edit Request" : "Request Advance"}
+                                </span>
+                              </button>
+                            </div>
+
+                            <Input
+                              label="Balance Amount"
+                              value={doc.totalCharges ? docBalance.toFixed(2) : ""}
+                              readOnly
+                            />
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-bold">Payment Mode</span>
+                              <SearchableSelect
+                                value={doc.paymentMode}
+                                options={toSelectOptions(paymentModeOptions)}
+                                onChange={(val) => updateDocumentField(index, "paymentMode", val)}
+                                placeholder="Select mode"
+                                name={`paymentMode-${index}`}
+                              />
+                            </label>
+
+                            {/* Mode-specific payment fields */}
+                            {(() => {
+                              const mode = (doc.paymentMode || "").trim().toLowerCase();
+                              if (!mode || mode === "cash") return null;
+
+                              if (mode === "upi") {
+                                return (
+                                  <Input
+                                    label="UPI Transaction ID"
+                                    value={doc.upiTransactionId || ""}
+                                    placeholder="Enter UPI Transaction ID"
+                                    onChange={(e) => updateDocumentField(index, "upiTransactionId", e.target.value)}
+                                  />
+                                );
+                              }
+
+                              if (mode.includes("bank") || mode === "bank transfer") {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Bank Name"
+                                      value={doc.bankName || ""}
+                                      placeholder="Enter Bank Name"
+                                      onChange={(e) => updateDocumentField(index, "bankName", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Transaction Reference Number"
+                                      value={doc.transactionRefNo || ""}
+                                      placeholder="Enter Reference Number"
+                                      onChange={(e) => updateDocumentField(index, "transactionRefNo", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Transfer Date"
+                                      type="date"
+                                      value={doc.transferDate || ""}
+                                      onChange={(e) => updateDocumentField(index, "transferDate", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode === "cheque" || mode === "check") {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Cheque Number"
+                                      value={doc.chequeNumber || ""}
+                                      placeholder="Enter Cheque Number"
+                                      onChange={(e) => updateDocumentField(index, "chequeNumber", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Bank Name"
+                                      value={doc.bankName || ""}
+                                      placeholder="Enter Bank Name"
+                                      onChange={(e) => updateDocumentField(index, "bankName", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Cheque Date"
+                                      type="date"
+                                      value={doc.chequeDate || ""}
+                                      onChange={(e) => updateDocumentField(index, "chequeDate", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode.includes("demand draft") || mode === "dd") {
+                                return (
+                                  <>
+                                    <Input
+                                      label="DD Number"
+                                      value={doc.ddNumber || ""}
+                                      placeholder="Enter Demand Draft Number"
+                                      onChange={(e) => updateDocumentField(index, "ddNumber", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Bank Name"
+                                      value={doc.bankName || ""}
+                                      placeholder="Enter Bank Name"
+                                      onChange={(e) => updateDocumentField(index, "bankName", e.target.value)}
+                                    />
+                                    <Input
+                                      label="DD Date"
+                                      type="date"
+                                      value={doc.ddDate || ""}
+                                      onChange={(e) => updateDocumentField(index, "ddDate", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode.includes("credit") || mode.includes("debit")) {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Card Last 4 Digits"
+                                      value={doc.cardLast4 || ""}
+                                      placeholder="e.g. 4321"
+                                      maxLength={4}
+                                      onChange={(e) => updateDocumentField(index, "cardLast4", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Approval Code"
+                                      value={doc.approvalCode || ""}
+                                      placeholder="Enter Approval Code"
+                                      onChange={(e) => updateDocumentField(index, "approvalCode", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode.includes("online")) {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Payment Gateway"
+                                      value={doc.paymentGateway || ""}
+                                      placeholder="e.g. Razorpay / Stripe"
+                                      onChange={(e) => updateDocumentField(index, "paymentGateway", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Transaction ID"
+                                      value={doc.onlineTransactionId || ""}
+                                      placeholder="Enter Transaction ID"
+                                      onChange={(e) => updateDocumentField(index, "onlineTransactionId", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode === "wallet") {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Wallet Name"
+                                      value={doc.walletName || ""}
+                                      placeholder="e.g. Paytm / PhonePe"
+                                      onChange={(e) => updateDocumentField(index, "walletName", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Wallet Transaction ID"
+                                      value={doc.walletTransactionId || ""}
+                                      placeholder="Enter Wallet Transaction ID"
+                                      onChange={(e) => updateDocumentField(index, "walletTransactionId", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              if (mode === "other") {
+                                return (
+                                  <>
+                                    <Input
+                                      label="Reference Number"
+                                      value={doc.paymentReferenceNo || ""}
+                                      placeholder="Enter Reference Number"
+                                      onChange={(e) => updateDocumentField(index, "paymentReferenceNo", e.target.value)}
+                                    />
+                                    <Input
+                                      label="Description"
+                                      value={doc.paymentDescription || ""}
+                                      placeholder="Enter Payment Description"
+                                      onChange={(e) => updateDocumentField(index, "paymentDescription", e.target.value)}
+                                    />
+                                  </>
+                                );
+                              }
+
+                              return null;
+                            })()}
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-bold">Collected Person</span>
+                              <SearchableSelect
+                                value={doc.collectedPerson}
+                                options={toSelectOptions(personOptions)}
+                                onChange={(val) => updateDocumentField(index, "collectedPerson", val)}
+                                placeholder="Select person"
+                                name={`collectedPerson-${index}`}
+                              />
+                            </label>
+
+                            <label className="grid gap-2">
+                              <span className="text-sm font-bold">Commission To</span>
+                              <SearchableSelect
+                                value={doc.commissionToUserId}
+                                options={commissionToOptions}
+                                onChange={(userId) => {
+                                  const sel = commissionToOptions.find((o) => o.value === userId);
+                                  updateDocumentField(index, "commissionToUserId", userId);
+                                  updateDocumentField(index, "commissionToName", sel?.label ?? "");
+                                  updateDocumentField(index, "commissionToEmail", sel?.description ?? "");
+                                }}
+                                placeholder={usersLoading ? "Loading users..." : "Select user"}
+                                name={`commissionTo-${index}`}
+                                loading={usersLoading}
+                                loadingMessage="Loading users..."
+                                emptyMessage="No users found"
+                                errorMessage={usersError}
+                                groupByCategory={false}
+                                showDescription={false}
+                              />
+                            </label>
+
+                            <div className="col-span-full">
+                              <MultiFileUpload
+                                label="Advance Payment Receipt"
+                                moduleName="Revenue Registration"
+                                accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                onFilesChange={(ids) => updateDocumentField(index, "advancePaymentFileIds", ids)}
+                                required={false}
+                              />
+                            </div>
+
+                            <div className="col-span-full">
+                              <MultiFileUpload
+                                label="Bill Upload"
+                                moduleName="Revenue Registration"
+                                accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                                onFilesChange={(ids) => updateDocumentField(index, "invoiceFileIds", ids)}
+                                required={false}
+                              />
+                            </div>
+
+                            <div className="col-span-full">
+                              <MultiFileUpload
+                                label="Supporting Documents Upload"
+                                moduleName="Revenue Registration"
+                                accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
+                                onFilesChange={(ids) => updateDocumentField(index, "supportingFileIds", ids)}
+                                required={false}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={addDocument}
+                  className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-blue-700 font-bold dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-300"
+                >
+                  <Plus size={18} /> Add Another Document
+                </Button>
               </div>
-            )}
-          </Section>
-
-          <Section title="Section 2: Document Details">
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Document Type</span>
-              <SearchableSelect
-                value={form.documentType}
-                options={documentTypeSelectOptions}
-                onChange={(nextValue: string) => updateField("documentType", nextValue)}
-                placeholder="Select document type"
-                name="documentType"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Document Issued Country</span>
-              <SearchableSelect
-                value={form.documentIssuedCountry}
-                options={countrySelectOptions}
-                onChange={(nextValue: string) => updateField("documentIssuedCountry", nextValue)}
-                placeholder="Select document issued country"
-                name="documentIssuedCountry"
-              />
-            </label>
-            <Input
-              label="Document Name"
-              value={form.documentName}
-              placeholder="Enter document name"
-              onChange={(event) => updateField("documentName", event.target.value)}
-              maxLength={255}
-            />
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Process Type</span>
-              <SearchableSelect
-                value={form.processType}
-                options={processTypeSelectOptions}
-                onChange={(nextValue: string) => updateField("processType", nextValue)}
-                placeholder="Select process type"
-                name="processType"
-              />
-            </label>
-            <Input
-              label="Additional Process"
-              value={form.externalProcess}
-              onChange={(event) => updateField("externalProcess", event.target.value)}
-            />
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Special Processing Priority</span>
-              <SearchableSelect
-                value={form.priority}
-                options={prioritySelectOptions}
-                onChange={(nextValue: string) => updateField("priority", nextValue)}
-                placeholder="Select priority"
-                name="priority"
-              />
-            </label>
-            <Input
-              label="Committed Duration / SLA"
-              value={form.committedDuration}
-              onChange={(event) => updateField("committedDuration", event.target.value)}
-            />
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Delivery Location</span>
-              <SearchableSelect
-                value={form.deliveryLocation}
-                options={toSelectOptions(deliveryLocationOptions)}
-                onChange={(nextValue: string) => updateField("deliveryLocation", nextValue)}
-                placeholder={officeLocationsLoading ? "Loading office locations..." : "Select delivery location"}
-                name="deliveryLocation"
-                loading={officeLocationsLoading}
-                loadingMessage="Loading office locations..."
-                emptyMessage="No office locations found"
-                errorMessage={officeLocationsError}
-              />
-            </label>
-            <MultiFileUpload
-              label="Customer Document Upload"
-              moduleName="Revenue Registration"
-              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onFilesChange={(ids) => setDocumentFileIds(ids)}
-              onRemoveExistingFile={handleRemoveExistingFile}
-              existingFiles={selected?.files.filter((f) => f.fileCategory === "DOCUMENT")}
-              required={false}
-            />
-          </Section>
-
-          <Section title="Section 3: Payment Details">
-            {selected?.advancePaymentStatus === "Rejected" && (
-              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-                <span className="font-bold">Advance Payment Was Rejected:</span>{" "}
-                {selected.advancePaymentRejectionReason || "No reason specified."}
-                <br />
-                <span className="text-[11px] text-rose-600 dark:text-rose-400">
-                  Update the Advance Paid amount or upload a new receipt file to re-submit for approval.
-                </span>
-              </div>
-            )}
-            <Input
-              label="Total Charges"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.totalCharges}
-              placeholder="Enter amount"
-              onChange={(event) => updateField("totalCharges", event.target.value)}
-            />
-            {pendingRequestedAdvance > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-950/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-                    Requested Advance
-                  </span>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-                    Pending Approval
-                  </span>
-                </div>
-                <p className="mt-1 text-base font-extrabold text-amber-900 dark:text-amber-100">
-                  ₹ {pendingRequestedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
-                  Does not reduce balance amount until approved by admin.
-                </p>
-              </div>
-            )}
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  Approved Advance
-                </span>
-                <span className={`text-[11px] font-semibold ${isAdvancePaidEnabled && canAddAdvance ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
-                  {!canAddAdvance
-                    ? "Add Advance restricted for this office"
-                    : isAdvancePaidEnabled
-                      ? "Click to request advance"
-                      : "Enter Total Charges first"}
-                </span>
-              </div>
-              <button
-                type="button"
-                disabled={!isAdvancePaidEnabled || !canAddAdvance}
-                onClick={() => {
-                  if (!isAdvancePaidEnabled || !canAddAdvance) return;
-                  setIsAddAdvanceOpen(true);
-                }}
-                title={
-                  !canAddAdvance
-                    ? "You do not have permission to add advance for documents registered in this office"
-                    : isAdvancePaidEnabled
-                    ? "Click to add an advance payment request"
-                    : "Enter Total Charges first to enable advance payment"
-                }
-                className={[
-                  "group flex h-12 w-full items-center justify-between rounded-xl border px-4 py-2",
-                  "text-sm font-extrabold text-emerald-700 dark:text-emerald-300",
-                  "transition-all duration-150",
-                  isAdvancePaidEnabled && canAddAdvance
-                    ? "border-blue-200 bg-emerald-50 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm hover:shadow-blue-100 active:scale-[0.99] dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-blue-950/40 dark:hover:border-blue-600 cursor-pointer"
-                    : "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-white/10 dark:bg-white/5",
-                ].join(" ")}
-              >
-                <span className="flex items-center gap-2">
-                  <span>
-                    ₹ {approvedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                  {isAdvancePaidEnabled && canAddAdvance && (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity dark:text-blue-400">
-                      <Plus size={12} /> Request Advance
-                    </span>
-                  )}
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-400 transition-colors">
-                  {!canAddAdvance
-                    ? "Permission Restricted"
-                    : !isAdvancePaidEnabled
-                    ? "Enter Total Charges First"
-                    : "Approved Only"}
-                </span>
-              </button>
-            </div>
-            <MultiFileUpload
-              label="Advance Payment Upload"
-              moduleName="Revenue Registration"
-              accept=".jpg,.jpeg,.png,.webp,.pdf"
-              onFilesChange={(ids) => setAdvancePaymentFileIds(ids)}
-              onRemoveExistingFile={handleRemoveExistingFile}
-              existingFiles={selected?.files.filter((f) => f.fileCategory === "ADVANCE_PAYMENT")}
-              required={false}
-            />
-            <Input label="Balance Amount" value={hasPaymentEntry ? balanceAmount.toFixed(2) : ""} readOnly />
-            <SelectField label="Payment Mode" name="paymentMode" value={form.paymentMode} options={paymentModeOptions} onChange={updateField} />
-            {(() => {
-              const mode = (form.paymentMode || "").trim().toLowerCase();
-              if (!mode || mode === "cash") return null;
-
-              if (mode === "upi") {
-                return (
-                  <Input
-                    label="UPI Transaction ID"
-                    value={form.upiTransactionId || ""}
-                    placeholder="Enter UPI Transaction ID"
-                    onChange={(e) => updateField("upiTransactionId", e.target.value)}
-                  />
-                );
-              }
-
-              if (mode.includes("bank") || mode === "bank transfer") {
-                return (
-                  <>
-                    <Input
-                      label="Bank Name"
-                      value={form.bankName || ""}
-                      placeholder="Enter Bank Name"
-                      onChange={(e) => updateField("bankName", e.target.value)}
-                    />
-                    <Input
-                      label="Transaction Reference Number"
-                      value={form.transactionRefNo || ""}
-                      placeholder="Enter Reference Number"
-                      onChange={(e) => updateField("transactionRefNo", e.target.value)}
-                    />
-                    <Input
-                      label="Transfer Date"
-                      type="date"
-                      value={form.transferDate || ""}
-                      onChange={(e) => updateField("transferDate", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode === "cheque" || mode === "check") {
-                return (
-                  <>
-                    <Input
-                      label="Cheque Number"
-                      value={form.chequeNumber || ""}
-                      placeholder="Enter Cheque Number"
-                      onChange={(e) => updateField("chequeNumber", e.target.value)}
-                    />
-                    <Input
-                      label="Bank Name"
-                      value={form.bankName || ""}
-                      placeholder="Enter Bank Name"
-                      onChange={(e) => updateField("bankName", e.target.value)}
-                    />
-                    <Input
-                      label="Cheque Date"
-                      type="date"
-                      value={form.chequeDate || ""}
-                      onChange={(e) => updateField("chequeDate", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode.includes("demand draft") || mode === "dd" || mode === "demand draft") {
-                return (
-                  <>
-                    <Input
-                      label="DD Number"
-                      value={form.ddNumber || ""}
-                      placeholder="Enter Demand Draft Number"
-                      onChange={(e) => updateField("ddNumber", e.target.value)}
-                    />
-                    <Input
-                      label="Bank Name"
-                      value={form.bankName || ""}
-                      placeholder="Enter Bank Name"
-                      onChange={(e) => updateField("bankName", e.target.value)}
-                    />
-                    <Input
-                      label="DD Date"
-                      type="date"
-                      value={form.ddDate || ""}
-                      onChange={(e) => updateField("ddDate", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode === "credit card" || mode === "debit card" || mode.includes("credit") || mode.includes("debit")) {
-                return (
-                  <>
-                    <Input
-                      label="Card Last 4 Digits"
-                      value={form.cardLast4 || ""}
-                      placeholder="e.g. 4321"
-                      maxLength={4}
-                      onChange={(e) => updateField("cardLast4", e.target.value)}
-                    />
-                    <Input
-                      label="Approval Code"
-                      value={form.approvalCode || ""}
-                      placeholder="Enter Approval Code"
-                      onChange={(e) => updateField("approvalCode", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode.includes("online") || mode === "online payment") {
-                return (
-                  <>
-                    <Input
-                      label="Payment Gateway"
-                      value={form.paymentGateway || ""}
-                      placeholder="e.g. Razorpay / Stripe"
-                      onChange={(e) => updateField("paymentGateway", e.target.value)}
-                    />
-                    <Input
-                      label="Transaction ID"
-                      value={form.onlineTransactionId || ""}
-                      placeholder="Enter Transaction ID"
-                      onChange={(e) => updateField("onlineTransactionId", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode === "wallet") {
-                return (
-                  <>
-                    <Input
-                      label="Wallet Name"
-                      value={form.walletName || ""}
-                      placeholder="e.g. Paytm / PhonePe"
-                      onChange={(e) => updateField("walletName", e.target.value)}
-                    />
-                    <Input
-                      label="Wallet Transaction ID"
-                      value={form.walletTransactionId || ""}
-                      placeholder="Enter Wallet Transaction ID"
-                      onChange={(e) => updateField("walletTransactionId", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              if (mode === "other") {
-                return (
-                  <>
-                    <Input
-                      label="Reference Number"
-                      value={form.paymentReferenceNo || ""}
-                      placeholder="Enter Reference Number"
-                      onChange={(e) => updateField("paymentReferenceNo", e.target.value)}
-                    />
-                    <Input
-                      label="Description"
-                      value={form.paymentDescription || ""}
-                      placeholder="Enter Payment Description"
-                      onChange={(e) => updateField("paymentDescription", e.target.value)}
-                    />
-                  </>
-                );
-              }
-
-              return null;
-            })()}
-            <Input label="Payment Status" value={computedPaymentStatus} readOnly placeholder="System Generated" />
-            <SelectField label="Collected Person" name="collectedPerson" value={form.collectedPerson} options={personOptions} onChange={updateField} />
-            <label className="grid gap-2">
-              <span className="text-sm font-bold">Commission To</span>
-              <SearchableSelect
-                value={form.commissionToUserId}
-                options={commissionToOptions}
-                onChange={updateCommissionTo}
-                placeholder={usersLoading ? "Loading users..." : "Select user"}
-                name="commissionToUserId"
-                loading={usersLoading}
-                loadingMessage="Loading users..."
-                emptyMessage="No users found"
-                errorMessage={usersError}
-                groupByCategory={false}
-                showDescription={false}
-              />
-            </label>
-            <Input
-              label="Registered Person"
-              name="registeredPerson"
-              value={form.registeredPerson}
-              readOnly
-              className="bg-slate-100 dark:bg-white/5 cursor-not-allowed text-slate-700 dark:text-slate-300 font-medium"
-            />
-            <Input
-              label="Region of Registration"
-              value={form.regionOfRegistration}
-              readOnly
-              description="Auto-filled from the logged-in user's office location"
-            />
-            <MultiFileUpload
-              label="Bill Upload"
-              moduleName="Revenue Registration"
-              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onFilesChange={(ids) => setInvoiceFileIds(ids)}
-              onRemoveExistingFile={handleRemoveExistingFile}
-              existingFiles={selected?.files.filter((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
-              required={false}
-            />
-            <MultiFileUpload
-              label="Supporting Documents Upload"
-              moduleName="Revenue Registration"
-              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
-              onFilesChange={(ids) => setSupportingFileIds(ids)}
-              onRemoveExistingFile={handleRemoveExistingFile}
-              existingFiles={selected?.files.filter((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
-              required={false}
-            />
-          </Section>
+            </>
+          )}
 
           {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
           <div className="flex flex-wrap justify-end gap-3">
@@ -2412,50 +3297,107 @@ export function RegistrationManager({
             value: newCompany.id,
           };
           setCorporateOptions((prev) => [newOpt, ...prev.filter((o) => o.value !== newCompany.id)]);
-          setForm((prev) => ({
-            ...prev,
-            corporateDetailId: newCompany.id,
-          }));
+          if (selected) {
+            setForm((prev) => ({
+              ...prev,
+              corporateDetailId: newCompany.id,
+            }));
+          } else {
+            setSharedCustomer((prev) => ({
+              ...prev,
+              corporateDetailId: newCompany.id,
+            }));
+          }
         }}
         title="Add New Corporate Company"
         description="Fill company details to save and select immediately in registration."
       />
 
-      {(selected || drawerMode === "form") && (
+      {(selected || (drawerMode === "form" && activeAdvanceDocIndex !== null)) && (
         <AddAdvanceModal
-          isOpen={isAddAdvanceOpen && isAdvancePaidEnabled && canAddAdvance}
-          onClose={() => setIsAddAdvanceOpen(false)}
+          isOpen={
+            isAddAdvanceOpen && (
+              selected
+                ? (isAdvancePaidEnabled && canAddAdvance)
+                : (activeAdvanceDocIndex !== null && Number(documents[activeAdvanceDocIndex]?.totalCharges || 0) > 0)
+            )
+          }
+          onClose={() => {
+            setIsAddAdvanceOpen(false);
+            setActiveAdvanceDocIndex(null);
+          }}
           registrationId={selected?.id || ""}
-          trackingNumber={selected?.trackingNumber || form.trackingNumber || initialTrackingNumber || "New Registration"}
-          customerName={selected?.customerName || form.customerName || "Customer"}
-          totalCharges={Number(form.totalCharges || selected?.totalCharges || 0)}
-          currentApprovedAdvance={approvedAdvance}
-          currentBalance={balanceAmount}
+          trackingNumber={
+            selected?.trackingNumber ||
+            (activeAdvanceDocIndex !== null && documents[activeAdvanceDocIndex]?.trackingNumber ? documents[activeAdvanceDocIndex].trackingNumber : "") ||
+            `Document ${(activeAdvanceDocIndex ?? 0) + 1}`
+          }
+          customerName={selected?.customerName || sharedCustomer.customerName || "Customer"}
+          totalCharges={
+            selected
+              ? Number(form.totalCharges || selected.totalCharges || 0)
+              : (activeAdvanceDocIndex !== null ? Number(documents[activeAdvanceDocIndex]?.totalCharges || 0) : 0)
+          }
+          currentApprovedAdvance={
+            selected
+              ? approvedAdvance
+              : (activeAdvanceDocIndex !== null ? Number(documents[activeAdvanceDocIndex]?.advancePaid || 0) : 0)
+          }
+          currentBalance={
+            selected
+              ? balanceAmount
+              : (activeAdvanceDocIndex !== null
+                ? Math.max(0, Number(documents[activeAdvanceDocIndex]?.totalCharges || 0) - Number(documents[activeAdvanceDocIndex]?.advancePaid || 0))
+                : 0)
+          }
           personOptions={toSelectOptions(personOptions)}
           onPendingSubmit={(pendingData) => {
-            setForm((prev) => ({
-              ...prev,
-              requestedAdvanceAmount: String(pendingData.advanceAmount),
-              advancePaid: String(approvedAdvance),
-              paymentMode: pendingData.paymentMode || prev.paymentMode,
-              collectedPerson: pendingData.collectedBy || prev.collectedPerson,
-              ...(pendingData.upiTransactionId ? { upiTransactionId: pendingData.upiTransactionId } : {}),
-              ...(pendingData.bankName ? { bankName: pendingData.bankName } : {}),
-              ...(pendingData.transactionRefNo ? { transactionRefNo: pendingData.transactionRefNo } : {}),
-              ...(pendingData.transferDate ? { transferDate: pendingData.transferDate } : {}),
-              ...(pendingData.chequeNumber ? { chequeNumber: pendingData.chequeNumber } : {}),
-              ...(pendingData.chequeDate ? { chequeDate: pendingData.chequeDate } : {}),
-              ...(pendingData.ddNumber ? { ddNumber: pendingData.ddNumber } : {}),
-              ...(pendingData.ddDate ? { ddDate: pendingData.ddDate } : {}),
-              ...(pendingData.cardLast4 ? { cardLast4: pendingData.cardLast4 } : {}),
-              ...(pendingData.approvalCode ? { approvalCode: pendingData.approvalCode } : {}),
-              ...(pendingData.paymentGateway ? { paymentGateway: pendingData.paymentGateway } : {}),
-              ...(pendingData.onlineTransactionId ? { onlineTransactionId: pendingData.onlineTransactionId } : {}),
-              ...(pendingData.walletName ? { walletName: pendingData.walletName } : {}),
-              ...(pendingData.walletTransactionId ? { walletTransactionId: pendingData.walletTransactionId } : {}),
-            }));
-            if (pendingData.proofFileIds && pendingData.proofFileIds.length > 0) {
-              setAdvancePaymentFileIds(pendingData.proofFileIds);
+            if (selected) {
+              setForm((prev) => ({
+                ...prev,
+                requestedAdvanceAmount: String(pendingData.advanceAmount),
+                advancePaid: String(approvedAdvance),
+                paymentMode: pendingData.paymentMode || prev.paymentMode,
+                collectedPerson: pendingData.collectedBy || prev.collectedPerson,
+                ...(pendingData.upiTransactionId ? { upiTransactionId: pendingData.upiTransactionId } : {}),
+                ...(pendingData.bankName ? { bankName: pendingData.bankName } : {}),
+                ...(pendingData.transactionRefNo ? { transactionRefNo: pendingData.transactionRefNo } : {}),
+                ...(pendingData.transferDate ? { transferDate: pendingData.transferDate } : {}),
+                ...(pendingData.chequeNumber ? { chequeNumber: pendingData.chequeNumber } : {}),
+                ...(pendingData.chequeDate ? { chequeDate: pendingData.chequeDate } : {}),
+                ...(pendingData.ddNumber ? { ddNumber: pendingData.ddNumber } : {}),
+                ...(pendingData.ddDate ? { ddDate: pendingData.ddDate } : {}),
+                ...(pendingData.cardLast4 ? { cardLast4: pendingData.cardLast4 } : {}),
+                ...(pendingData.approvalCode ? { approvalCode: pendingData.approvalCode } : {}),
+                ...(pendingData.paymentGateway ? { paymentGateway: pendingData.paymentGateway } : {}),
+                ...(pendingData.onlineTransactionId ? { onlineTransactionId: pendingData.onlineTransactionId } : {}),
+                ...(pendingData.walletName ? { walletName: pendingData.walletName } : {}),
+                ...(pendingData.walletTransactionId ? { walletTransactionId: pendingData.walletTransactionId } : {}),
+              }));
+              if (pendingData.proofFileIds && pendingData.proofFileIds.length > 0) {
+                setAdvancePaymentFileIds(pendingData.proofFileIds);
+              }
+            } else if (activeAdvanceDocIndex !== null) {
+              updateDocumentField(activeAdvanceDocIndex, "requestedAdvanceAmount", String(pendingData.advanceAmount));
+              if (pendingData.paymentMode) updateDocumentField(activeAdvanceDocIndex, "paymentMode", pendingData.paymentMode);
+              if (pendingData.collectedBy) updateDocumentField(activeAdvanceDocIndex, "collectedPerson", pendingData.collectedBy);
+              if (pendingData.upiTransactionId) updateDocumentField(activeAdvanceDocIndex, "upiTransactionId", pendingData.upiTransactionId);
+              if (pendingData.bankName) updateDocumentField(activeAdvanceDocIndex, "bankName", pendingData.bankName);
+              if (pendingData.transactionRefNo) updateDocumentField(activeAdvanceDocIndex, "transactionRefNo", pendingData.transactionRefNo);
+              if (pendingData.transferDate) updateDocumentField(activeAdvanceDocIndex, "transferDate", pendingData.transferDate);
+              if (pendingData.chequeNumber) updateDocumentField(activeAdvanceDocIndex, "chequeNumber", pendingData.chequeNumber);
+              if (pendingData.chequeDate) updateDocumentField(activeAdvanceDocIndex, "chequeDate", pendingData.chequeDate);
+              if (pendingData.ddNumber) updateDocumentField(activeAdvanceDocIndex, "ddNumber", pendingData.ddNumber);
+              if (pendingData.ddDate) updateDocumentField(activeAdvanceDocIndex, "ddDate", pendingData.ddDate);
+              if (pendingData.cardLast4) updateDocumentField(activeAdvanceDocIndex, "cardLast4", pendingData.cardLast4);
+              if (pendingData.approvalCode) updateDocumentField(activeAdvanceDocIndex, "approvalCode", pendingData.approvalCode);
+              if (pendingData.paymentGateway) updateDocumentField(activeAdvanceDocIndex, "paymentGateway", pendingData.paymentGateway);
+              if (pendingData.onlineTransactionId) updateDocumentField(activeAdvanceDocIndex, "onlineTransactionId", pendingData.onlineTransactionId);
+              if (pendingData.walletName) updateDocumentField(activeAdvanceDocIndex, "walletName", pendingData.walletName);
+              if (pendingData.walletTransactionId) updateDocumentField(activeAdvanceDocIndex, "walletTransactionId", pendingData.walletTransactionId);
+              if (pendingData.proofFileIds && pendingData.proofFileIds.length > 0) {
+                updateDocumentField(activeAdvanceDocIndex, "advancePaymentFileIds", pendingData.proofFileIds);
+              }
             }
           }}
           onSuccess={() => {
@@ -2466,6 +3408,72 @@ export function RegistrationManager({
             }
           }}
         />
+      )}
+
+      {/* Multiple Document Modal */}
+      {linkedDocsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Files size={18} className="text-blue-600 dark:text-blue-400" />
+                  Documents linked to {linkedDocsModal.customerName}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {linkedDocsModal.documents.length} independent document registrations for this lead
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLinkedDocsModal(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+              {linkedDocsModal.documents.map((doc) => (
+                <div key={doc.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/dashboard/document-details/${encodeURIComponent(doc.trackingNumber)}`}
+                      onClick={() => setLinkedDocsModal(null)}
+                      className="font-mono font-bold text-blue-600 hover:underline dark:text-blue-400 text-sm"
+                    >
+                      {doc.trackingNumber}
+                    </Link>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
+                      {doc.documentName || doc.documentType || "Document"}
+                      {doc.documentType && doc.documentName ? ` (${doc.documentType})` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                      {doc.trackingStatus || "Registered"}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      doc.approvalStatus === "Approved"
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                        : doc.approvalStatus === "Rejected"
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                    }`}>
+                      {doc.approvalStatus || "Pending"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <Button variant="secondary" onClick={() => setLinkedDocsModal(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Bulk Delete Confirmation Dialog */}

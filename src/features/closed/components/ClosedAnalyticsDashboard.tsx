@@ -30,6 +30,7 @@ import {
   Eye,
   Pencil,
   FileCheck2,
+  Plus,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -71,6 +72,7 @@ type ClosedLeadRow = {
   previousStatus: string | null;
   createdDate: string;
   registrationTrackingNumber: string | null;
+  registrations?: Array<{ trackingNumber: string; documentType: string | null }>;
 };
 
 type TrendPoint = { date: string; label: string; count: number };
@@ -716,13 +718,34 @@ export function ClosedAnalyticsDashboard() {
                             <Link href={`/dashboard/leads?id=${lead.id}&edit=true`} className="text-soft transition hover:text-white" title="Edit Lead">
                               <Pencil size={16} />
                             </Link>
-                            {lead.registrationTrackingNumber ? (
-                              <Link href={`/dashboard/revenue-registration?trackingNumber=${lead.registrationTrackingNumber}`} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20" title="View Registration">
-                                <FileCheck2 size={12} />
-                                {lead.registrationTrackingNumber}
-                              </Link>
+                            {lead.registrations && lead.registrations.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {lead.registrations.map((reg) => (
+                                  <Link
+                                    key={reg.trackingNumber}
+                                    href={`/dashboard/revenue-registration?trackingNumber=${reg.trackingNumber}`}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20"
+                                    title={`View Registration (${reg.documentType || "Document"})`}
+                                  >
+                                    <FileCheck2 size={12} />
+                                    {reg.trackingNumber}
+                                  </Link>
+                                ))}
+                                <Link
+                                  href={`/dashboard/revenue-registration/new?leadId=${lead.id}`}
+                                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/30"
+                                  title="Register Another Revenue Document"
+                                >
+                                  <Plus size={11} />
+                                  Add Doc
+                                </Link>
+                              </div>
                             ) : (
-                              <Link href={`/dashboard/revenue-registration/new?leadId=${lead.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-400 hover:shadow" title="Register Revenue">
+                              <Link
+                                href={`/dashboard/revenue-registration/new?leadId=${lead.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-400 hover:shadow"
+                                title="Register Revenue"
+                              >
                                 <FileCheck2 size={14} />
                                 Register Revenue
                               </Link>

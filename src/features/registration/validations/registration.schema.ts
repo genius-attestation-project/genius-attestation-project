@@ -104,9 +104,102 @@ export const registrationInputSchema = z.object({
   ).optional().default("Pending"),
   trackingStatus: optionalText,
   leadId: optionalText,
+  documentFileIds: z.array(z.string()).optional().default([]),
+  invoiceFileIds: z.array(z.string()).optional().default([]),
+  supportingFileIds: z.array(z.string()).optional().default([]),
+  advancePaymentFileIds: z.array(z.string()).optional().default([]),
 }).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
   message: "Advance payment cannot exceed Total Charges.",
   path: ["requestedAdvanceAmount"],
 });
 
 export type RegistrationInput = z.infer<typeof registrationInputSchema>;
+
+export const documentItemInputSchema = z.object({
+  trackingNumber: requiredText("Tracking number"),
+  documentType: optionalText,
+  documentName: optionalText,
+  documentIssuedCountry: optionalText,
+  processType: optionalText,
+  subPackage: optionalText,
+  externalProcess: optionalText,
+  priority: optionalText,
+  committedDuration: optionalText,
+  deliveryLocation: optionalText,
+  totalCharges: numericField("Total charges", false),
+  advancePaid: numericField("Advance paid", false),
+  requestedAdvanceAmount: numericField("Requested advance amount", false),
+  paymentMode: optionalText,
+  upiTransactionId: optionalText,
+  bankName: optionalText,
+  transactionRefNo: optionalText,
+  transferDate: optionalText,
+  chequeNumber: optionalText,
+  chequeDate: optionalText,
+  ddNumber: optionalText,
+  ddDate: optionalText,
+  cardLast4: optionalText,
+  approvalCode: optionalText,
+  paymentGateway: optionalText,
+  onlineTransactionId: optionalText,
+  walletName: optionalText,
+  walletTransactionId: optionalText,
+  paymentReferenceNo: optionalText,
+  paymentDescription: optionalText,
+  paymentStatus: optionalText,
+  collectedPerson: optionalText,
+  commissionToUserId: optionalText,
+  commissionToName: optionalText,
+  commissionToEmail: optionalText,
+  registeredPerson: optionalText,
+  regionOfRegistration: optionalText,
+  regionOfRegistrationId: optionalText,
+  approvalStatus: z.preprocess(
+    (val) => (val && approvalStatusOptions.includes(val as any) ? val : "Pending"),
+    z.enum(approvalStatusOptions),
+  ).optional().default("Pending"),
+  trackingStatus: optionalText,
+  documentFileIds: z.array(z.string()).optional().default([]),
+  invoiceFileIds: z.array(z.string()).optional().default([]),
+  supportingFileIds: z.array(z.string()).optional().default([]),
+  advancePaymentFileIds: z.array(z.string()).optional().default([]),
+}).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
+  message: "Advance payment cannot exceed Total Charges.",
+  path: ["requestedAdvanceAmount"],
+});
+
+export type DocumentItemInput = z.infer<typeof documentItemInputSchema>;
+
+export const sharedCustomerInputSchema = z.object({
+  leadId: optionalText,
+  customerName: optionalText,
+  mobile: optionalPhone,
+  email: optionalEmail,
+  address: optionalText,
+  country: optionalText,
+  state: optionalText,
+  city: optionalText,
+  customerType: optionalText,
+  corporateDetailId: optionalText,
+});
+
+export type SharedCustomerInput = z.infer<typeof sharedCustomerInputSchema>;
+
+export const multiRegistrationInputSchema = z.object({
+  shared: sharedCustomerInputSchema,
+  documents: z.array(documentItemInputSchema).min(1, "At least one document is required."),
+}).refine((data) => {
+  const numbers = data.documents.map((d) => d.trackingNumber.trim().toLowerCase());
+  const seen = new Set<string>();
+  for (const num of numbers) {
+    if (seen.has(num)) return false;
+    seen.add(num);
+  }
+  return true;
+}, {
+  message: "Duplicate Tracking Numbers found in submission. Each document must have a unique Tracking Number.",
+  path: ["documents"],
+});
+
+export type MultiRegistrationInput = z.infer<typeof multiRegistrationInputSchema>;
+

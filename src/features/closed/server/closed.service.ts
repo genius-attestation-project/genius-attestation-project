@@ -105,6 +105,7 @@ type ClosedLeadSnapshot = Prisma.LeadGetPayload<{
     registrations: {
       select: {
         trackingNumber: true;
+        documentType: true;
       };
     };
   };
@@ -392,6 +393,7 @@ async function listCurrentClosedSnapshots(
       registrations: {
         select: {
           trackingNumber: true,
+          documentType: true,
         },
       },
     },
@@ -683,6 +685,10 @@ export async function getClosedLeadsTable(
         : null,
       createdDate: snapshot.createdAt.toISOString(),
       registrationTrackingNumber: snapshot.registrations?.[0]?.trackingNumber ?? null,
+      registrations: snapshot.registrations?.map((r) => ({
+        trackingNumber: r.trackingNumber,
+        documentType: r.documentType ?? null,
+      })) ?? [],
     }));
 
   const totalItems = rows.length;
