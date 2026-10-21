@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle, Plus } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Clock3, FileText, IndianRupee, UserRound, XCircle, Plus, Files } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import type { Registration } from "@/features/registration/types/registration.types";
@@ -154,6 +155,43 @@ export function RegistrationDetail({
             </p>
           )}
         </div>
+      )}
+
+      {Boolean(registration.linkedDocuments && registration.linkedDocuments.length > 1) && (
+        <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900/50 dark:bg-blue-950/30">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-900 dark:text-blue-300">
+              <Files size={14} className="text-blue-600 dark:text-blue-400" />
+              Documents Linked to This Customer ({registration.linkedDocuments!.length})
+            </span>
+            <span className="text-xs text-blue-700 dark:text-blue-400">
+              Click a tracking number to view its details
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {registration.linkedDocuments!.map((doc) => {
+              const isCurrent = doc.trackingNumber === registration.trackingNumber;
+              return (
+                <Link
+                  key={doc.id || doc.trackingNumber}
+                  href={`/dashboard/document-details/${encodeURIComponent(doc.trackingNumber)}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition ${
+                    isCurrent
+                      ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400"
+                      : "border border-blue-200 bg-white text-blue-700 hover:bg-blue-100 hover:border-blue-300 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                  }`}
+                >
+                  <span>{doc.trackingNumber}</span>
+                  {doc.documentType && (
+                    <span className={`text-[10px] font-normal ${isCurrent ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
+                      ({doc.documentType})
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       <section className="grid gap-3">

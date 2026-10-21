@@ -74,7 +74,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 bg-white dark:bg-slate-900 p-8 text-lg font-bold text-slate-700 dark:text-slate-200"><RefreshCw className="animate-spin text-[#195b8e]" /> Loading document details...</div>;
   if (error || !data) return <div className="mx-auto my-8 max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center"><p className="mb-5 text-lg font-bold text-red-700 dark:text-red-400">{error || "Unable to locate record."}</p><Link href="/dashboard/revenue-registration"><Button variant="secondary">Back to Registrations</Button></Link></div>;
 
-  const { registration: reg, currentProcess: proc, movementHistory = [], workflowHistory = [], advancePaymentApprovals = [] } = data;
+  const { registration: reg, currentProcess: proc, movementHistory = [], workflowHistory = [], advancePaymentApprovals = [], linkedDocuments = [] } = data;
   const currentStatus = proc.currentStatus || reg.trackingStatus || "Registered";
   const paymentFields: DetailField[] = [
     { label: "Total Amount", value: `₹${Number(reg.totalCharges || 0).toFixed(2)}` },
@@ -118,6 +118,41 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
       </div>
 
       <div className="space-y-5 print:space-y-4">
+        {linkedDocuments.length > 1 && (
+          <div className="no-print rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900/50 dark:bg-blue-950/30">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-900 dark:text-blue-300">
+                Documents Linked to This Customer ({linkedDocuments.length})
+              </span>
+              <span className="text-xs text-blue-700 dark:text-blue-400">
+                Click a tracking number to switch documents
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {linkedDocuments.map((doc: any) => {
+                const isCurrent = doc.trackingNumber === reg.trackingNumber;
+                return (
+                  <Link
+                    key={doc.id || doc.trackingNumber}
+                    href={`/dashboard/document-details/${encodeURIComponent(doc.trackingNumber)}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition ${
+                      isCurrent
+                        ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400"
+                        : "border border-blue-200 bg-white text-blue-700 hover:bg-blue-100 hover:border-blue-300 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                    }`}
+                  >
+                    <span>{doc.trackingNumber}</span>
+                    {doc.documentType && (
+                      <span className={`text-[10px] font-normal ${isCurrent ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
+                        ({doc.documentType})
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <Section title="Document Type">
           <DetailsGrid fields={[
             { label: "Document Type", value: reg.documentType }, { label: "Process Type", value: reg.processType },

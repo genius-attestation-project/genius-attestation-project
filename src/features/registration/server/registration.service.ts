@@ -822,6 +822,13 @@ export async function createRegistrationsInTransaction(
         select: { id: true, trackingNumber: true },
       });
 
+      if (fileStorageIds.length > 0) {
+        await tx.fileStorage.updateMany({
+          where: { id: { in: fileStorageIds.map((f) => f.fileStorageId) } },
+          data: { recordId: reg.id },
+        });
+      }
+
       await tx.movementHistory.create({
         data: {
           trackingNumber,
@@ -855,6 +862,22 @@ export async function createRegistrationsInTransaction(
         collectedBy: item.doc.collectedPerson || null,
         performedByUserId: userId,
         receiptFileId: item.doc.advancePaymentFileIds?.[0] || null,
+        bankName: item.doc.bankName || null,
+        transactionRefNo: item.doc.transactionRefNo || null,
+        transferDate: item.doc.transferDate ? new Date(item.doc.transferDate) : null,
+        upiTransactionId: item.doc.upiTransactionId || null,
+        chequeNumber: item.doc.chequeNumber || null,
+        chequeDate: item.doc.chequeDate ? new Date(item.doc.chequeDate) : null,
+        ddNumber: item.doc.ddNumber || null,
+        ddDate: item.doc.ddDate ? new Date(item.doc.ddDate) : null,
+        cardLast4: item.doc.cardLast4 || null,
+        approvalCode: item.doc.approvalCode || null,
+        paymentGateway: item.doc.paymentGateway || null,
+        onlineTransactionId: item.doc.onlineTransactionId || null,
+        walletName: item.doc.walletName || null,
+        walletTransactionId: item.doc.walletTransactionId || null,
+        paymentReferenceNo: item.doc.paymentReferenceNo || null,
+        paymentDescription: item.doc.paymentDescription || null,
       }).catch((err) => console.error("[registration] Advance payment approval submission error:", err));
     }
   }

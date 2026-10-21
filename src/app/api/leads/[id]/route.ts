@@ -18,6 +18,8 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     "leads.view_own",
     "leads.view_assigned_users",
     "lead_management.view",
+    "revenue_registration.create",
+    "revenue_registration.view",
   ]);
   if (denied) return denied;
 

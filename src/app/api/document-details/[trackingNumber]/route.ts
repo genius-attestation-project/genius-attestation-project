@@ -46,6 +46,42 @@ export async function GET(
         paymentUpdates: {
           orderBy: { submittedAt: "desc" },
         },
+        lead: {
+          select: {
+            id: true,
+            leadCode: true,
+            firstName: true,
+            lastName: true,
+            registrations: {
+              select: {
+                id: true,
+                trackingNumber: true,
+                documentType: true,
+                documentName: true,
+                trackingStatus: true,
+                approvalStatus: true,
+              },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+        registrationBatch: {
+          select: {
+            id: true,
+            batchNumber: true,
+            registrations: {
+              select: {
+                id: true,
+                trackingNumber: true,
+                documentType: true,
+                documentName: true,
+                trackingStatus: true,
+                approvalStatus: true,
+              },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
       },
     });
 
@@ -250,7 +286,26 @@ export async function GET(
       latestMovement?.receivedAt || latestMovement?.updatedAt || registration.createdAt
     );
 
+    let linkedDocuments: Array<{
+      id: string;
+      trackingNumber: string;
+      documentType: string | null;
+      documentName: string | null;
+      trackingStatus: string;
+      approvalStatus: string;
+    }> = [];
+
+    const leadRegs = (registration as any).lead?.registrations;
+    const batchRegs = (registration as any).registrationBatch?.registrations;
+
+    if (leadRegs && leadRegs.length > 1) {
+      linkedDocuments = leadRegs;
+    } else if (batchRegs && batchRegs.length > 1) {
+      linkedDocuments = batchRegs;
+    }
+
     return NextResponse.json({
+      linkedDocuments,
       registration: {
         ...registration,
         subPackage: currentSubPackage || "-",
