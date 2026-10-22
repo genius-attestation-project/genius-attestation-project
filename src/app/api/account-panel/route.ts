@@ -4,6 +4,7 @@ import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
 import { getAssignedAccountTree } from "@/features/account-menu/server/account-menu.service";
 import { resolveOfficeLocationId, resolveOfficeLocationName } from "@/lib/office-location";
+import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
   try {
     const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId) return jsonError("No owner admin ID found.", 401);
+
+    const isSuperAdmin = Boolean(
+      session?.user?.isSuperAdmin || session?.user?.role === "Super Admin"
+    );
 
     const { searchParams } = new URL(request.url);
     const queryOfficeId = searchParams.get("officeId") || undefined;
@@ -41,6 +46,18 @@ export async function GET(request: NextRequest) {
       if (office) {
         targetOfficeId = office.id;
         targetOfficeName = office.officeName;
+      }
+    }
+
+    // Verify authorization if a specific office was requested by non-superadmin
+    if (targetOfficeId && !isSuperAdmin) {
+      const isAllowed =
+        hasOfficeAccess(session?.user, targetOfficeId, "account_panel") ||
+        hasOfficeAccess(session?.user, targetOfficeName, "account_panel");
+      if (!isAllowed) {
+        // Fall back to the user's assigned office
+        targetOfficeId = null;
+        targetOfficeName = null;
       }
     }
 
@@ -76,17 +93,25 @@ export async function GET(request: NextRequest) {
       orderBy: [{ location: "asc" }, { officeName: "asc" }],
     });
 
+    const authorizedOffices = isSuperAdmin
+      ? availableOffices
+      : availableOffices.filter(
+          (o) =>
+            hasOfficeAccess(session?.user, o.id, "account_panel") ||
+            hasOfficeAccess(session?.user, o.officeName, "account_panel")
+        );
+
     return jsonOk({
       tree,
       activeOffice: targetOfficeId
         ? { id: targetOfficeId, name: targetOfficeName || "Current Office" }
         : null,
-      availableOffices: availableOffices.map((o) => ({
+      availableOffices: authorizedOffices.map((o) => ({
         id: o.id,
         name: o.officeName,
         country: o.location || "Other",
       })),
-      isSuperAdmin: Boolean(session?.user?.isSuperAdmin || session?.user?.role === "Super Admin"),
+      isSuperAdmin,
     });
   } catch (error: any) {
     console.error("Failed to fetch Account Panel data:", error);

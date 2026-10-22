@@ -120,6 +120,11 @@ export const TransactionEntryModal: React.FC<TransactionEntryModalProps> = ({
       return;
     }
 
+    if (!activeOfficeId && !activeOfficeName) {
+      setError("No active office context found. Please ensure an office is assigned or selected.");
+      return;
+    }
+
     setLoading(true);
 
     try {

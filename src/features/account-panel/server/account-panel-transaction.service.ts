@@ -34,25 +34,27 @@ export async function createAccountPanelTransaction(
     );
   }
 
-  // 3. Optional office assignment verification if officeId is provided
-  if (officeId) {
-    const isAssigned = await db.accountOfficeAssignment.findFirst({
-      where: {
-        accountNodeId: accountId,
-        officeId,
-        ownerAdminId,
-      },
-    });
+  // 3. Office assignment verification
+  if (!officeId) {
+    throw new Error("Office association is mandatory for account transactions.");
+  }
 
-    // If not directly assigned, verify if any parent node is assigned or if user has full access
-    if (!isAssigned) {
-      // Check if office exists for owner
-      const officeExists = await db.officeLocation.findFirst({
-        where: { id: officeId, ownerAdminId },
-      });
-      if (!officeExists) {
-        throw new Error("Specified office location does not exist.");
-      }
+  const isAssigned = await db.accountOfficeAssignment.findFirst({
+    where: {
+      accountNodeId: accountId,
+      officeId,
+      ownerAdminId,
+    },
+  });
+
+  // If not directly assigned, verify if any parent node is assigned or if office exists
+  if (!isAssigned) {
+    // Check if office exists for owner
+    const officeExists = await db.officeLocation.findFirst({
+      where: { id: officeId, ownerAdminId },
+    });
+    if (!officeExists) {
+      throw new Error("Specified office location does not exist.");
     }
   }
 
@@ -65,7 +67,7 @@ export async function createAccountPanelTransaction(
       transactionDate: new Date(transactionDate),
       amount: amount,
       narration: narration ? narration.trim() : null,
-      officeId: officeId || null,
+      officeId,
       createdBy: userId || null,
       createdByName: userName || null,
       ownerAdminId,
@@ -87,17 +89,24 @@ export async function createAccountPanelTransaction(
 }
 
 /**
- * Fetches transactions recorded for a given leaf account.
+ * Fetches transactions recorded for a given leaf account, optionally scoped to an office.
  */
 export async function getAccountTransactions(
   ownerAdminId: string,
-  accountId: string
+  accountId: string,
+  officeId?: string
 ) {
+  const where: any = {
+    accountId,
+    ownerAdminId,
+  };
+
+  if (officeId) {
+    where.officeId = officeId;
+  }
+
   const transactions = await db.accountPanelTransaction.findMany({
-    where: {
-      accountId,
-      ownerAdminId,
-    },
+    where,
     include: {
       account: {
         select: {

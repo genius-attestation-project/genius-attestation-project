@@ -127,14 +127,22 @@ export async function getAccountStatements(
   if (targetOfficeName) {
     advanceWhere.OR = [
       { office: { equals: targetOfficeName } },
-      { registration: { regionOfRegistration: { equals: targetOfficeName } } },
-      { registration: { deliveryLocation: { equals: targetOfficeName } } },
+      {
+        AND: [
+          { office: null },
+          { registration: { regionOfRegistration: { equals: targetOfficeName } } },
+        ],
+      },
     ];
   } else if (!isSuperAdmin && allowedOfficeNames.length > 0) {
     advanceWhere.OR = [
       { office: { in: allowedOfficeNames } },
-      { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
-      { registration: { deliveryLocation: { in: allowedOfficeNames } } },
+      {
+        AND: [
+          { office: null },
+          { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
+        ],
+      },
     ];
   }
 
@@ -158,14 +166,22 @@ export async function getAccountStatements(
   if (targetOfficeName) {
     priorAdvanceWhere.OR = [
       { office: { equals: targetOfficeName } },
-      { registration: { regionOfRegistration: { equals: targetOfficeName } } },
-      { registration: { deliveryLocation: { equals: targetOfficeName } } },
+      {
+        AND: [
+          { office: null },
+          { registration: { regionOfRegistration: { equals: targetOfficeName } } },
+        ],
+      },
     ];
   } else if (!isSuperAdmin && allowedOfficeNames.length > 0) {
     priorAdvanceWhere.OR = [
       { office: { in: allowedOfficeNames } },
-      { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
-      { registration: { deliveryLocation: { in: allowedOfficeNames } } },
+      {
+        AND: [
+          { office: null },
+          { registration: { regionOfRegistration: { in: allowedOfficeNames } } },
+        ],
+      },
     ];
   }
 
@@ -183,21 +199,17 @@ export async function getAccountStatements(
     };
   }
 
-  if (targetOfficeId) {
+  if (targetOfficeId && targetOfficeName && targetOfficeId !== targetOfficeName) {
     panelWhere.OR = [
       { officeId: targetOfficeId },
-      { account: { officeAssignments: { some: { officeId: targetOfficeId } } } },
-    ];
-  } else if (targetOfficeName) {
-    panelWhere.OR = [
       { officeId: targetOfficeName },
-      { account: { officeAssignments: { some: { office: { officeName: targetOfficeName } } } } },
     ];
+  } else if (targetOfficeId) {
+    panelWhere.officeId = targetOfficeId;
+  } else if (targetOfficeName) {
+    panelWhere.officeId = targetOfficeName;
   } else if (!isSuperAdmin && allowedOfficeIds.length > 0) {
-    panelWhere.OR = [
-      { officeId: { in: allowedOfficeIds } },
-      { account: { officeAssignments: { some: { officeId: { in: allowedOfficeIds } } } } },
-    ];
+    panelWhere.officeId = { in: allowedOfficeIds };
   }
 
   const priorPanelWhere: any = {
@@ -205,21 +217,17 @@ export async function getAccountStatements(
     transactionDate: { lt: dateFrom },
   };
 
-  if (targetOfficeId) {
+  if (targetOfficeId && targetOfficeName && targetOfficeId !== targetOfficeName) {
     priorPanelWhere.OR = [
       { officeId: targetOfficeId },
-      { account: { officeAssignments: { some: { officeId: targetOfficeId } } } },
-    ];
-  } else if (targetOfficeName) {
-    priorPanelWhere.OR = [
       { officeId: targetOfficeName },
-      { account: { officeAssignments: { some: { office: { officeName: targetOfficeName } } } } },
     ];
+  } else if (targetOfficeId) {
+    priorPanelWhere.officeId = targetOfficeId;
+  } else if (targetOfficeName) {
+    priorPanelWhere.officeId = targetOfficeName;
   } else if (!isSuperAdmin && allowedOfficeIds.length > 0) {
-    priorPanelWhere.OR = [
-      { officeId: { in: allowedOfficeIds } },
-      { account: { officeAssignments: { some: { officeId: { in: allowedOfficeIds } } } } },
-    ];
+    priorPanelWhere.officeId = { in: allowedOfficeIds };
   }
 
   const [

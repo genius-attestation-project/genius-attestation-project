@@ -18,17 +18,24 @@ export const AccountPanelDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const [activeOffice, setActiveOffice] = useState<{ id: string; name: string } | null>(null);
+  const [availableOffices, setAvailableOffices] = useState<AvailableOffice[]>([]);
   const [selectedLeafAccount, setSelectedLeafAccount] = useState<AccountNode | null>(null);
 
-  const fetchAccountPanelData = useCallback(async () => {
+  const fetchAccountPanelData = useCallback(async (selectedOfficeId?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/account-panel");
+      const url = selectedOfficeId
+        ? `/api/account-panel?officeId=${encodeURIComponent(selectedOfficeId)}`
+        : "/api/account-panel";
+      const res = await fetch(url);
       const json = await res.json();
 
       if (res.ok) {
         setTreeData(json.tree || []);
         setActiveOffice(json.activeOffice || null);
+        if (Array.isArray(json.availableOffices)) {
+          setAvailableOffices(json.availableOffices);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch Account Panel tree:", error);
@@ -115,12 +122,38 @@ export const AccountPanelDashboard: React.FC = () => {
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   Account Panel
                 </h1>
-                {activeOffice && (
+                {availableOffices.length > 1 ? (
+                  <div className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-2.5 py-1 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <select
+                      value={activeOffice?.id || ""}
+                      onChange={(e) => {
+                        const newId = e.target.value;
+                        const match = availableOffices.find((o) => o.id === newId);
+                        if (match) {
+                          setActiveOffice({ id: match.id, name: match.name });
+                          fetchAccountPanelData(match.id);
+                        }
+                      }}
+                      className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 outline-none cursor-pointer pr-1"
+                    >
+                      {availableOffices.map((off) => (
+                        <option
+                          key={off.id}
+                          value={off.id}
+                          className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white"
+                        >
+                          {off.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : activeOffice ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">
                     <Building2 className="h-3.5 w-3.5" />
                     {activeOffice.name}
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -163,7 +196,7 @@ export const AccountPanelDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => fetchAccountPanelData()}
+              onClick={() => fetchAccountPanelData(activeOffice?.id)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -222,6 +255,7 @@ export const AccountPanelDashboard: React.FC = () => {
         activeOfficeName={activeOffice?.name}
         activeOfficeId={activeOffice?.id}
         onClose={() => setSelectedLeafAccount(null)}
+        onSuccess={() => fetchAccountPanelData(activeOffice?.id)}
       />
     </div>
   );

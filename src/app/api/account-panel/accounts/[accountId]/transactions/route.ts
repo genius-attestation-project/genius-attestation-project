@@ -22,7 +22,10 @@ export async function GET(
       return jsonError("Account ID is required.", 400);
     }
 
-    const transactions = await getAccountTransactions(ownerAdminId, accountId);
+    const { searchParams } = new URL(request.url);
+    const officeId = searchParams.get("officeId") || undefined;
+
+    const transactions = await getAccountTransactions(ownerAdminId, accountId, officeId);
     return jsonOk({ transactions });
   } catch (error: any) {
     console.error("Failed to fetch transactions for account:", error);
