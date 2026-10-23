@@ -485,14 +485,18 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
           { key: "search_report.export", label: "Export" },
         ],
       },
-      {
-        label: "Tracking Report",
-        actions: [
-          { key: "search_report.tracking_report.view", label: "View" },
-          { key: "search_report.tracking_report.search", label: "Search" },
-          { key: "search_report.tracking_report.export", label: "Export" },
-        ],
-      },
+    ],
+  },
+  {
+    key: "revenue_report",
+    label: "REVENUE REPORT",
+    category: "Analytics & Reports",
+    description: "Office revenue collection summaries, tracking status reports, and Excel exports.",
+    moduleAccessKey: "revenue_report.view",
+    actions: [
+      { key: "revenue_report.view", label: "View" },
+      { key: "revenue_report.search", label: "Search" },
+      { key: "revenue_report.export", label: "Export" },
     ],
   },
   {
@@ -736,6 +740,7 @@ export function UserAccessManagement() {
     pending_approval: true,
     lead_management: true,
     master_configuration: true,
+    revenue_report: true,
   });
 
   // Office Visibility editing state: userId -> { moduleKey -> officeLocationIds[] }

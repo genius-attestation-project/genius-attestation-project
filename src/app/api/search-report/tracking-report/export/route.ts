@@ -17,11 +17,13 @@ export async function GET(request: NextRequest) {
     const access = await getSessionAccess(session.user.id);
     const canExport =
       access?.isSuperAdmin ||
+      hasPermission(access, "revenue_report.export") ||
       hasPermission(access, "search_report.tracking_report.export") ||
+      hasPermission(access, "tracking_report.export") ||
       hasPermission(access, "search_report.export");
 
     if (!canExport) {
-      return jsonError("You do not have permission to export tracking reports.", 403);
+      return jsonError("You do not have permission to export revenue reports.", 403);
     }
 
     const { searchParams } = new URL(request.url);

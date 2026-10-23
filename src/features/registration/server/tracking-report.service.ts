@@ -153,32 +153,45 @@ async function buildTrackingReportWhere(
   // 1. Office Security Check & Scope
   if (isAllOfficesSelected) {
     // If not superadmin and restricted to specific offices, scope query strictly to allowed offices
-    if (!isSuperAdmin && userAccess && userAccess.allowedOfficeIds !== null && userAccess.allowedOfficeIds !== undefined) {
-      const allowedIds = userAccess.allowedOfficeIds;
-      const allowedNames = userAccess.allowedOfficeNames ?? [];
+    if (!isSuperAdmin && userAccess) {
+      let allowedIds = userAccess.allowedOfficeIds;
+      let allowedNames = userAccess.allowedOfficeNames ?? [];
 
-      if (allowedIds.length === 0 && allowedNames.length === 0) {
-        throw new Error("You do not have authorization for any office.");
+      const modConfig =
+        userAccess.moduleOfficeVisibilities?.["revenue_report"] ||
+        userAccess.moduleOfficeVisibilities?.["tracking_report"] ||
+        userAccess.moduleOfficeVisibilities?.["search_report"];
+
+      if (modConfig) {
+        allowedIds = modConfig.officeIds;
+        allowedNames = modConfig.officeNames;
       }
 
-      andConditions.push({
-        OR: [
-          { regionOfRegistrationId: { in: allowedIds } },
-          { regionOfRegistration: { in: allowedNames } },
-          { creator: { officeLocationId: { in: allowedIds } } },
-          { creator: { officeLocationRef: { officeName: { in: allowedNames } } } },
-        ],
-      });
+      if (allowedIds !== null && allowedIds !== undefined) {
+        if (allowedIds.length === 0 && allowedNames.length === 0) {
+          throw new Error("You do not have authorization for any office.");
+        }
+
+        andConditions.push({
+          OR: [
+            { regionOfRegistrationId: { in: allowedIds } },
+            { regionOfRegistration: { in: allowedNames } },
+            { creator: { officeLocationId: { in: allowedIds } } },
+            { creator: { officeLocationRef: { officeName: { in: allowedNames } } } },
+          ],
+        });
+      }
     }
   } else {
     // A specific office is selected: verify authorization for non-superadmins
     if (!isSuperAdmin && userAccess) {
       const isAllowed =
+        hasOfficeAccess(userAccess, officeQuery, "revenue_report") ||
         hasOfficeAccess(userAccess, officeQuery, "tracking_report") ||
         hasOfficeAccess(userAccess, officeQuery, "search_report");
 
       if (!isAllowed) {
-        throw new Error("You are not authorized to view tracking reports for this office.");
+        throw new Error("You are not authorized to view revenue reports for this office.");
       }
     }
 
@@ -490,12 +503,12 @@ export async function getTrackingReportExport(
 
   const worksheet = XLSX.utils.json_to_sheet(exportRows);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Tracking Report");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue Report");
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   const dateStr = new Date().toISOString().split("T")[0];
   const safeOffice = (params.office || "All").replace(/[^a-zA-Z0-9_-]/g, "_");
-  const fileName = `Tracking_Report_${safeOffice}_${dateStr}.xlsx`;
+  const fileName = `Revenue_Report_${safeOffice}_${dateStr}.xlsx`;
 
   return { buffer, fileName };
 }

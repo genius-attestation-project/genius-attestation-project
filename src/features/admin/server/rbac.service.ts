@@ -1624,8 +1624,11 @@ export function hasOfficeAccess(
   // If moduleKey is provided and module-specific visibilities exist for this user, check strictly
   if (moduleKey && access.moduleOfficeVisibilities !== null && access.moduleOfficeVisibilities !== undefined) {
     let modConfig = access.moduleOfficeVisibilities[moduleKey];
-    if (!modConfig && moduleKey === "tracking_report" && access.moduleOfficeVisibilities["search_report"]) {
-      modConfig = access.moduleOfficeVisibilities["search_report"];
+    if (!modConfig && (moduleKey === "revenue_report" || moduleKey === "tracking_report")) {
+      modConfig =
+        access.moduleOfficeVisibilities["revenue_report"] ||
+        access.moduleOfficeVisibilities["tracking_report"] ||
+        access.moduleOfficeVisibilities["search_report"];
     }
     if (!modConfig || (modConfig.officeIds.length === 0 && modConfig.officeNames.length === 0)) {
       return false;

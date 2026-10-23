@@ -19,6 +19,7 @@ import {
   Users,
   UserRoundPlus,
   ListChecks,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -59,6 +60,11 @@ export const sidebarItems: SidebarItem[] = [
     label: "Search / Report",
     href: "/dashboard/search-report",
     icon: FileSearch,
+  },
+  {
+    label: "Revenue Report",
+    href: "/dashboard/revenue-report",
+    icon: FileSpreadsheet,
   },
   {
     label: "Status Checking",

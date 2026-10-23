@@ -79,7 +79,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
     async function loadOfficeOptions() {
       setOfficesLoading(true);
       try {
-        const res = await fetch("/api/offices/all?module=search_report", { cache: "no-store" });
+        const res = await fetch("/api/offices/all?module=revenue_report", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           const officesList: Array<{ id: string; officeName: string; location?: string }> =
@@ -178,11 +178,11 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         if (filters.status) params.set("status", filters.status);
         if (filters.hasBalance) params.set("hasBalance", filters.hasBalance);
 
-        const res = await fetch(`/api/search-report/tracking-report?${params.toString()}`);
+        const res = await fetch(`/api/revenue-report?${params.toString()}`);
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          throw new Error(data.message || "Failed to fetch tracking report.");
+          throw new Error(data.message || "Failed to fetch revenue report.");
         }
 
         setReportData(data.data ?? data);
@@ -221,7 +221,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
       if (filters.status) params.set("status", filters.status);
       if (filters.hasBalance) params.set("hasBalance", filters.hasBalance);
 
-      const res = await fetch(`/api/search-report/tracking-report/export?${params.toString()}`);
+      const res = await fetch(`/api/revenue-report/export?${params.toString()}`);
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         throw new Error(errJson.message || "Export failed.");
@@ -231,7 +231,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Tracking_Report_${office}_${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.download = `Revenue_Report_${office}_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -492,19 +492,19 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         <EmptyState
           icon={FileSearch}
           title="No Search Executed"
-          description="Select an office and date, then click Search to generate the Tracking Report."
+          description="Select an office and date, then click Search to generate the Revenue Report."
         />
       ) : loading ? (
         <div className="flex h-64 items-center justify-center rounded-2xl border border-(--border) bg-white/70 p-8 dark:bg-white/5">
           <div className="flex flex-col items-center gap-3">
             <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-            <p className="text-sm font-semibold text-soft">Generating tracking report...</p>
+            <p className="text-sm font-semibold text-soft">Generating revenue report...</p>
           </div>
         </div>
       ) : !hasResults ? (
         <EmptyState
           icon={FileSearch}
-          title="No tracking records found"
+          title="No revenue records found"
           description="No documents match the selected office, date range, and filters."
         />
       ) : (

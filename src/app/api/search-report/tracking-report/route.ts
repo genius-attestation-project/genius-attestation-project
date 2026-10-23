@@ -18,12 +18,16 @@ export async function GET(request: NextRequest) {
     const access = await getSessionAccess(session.user.id);
     const canView =
       access?.isSuperAdmin ||
+      hasPermission(access, "revenue_report.view") ||
+      hasPermission(access, "revenue_report.search") ||
       hasPermission(access, "search_report.tracking_report.view") ||
       hasPermission(access, "search_report.tracking_report.search") ||
+      hasPermission(access, "tracking_report.view") ||
+      hasPermission(access, "tracking_report.search") ||
       hasPermission(access, "search_report.view");
 
     if (!canView) {
-      return jsonError("You do not have permission to view tracking reports.", 403);
+      return jsonError("You do not have permission to view revenue reports.", 403);
     }
 
     const { searchParams } = new URL(request.url);

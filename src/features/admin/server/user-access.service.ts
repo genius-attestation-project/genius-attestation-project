@@ -72,6 +72,12 @@ export function getOperationalModules() {
       description: "General document search, tracking status query, and operational exports",
       category: "Reporting",
     },
+    "/dashboard/revenue-report": {
+      key: "revenue_report",
+      label: "Revenue Report",
+      description: "Office revenue collection summaries, tracking status reports, and operational exports",
+      category: "Reporting",
+    },
     "/dashboard/lead-management": {
       key: "lead_management",
       label: "Lead Management",
@@ -882,19 +888,33 @@ export async function getUserModuleAllowedOffices(
   }
 
   // Find module-specific office visibilities
+  const moduleKeysToCheck =
+    moduleKey === "revenue_report"
+      ? ["revenue_report", "tracking_report", "search_report"]
+      : [moduleKey];
+
   const moduleVisRows = await prisma.userOfficeVisibility.findMany({
     where: {
       userId,
-      OR: [{ moduleKey }, { moduleKey: "global" }],
+      OR: [...moduleKeysToCheck.map((m) => ({ moduleKey: m })), { moduleKey: "global" }],
     },
     include: {
       officeLocation: { select: { id: true, officeName: true } },
     },
   });
 
-  // Filter for exact module matches first, or fallback to global
-  const exactModuleRows = moduleVisRows.filter((v) => v.moduleKey === moduleKey);
-  const effectiveRows = exactModuleRows.length > 0 ? exactModuleRows : moduleVisRows;
+  // Filter for exact module matches first, or fallback to legacy/global
+  let effectiveRows: typeof moduleVisRows = [];
+  for (const m of moduleKeysToCheck) {
+    const matched = moduleVisRows.filter((v) => v.moduleKey === m);
+    if (matched.length > 0) {
+      effectiveRows = matched;
+      break;
+    }
+  }
+  if (effectiveRows.length === 0) {
+    effectiveRows = moduleVisRows;
+  }
 
   const allowedIds: string[] = [];
   const allowedNames: string[] = [];
@@ -967,7 +987,11 @@ export async function getOfficeVisibilityOptions(
     prisma.userOfficeVisibility.findMany({
       where: {
         userId,
-        ...(moduleKey && moduleKey.trim() ? { moduleKey: moduleKey.trim() } : {}),
+        ...(moduleKey && moduleKey.trim()
+          ? moduleKey.trim() === "revenue_report"
+            ? { moduleKey: { in: ["revenue_report", "tracking_report", "search_report"] } }
+            : { moduleKey: moduleKey.trim() }
+          : {}),
       },
       select: { officeLocationId: true, moduleKey: true },
     }),
@@ -1071,7 +1095,19 @@ export async function getOfficeVisibilityOptions(
   }
 
   // Non-Super Admin: filter strictly by permittedOfficeIds
-  const permittedOfficeIds = new Set(visibilities.map((v) => v.officeLocationId));
+  let effectiveVisibilities = visibilities;
+  if (moduleKey && moduleKey.trim() === "revenue_report") {
+    const revRows = visibilities.filter((v) => v.moduleKey === "revenue_report");
+    if (revRows.length > 0) {
+      effectiveVisibilities = revRows;
+    } else {
+      const trackRows = visibilities.filter((v) => v.moduleKey === "tracking_report");
+      if (trackRows.length > 0) {
+        effectiveVisibilities = trackRows;
+      }
+    }
+  }
+  const permittedOfficeIds = new Set(effectiveVisibilities.map((v) => v.officeLocationId));
 
   const permittedAssigned = allAssigned
     .filter((ao) => {
