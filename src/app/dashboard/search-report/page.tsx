@@ -19,7 +19,11 @@ export default async function SearchReportPage({
     hasPermission(session.user, "search_report.view") ||
     hasPermission(session.user, "search_report.search");
 
-  if (!canViewGeneral) {
+  const canViewTracking =
+    Boolean(session.user.isSuperAdmin) ||
+    hasPermission(session.user, "search_report.tracking_report.view");
+
+  if (!canViewGeneral && !canViewTracking) {
     return <AccessDenied description="Your role cannot access search and reports." />;
   }
 
@@ -34,6 +38,10 @@ export default async function SearchReportPage({
   }
   const queryString = query.toString();
   const searchPart = queryString ? `?${queryString}` : "";
+
+  if (!canViewGeneral && canViewTracking) {
+    redirect(`/dashboard/search-report/tracking-report${searchPart}`);
+  }
 
   redirect(`/dashboard/search-report/general-search${searchPart}`);
 }

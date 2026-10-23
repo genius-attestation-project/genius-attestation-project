@@ -1,21 +1,33 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { AccessDenied } from "@/components/shared/AccessDenied";
+import { TrackingReportClient } from "@/features/registration/components/TrackingReportClient";
+import { requirePermission } from "@/middleware/auth.middleware";
+import { hasPermission } from "@/features/admin/server/rbac.service";
 
-export default async function TrackingReportRedirectPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const resolvedParams = searchParams ? await searchParams : {};
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(resolvedParams)) {
-    if (typeof value === "string") {
-      query.set(key, value);
-    } else if (Array.isArray(value)) {
-      value.forEach((v) => query.append(key, v));
-    }
+export default async function TrackingReportPage() {
+  const session = await requirePermission(
+    "search_report.tracking_report.view",
+    "/dashboard/search-report/tracking-report"
+  );
+
+  if (!session || !session.user) {
+    return <AccessDenied description="Your role cannot access the Tracking Report." />;
   }
-  const queryString = query.toString();
-  const searchPart = queryString ? `?${queryString}` : "";
 
-  redirect(`/dashboard/revenue-report${searchPart}`);
+  const canExport =
+    Boolean(session.user.isSuperAdmin) ||
+    hasPermission(session.user, "search_report.tracking_report.export") ||
+    hasPermission(session.user, "search_report.export");
+
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-sm text-soft">
+          Loading tracking report...
+        </div>
+      }
+    >
+      <TrackingReportClient canExport={canExport} />
+    </Suspense>
+  );
 }

@@ -18,11 +18,8 @@ export async function GET(request: NextRequest) {
     const access = await getSessionAccess(session.user.id);
     const canView =
       access?.isSuperAdmin ||
-      hasPermission(access, "revenue_report.view") ||
-      hasPermission(access, "revenue_report.search") ||
       hasPermission(access, "search_report.tracking_report.view") ||
       hasPermission(access, "search_report.tracking_report.search") ||
-      hasPermission(access, "tracking_report.view") ||
       hasPermission(access, "search_report.view");
 
     if (!canView) {

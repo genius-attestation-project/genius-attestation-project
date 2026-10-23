@@ -72,12 +72,6 @@ export function getOperationalModules() {
       description: "General document search, tracking status query, and operational exports",
       category: "Reporting",
     },
-    "/dashboard/revenue-report": {
-      key: "revenue_report",
-      label: "Revenue Report",
-      description: "Revenue collection report, tracking fee summaries, and office-level financial exports",
-      category: "Reporting",
-    },
     "/dashboard/lead-management": {
       key: "lead_management",
       label: "Lead Management",
@@ -596,28 +590,6 @@ function mapRolePermissionsToMatrixCatalog(rolePermissionCodes: string[]): strin
     if (code === "process.receive") catalogKeys.add("process.inbound.receive");
     if (code === "process.return") catalogKeys.add("process.inbound.return");
     if (code === "process.retrieve") catalogKeys.add("process.outbound.retrieve");
-
-    if (
-      code === "revenue_report.view" ||
-      code === "tracking_report.view" ||
-      code === "search_report.tracking_report.view"
-    ) {
-      catalogKeys.add("revenue_report.view");
-    }
-    if (
-      code === "revenue_report.search" ||
-      code === "tracking_report.search" ||
-      code === "search_report.tracking_report.search"
-    ) {
-      catalogKeys.add("revenue_report.search");
-    }
-    if (
-      code === "revenue_report.export" ||
-      code === "tracking_report.export" ||
-      code === "search_report.tracking_report.export"
-    ) {
-      catalogKeys.add("revenue_report.export");
-    }
   }
 
   return Array.from(catalogKeys);
@@ -841,40 +813,10 @@ export async function listUserAccessData(ownerAdminId: string) {
     let permissionKeys: string[] = [];
     if (isConfigured) {
       permissionKeys = explicitPerms.filter((k) => k !== PERMISSION_CONFIGURED_SENTINEL);
-      if (
-        (permissionKeys.includes("search_report.tracking_report.view") ||
-          permissionKeys.includes("tracking_report.view")) &&
-        !permissionKeys.includes("revenue_report.view")
-      ) {
-        permissionKeys.push("revenue_report.view");
-      }
-      if (
-        (permissionKeys.includes("search_report.tracking_report.search") ||
-          permissionKeys.includes("tracking_report.search")) &&
-        !permissionKeys.includes("revenue_report.search")
-      ) {
-        permissionKeys.push("revenue_report.search");
-      }
-      if (
-        (permissionKeys.includes("search_report.tracking_report.export") ||
-          permissionKeys.includes("tracking_report.export")) &&
-        !permissionKeys.includes("revenue_report.export")
-      ) {
-        permissionKeys.push("revenue_report.export");
-      }
     } else if (u.role?.rolePermissions) {
       permissionKeys = mapRolePermissionsToMatrixCatalog(
         u.role.rolePermissions.map((rp) => rp.permission.code)
       );
-    }
-
-    const userModVis = { ...(userModuleOfficeMap.get(u.id) ?? {}) };
-    if (!userModVis["revenue_report"]) {
-      if (userModVis["tracking_report"]) {
-        userModVis["revenue_report"] = [...userModVis["tracking_report"]];
-      } else if (userModVis["search_report"]) {
-        userModVis["revenue_report"] = [...userModVis["search_report"]];
-      }
     }
 
     return {
@@ -888,7 +830,7 @@ export async function listUserAccessData(ownerAdminId: string) {
       isSuperAdmin: isSuperAdminUser,
       primaryOfficeLocationId: u.officeLocationId ?? null,
       primaryOfficeLocationName: u.officeLocationName ?? null,
-      moduleOfficeVisibilities: userModVis,
+      moduleOfficeVisibilities: userModuleOfficeMap.get(u.id) ?? {},
       permissionKeys,
       totalOfficesCount: userTotalOfficesMap.get(u.id)?.size ?? 0,
       totalPermissionsCount: permissionKeys.length,
@@ -940,28 +882,19 @@ export async function getUserModuleAllowedOffices(
   }
 
   // Find module-specific office visibilities
-  const queryModuleKeys = [moduleKey, "global"];
-  if (moduleKey === "revenue_report") {
-    queryModuleKeys.push("tracking_report");
-  }
   const moduleVisRows = await prisma.userOfficeVisibility.findMany({
     where: {
       userId,
-      OR: queryModuleKeys.map((mk) => ({ moduleKey: mk })),
+      OR: [{ moduleKey }, { moduleKey: "global" }],
     },
     include: {
       officeLocation: { select: { id: true, officeName: true } },
     },
   });
 
-  // Filter for exact module matches first, or fallback to tracking_report, then global
-  let effectiveRows = moduleVisRows.filter((v) => v.moduleKey === moduleKey);
-  if (effectiveRows.length === 0 && moduleKey === "revenue_report") {
-    effectiveRows = moduleVisRows.filter((v) => v.moduleKey === "tracking_report");
-  }
-  if (effectiveRows.length === 0) {
-    effectiveRows = moduleVisRows;
-  }
+  // Filter for exact module matches first, or fallback to global
+  const exactModuleRows = moduleVisRows.filter((v) => v.moduleKey === moduleKey);
+  const effectiveRows = exactModuleRows.length > 0 ? exactModuleRows : moduleVisRows;
 
   const allowedIds: string[] = [];
   const allowedNames: string[] = [];
@@ -1034,11 +967,7 @@ export async function getOfficeVisibilityOptions(
     prisma.userOfficeVisibility.findMany({
       where: {
         userId,
-        ...(moduleKey && moduleKey.trim()
-          ? moduleKey.trim() === "revenue_report"
-            ? { moduleKey: { in: ["revenue_report", "tracking_report"] } }
-            : { moduleKey: moduleKey.trim() }
-          : {}),
+        ...(moduleKey && moduleKey.trim() ? { moduleKey: moduleKey.trim() } : {}),
       },
       select: { officeLocationId: true, moduleKey: true },
     }),
