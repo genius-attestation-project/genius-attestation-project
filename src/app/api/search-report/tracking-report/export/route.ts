@@ -28,6 +28,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const office = searchParams.get("office")?.trim() || "";
+    const rawOfficeIds = searchParams.getAll("officeIds");
+    const officeIds = (rawOfficeIds.length > 0 ? rawOfficeIds : [office])
+      .flatMap((id) => (id ? id.split(",") : []))
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     const fromDate = searchParams.get("fromDate")?.trim() || undefined;
     const toDate = searchParams.get("toDate")?.trim() || undefined;
     const trackingNumber = searchParams.get("trackingNumber")?.trim() || undefined;
@@ -39,8 +45,9 @@ export async function GET(request: NextRequest) {
     const processType = searchParams.get("processType")?.trim() || undefined;
     const status = searchParams.get("status")?.trim() || searchParams.get("trackingStatus")?.trim() || undefined;
     const hasBalance = searchParams.get("hasBalance")?.trim() || undefined;
+    const search = searchParams.get("search")?.trim() || undefined;
 
-    if (!office) {
+    if (!office && officeIds.length === 0) {
       return jsonError("Office selection is required to export the tracking report.", 400);
     }
 
@@ -51,7 +58,8 @@ export async function GET(request: NextRequest) {
     const { buffer, fileName } = await getTrackingReportExport(
       ownerAdminId,
       {
-        office,
+        office: office || officeIds.join(","),
+        officeIds,
         fromDate,
         toDate,
         trackingNumber,
@@ -63,6 +71,7 @@ export async function GET(request: NextRequest) {
         processType,
         status,
         hasBalance,
+        search,
       },
       access!
     );

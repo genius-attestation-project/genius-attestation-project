@@ -32,6 +32,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const office = searchParams.get("office")?.trim() || "";
+    const rawOfficeIds = searchParams.getAll("officeIds");
+    const officeIds = (rawOfficeIds.length > 0 ? rawOfficeIds : [office])
+      .flatMap((id) => (id ? id.split(",") : []))
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     const fromDate = searchParams.get("fromDate")?.trim() || undefined;
     const toDate = searchParams.get("toDate")?.trim() || undefined;
     const trackingNumber = searchParams.get("trackingNumber")?.trim() || undefined;
@@ -43,8 +49,14 @@ export async function GET(request: NextRequest) {
     const processType = searchParams.get("processType")?.trim() || undefined;
     const status = searchParams.get("status")?.trim() || searchParams.get("trackingStatus")?.trim() || undefined;
     const hasBalance = searchParams.get("hasBalance")?.trim() || undefined;
+    const search = searchParams.get("search")?.trim() || undefined;
 
-    if (!office) {
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+    const pageSize = pageSizeParam ? Math.max(1, parseInt(pageSizeParam, 10)) : 10;
+
+    if (!office && officeIds.length === 0) {
       return jsonError("Office selection is required to generate the revenue report.", 400);
     }
 
@@ -55,7 +67,8 @@ export async function GET(request: NextRequest) {
     const data = await getTrackingReport(
       ownerAdminId,
       {
-        office,
+        office: office || officeIds.join(","),
+        officeIds,
         fromDate,
         toDate,
         trackingNumber,
@@ -67,6 +80,9 @@ export async function GET(request: NextRequest) {
         processType,
         status,
         hasBalance,
+        search,
+        page,
+        pageSize,
       },
       access!
     );

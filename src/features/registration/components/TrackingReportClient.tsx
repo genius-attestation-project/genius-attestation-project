@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   FileSearch,
@@ -8,18 +8,18 @@ import {
   Filter,
   FileSpreadsheet,
   RefreshCw,
-  X,
   Building2,
   Calendar,
-  DollarSign,
-  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
+import { TablePagination } from "@/components/ui/TablePagination";
 import type { TrackingReportResult } from "@/features/registration/server/tracking-report.service";
+import { OfficeMultiSelect, type OfficeOption } from "./OfficeMultiSelect";
+import { RevenueAnalytics } from "./RevenueAnalytics";
 
 type TrackingReportClientProps = {
   canExport?: boolean;
@@ -54,18 +54,22 @@ function formatCurrency(amount: number): string {
 }
 
 export function TrackingReportClient({ canExport = true }: TrackingReportClientProps) {
-  const [office, setOffice] = useState<string>("");
+  const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
 
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterState>(initialFilters);
 
-  const [officeOptions, setOfficeOptions] = useState<SelectOption[]>([]);
+  const [officeOptions, setOfficeOptions] = useState<OfficeOption[]>([]);
   const [officesLoading, setOfficesLoading] = useState<boolean>(true);
 
   const [documentTypeOptions, setDocumentTypeOptions] = useState<SelectOption[]>([]);
   const [processTypeOptions, setProcessTypeOptions] = useState<SelectOption[]>([]);
+
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [searched, setSearched] = useState<boolean>(false);
@@ -74,7 +78,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
   const [reportData, setReportData] = useState<TrackingReportResult | null>(null);
 
-  // 1. Fetch office options respecting Office Visibility Access
+  // 1. Fetch authorized office options respecting role-based visibility
   useEffect(() => {
     async function loadOfficeOptions() {
       setOfficesLoading(true);
@@ -82,31 +86,17 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         const res = await fetch("/api/offices/all?module=revenue_report", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          const officesList: Array<{ id: string; officeName: string; location?: string }> =
-            data.offices ?? data.data ?? [];
+          const officesList: OfficeOption[] = (data.offices ?? data.data ?? []).map((o: any) => ({
+            id: o.id,
+            officeName: o.officeName,
+            location: o.location,
+          }));
 
-          const opts: SelectOption[] = [];
+          setOfficeOptions(officesList);
 
-          // If multiple offices are available, include "All Offices" option
-          if (officesList.length > 1) {
-            opts.push({
-              label: "All Offices",
-              value: "all",
-            });
-          }
-
-          officesList.forEach((o) => {
-            opts.push({
-              label: o.officeName,
-              value: o.id,
-            });
-          });
-
-          setOfficeOptions(opts);
-
-          // If exactly 1 office is available, pre-select it
-          if (officesList.length === 1) {
-            setOffice(officesList[0].id);
+          // By default, select all authorized offices so user has complete scope
+          if (officesList.length > 0) {
+            setSelectedOffices(officesList.map((o) => o.id));
           }
         }
       } catch (err) {
@@ -143,13 +133,11 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
     void loadMasterFilters();
   }, []);
 
-  // 2. Perform Search
-  const handleSearch = useCallback(
-    async (e?: React.FormEvent) => {
-      if (e) e.preventDefault();
-
-      if (!office) {
-        setError("Please select an office to search.");
+  // 2. Perform Search with backend pagination and multi-office filtering
+  const executeSearch = useCallback(
+    async (targetPage: number = 1, targetPageSize: number = pageSize) => {
+      if (selectedOffices.length === 0) {
+        setError("Please select at least one office to generate the report.");
         return;
       }
 
@@ -164,7 +152,20 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
       try {
         const params = new URLSearchParams();
-        params.set("office", office);
+
+        const isAllSelected =
+          officeOptions.length > 0 && selectedOffices.length === officeOptions.length;
+
+        if (isAllSelected) {
+          params.set("office", "all");
+        } else {
+          params.set("office", selectedOffices.join(","));
+        }
+
+        selectedOffices.forEach((id) => params.append("officeIds", id));
+        params.set("page", String(targetPage));
+        params.set("pageSize", String(targetPageSize));
+
         if (fromDate) params.set("fromDate", fromDate);
         if (toDate) params.set("toDate", toDate);
 
@@ -185,7 +186,10 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
           throw new Error(data.message || "Failed to fetch revenue report.");
         }
 
-        setReportData(data.data ?? data);
+        const result: TrackingReportResult = data.data ?? data;
+        setReportData(result);
+        setPage(targetPage);
+        setPageSize(targetPageSize);
       } catch (err: any) {
         setError(err.message || "An unexpected error occurred while generating the report.");
         setReportData(null);
@@ -193,21 +197,37 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         setLoading(false);
       }
     },
-    [office, fromDate, toDate, filters]
+    [selectedOffices, officeOptions, fromDate, toDate, filters, pageSize]
   );
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPage(1);
+    void executeSearch(1, pageSize);
+  };
 
   // 3. Clear Filters
   const handleClearFilters = () => {
     setFilters(initialFilters);
+    setPage(1);
   };
 
   // 4. Excel Export
   const handleExport = async () => {
-    if (!office) return;
+    if (selectedOffices.length === 0) return;
     setExporting(true);
     try {
       const params = new URLSearchParams();
-      params.set("office", office);
+      const isAllSelected =
+        officeOptions.length > 0 && selectedOffices.length === officeOptions.length;
+
+      if (isAllSelected) {
+        params.set("office", "all");
+      } else {
+        params.set("office", selectedOffices.join(","));
+      }
+
+      selectedOffices.forEach((id) => params.append("officeIds", id));
       if (fromDate) params.set("fromDate", fromDate);
       if (toDate) params.set("toDate", toDate);
 
@@ -231,7 +251,16 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Revenue_Report_${office}_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+      const safeOfficeName = isAllSelected
+        ? "All_Offices"
+        : selectedOffices.length === 1
+        ? (officeOptions.find((o) => o.id === selectedOffices[0])?.officeName || "Office")
+        : "Multiple_Offices";
+
+      a.download = `Revenue_Report_${safeOfficeName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -247,24 +276,24 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
 
   return (
     <div className="grid min-w-0 gap-6">
-      {/* Main Filter / Search Bar */}
+      {/* 1. Main Filter / Search Bar */}
       <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-slate-900">
-        <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
-          {/* Office Selection */}
+        <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
+          {/* Multi-Office Selection */}
           <div className="space-y-1.5 lg:col-span-4 min-w-0">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5 text-blue-500" />
               Office *
             </label>
-            <SearchableSelect
-              placeholder="Select Office..."
-              value={office}
-              onChange={(val) => setOffice(val)}
-              options={officeOptions}
+            <OfficeMultiSelect
+              offices={officeOptions}
+              selectedIds={selectedOffices}
+              onChange={(ids) => {
+                setSelectedOffices(ids);
+                setPage(1);
+              }}
               loading={officesLoading}
-              groupByCategory={false}
-              showDescription={false}
-              triggerClassName="h-9 min-h-9 rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus-within:border-blue-500 focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
+              placeholder="Select Office(s)..."
             />
           </div>
 
@@ -277,7 +306,10 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
             <input
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPage(1);
+              }}
               className="h-9 min-h-9 w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
             />
           </div>
@@ -291,7 +323,10 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
             <input
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPage(1);
+              }}
               className="h-9 min-h-9 w-full rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none transition-all hover:border-slate-300 focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20"
             />
           </div>
@@ -327,7 +362,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
           </div>
         </form>
 
-        {/* Expandable Filter Panel following Revenue Registration pattern */}
+        {/* Expandable Filter Panel */}
         {showFilters && (
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-(--border) bg-slate-50/90 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 dark:bg-slate-900/60 animate-in fade-in duration-150">
             <Input
@@ -408,7 +443,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
               <Button variant="ghost" onClick={handleClearFilters} size="sm">
                 Clear Filters
               </Button>
-              <Button onClick={() => void handleSearch()} size="sm" variant="primary">
+              <Button onClick={() => void executeSearch(1, pageSize)} size="sm" variant="primary">
                 Apply Filters
               </Button>
             </div>
@@ -422,9 +457,46 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         )}
       </section>
 
-      {/* Financial Summary Statistics Cards & Export */}
-      {hasResults && reportData && (
+      {/* 2. Professional Graphical Analytics Section (Replaces the 4 Summary Cards) */}
+      {(hasResults || loading) && (
+        <RevenueAnalytics
+          countryAnalytics={reportData?.countryAnalytics || []}
+          officeAnalytics={reportData?.officeAnalytics || []}
+          summary={
+            reportData?.summary || {
+              totalDocuments: 0,
+              totalCharges: 0,
+              totalPaid: 0,
+              totalBalance: 0,
+            }
+          }
+          loading={loading}
+        />
+      )}
+
+      {/* 3. Export to Excel & Revenue Report Table */}
+      {!searched && !loading ? (
+        <EmptyState
+          icon={FileSearch}
+          title="No Search Executed"
+          description="Select office(s) and date range, then click Search to generate the Revenue Report."
+        />
+      ) : loading ? (
+        <div className="flex h-64 items-center justify-center rounded-2xl border border-(--border) bg-white/70 p-8 dark:bg-white/5">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+            <p className="text-sm font-semibold text-soft">Generating revenue report...</p>
+          </div>
+        </div>
+      ) : !hasResults ? (
+        <EmptyState
+          icon={FileSearch}
+          title="No revenue records found"
+          description="No documents match the selected office(s), date range, and filters."
+        />
+      ) : (
         <div className="space-y-4">
+          {/* Excel Export Button */}
           {canExport && (
             <div className="flex justify-end print:hidden">
               <Button
@@ -443,219 +515,167 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-xs font-bold uppercase tracking-wider">Total Documents</span>
-                <FileText size={18} className="text-blue-500" />
-              </div>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-                {reportData.summary.totalDocuments.toLocaleString("en-IN")}
-              </p>
-            </div>
+          {/* Revenue Report Table */}
+          <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                {/* Blue Header Bar */}
+                <thead>
+                  <tr className="bg-[#1e88e5] text-white text-[12px] font-bold border-b border-[#1565c0]">
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Sl No</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Sl No</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Track No</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Reg.Date</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Reg. Office</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Registered By</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Collected By</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Customer Name</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Document Type</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Process Type</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Mobile</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Status</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-right whitespace-nowrap">Charge</th>
+                    <th className="border-r border-[#1565c0] px-3 py-3 text-right whitespace-nowrap">Paid</th>
+                    <th className="px-3 py-3 text-right whitespace-nowrap">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[12px]">
+                  {reportData?.sections.map((section) => (
+                    <React.Fragment key={`section-${section.country}`}>
+                      {/* Country Header Banner */}
+                      <tr className="bg-slate-100/90 dark:bg-slate-800/80 border-t-2 border-b border-slate-300 dark:border-slate-700">
+                        <td
+                          colSpan={15}
+                          className="py-2.5 px-4 text-center font-extrabold text-sm tracking-wide text-slate-800 dark:text-slate-100"
+                        >
+                          {section.country}
+                        </td>
+                      </tr>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-xs font-bold uppercase tracking-wider">Total Charges</span>
-                <DollarSign size={18} className="text-emerald-500" />
-              </div>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-                {formatCurrency(reportData.summary.totalCharges)}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-xs font-bold uppercase tracking-wider">Total Paid</span>
-                <DollarSign size={18} className="text-indigo-500" />
-              </div>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-                {formatCurrency(reportData.summary.totalPaid)}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-xs font-bold uppercase tracking-wider">Total Balance</span>
-                <DollarSign size={18} className="text-amber-500" />
-              </div>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white">
-                {formatCurrency(reportData.summary.totalBalance)}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Content Area: Empty State, Loading, or Grouped Report Table */}
-      {!searched && !loading ? (
-        <EmptyState
-          icon={FileSearch}
-          title="No Search Executed"
-          description="Select an office and date, then click Search to generate the Revenue Report."
-        />
-      ) : loading ? (
-        <div className="flex h-64 items-center justify-center rounded-2xl border border-(--border) bg-white/70 p-8 dark:bg-white/5">
-          <div className="flex flex-col items-center gap-3">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-            <p className="text-sm font-semibold text-soft">Generating revenue report...</p>
-          </div>
-        </div>
-      ) : !hasResults ? (
-        <EmptyState
-          icon={FileSearch}
-          title="No revenue records found"
-          description="No documents match the selected office, date range, and filters."
-        />
-      ) : (
-        /* Report Table matching the exact layout of the uploaded screenshot */
-        <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              {/* Blue Header Bar */}
-              <thead>
-                <tr className="bg-[#1e88e5] text-white text-[12px] font-bold border-b border-[#1565c0]">
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Sl No</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Sl No</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Track No</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Reg.Date</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Reg. Office</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Registered By</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Collected By</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Customer Name</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Document Type</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Process Type</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-left whitespace-nowrap">Mobile</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-center whitespace-nowrap">Status</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-right whitespace-nowrap">Charge</th>
-                  <th className="border-r border-[#1565c0] px-3 py-3 text-right whitespace-nowrap">Paid</th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[12px]">
-                {reportData?.sections.map((section) => (
-                  <React.Fragment key={`section-${section.country}`}>
-                    {/* Country Header Banner */}
-                    <tr className="bg-slate-100/90 dark:bg-slate-800/80 border-t-2 border-b border-slate-300 dark:border-slate-700">
-                      <td
-                        colSpan={15}
-                        className="py-2.5 px-4 text-center font-extrabold text-sm tracking-wide text-slate-800 dark:text-slate-100"
-                      >
-                        {section.country}
-                      </td>
-                    </tr>
-
-                    {/* Offices within this Country */}
-                    {section.offices.map((officeGroup) => (
-                      <React.Fragment key={`office-${section.country}-${officeGroup.officeName}`}>
-                        {/* Office Subheader */}
-                        <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
-                          <td
-                            colSpan={15}
-                            className="py-2 px-4 font-bold text-xs text-slate-900 dark:text-slate-200"
-                          >
-                            {officeGroup.officeName}
-                          </td>
-                        </tr>
-
-                        {/* Rows under this Office */}
-                        {officeGroup.items.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50 transition-colors"
-                          >
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center text-slate-600 dark:text-slate-400">
-                              {item.overallSlNo}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center text-slate-600 dark:text-slate-400">
-                              {item.officeSlNo}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 font-semibold">
-                              <Link
-                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                                className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400"
-                              >
-                                {item.trackingNumber}
-                              </Link>
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
-                              {item.regDate}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
-                              {item.regOffice}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
-                              {item.registeredBy}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
-                              {item.collectedBy}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
-                              {item.customerName}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-slate-700 dark:text-slate-300">
-                              {item.documentType}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-slate-700 dark:text-slate-300">
-                              {item.processType}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
-                              {item.mobile}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center">
-                              <span className="inline-block rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-                              {formatCurrency(item.charge)}
-                            </td>
-                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-                              {formatCurrency(item.paid)}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-                              {formatCurrency(item.balance)}
+                      {/* Offices within this Country */}
+                      {section.offices.map((officeGroup) => (
+                        <React.Fragment key={`office-${section.country}-${officeGroup.officeName}`}>
+                          {/* Office Subheader */}
+                          <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
+                            <td
+                              colSpan={15}
+                              className="py-2 px-4 font-bold text-xs text-slate-900 dark:text-slate-200"
+                            >
+                              {officeGroup.officeName}
                             </td>
                           </tr>
-                        ))}
 
-                        {/* Office Subtotal Row */}
-                        <tr className="bg-slate-50/90 dark:bg-slate-800/60 font-bold border-b border-slate-300 dark:border-slate-700">
-                          <td colSpan={12} className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right text-slate-500 dark:text-slate-400">
-                            {/* Empty as in reference screenshot */}
-                          </td>
-                          <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
-                            {formatCurrency(officeGroup.subtotal.charge)}
-                          </td>
-                          <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
-                            {formatCurrency(officeGroup.subtotal.paid)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
-                            {formatCurrency(officeGroup.subtotal.balance)}
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    ))}
-                  </React.Fragment>
-                ))}
+                          {/* Rows under this Office */}
+                          {officeGroup.items.map((item) => (
+                            <tr
+                              key={item.id}
+                              className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50 transition-colors"
+                            >
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center text-slate-600 dark:text-slate-400">
+                                {item.overallSlNo}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center text-slate-600 dark:text-slate-400">
+                                {item.officeSlNo}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 font-semibold">
+                                <Link
+                                  href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                  className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400"
+                                >
+                                  {item.trackingNumber}
+                                </Link>
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                {item.regDate}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                {item.regOffice}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                {item.registeredBy}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                {item.collectedBy}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+                                {item.customerName}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-slate-700 dark:text-slate-300">
+                                {item.documentType}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-slate-700 dark:text-slate-300">
+                                {item.processType}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                {item.mobile}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-center">
+                                <span className="inline-block rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+                                {formatCurrency(item.charge)}
+                              </td>
+                              <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+                                {formatCurrency(item.paid)}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+                                {formatCurrency(item.balance)}
+                              </td>
+                            </tr>
+                          ))}
 
-                {/* Grand Total Row */}
-                <tr className="bg-slate-200/80 dark:bg-slate-800 text-xs font-black border-t-2 border-slate-400 dark:border-slate-600">
-                  <td colSpan={12} className="border-r border-slate-300 dark:border-slate-700 px-4 py-3 text-right tracking-wider uppercase text-slate-800 dark:text-slate-100">
-                    Grand Total ({reportData?.summary.totalDocuments} documents)
-                  </td>
-                  <td className="border-r border-slate-300 dark:border-slate-700 px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
-                    {formatCurrency(reportData?.summary.totalCharges || 0)}
-                  </td>
-                  <td className="border-r border-slate-300 dark:border-slate-700 px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
-                    {formatCurrency(reportData?.summary.totalPaid || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
-                    {formatCurrency(reportData?.summary.totalBalance || 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                          {/* Office Subtotal Row */}
+                          <tr className="bg-slate-50/90 dark:bg-slate-800/60 font-bold border-b border-slate-300 dark:border-slate-700">
+                            <td colSpan={12} className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                              {/* Subtotal label aligned as in reference */}
+                            </td>
+                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
+                              {formatCurrency(officeGroup.subtotal.charge)}
+                            </td>
+                            <td className="border-r border-slate-200 dark:border-slate-800 px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
+                              {formatCurrency(officeGroup.subtotal.paid)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-extrabold text-slate-900 dark:text-white">
+                              {formatCurrency(officeGroup.subtotal.balance)}
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      ))}
+                    </React.Fragment>
+                  ))}
+
+                  {/* Grand Total Row Across Filtered Dataset */}
+                  <tr className="bg-slate-200/80 dark:bg-slate-800 text-xs font-black border-t-2 border-slate-400 dark:border-slate-600">
+                    <td colSpan={12} className="border-r border-slate-300 dark:border-slate-700 px-4 py-3 text-right tracking-wider uppercase text-slate-800 dark:text-slate-100">
+                      Grand Total ({reportData?.summary.totalDocuments} documents)
+                    </td>
+                    <td className="border-r border-slate-300 dark:border-slate-700 px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
+                      {formatCurrency(reportData?.summary.totalCharges || 0)}
+                    </td>
+                    <td className="border-r border-slate-300 dark:border-slate-700 px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
+                      {formatCurrency(reportData?.summary.totalPaid || 0)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900 dark:text-white text-sm">
+                      {formatCurrency(reportData?.summary.totalBalance || 0)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Functional Table Pagination */}
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={reportData?.total || 0}
+              totalPages={reportData?.totalPages || 1}
+              loading={loading}
+              onPageChange={(newPage) => void executeSearch(newPage, pageSize)}
+              onPageSizeChange={(newSize) => void executeSearch(1, newSize)}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
           </div>
         </div>
       )}

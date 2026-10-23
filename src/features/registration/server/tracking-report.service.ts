@@ -5,7 +5,8 @@ import type { SessionAccess } from "@/features/admin/types/rbac.types";
 import { hasOfficeAccess } from "@/features/admin/server/rbac.service";
 
 export interface TrackingReportParams {
-  office: string;
+  office?: string;
+  officeIds?: string[];
   fromDate?: string;
   toDate?: string;
   trackingNumber?: string;
@@ -17,6 +18,9 @@ export interface TrackingReportParams {
   processType?: string;
   status?: string;
   hasBalance?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
 }
 
 export interface TrackingReportItem {
@@ -66,10 +70,32 @@ export interface TrackingReportSummary {
   totalBalance: number;
 }
 
+export interface CountryAnalyticsItem {
+  country: string;
+  totalDocuments: number;
+  totalCharges: number;
+  totalPaid: number;
+  totalBalance: number;
+}
+
+export interface OfficeAnalyticsItem {
+  office: string;
+  totalDocuments: number;
+  totalCharges: number;
+  totalPaid: number;
+  totalBalance: number;
+}
+
 export interface TrackingReportResult {
   sections: TrackingReportCountrySection[];
   items: TrackingReportItem[];
   summary: TrackingReportSummary;
+  countryAnalytics: CountryAnalyticsItem[];
+  officeAnalytics: OfficeAnalyticsItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 /**
@@ -130,88 +156,129 @@ export function resolveCountry(
 }
 
 /**
- * Builds where criteria enforcing tenant isolation, office visibility, and filters.
+ * Builds where criteria enforcing tenant isolation, multi-office visibility, and filters.
  */
 async function buildTrackingReportWhere(
   ownerAdminId: string,
   params: TrackingReportParams,
   userAccess?: SessionAccess
 ): Promise<Prisma.RegistrationWhereInput> {
-  const officeQuery = (params.office || "").trim();
   const isSuperAdmin = Boolean(userAccess?.isSuperAdmin);
 
-  if (!officeQuery) {
-    throw new Error("Office selection is required to generate the tracking report.");
+  // Normalize requested offices (from array or comma-separated string)
+  let requestedOffices: string[] = [];
+  if (Array.isArray(params.officeIds) && params.officeIds.length > 0) {
+    requestedOffices = params.officeIds
+      .flatMap((id) => (id ? id.split(",") : []))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } else if (params.office) {
+    requestedOffices = params.office
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 
-  const isAllOfficesSelected = officeQuery.toLowerCase() === "all";
+  if (requestedOffices.length === 0) {
+    throw new Error("Office selection is required to generate the revenue report.");
+  }
+
+  const isAllOfficesSelected = requestedOffices.some((o) => o.toLowerCase() === "all");
 
   const andConditions: Prisma.RegistrationWhereInput[] = [
     { ownerAdminId },
   ];
 
-  // 1. Office Security Check & Scope
+  // 1. Office Security Check & Multiple Office Scope
+  let userAllowedIds: string[] | null = null;
+  let userAllowedNames: string[] = [];
+
+  if (!isSuperAdmin && userAccess) {
+    const modConfig =
+      userAccess.moduleOfficeVisibilities?.["revenue_report"] ||
+      userAccess.moduleOfficeVisibilities?.["tracking_report"] ||
+      userAccess.moduleOfficeVisibilities?.["search_report"];
+
+    if (modConfig) {
+      userAllowedIds = modConfig.officeIds;
+      userAllowedNames = modConfig.officeNames || [];
+    } else if (userAccess.allowedOfficeIds !== undefined) {
+      userAllowedIds = userAccess.allowedOfficeIds;
+      userAllowedNames = userAccess.allowedOfficeNames ?? [];
+    }
+  }
+
   if (isAllOfficesSelected) {
-    // If not superadmin and restricted to specific offices, scope query strictly to allowed offices
-    if (!isSuperAdmin && userAccess) {
-      let allowedIds = userAccess.allowedOfficeIds;
-      let allowedNames = userAccess.allowedOfficeNames ?? [];
-
-      const modConfig =
-        userAccess.moduleOfficeVisibilities?.["revenue_report"] ||
-        userAccess.moduleOfficeVisibilities?.["tracking_report"] ||
-        userAccess.moduleOfficeVisibilities?.["search_report"];
-
-      if (modConfig) {
-        allowedIds = modConfig.officeIds;
-        allowedNames = modConfig.officeNames;
+    // If user is restricted to specific offices, scope strictly to allowed offices
+    if (!isSuperAdmin && userAllowedIds !== null) {
+      if (userAllowedIds.length === 0 && userAllowedNames.length === 0) {
+        throw new Error("You do not have authorization for any office.");
       }
 
-      if (allowedIds !== null && allowedIds !== undefined) {
-        if (allowedIds.length === 0 && allowedNames.length === 0) {
-          throw new Error("You do not have authorization for any office.");
-        }
-
-        andConditions.push({
-          OR: [
-            { regionOfRegistrationId: { in: allowedIds } },
-            { regionOfRegistration: { in: allowedNames } },
-            { creator: { officeLocationId: { in: allowedIds } } },
-            { creator: { officeLocationRef: { officeName: { in: allowedNames } } } },
-          ],
-        });
-      }
+      andConditions.push({
+        OR: [
+          { regionOfRegistrationId: { in: userAllowedIds } },
+          { regionOfRegistration: { in: userAllowedNames } },
+          { creator: { officeLocationId: { in: userAllowedIds } } },
+          { creator: { officeLocationRef: { officeName: { in: userAllowedNames } } } },
+        ],
+      });
     }
+    // SuperAdmin with "all" gets all offices for this ownerAdmin
   } else {
-    // A specific office is selected: verify authorization for non-superadmins
-    if (!isSuperAdmin && userAccess) {
-      const isAllowed =
-        hasOfficeAccess(userAccess, officeQuery, "revenue_report") ||
-        hasOfficeAccess(userAccess, officeQuery, "tracking_report") ||
-        hasOfficeAccess(userAccess, officeQuery, "search_report");
-
-      if (!isAllowed) {
-        throw new Error("You are not authorized to view revenue reports for this office.");
-      }
-    }
-
-    const officeLocation = await prisma.officeLocation.findFirst({
+    // Specific office(s) selected: query OfficeLocation to get exact IDs and names
+    const officeLocations = await prisma.officeLocation.findMany({
       where: {
         ownerAdminId,
-        OR: [{ id: officeQuery }, { officeName: officeQuery }],
+        OR: [
+          { id: { in: requestedOffices } },
+          { officeName: { in: requestedOffices } },
+        ],
       },
       select: { id: true, officeName: true },
     });
 
-    const targetOfficeId = officeLocation ? officeLocation.id : officeQuery;
-    const targetOfficeName = officeLocation ? officeLocation.officeName : officeQuery;
+    const validOfficeIds: string[] = [];
+    const validOfficeNames: string[] = [];
+
+    for (const reqOffice of requestedOffices) {
+      const match = officeLocations.find(
+        (loc) => loc.id === reqOffice || loc.officeName.toLowerCase() === reqOffice.toLowerCase()
+      );
+
+      const targetId = match ? match.id : reqOffice;
+      const targetName = match ? match.officeName : reqOffice;
+
+      if (!isSuperAdmin && userAccess) {
+        const isAllowed =
+          (userAllowedIds !== null && (userAllowedIds.includes(targetId) || userAllowedNames.includes(targetName))) ||
+          hasOfficeAccess(userAccess, targetId, "revenue_report") ||
+          hasOfficeAccess(userAccess, targetName, "revenue_report") ||
+          hasOfficeAccess(userAccess, targetId, "tracking_report") ||
+          hasOfficeAccess(userAccess, targetName, "tracking_report") ||
+          hasOfficeAccess(userAccess, targetId, "search_report") ||
+          hasOfficeAccess(userAccess, targetName, "search_report");
+
+        if (isAllowed) {
+          validOfficeIds.push(targetId);
+          validOfficeNames.push(targetName);
+        }
+      } else {
+        validOfficeIds.push(targetId);
+        validOfficeNames.push(targetName);
+      }
+    }
+
+    if (!isSuperAdmin && validOfficeIds.length === 0 && validOfficeNames.length === 0) {
+      throw new Error("You are not authorized to view revenue reports for the selected office(s).");
+    }
 
     andConditions.push({
       OR: [
-        { regionOfRegistrationId: targetOfficeId },
-        { regionOfRegistration: targetOfficeName },
-        { creator: { officeLocationId: targetOfficeId } },
-        { creator: { officeLocationRef: { officeName: targetOfficeName } } },
+        { regionOfRegistrationId: { in: validOfficeIds } },
+        { regionOfRegistration: { in: validOfficeNames } },
+        { creator: { officeLocationId: { in: validOfficeIds } } },
+        { creator: { officeLocationRef: { officeName: { in: validOfficeNames } } } },
       ],
     });
   }
@@ -232,7 +299,23 @@ async function buildTrackingReportWhere(
     andConditions.push({ createdAt: createdAtFilter });
   }
 
-  // 3. Additional Report Filters
+  // 3. Search / Text Filter
+  if (params.search?.trim()) {
+    const s = params.search.trim();
+    andConditions.push({
+      OR: [
+        { trackingNumber: { contains: s } },
+        { customerName: { contains: s } },
+        { mobile: { contains: s } },
+        { documentType: { contains: s } },
+        { documentName: { contains: s } },
+        { registeredPerson: { contains: s } },
+        { collectedPerson: { contains: s } },
+      ],
+    });
+  }
+
+  // 4. Additional Report Filters
   if (params.trackingNumber?.trim()) {
     andConditions.push({ trackingNumber: { contains: params.trackingNumber.trim() } });
   }
@@ -273,7 +356,7 @@ async function buildTrackingReportWhere(
 }
 
 /**
- * Generates the structured Tracking Report grouped by Country and Office.
+ * Generates the structured Revenue / Tracking Report with country & office analytics and backend pagination.
  */
 export async function getTrackingReport(
   ownerAdminId: string,
@@ -282,13 +365,108 @@ export async function getTrackingReport(
 ): Promise<TrackingReportResult> {
   const where = await buildTrackingReportWhere(ownerAdminId, params, userAccess);
 
-  const registrations = await prisma.registration.findMany({
+  // 1. Fetch lightweight projection for all matching records to compute Summary & Analytics across the entire filtered dataset
+  const allRegistrations = await prisma.registration.findMany({
+    where,
+    select: {
+      id: true,
+      totalCharges: true,
+      advancePaid: true,
+      balanceAmount: true,
+      country: true,
+      regionOfRegistration: true,
+      regionOfRegistrationRef: {
+        select: { officeName: true, location: true },
+      },
+      creator: {
+        select: {
+          officeLocationRef: { select: { officeName: true, location: true } },
+        },
+      },
+    },
+  });
+
+  const total = allRegistrations.length;
+  let grandTotalCharge = 0;
+  let grandTotalPaid = 0;
+  let grandTotalBalance = 0;
+
+  const countryAnalyticsMap = new Map<string, { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
+  const officeAnalyticsMap = new Map<string, { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
+
+  for (const reg of allRegistrations) {
+    const resolvedOffice =
+      reg.regionOfRegistration ||
+      reg.regionOfRegistrationRef?.officeName ||
+      reg.creator?.officeLocationRef?.officeName ||
+      "Unassigned Office";
+
+    const officeLocation =
+      reg.regionOfRegistrationRef?.location ||
+      reg.creator?.officeLocationRef?.location ||
+      null;
+
+    const country = resolveCountry(resolvedOffice, officeLocation, reg.country);
+
+    const charge = Number(reg.totalCharges ?? 0);
+    const paid = Number(reg.advancePaid ?? 0);
+    const balance = Number(reg.balanceAmount ?? 0);
+
+    grandTotalCharge += charge;
+    grandTotalPaid += paid;
+    grandTotalBalance += balance;
+
+    // Country Analytics Aggregation
+    if (!countryAnalyticsMap.has(country)) {
+      countryAnalyticsMap.set(country, { totalDocuments: 0, totalCharges: 0, totalPaid: 0, totalBalance: 0 });
+    }
+    const countryStats = countryAnalyticsMap.get(country)!;
+    countryStats.totalDocuments += 1;
+    countryStats.totalCharges += charge;
+    countryStats.totalPaid += paid;
+    countryStats.totalBalance += balance;
+
+    // Office Analytics Aggregation
+    if (!officeAnalyticsMap.has(resolvedOffice)) {
+      officeAnalyticsMap.set(resolvedOffice, { totalDocuments: 0, totalCharges: 0, totalPaid: 0, totalBalance: 0 });
+    }
+    const officeStats = officeAnalyticsMap.get(resolvedOffice)!;
+    officeStats.totalDocuments += 1;
+    officeStats.totalCharges += charge;
+    officeStats.totalPaid += paid;
+    officeStats.totalBalance += balance;
+  }
+
+  const countryAnalytics: CountryAnalyticsItem[] = Array.from(countryAnalyticsMap.entries())
+    .map(([country, stats]) => ({
+      country,
+      ...stats,
+    }))
+    .sort((a, b) => b.totalCharges - a.totalCharges);
+
+  const officeAnalytics: OfficeAnalyticsItem[] = Array.from(officeAnalyticsMap.entries())
+    .map(([office, stats]) => ({
+      office,
+      ...stats,
+    }))
+    .sort((a, b) => b.totalCharges - a.totalCharges);
+
+  // Calculate pagination parameters
+  const page = Math.max(1, Number(params.page) || 1);
+  const pageSize = Math.max(1, Number(params.pageSize) || 10);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const skip = (page - 1) * pageSize;
+  const take = pageSize;
+
+  // 2. Fetch paginated records for the current table page
+  const paginatedRegistrations = await prisma.registration.findMany({
     where,
     orderBy: [
       { regionOfRegistration: "asc" },
       { createdAt: "desc" },
     ],
-    take: 10000,
+    skip,
+    take,
     include: {
       regionOfRegistrationRef: {
         select: { id: true, officeName: true, location: true },
@@ -304,10 +482,10 @@ export async function getTrackingReport(
   });
 
   const countrySectionsMap = new Map<string, Map<string, TrackingReportItem[]>>();
-  let overallCounter = 0;
+  let overallCounter = skip;
   const flatItems: TrackingReportItem[] = [];
 
-  for (const reg of registrations) {
+  for (const reg of paginatedRegistrations) {
     overallCounter++;
     const resolvedOffice =
       reg.regionOfRegistration ||
@@ -361,11 +539,8 @@ export async function getTrackingReport(
     flatItems.push(item);
   }
 
-  // Build structured hierarchy
+  // Build structured hierarchy for the paginated page view
   const sections: TrackingReportCountrySection[] = [];
-  let grandTotalCharge = 0;
-  let grandTotalPaid = 0;
-  let grandTotalBalance = 0;
 
   for (const [country, officesMap] of countrySectionsMap.entries()) {
     const officeGroups: TrackingReportOfficeGroup[] = [];
@@ -396,10 +571,6 @@ export async function getTrackingReport(
       });
     }
 
-    grandTotalCharge += countryTotalCharge;
-    grandTotalPaid += countryTotalPaid;
-    grandTotalBalance += countryTotalBalance;
-
     sections.push({
       country,
       offices: officeGroups,
@@ -414,23 +585,38 @@ export async function getTrackingReport(
     sections,
     items: flatItems,
     summary: {
-      totalDocuments: flatItems.length,
+      totalDocuments: total,
       totalCharges: grandTotalCharge,
       totalPaid: grandTotalPaid,
       totalBalance: grandTotalBalance,
     },
+    countryAnalytics,
+    officeAnalytics,
+    total,
+    page,
+    pageSize,
+    totalPages,
   };
 }
 
 /**
- * Generates Excel export buffer for Tracking Report.
+ * Generates Excel export buffer for Revenue / Tracking Report for all matching records without pagination truncation.
  */
 export async function getTrackingReportExport(
   ownerAdminId: string,
   params: TrackingReportParams,
   userAccess?: SessionAccess
 ): Promise<{ buffer: Buffer; fileName: string }> {
-  const reportData = await getTrackingReport(ownerAdminId, params, userAccess);
+  // Pass large pageSize to export all matching records
+  const reportData = await getTrackingReport(
+    ownerAdminId,
+    {
+      ...params,
+      page: 1,
+      pageSize: 50000,
+    },
+    userAccess
+  );
 
   const exportRows: any[] = [];
 
@@ -507,7 +693,11 @@ export async function getTrackingReportExport(
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   const dateStr = new Date().toISOString().split("T")[0];
-  const safeOffice = (params.office || "All").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeOffice = (
+    params.officeIds && params.officeIds.length > 1
+      ? "Multiple_Offices"
+      : params.office || "All"
+  ).replace(/[^a-zA-Z0-9_-]/g, "_");
   const fileName = `Revenue_Report_${safeOffice}_${dateStr}.xlsx`;
 
   return { buffer, fileName };
