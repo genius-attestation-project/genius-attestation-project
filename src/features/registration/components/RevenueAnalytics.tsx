@@ -41,34 +41,31 @@ interface RevenueAnalyticsProps {
   onRetry?: () => void;
 }
 
-// Full currency formatting with Indian grouping and two decimal places (e.g. ₹27,42,845.50)
+// Full number formatting with Indian grouping and two decimal places (e.g. 27,42,845.50)
 function formatFullCurrency(amount: number): string {
   const num = Number(amount || 0);
-  return (
-    "₹" +
-    num.toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
+  return num.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-// Compact formatting for high-level badges and bar ends (e.g. ₹27.4L, ₹1.8L, 452)
+// Compact formatting for high-level badges and bar ends (e.g. 27.4L, 1.8L, 452)
 function formatCompact(amount: number, isCurrency: boolean): string {
   const num = Number(amount || 0);
   const abs = Math.abs(num);
 
   if (isCurrency) {
     if (abs >= 10000000) {
-      return `₹${(num / 10000000).toFixed(2)}Cr`;
+      return `${(num / 10000000).toFixed(2)}Cr`;
     }
     if (abs >= 100000) {
-      return `₹${(num / 100000).toFixed(2)}L`;
+      return `${(num / 100000).toFixed(2)}L`;
     }
     if (abs >= 1000) {
-      return `₹${(num / 1000).toFixed(1)}k`;
+      return `${(num / 1000).toFixed(1)}k`;
     }
-    return `₹${num.toLocaleString("en-IN")}`;
+    return num.toLocaleString("en-IN");
   }
 
   // Count formatting
