@@ -458,7 +458,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
       </section>
 
       {/* 2. Professional Graphical Analytics Section (Replaces the 4 Summary Cards) */}
-      {(hasResults || loading) && (
+      {(searched || loading) && (
         <RevenueAnalytics
           countryAnalytics={reportData?.countryAnalytics || []}
           officeAnalytics={reportData?.officeAnalytics || []}
@@ -471,6 +471,8 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
             }
           }
           loading={loading}
+          error={error}
+          onRetry={() => void executeSearch(1, pageSize)}
         />
       )}
 
