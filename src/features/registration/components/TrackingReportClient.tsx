@@ -462,6 +462,7 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
         <RevenueAnalytics
           countryAnalytics={reportData?.countryAnalytics || []}
           officeAnalytics={reportData?.officeAnalytics || []}
+          countryOfficeAnalytics={reportData?.countryOfficeAnalytics || []}
           summary={
             reportData?.summary || {
               totalDocuments: 0,

@@ -16,7 +16,6 @@ import {
   Building2,
   FileText,
   DollarSign,
-  TrendingUp,
   BarChart3,
   Clock,
   CheckCircle2,
@@ -26,6 +25,7 @@ import {
 import type {
   CountryAnalyticsItem,
   OfficeAnalyticsItem,
+  CountryOfficeAnalyticsItem,
   TrackingReportSummary,
 } from "@/features/registration/server/tracking-report.service";
 
@@ -34,6 +34,7 @@ export type MetricType = "charges" | "paid" | "balance" | "documents";
 interface RevenueAnalyticsProps {
   countryAnalytics: CountryAnalyticsItem[];
   officeAnalytics: OfficeAnalyticsItem[];
+  countryOfficeAnalytics?: CountryOfficeAnalyticsItem[];
   summary: TrackingReportSummary;
   loading?: boolean;
   error?: string;
@@ -160,7 +161,7 @@ const METRICS: Array<{
   },
 ];
 
-// Custom Tooltip providing comprehensive context (all 4 metrics)
+// Custom Tooltip providing comprehensive context (all 4 metrics + Country)
 function CustomAnalyticsTooltip({ active, payload, activeMetric }: any) {
   if (!active || !payload || !payload.length) return null;
 
@@ -168,13 +169,20 @@ function CustomAnalyticsTooltip({ active, payload, activeMetric }: any) {
   if (!data) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-3.5 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 min-w-[240px]">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
-        <span className="font-extrabold text-xs text-slate-900 dark:text-white truncate max-w-[180px]">
-          {data.name}
-        </span>
+    <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-3.5 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 min-w-[250px]">
+      <div className="flex items-start justify-between border-b border-slate-100 pb-2 dark:border-slate-800 gap-2">
+        <div>
+          <span className="font-extrabold text-xs text-slate-900 dark:text-white truncate max-w-[190px] block">
+            {data.name}
+          </span>
+          {data.country && (
+            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 block mt-0.5">
+              Country: <span className="font-bold text-slate-700 dark:text-slate-300">{data.country}</span>
+            </span>
+          )}
+        </div>
         {data.rank && (
-          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md shrink-0">
             #{data.rank}
           </span>
         )}
@@ -256,6 +264,7 @@ function CustomAnalyticsTooltip({ active, payload, activeMetric }: any) {
 export function RevenueAnalytics({
   countryAnalytics = [],
   officeAnalytics = [],
+  countryOfficeAnalytics = [],
   summary,
   loading = false,
   error,
@@ -270,39 +279,44 @@ export function RevenueAnalytics({
   // Display limit: Top 5, Top 10, Top 15, or All
   const [topLimit, setTopLimit] = useState<"5" | "10" | "15" | "all">("10");
 
+  // Country quick filter for Office Analytics
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState<string>("all");
+
   const currentMetricConfig = useMemo(() => {
     return METRICS.find((m) => m.id === activeMetric) || METRICS[0];
   }, [activeMetric]);
 
-  // Sort categories descending by the currently selected metric
-  const sortedRawData = useMemo(() => {
-    const source = activeTab === "country" ? countryAnalytics : officeAnalytics;
-    if (!source || source.length === 0) return [];
+  // Metric value extractor helper
+  const getMetricValue = (item: {
+    totalDocuments: number;
+    totalCharges: number;
+    totalPaid: number;
+    totalBalance: number;
+  }) => {
+    if (activeMetric === "documents") return item.totalDocuments;
+    if (activeMetric === "charges") return item.totalCharges;
+    if (activeMetric === "paid") return item.totalPaid;
+    return item.totalBalance;
+  };
 
-    return [...source].sort((a, b) => {
-      if (activeMetric === "documents") return b.totalDocuments - a.totalDocuments;
-      if (activeMetric === "charges") return b.totalCharges - a.totalCharges;
-      if (activeMetric === "paid") return b.totalPaid - a.totalPaid;
-      return b.totalBalance - a.totalBalance;
+  // --- 1. COUNTRY ANALYTICS DATA (Flat ranked countries) ---
+  const sortedCountryData = useMemo(() => {
+    if (!countryAnalytics || countryAnalytics.length === 0) return [];
+
+    return [...countryAnalytics].sort((a, b) => {
+      return getMetricValue(b) - getMetricValue(a);
     });
-  }, [activeTab, activeMetric, countryAnalytics, officeAnalytics]);
+  }, [countryAnalytics, activeMetric]);
 
-  // Apply topLimit slice and format items for the horizontal bar chart
-  const visibleData = useMemo(() => {
-    const limit = topLimit === "all" ? sortedRawData.length : parseInt(topLimit, 10);
-    const sliced = sortedRawData.slice(0, limit);
+  const visibleCountryData = useMemo(() => {
+    const limit = topLimit === "all" ? sortedCountryData.length : parseInt(topLimit, 10);
+    const sliced = sortedCountryData.slice(0, limit);
 
-    return sliced.map((item: any, index: number) => {
-      const name = activeTab === "country" ? item.country : item.office;
-      let val = 0;
-      if (activeMetric === "documents") val = item.totalDocuments;
-      else if (activeMetric === "charges") val = item.totalCharges;
-      else if (activeMetric === "paid") val = item.totalPaid;
-      else val = item.totalBalance;
-
+    return sliced.map((item, index) => {
+      const val = getMetricValue(item);
       return {
         rank: index + 1,
-        name: name || "Unassigned",
+        name: item.country || "Unassigned Country",
         value: val,
         displayValue: formatCompact(val, currentMetricConfig.isCurrency),
         totalDocuments: item.totalDocuments || 0,
@@ -311,53 +325,219 @@ export function RevenueAnalytics({
         totalBalance: item.totalBalance || 0,
       };
     });
-  }, [sortedRawData, topLimit, activeMetric, activeTab, currentMetricConfig.isCurrency]);
+  }, [sortedCountryData, topLimit, activeMetric, currentMetricConfig.isCurrency]);
 
-  const hasData = visibleData.length > 0 && summary.totalDocuments > 0;
-
-  // Responsive chart height based on the number of bars rendered
-  const chartHeight = useMemo(() => {
-    const count = visibleData.length;
+  const countryChartHeight = useMemo(() => {
+    const count = visibleCountryData.length;
     if (count <= 3) return 180;
     if (count <= 5) return 260;
     if (count <= 10) return 400;
     if (count <= 15) return 560;
     return Math.max(300, count * 36 + 60);
-  }, [visibleData.length]);
+  }, [visibleCountryData.length]);
+
+  // --- 2. COUNTRY-BASED OFFICE ANALYTICS DATA ---
+  // Structure raw country office items either from backend pre-aggregation or office items
+  const rawCountryOfficeData = useMemo<CountryOfficeAnalyticsItem[]>(() => {
+    if (countryOfficeAnalytics && countryOfficeAnalytics.length > 0) {
+      return countryOfficeAnalytics;
+    }
+
+    // Dynamic grouping fallback from officeAnalytics
+    const countryMap = new Map<string, { country: string; offices: OfficeAnalyticsItem[] }>();
+    for (const o of officeAnalytics) {
+      const c = o.country || "Unassigned Country";
+      if (!countryMap.has(c)) {
+        countryMap.set(c, { country: c, offices: [] });
+      }
+      countryMap.get(c)!.offices.push(o);
+    }
+
+    return Array.from(countryMap.values()).map((g) => ({
+      country: g.country,
+      totalDocuments: g.offices.reduce((sum, o) => sum + o.totalDocuments, 0),
+      totalCharges: g.offices.reduce((sum, o) => sum + o.totalCharges, 0),
+      totalPaid: g.offices.reduce((sum, o) => sum + o.totalPaid, 0),
+      totalBalance: g.offices.reduce((sum, o) => sum + o.totalBalance, 0),
+      offices: g.offices,
+    }));
+  }, [countryOfficeAnalytics, officeAnalytics]);
+
+  // Overall ranked office list used to apply topLimit across all offices
+  const allRankedOffices = useMemo(() => {
+    const offices: OfficeAnalyticsItem[] = [];
+    for (const c of rawCountryOfficeData) {
+      offices.push(...c.offices);
+    }
+    return offices.sort((a, b) => getMetricValue(b) - getMetricValue(a));
+  }, [rawCountryOfficeData, activeMetric]);
+
+  // Determine allowed office set based on topLimit
+  const allowedOfficeSet = useMemo(() => {
+    if (topLimit === "all") return null;
+    const limit = parseInt(topLimit, 10);
+    const topSlice = allRankedOffices.slice(0, limit);
+    return new Set(topSlice.map((o) => `${o.country}:::${o.office}`));
+  }, [allRankedOffices, topLimit]);
+
+  // Country-grouped offices, with ranking and sorting by selected metric
+  const countryGroupedData = useMemo(() => {
+    if (!rawCountryOfficeData || rawCountryOfficeData.length === 0) return [];
+
+    // Filter by country pill if selected
+    let filtered = rawCountryOfficeData;
+    if (selectedCountryFilter !== "all") {
+      filtered = rawCountryOfficeData.filter((c) => c.country === selectedCountryFilter);
+    }
+
+    // Sort countries descending by the selected metric total
+    const sortedCountries = [...filtered].sort((a, b) => {
+      return getMetricValue(b) - getMetricValue(a);
+    });
+
+    const groups: Array<{
+      country: string;
+      subtotalValue: number;
+      offices: Array<{
+        rank: number;
+        name: string;
+        country: string;
+        value: number;
+        displayValue: string;
+        totalDocuments: number;
+        totalCharges: number;
+        totalPaid: number;
+        totalBalance: number;
+      }>;
+    }> = [];
+
+    for (const c of sortedCountries) {
+      // Filter offices if topLimit is active
+      let officesInCountry = c.offices;
+      if (allowedOfficeSet) {
+        officesInCountry = officesInCountry.filter((o) =>
+          allowedOfficeSet.has(`${o.country}:::${o.office}`)
+        );
+      }
+
+      if (officesInCountry.length === 0) continue;
+
+      // Sort offices within country descending by the active metric
+      const sortedOffices = [...officesInCountry].sort((a, b) => {
+        return getMetricValue(b) - getMetricValue(a);
+      });
+
+      const formattedOffices = sortedOffices.map((o, idx) => {
+        const val = getMetricValue(o);
+        return {
+          rank: idx + 1,
+          name: o.office || "Unassigned Office",
+          country: c.country,
+          value: val,
+          displayValue: formatCompact(val, currentMetricConfig.isCurrency),
+          totalDocuments: o.totalDocuments || 0,
+          totalCharges: o.totalCharges || 0,
+          totalPaid: o.totalPaid || 0,
+          totalBalance: o.totalBalance || 0,
+        };
+      });
+
+      const countrySubtotal = getMetricValue(c);
+
+      groups.push({
+        country: c.country,
+        subtotalValue: countrySubtotal,
+        offices: formattedOffices,
+      });
+    }
+
+    return groups;
+  }, [rawCountryOfficeData, selectedCountryFilter, allowedOfficeSet, activeMetric, currentMetricConfig.isCurrency]);
+
+  // Available countries list for quick filter tabs
+  const availableCountries = useMemo(() => {
+    return rawCountryOfficeData.map((c) => ({
+      country: c.country,
+      officeCount: c.offices.length,
+    }));
+  }, [rawCountryOfficeData]);
+
+  // Global maximum office metric value across all rendered offices so bar scales are universally comparable
+  const maxOfficeValue = useMemo(() => {
+    let max = 0;
+    for (const group of countryGroupedData) {
+      for (const o of group.offices) {
+        if (o.value > max) max = o.value;
+      }
+    }
+    return max > 0 ? max * 1.15 : 100; // 15% headroom for right-aligned value labels
+  }, [countryGroupedData]);
+
+  // Total count of offices currently displayed
+  const totalDisplayedOffices = useMemo(() => {
+    return countryGroupedData.reduce((sum, g) => sum + g.offices.length, 0);
+  }, [countryGroupedData]);
+
+  // Check data availability
+  const hasData =
+    summary.totalDocuments > 0 &&
+    (activeTab === "country"
+      ? visibleCountryData.length > 0
+      : countryGroupedData.length > 0);
 
   // Contextual summary text above the graph
   const contextualSummary = useMemo(() => {
-    const entityCount = sortedRawData.length;
-    const entityLabel = activeTab === "country" ? (entityCount === 1 ? "country" : "countries") : (entityCount === 1 ? "office" : "offices");
+    const entityCount =
+      activeTab === "country" ? sortedCountryData.length : allRankedOffices.length;
+    const countryCount = rawCountryOfficeData.length;
+
+    const entityLabel =
+      activeTab === "country"
+        ? entityCount === 1
+          ? "country"
+          : "countries"
+        : `${entityCount} ${entityCount === 1 ? "office" : "offices"} across ${countryCount} ${
+            countryCount === 1 ? "country" : "countries"
+          }`;
 
     if (activeMetric === "charges") {
       return {
         title: "Total Charges",
         value: formatCompact(summary.totalCharges, true),
-        subtitle: `Across ${summary.totalDocuments.toLocaleString("en-IN")} documents in ${entityCount} ${entityLabel}`,
+        subtitle: `Across ${summary.totalDocuments.toLocaleString(
+          "en-IN"
+        )} documents in ${entityLabel}`,
       };
     }
     if (activeMetric === "paid") {
-      const pct = summary.totalCharges > 0 ? ((summary.totalPaid / summary.totalCharges) * 100).toFixed(1) : "0";
+      const pct =
+        summary.totalCharges > 0
+          ? ((summary.totalPaid / summary.totalCharges) * 100).toFixed(1)
+          : "0";
       return {
         title: "Total Paid",
         value: formatCompact(summary.totalPaid, true),
-        subtitle: `Collection rate: ${pct}% • Total billed: ${formatCompact(summary.totalCharges, true)}`,
+        subtitle: `Collection rate: ${pct}% • Total billed: ${formatCompact(
+          summary.totalCharges,
+          true
+        )}`,
       };
     }
     if (activeMetric === "balance") {
       return {
         title: "Total Balance",
         value: formatCompact(summary.totalBalance, true),
-        subtitle: `Pending collection across ${summary.totalDocuments.toLocaleString("en-IN")} documents`,
+        subtitle: `Pending collection across ${summary.totalDocuments.toLocaleString(
+          "en-IN"
+        )} documents`,
       };
     }
     return {
       title: "Total Documents",
       value: summary.totalDocuments.toLocaleString("en-IN"),
-      subtitle: `Registered across ${entityCount} ${entityLabel}`,
+      subtitle: `Registered across ${entityLabel}`,
     };
-  }, [activeMetric, summary, sortedRawData.length, activeTab]);
+  }, [activeMetric, summary, sortedCountryData.length, allRankedOffices.length, rawCountryOfficeData.length, activeTab]);
 
   // Helper to format metric values for selector badges
   const getMetricSummaryValue = (metricId: MetricType) => {
@@ -385,14 +565,21 @@ export function RevenueAnalytics({
           ))}
         </div>
 
-        <div className="space-y-3 pt-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-4">
-              <div className="h-4 w-28 rounded-md bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
-              <div
-                className="h-7 rounded-r-xl bg-slate-100 dark:bg-slate-850 animate-pulse"
-                style={{ width: `${90 - i * 14}%` }}
-              />
+        <div className="space-y-4 pt-3">
+          {[1, 2].map((g) => (
+            <div key={g} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-850/30">
+              <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-800 mb-3 animate-pulse" />
+              <div className="space-y-2.5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <div className="h-4 w-28 rounded-md bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+                    <div
+                      className="h-6 rounded-r-xl bg-slate-100 dark:bg-slate-850 animate-pulse"
+                      style={{ width: `${80 - i * 16}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -443,7 +630,7 @@ export function RevenueAnalytics({
           <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
             {activeTab === "country"
               ? "Country-level performance: Ranked comparison across registered territories"
-              : "Office-level performance: Ranked comparison across active branches"}
+              : "Office-level performance: Grouped and ranked by country"}
           </p>
         </div>
 
@@ -555,12 +742,51 @@ export function RevenueAnalytics({
             <option value="5">Top 5</option>
             <option value="10">Top 10</option>
             <option value="15">Top 15</option>
-            <option value="all">All ({sortedRawData.length})</option>
+            <option value="all">
+              All ({activeTab === "country" ? sortedCountryData.length : allRankedOffices.length})
+            </option>
           </select>
         </div>
       </div>
 
-      {/* 4. Main Ranked Horizontal Bar Chart Area */}
+      {/* 4. Country Quick Filters (Only shown in Office Analytics view when multiple countries exist) */}
+      {activeTab === "office" && availableCountries.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto py-2 border-b border-slate-100 dark:border-slate-800/80 text-xs scrollbar-none">
+          <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-1">
+            Country:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedCountryFilter("all")}
+            className={`rounded-xl px-2.5 py-1 font-bold text-xs shrink-0 transition-all cursor-pointer ${
+              selectedCountryFilter === "all"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-slate-300"
+            }`}
+          >
+            All Countries ({availableCountries.length})
+          </button>
+          {availableCountries.map((c) => {
+            const isSelected = selectedCountryFilter === c.country;
+            return (
+              <button
+                key={c.country}
+                type="button"
+                onClick={() => setSelectedCountryFilter(c.country)}
+                className={`rounded-xl px-2.5 py-1 font-bold text-xs shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {c.country} ({c.officeCount})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 5. Main Visualization Area */}
       {!hasData ? (
         <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center dark:border-slate-800 dark:bg-slate-850/40 mt-3">
           <BarChart3 className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-2" />
@@ -571,14 +797,15 @@ export function RevenueAnalytics({
             There are no records matching the selected offices and date range.
           </p>
         </div>
-      ) : (
-        <div className="mt-2 max-h-[500px] overflow-y-auto pr-1">
-          <div style={{ height: `${chartHeight}px`, minHeight: "220px", width: "100%" }}>
+      ) : activeTab === "country" ? (
+        /* --- Country Analytics: Flat Ranked Country Horizontal Bars --- */
+        <div className="mt-2 max-h-[550px] overflow-y-auto pr-1">
+          <div style={{ height: `${countryChartHeight}px`, minHeight: "220px", width: "100%" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={visibleData}
+                data={visibleCountryData}
                 layout="vertical"
-                margin={{ top: 10, right: 80, left: 10, bottom: 10 }}
+                margin={{ top: 10, right: 85, left: 10, bottom: 10 }}
                 barSize={20}
               >
                 <CartesianGrid
@@ -597,7 +824,7 @@ export function RevenueAnalytics({
                 <YAxis
                   type="category"
                   dataKey="name"
-                  width={130}
+                  width={140}
                   tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
                   axisLine={false}
                   tickLine={false}
@@ -628,14 +855,123 @@ export function RevenueAnalytics({
             </ResponsiveContainer>
           </div>
         </div>
+      ) : (
+        /* --- Office Analytics: Country-Grouped Office Horizontal Bars --- */
+        <div className="mt-3 max-h-[560px] overflow-y-auto pr-1 space-y-4">
+          {countryGroupedData.map((group) => {
+            // Height proportional to the number of offices in this country
+            const sectionChartHeight = Math.max(90, group.offices.length * 38 + 35);
+
+            return (
+              <div
+                key={group.country}
+                className="rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 dark:border-slate-800 dark:bg-slate-850/40 transition-all"
+              >
+                {/* Country Section Header */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
+                      <Globe2 className="h-3.5 w-3.5" />
+                    </span>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                      {group.country}
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200/70 dark:bg-slate-700/60 px-2 py-0.5 rounded-full">
+                      {group.offices.length}{" "}
+                      {group.offices.length === 1 ? "office" : "offices"}
+                    </span>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      {currentMetricConfig.shortLabel} Subtotal
+                    </span>
+                    <span
+                      className={`text-xs font-black ${currentMetricConfig.activeText}`}
+                    >
+                      {formatCompact(group.subtotalValue, currentMetricConfig.isCurrency)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Country Offices Horizontal Bar Chart */}
+                <div
+                  style={{
+                    height: `${sectionChartHeight}px`,
+                    width: "100%",
+                  }}
+                  className="mt-1"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={group.offices}
+                      layout="vertical"
+                      margin={{ top: 8, right: 85, left: 10, bottom: 8 }}
+                      barSize={20}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        horizontal={false}
+                        stroke="#94a3b8"
+                        opacity={0.15}
+                      />
+                      <XAxis
+                        type="number"
+                        domain={[0, maxOfficeValue]}
+                        tickFormatter={(v) =>
+                          formatCompact(v, currentMetricConfig.isCurrency)
+                        }
+                        tick={{ fontSize: 10, fill: "#64748b" }}
+                        axisLine={{ stroke: "#cbd5e1" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={160}
+                        tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        content={<CustomAnalyticsTooltip activeMetric={activeMetric} />}
+                      />
+                      <Bar
+                        dataKey="value"
+                        fill={currentMetricConfig.barColor}
+                        radius={[0, 6, 6, 0]}
+                        isAnimationActive={true}
+                        animationDuration={300}
+                        background={{ fill: "rgba(148, 163, 184, 0.08)", radius: 6 }}
+                      >
+                        <LabelList
+                          dataKey="displayValue"
+                          position="right"
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            fill: "#475569",
+                          }}
+                          offset={8}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Helpful hover hint at bottom */}
       {hasData && (
-        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-[11px] text-slate-400">
           <span>Hover over any bar to view complete revenue & document details</span>
           <span className="font-semibold text-slate-500">
-            Sorted by {currentMetricConfig.shortLabel} (Highest first)
+            {activeTab === "country"
+              ? `Sorted by ${currentMetricConfig.shortLabel} (Highest first)`
+              : `Offices & Countries ranked by ${currentMetricConfig.shortLabel} • Showing ${totalDisplayedOffices} offices`}
           </span>
         </div>
       )}

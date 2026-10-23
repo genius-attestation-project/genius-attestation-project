@@ -80,10 +80,20 @@ export interface CountryAnalyticsItem {
 
 export interface OfficeAnalyticsItem {
   office: string;
+  country: string;
   totalDocuments: number;
   totalCharges: number;
   totalPaid: number;
   totalBalance: number;
+}
+
+export interface CountryOfficeAnalyticsItem {
+  country: string;
+  totalDocuments: number;
+  totalCharges: number;
+  totalPaid: number;
+  totalBalance: number;
+  offices: OfficeAnalyticsItem[];
 }
 
 export interface TrackingReportResult {
@@ -92,6 +102,7 @@ export interface TrackingReportResult {
   summary: TrackingReportSummary;
   countryAnalytics: CountryAnalyticsItem[];
   officeAnalytics: OfficeAnalyticsItem[];
+  countryOfficeAnalytics?: CountryOfficeAnalyticsItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -392,7 +403,8 @@ export async function getTrackingReport(
   let grandTotalBalance = 0;
 
   const countryAnalyticsMap = new Map<string, { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
-  const officeAnalyticsMap = new Map<string, { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
+  const officeAnalyticsMap = new Map<string, { country: string; totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
+  const countryOfficesMap = new Map<string, Map<string, OfficeAnalyticsItem>>();
 
   for (const reg of allRegistrations) {
     const resolvedOffice =
@@ -428,13 +440,34 @@ export async function getTrackingReport(
 
     // Office Analytics Aggregation
     if (!officeAnalyticsMap.has(resolvedOffice)) {
-      officeAnalyticsMap.set(resolvedOffice, { totalDocuments: 0, totalCharges: 0, totalPaid: 0, totalBalance: 0 });
+      officeAnalyticsMap.set(resolvedOffice, { country, totalDocuments: 0, totalCharges: 0, totalPaid: 0, totalBalance: 0 });
     }
     const officeStats = officeAnalyticsMap.get(resolvedOffice)!;
     officeStats.totalDocuments += 1;
     officeStats.totalCharges += charge;
     officeStats.totalPaid += paid;
     officeStats.totalBalance += balance;
+
+    // Country-Office Map Aggregation
+    if (!countryOfficesMap.has(country)) {
+      countryOfficesMap.set(country, new Map());
+    }
+    const officesInCountry = countryOfficesMap.get(country)!;
+    if (!officesInCountry.has(resolvedOffice)) {
+      officesInCountry.set(resolvedOffice, {
+        office: resolvedOffice,
+        country,
+        totalDocuments: 0,
+        totalCharges: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+      });
+    }
+    const oStats = officesInCountry.get(resolvedOffice)!;
+    oStats.totalDocuments += 1;
+    oStats.totalCharges += charge;
+    oStats.totalPaid += paid;
+    oStats.totalBalance += balance;
   }
 
   const countryAnalytics: CountryAnalyticsItem[] = Array.from(countryAnalyticsMap.entries())
@@ -447,8 +480,31 @@ export async function getTrackingReport(
   const officeAnalytics: OfficeAnalyticsItem[] = Array.from(officeAnalyticsMap.entries())
     .map(([office, stats]) => ({
       office,
-      ...stats,
+      country: stats.country,
+      totalDocuments: stats.totalDocuments,
+      totalCharges: stats.totalCharges,
+      totalPaid: stats.totalPaid,
+      totalBalance: stats.totalBalance,
     }))
+    .sort((a, b) => b.totalCharges - a.totalCharges);
+
+  const countryOfficeAnalytics: CountryOfficeAnalyticsItem[] = Array.from(countryOfficesMap.entries())
+    .map(([country, officesMap]) => {
+      const offices = Array.from(officesMap.values()).sort((a, b) => b.totalCharges - a.totalCharges);
+      const totalDocuments = offices.reduce((sum, o) => sum + o.totalDocuments, 0);
+      const totalCharges = offices.reduce((sum, o) => sum + o.totalCharges, 0);
+      const totalPaid = offices.reduce((sum, o) => sum + o.totalPaid, 0);
+      const totalBalance = offices.reduce((sum, o) => sum + o.totalBalance, 0);
+
+      return {
+        country,
+        totalDocuments,
+        totalCharges,
+        totalPaid,
+        totalBalance,
+        offices,
+      };
+    })
     .sort((a, b) => b.totalCharges - a.totalCharges);
 
   // Calculate pagination parameters
@@ -592,6 +648,7 @@ export async function getTrackingReport(
     },
     countryAnalytics,
     officeAnalytics,
+    countryOfficeAnalytics,
     total,
     page,
     pageSize,
