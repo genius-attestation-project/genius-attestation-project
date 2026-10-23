@@ -1266,8 +1266,8 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       result.add("menu.welcome-call");
     }
 
-    // 8. Search / Report
-    if (key.startsWith("search_report.") || key.startsWith("tracking_report.")) {
+    // 8. Search / Report (General Search only)
+    if (key.startsWith("search_report.") && !key.startsWith("search_report.tracking_report")) {
       result.add("search_report.view");
       result.add("menu.search-report");
       if (
@@ -1278,12 +1278,33 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       ) {
         result.add("menu.search-report.general");
       }
-      if (
-        key.startsWith("search_report.tracking_report") ||
-        key.startsWith("tracking_report.")
-      ) {
-        result.add("search_report.tracking_report.view");
-        result.add("menu.search-report.tracking");
+    }
+
+    // Revenue Report (independent module)
+    if (
+      key.startsWith("revenue_report.") ||
+      key.startsWith("tracking_report.") ||
+      key.startsWith("search_report.tracking_report")
+    ) {
+      result.add("revenue_report.view");
+      result.add("menu.revenue-report");
+      if (key.endsWith(".search") || key === "revenue_report.search") {
+        result.add("revenue_report.search");
+      }
+      if (key.endsWith(".export") || key === "revenue_report.export") {
+        result.add("revenue_report.export");
+      }
+
+      // Backward compatibility for legacy tracking report checks
+      result.add("tracking_report.view");
+      result.add("search_report.tracking_report.view");
+      if (key.endsWith(".search")) {
+        result.add("tracking_report.search");
+        result.add("search_report.tracking_report.search");
+      }
+      if (key.endsWith(".export")) {
+        result.add("tracking_report.export");
+        result.add("search_report.tracking_report.export");
       }
     }
 
@@ -1624,6 +1645,12 @@ export function hasOfficeAccess(
   // If moduleKey is provided and module-specific visibilities exist for this user, check strictly
   if (moduleKey && access.moduleOfficeVisibilities !== null && access.moduleOfficeVisibilities !== undefined) {
     let modConfig = access.moduleOfficeVisibilities[moduleKey];
+    if (!modConfig && moduleKey === "revenue_report") {
+      modConfig =
+        access.moduleOfficeVisibilities["revenue_report"] ??
+        access.moduleOfficeVisibilities["tracking_report"] ??
+        access.moduleOfficeVisibilities["search_report"];
+    }
     if (!modConfig && moduleKey === "tracking_report" && access.moduleOfficeVisibilities["search_report"]) {
       modConfig = access.moduleOfficeVisibilities["search_report"];
     }

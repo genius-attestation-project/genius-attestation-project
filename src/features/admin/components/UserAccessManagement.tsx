@@ -474,7 +474,7 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
     key: "search_report",
     label: "SEARCH / REPORT",
     category: "Analytics & Reports",
-    description: "Unified cross-office tracking number search, customer lookups, and report exports.",
+    description: "Unified cross-office tracking number search and document lookups.",
     moduleAccessKey: "search_report.view",
     subModules: [
       {
@@ -485,14 +485,18 @@ const MODULE_PERMISSIONS_CATALOG: ModulePermissionDefinition[] = [
           { key: "search_report.export", label: "Export" },
         ],
       },
-      {
-        label: "Tracking Report",
-        actions: [
-          { key: "search_report.tracking_report.view", label: "View" },
-          { key: "search_report.tracking_report.search", label: "Search" },
-          { key: "search_report.tracking_report.export", label: "Export" },
-        ],
-      },
+    ],
+  },
+  {
+    key: "revenue_report",
+    label: "REVENUE REPORT",
+    category: "Analytics & Reports",
+    description: "Branch revenue reports, document tracking collections, fee summaries, and Excel exports.",
+    moduleAccessKey: "revenue_report.view",
+    actions: [
+      { key: "revenue_report.view", label: "View" },
+      { key: "revenue_report.search", label: "Search" },
+      { key: "revenue_report.export", label: "Export" },
     ],
   },
   {
@@ -830,10 +834,25 @@ export function UserAccessManagement() {
       }
       setOfficeVisMap(visMap);
 
-      // Initialize userPermMap (sanitizing to only valid catalog keys)
+      // Initialize userPermMap (sanitizing to only valid catalog keys and mapping legacy tracking report permissions)
       const permMap: Record<string, string[]> = {};
       for (const u of fetchedUsers) {
-        permMap[u.id] = u.permissionKeys.filter((k) => ALL_CATALOG_PERMISSION_KEYS.has(k));
+        const mappedKeys = new Set<string>();
+        for (const k of u.permissionKeys) {
+          if (ALL_CATALOG_PERMISSION_KEYS.has(k)) {
+            mappedKeys.add(k);
+          }
+          if (k === "search_report.tracking_report.view" || k === "tracking_report.view") {
+            mappedKeys.add("revenue_report.view");
+          }
+          if (k === "search_report.tracking_report.search" || k === "tracking_report.search") {
+            mappedKeys.add("revenue_report.search");
+          }
+          if (k === "search_report.tracking_report.export" || k === "tracking_report.export") {
+            mappedKeys.add("revenue_report.export");
+          }
+        }
+        permMap[u.id] = Array.from(mappedKeys);
       }
       setUserPermMap(permMap);
 

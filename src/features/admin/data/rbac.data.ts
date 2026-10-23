@@ -27,6 +27,7 @@ import {
   Globe,
   FolderTree,
   Building2,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -288,14 +289,14 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
         menuPermission: "menu.search-report.general",
         pagePermission: "search_report.view",
       },
-      {
-        label: "Tracking Report",
-        href: "/dashboard/search-report/tracking-report",
-        icon: FileSearch,
-        menuPermission: "menu.search-report.tracking",
-        pagePermission: "search_report.tracking_report.view",
-      },
     ],
+  },
+  {
+    label: "Revenue Report",
+    href: "/dashboard/revenue-report",
+    icon: FileSpreadsheet,
+    menuPermission: "menu.revenue-report",
+    pagePermission: "revenue_report.view",
   },
   {
     label: "Reports & Analytics",
@@ -560,6 +561,7 @@ export const permissionModules: PermissionModuleDefinition[] = [
   { key: "revenue_registration", label: "Revenue Registration", description: "Revenue module access.", actions: ["view", "create", "edit", "create_request", "movement_request", "add_advance", "delete", "manage", "export", "import", "downloadTemplate", "viewImportHistory"] },
   { key: "reports", label: "Reports & Analytics", description: "Centralized Reports & Analytics access." },
   { key: "search_report", label: "Search / Report", description: "Search and reporting access.", actions: ["view", "search", "export"] },
+  { key: "revenue_report", label: "Revenue Report", description: "Revenue report search and export access.", actions: ["view", "search", "export"] },
   { key: "tracking_report", label: "Tracking Report", description: "Tracking report search and export access.", actions: ["view", "search", "export"] },
   { key: "home", label: "Home", description: "Home module access.", actions: ["view", "transfer", "receive", "export", "movement_request"] },
   { key: "bm_report", label: "BM Report", description: "Real-time document movement tracking center access.", actions: ["view", "export"] },
@@ -692,6 +694,9 @@ export const defaultRoleDefinitions = [
       "search_report.view",
       "search_report.search",
       "search_report.export",
+      "revenue_report.view",
+      "revenue_report.search",
+      "revenue_report.export",
       "search_report.tracking_report.view",
       "search_report.tracking_report.search",
       "search_report.tracking_report.export",
@@ -725,6 +730,7 @@ export const defaultRoleDefinitions = [
       "menu.reports",
       "menu.search-report",
       "menu.search-report.general",
+      "menu.revenue-report",
       "menu.search-report.tracking",
 
       "menu.master-configuration.account-menu",
@@ -817,6 +823,9 @@ export const defaultRoleDefinitions = [
       "search_report.view",
       "search_report.search",
       "search_report.export",
+      "revenue_report.view",
+      "revenue_report.search",
+      "revenue_report.export",
       "search_report.tracking_report.view",
       "search_report.tracking_report.search",
       "search_report.tracking_report.export",
@@ -832,6 +841,7 @@ export const defaultRoleDefinitions = [
       "menu.revenue-registration",
       "menu.search-report",
       "menu.search-report.general",
+      "menu.revenue-report",
       "menu.search-report.tracking",
       "menu.leave-management",
       "menu.leave-management.apply",
