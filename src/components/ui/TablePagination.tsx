@@ -18,6 +18,19 @@ export interface TablePaginationProps {
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000];
 
+function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
+
 export function TablePagination({
   page,
   pageSize,
@@ -32,6 +45,7 @@ export function TablePagination({
   const startItem = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, totalItems);
   const displayPage = totalPages === 0 ? 0 : page;
+  const pageNumbers = totalPages > 0 ? getPageNumbers(page, totalPages) : [];
 
   return (
     <div
@@ -41,7 +55,7 @@ export function TablePagination({
       )}
     >
       <div className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
-        Showing {startItem}–{endItem} of {totalItems}
+        Showing {startItem}–{endItem} of {totalItems} records
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -64,7 +78,7 @@ export function TablePagination({
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="secondary"
             size="sm"
@@ -75,14 +89,41 @@ export function TablePagination({
             <ChevronLeft size={16} className="mr-1" /> Previous
           </Button>
 
-          <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 px-1">
+          {/* Desktop/Tablet Numeric Pagination */}
+          <div className="hidden sm:flex items-center gap-1 px-1">
+            {pageNumbers.map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1.5 text-xs font-semibold text-soft">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onPageChange(p as number)}
+                  className={cn(
+                    "h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition cursor-pointer",
+                    page === p
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+                  )}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          </div>
+
+          {/* Mobile Display */}
+          <span className="sm:hidden text-xs font-semibold text-slate-700 dark:text-slate-200 px-2">
             Page {displayPage} of {totalPages}
           </span>
 
           <Button
             variant="secondary"
             size="sm"
-            disabled={page >= totalPages || loading}
+            disabled={page >= totalPages || loading || totalPages === 0}
             onClick={() => onPageChange(page + 1)}
             className="h-9 px-3 text-xs font-semibold"
           >

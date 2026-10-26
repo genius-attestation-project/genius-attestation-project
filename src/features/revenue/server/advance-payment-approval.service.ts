@@ -489,7 +489,7 @@ export async function listAdvancePaymentApprovals(
   },
 ) {
   const page = Math.max(1, params?.page ?? 1);
-  const pageSize = Math.max(1, Math.min(params?.pageSize ?? 50, 200));
+  const pageSize = Math.max(1, Math.min(params?.pageSize ?? 50, 1000));
   const statusFilter = params?.status?.trim();
   const officeFilter = params?.office?.trim();
   const fromDate = params?.fromDate?.trim();

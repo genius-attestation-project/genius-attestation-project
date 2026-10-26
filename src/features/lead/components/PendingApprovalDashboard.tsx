@@ -11,8 +11,10 @@ import {
   FileText,
   IndianRupee,
   Pencil,
+  Search,
   ShieldCheck,
   Trash2,
+  X,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { AgreementCell } from "@/components/common/AgreementCell";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -154,6 +157,75 @@ function StatusBadge({ status }: { status: string }) {
         : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
 
   return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{formatted}</span>;
+}
+
+interface TabPaginationState {
+  search: string;
+  page: number;
+  pageSize: number;
+}
+
+const DEFAULT_PAGE_SIZE = 10;
+
+function TabSearchBar({
+  value,
+  onChange,
+  totalFiltered,
+  page,
+  pageSize,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  totalFiltered: number;
+  page: number;
+  pageSize: number;
+}) {
+  const startItem = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalFiltered);
+
+  return (
+    <div className="flex flex-col gap-3 border-b border-(--border) bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-white/5">
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Search by Tracking Number or Customer Name..."
+          className="w-full rounded-xl border border-(--border) bg-white py-2 pl-10 pr-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900/60 dark:text-white"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            <X size={15} />
+          </button>
+        ) : null}
+      </div>
+      <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+        Showing {startItem}–{endItem} of {totalFiltered} records
+      </p>
+    </div>
+  );
+}
+
+function getTabPaginationData<T>(items: T[], page: number, pageSize: number) {
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedItems = items.slice(startIndex, startIndex + pageSize);
+  return {
+    totalItems,
+    totalPages,
+    safePage,
+    paginatedItems,
+    startIndex,
+  };
 }
 
 export function PendingApprovalDashboard() {
@@ -442,6 +514,51 @@ export function PendingApprovalDashboard() {
   const [overdueFollowups, setOverdueFollowups] = useState<Lead[]>([]);
   const [officesList, setOfficesList] = useState<{ id: string; officeName: string }[]>([]);
 
+  const [tabStates, setTabStates] = useState<Record<MainTabKey, TabPaginationState>>({
+    edit_request: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    account_approval: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    advance_payment: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    movement_approval: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    rd_approval: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    advance_details: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    corporate_approval: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    lob: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    inactive: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+    overdue: { search: "", page: 1, pageSize: DEFAULT_PAGE_SIZE },
+  });
+
+  const handleTabSearchChange = (tab: MainTabKey, search: string) => {
+    setTabStates((prev) => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        search,
+        page: 1,
+      },
+    }));
+  };
+
+  const handleTabPageChange = (tab: MainTabKey, page: number) => {
+    setTabStates((prev) => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        page,
+      },
+    }));
+  };
+
+  const handleTabPageSizeChange = (tab: MainTabKey, pageSize: number) => {
+    setTabStates((prev) => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        pageSize,
+        page: 1,
+      },
+    }));
+  };
+
   // Advance Details filters
   const [filterOffice, setFilterOffice] = useState("");
   const [filterFromDate, setFilterFromDate] = useState("");
@@ -541,13 +658,13 @@ export function PendingApprovalDashboard() {
     setError("");
     try {
       const editRequestPromise = canViewEditRequests
-        ? parseResponse<{ items: RegistrationEditRequestItem[] }>(await fetch("/api/registration-edit-requests?status=PENDING", { cache: "no-store" })).catch(() => ({ items: [] }))
+        ? parseResponse<{ items: RegistrationEditRequestItem[] }>(await fetch("/api/registration-edit-requests?status=PENDING&pageSize=1000", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const accountPromise = canViewAccountApproval
-        ? parseResponse<{ items: AccountApprovalItem[] }>(await fetch("/api/account-approvals?status=Pending", { cache: "no-store" })).catch(() => ({ items: [] }))
+        ? parseResponse<{ items: AccountApprovalItem[] }>(await fetch("/api/account-approvals?status=Pending&pageSize=1000", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const advancePromise = canViewAdvancePayment
-        ? parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval", { cache: "no-store" })).catch(() => ({ items: [] }))
+        ? parseResponse<{ items: AdvancePaymentApprovalItem[] }>(await fetch("/api/advance-payment-approvals?status=Pending Approval&pageSize=1000", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const movementPromise = canViewMovement
         ? parseResponse<{ items: MovementApprovalItem[] }>(await fetch("/api/movement-approvals", { cache: "no-store" })).catch(() => ({ items: [] }))
@@ -556,7 +673,7 @@ export function PendingApprovalDashboard() {
         ? parseResponse<{ items: RDApprovalItem[] }>(await fetch("/api/rd-approvals?status=Pending", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const corporatePromise = canViewCorporate
-        ? parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details", { cache: "no-store" })).catch(() => ({ items: [] }))
+        ? parseResponse<{ items: any[] }>(await fetch("/api/lead-approvals/corporate-details?pageSize=1000", { cache: "no-store" })).catch(() => ({ items: [] }))
         : Promise.resolve({ items: [] });
       const inactivePromise = canViewInactive
         ? parseResponse<{ items: Lead[] }>(await fetch("/api/workflow-approvals/inactive", { cache: "no-store" })).catch(() => ({ items: [] }))
@@ -613,6 +730,8 @@ export function PendingApprovalDashboard() {
         }
       }
 
+      params.set("pageSize", "1000");
+
       const res = await parseResponse<{ items: AdvancePaymentApprovalItem[] }>(
         await fetch(`/api/advance-payment-approvals?${params.toString()}`, { cache: "no-store" }),
       );
@@ -624,22 +743,199 @@ export function PendingApprovalDashboard() {
     }
   }
 
-  const isAllMovementSelected =
-    movementApprovals.length > 0 && selectedMovementIds.length === movementApprovals.length;
-  const isSomeMovementSelected =
-    selectedMovementIds.length > 0 && selectedMovementIds.length < movementApprovals.length;
+  // Filtered & Paginated records for all 10 tabs
+
+  // 1. Edit Request
+  const filteredEditRequests = React.useMemo(() => {
+    const term = tabStates.edit_request.search.trim().toLowerCase();
+    if (!term) return editRequests;
+    return editRequests.filter((item) => {
+      const tracking = (item.trackingNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      return tracking.includes(term) || customer.includes(term);
+    });
+  }, [editRequests, tabStates.edit_request.search]);
+  const editPagination = getTabPaginationData(
+    filteredEditRequests,
+    tabStates.edit_request.page,
+    tabStates.edit_request.pageSize
+  );
+
+  // 2. Account Approval
+  const filteredAccountApprovals = React.useMemo(() => {
+    const term = tabStates.account_approval.search.trim().toLowerCase();
+    if (!term) return accountApprovals;
+    return accountApprovals.filter((item) => {
+      const tracking = (item.trackingNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      const oldInvoice = (item.oldInvoiceNumber || "").toLowerCase();
+      const newInvoice = (item.newInvoiceNumber || "").toLowerCase();
+      return (
+        tracking.includes(term) ||
+        customer.includes(term) ||
+        oldInvoice.includes(term) ||
+        newInvoice.includes(term)
+      );
+    });
+  }, [accountApprovals, tabStates.account_approval.search]);
+  const accountPagination = getTabPaginationData(
+    filteredAccountApprovals,
+    tabStates.account_approval.page,
+    tabStates.account_approval.pageSize
+  );
+
+  // 3. Advance Payment Approvals
+  const filteredAdvancePayments = React.useMemo(() => {
+    const term = tabStates.advance_payment.search.trim().toLowerCase();
+    if (!term) return advancePaymentRequests;
+    return advancePaymentRequests.filter((item) => {
+      const tracking = (item.trackingNumber || item.registrationNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      return tracking.includes(term) || customer.includes(term);
+    });
+  }, [advancePaymentRequests, tabStates.advance_payment.search]);
+  const advancePagination = getTabPaginationData(
+    filteredAdvancePayments,
+    tabStates.advance_payment.page,
+    tabStates.advance_payment.pageSize
+  );
+
+  // 4. Movement Approvals
+  const filteredMovementApprovals = React.useMemo(() => {
+    const term = tabStates.movement_approval.search.trim().toLowerCase();
+    if (!term) return movementApprovals;
+    return movementApprovals.filter((item) => {
+      const tracking = (item.trackingNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      return tracking.includes(term) || customer.includes(term);
+    });
+  }, [movementApprovals, tabStates.movement_approval.search]);
+  const movementPagination = getTabPaginationData(
+    filteredMovementApprovals,
+    tabStates.movement_approval.page,
+    tabStates.movement_approval.pageSize
+  );
+
+  // 5. RD Approvals
+  const filteredRdApprovals = React.useMemo(() => {
+    const term = tabStates.rd_approval.search.trim().toLowerCase();
+    if (!term) return rdApprovals;
+    return rdApprovals.filter((item) => {
+      const tracking = (item.trackingNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      return tracking.includes(term) || customer.includes(term);
+    });
+  }, [rdApprovals, tabStates.rd_approval.search]);
+  const rdPagination = getTabPaginationData(
+    filteredRdApprovals,
+    tabStates.rd_approval.page,
+    tabStates.rd_approval.pageSize
+  );
+
+  // 6. Advance Details
+  const filteredAdvanceDetails = React.useMemo(() => {
+    const term = tabStates.advance_details.search.trim().toLowerCase();
+    if (!term) return allAdvanceRecords;
+    return allAdvanceRecords.filter((item) => {
+      const tracking = (item.trackingNumber || item.registrationNumber || "").toLowerCase();
+      const customer = (item.customerName || "").toLowerCase();
+      return tracking.includes(term) || customer.includes(term);
+    });
+  }, [allAdvanceRecords, tabStates.advance_details.search]);
+  const advanceDetailsPagination = getTabPaginationData(
+    filteredAdvanceDetails,
+    tabStates.advance_details.page,
+    tabStates.advance_details.pageSize
+  );
+
+  // 7. Corporate Details Approval
+  const filteredCorporateApprovals = React.useMemo(() => {
+    const term = tabStates.corporate_approval.search.trim().toLowerCase();
+    if (!term) return corporateApprovals;
+    return corporateApprovals.filter((item) => {
+      const company = (item.companyName || "").toLowerCase();
+      const contact = (item.contactPersonName || "").toLowerCase();
+      return company.includes(term) || contact.includes(term);
+    });
+  }, [corporateApprovals, tabStates.corporate_approval.search]);
+  const corporatePagination = getTabPaginationData(
+    filteredCorporateApprovals,
+    tabStates.corporate_approval.page,
+    tabStates.corporate_approval.pageSize
+  );
+
+  // 8. LOB Requests
+  const filteredLobRequests = React.useMemo(() => {
+    const term = tabStates.lob.search.trim().toLowerCase();
+    if (!term) return lobRequests;
+    return lobRequests.filter((item) => {
+      const leadCode = (item.lead?.leadCode || item.metadata?.leadCode || "").toLowerCase();
+      const leadName = (
+        `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() ||
+        item.metadata?.leadName ||
+        ""
+      ).toLowerCase();
+      return leadCode.includes(term) || leadName.includes(term);
+    });
+  }, [lobRequests, tabStates.lob.search]);
+  const lobPagination = getTabPaginationData(
+    filteredLobRequests,
+    tabStates.lob.page,
+    tabStates.lob.pageSize
+  );
+
+  // 9. Inactive Leads
+  const filteredInactiveLeads = React.useMemo(() => {
+    const term = tabStates.inactive.search.trim().toLowerCase();
+    if (!term) return inactiveLeads;
+    return inactiveLeads.filter((item) => {
+      const leadCode = (item.leadCode || "").toLowerCase();
+      const customer = `${item.firstName || ""} ${item.lastName || ""}`.trim().toLowerCase();
+      return leadCode.includes(term) || customer.includes(term);
+    });
+  }, [inactiveLeads, tabStates.inactive.search]);
+  const inactivePagination = getTabPaginationData(
+    filteredInactiveLeads,
+    tabStates.inactive.page,
+    tabStates.inactive.pageSize
+  );
+
+  // 10. Overdue Follow-ups
+  const filteredOverdueFollowups = React.useMemo(() => {
+    const term = tabStates.overdue.search.trim().toLowerCase();
+    if (!term) return overdueFollowups;
+    return overdueFollowups.filter((item) => {
+      const leadCode = (item.leadCode || "").toLowerCase();
+      const customer = `${item.firstName || ""} ${item.lastName || ""}`.trim().toLowerCase();
+      return leadCode.includes(term) || customer.includes(term);
+    });
+  }, [overdueFollowups, tabStates.overdue.search]);
+  const overduePagination = getTabPaginationData(
+    filteredOverdueFollowups,
+    tabStates.overdue.page,
+    tabStates.overdue.pageSize
+  );
+
+  const isAllCurrentMovementSelected =
+    movementPagination.paginatedItems.length > 0 &&
+    movementPagination.paginatedItems.every((m) => selectedMovementIds.includes(m.id));
+  const isSomeCurrentMovementSelected =
+    movementPagination.paginatedItems.some((m) => selectedMovementIds.includes(m.id)) &&
+    !isAllCurrentMovementSelected;
 
   useEffect(() => {
     if (selectAllCheckboxRef.current) {
-      selectAllCheckboxRef.current.indeterminate = isSomeMovementSelected;
+      selectAllCheckboxRef.current.indeterminate = isSomeCurrentMovementSelected;
     }
-  }, [isSomeMovementSelected]);
+  }, [isSomeCurrentMovementSelected]);
 
   const handleToggleSelectAllMovement = () => {
-    if (isAllMovementSelected) {
-      setSelectedMovementIds([]);
+    if (isAllCurrentMovementSelected) {
+      const pageIds = new Set(movementPagination.paginatedItems.map((m) => m.id));
+      setSelectedMovementIds((prev) => prev.filter((id) => !pageIds.has(id)));
     } else {
-      setSelectedMovementIds(movementApprovals.map((m) => m.id));
+      const pageIds = movementPagination.paginatedItems.map((m) => m.id);
+      setSelectedMovementIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -745,6 +1041,7 @@ export function PendingApprovalDashboard() {
     setFilterStatus("pending");
     setHasSearchedAdvanceDetails(false);
     setAllAdvanceRecords([]);
+    handleTabSearchChange("advance_details", "");
   };
 
   async function submitAction() {
@@ -929,347 +1226,442 @@ export function PendingApprovalDashboard() {
         </div>
       ) : (
         <div className="min-w-0 overflow-hidden rounded-[28px] border border-(--border) bg-white shadow-(--shadow-card) dark:bg-white/5">
-          <div className="overflow-x-auto">
-            {activeTab === "edit_request" && (
-              <table className="min-w-345 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Tracking Number</th>
-                    <th className="px-5 py-4">Customer Name</th>
-                    <th className="px-5 py-4">Document Type</th>
-                    <th className="px-5 py-4">Registration Office</th>
-                    <th className="px-5 py-4">Current Office</th>
-                    <th className="px-5 py-4">Requested By</th>
-                    <th className="px-5 py-4">Requested Date</th>
-                    <th className="px-5 py-4">Changed Fields</th>
-                    <th className="px-5 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {editRequests.length === 0 ? (
+          {activeTab === "edit_request" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.edit_request.search}
+                onChange={(val) => handleTabSearchChange("edit_request", val)}
+                totalFiltered={editPagination.totalItems}
+                page={editPagination.safePage}
+                pageSize={tabStates.edit_request.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-345 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-soft">
-                        No pending edit approval requests.
-                      </td>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Tracking Number</th>
+                      <th className="px-5 py-4">Customer Name</th>
+                      <th className="px-5 py-4">Document Type</th>
+                      <th className="px-5 py-4">Registration Office</th>
+                      <th className="px-5 py-4">Current Office</th>
+                      <th className="px-5 py-4">Requested By</th>
+                      <th className="px-5 py-4">Requested Date</th>
+                      <th className="px-5 py-4">Changed Fields</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    editRequests.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
-                          <Link
-                            href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                            className="hover:underline"
-                          >
-                            {item.trackingNumber}
-                          </Link>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {editPagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="p-8 text-center text-soft">
+                          {tabStates.edit_request.search
+                            ? `No records found matching "${tabStates.edit_request.search}".`
+                            : "No pending edit approval requests."}
                         </td>
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {item.customerName ? formatTitleCase(item.customerName) : "-"}
-                          </p>
+                      </tr>
+                    ) : (
+                      editPagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = editPagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                className="hover:underline"
+                              >
+                                {item.trackingNumber}
+                              </Link>
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">
+                                {item.customerName ? formatTitleCase(item.customerName) : "-"}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                              {item.documentType || item.documentName || "-"}
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.currentOffice || item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-5 py-4 text-xs">
+                              <p className="font-bold text-slate-900 dark:text-white">{item.requestedBy || "System User"}</p>
+                            </td>
+                            <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
+                              {formatDateTime(item.requestedAt)}
+                            </td>
+                            <td className="px-5 py-4 text-xs">
+                              <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                {item.fieldChanges?.length || 0} {item.fieldChanges?.length === 1 ? "field" : "fields"} changed
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                {item.status === "PENDING" ? (
+                                  <>
+                                    {canApproveEditRequests && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => setApprovingEditRequest(item)}
+                                      >
+                                        Approve
+                                      </Button>
+                                    )}
+                                    {canRejectEditRequests && (
+                                      <Button
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={() => setRejectingEditRequest(item)}
+                                      >
+                                        Reject
+                                      </Button>
+                                    )}
+                                    {!canApproveEditRequests && !canRejectEditRequests && (
+                                      <span className="text-xs italic text-slate-400">View Only</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <StatusBadge status={item.status} />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={editPagination.safePage}
+                pageSize={tabStates.edit_request.pageSize}
+                totalItems={editPagination.totalItems}
+                totalPages={editPagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("edit_request", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("edit_request", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
+
+          {activeTab === "account_approval" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.account_approval.search}
+                onChange={(val) => handleTabSearchChange("account_approval", val)}
+                totalFiltered={accountPagination.totalItems}
+                page={accountPagination.safePage}
+                pageSize={tabStates.account_approval.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-345 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Tracking / Invoice #</th>
+                      <th className="px-5 py-4">Customer / Item</th>
+                      <th className="px-5 py-4">Office</th>
+                      <th className="px-5 py-4">Category</th>
+                      <th className="px-5 py-4">Amount (Old → New)</th>
+                      <th className="px-5 py-4">Payment Mode</th>
+                      <th className="px-5 py-4">Requested By</th>
+                      <th className="px-5 py-4">Requested Date</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {accountPagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="p-8 text-center text-soft">
+                          {tabStates.account_approval.search
+                            ? `No records found matching "${tabStates.account_approval.search}".`
+                            : "No pending account statement approval requests."}
                         </td>
-                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                          {item.documentType || item.documentName || "-"}
+                      </tr>
+                    ) : (
+                      accountPagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = accountPagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                              {item.trackingNumber ? (
+                                <Link
+                                  href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                  className="hover:underline"
+                                >
+                                  {item.trackingNumber}
+                                </Link>
+                              ) : (
+                                item.newInvoiceNumber || item.oldInvoiceNumber || "-"
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">
+                                {item.customerName ? formatTitleCase(item.customerName) : "-"}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.office || "-"}
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300 text-xs">
+                              <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                                {item.sourceType === "ADVANCE_PAYMENT" ? "Advance Payment" : "Account Panel"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap font-mono text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400 line-through">₹{item.oldAmount.toLocaleString("en-IN")}</span>
+                                <span className="text-slate-400">→</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{item.newAmount.toLocaleString("en-IN")}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {item.newPaymentMode || item.oldPaymentMode || "Cash"}
+                            </td>
+                            <td className="px-5 py-4 text-xs">
+                              <p className="font-bold text-slate-900 dark:text-white">{item.requestedByName || "Staff"}</p>
+                            </td>
+                            <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
+                              {formatDateTime(item.requestedAt)}
+                            </td>
+                            <td className="px-5 py-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                {item.status === "Pending" ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => setApprovingAccountItem(item)}
+                                    >
+                                      Review & Approve
+                                    </Button>
+                                    {canRejectAccountApproval && (
+                                      <Button
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={() => setRejectingAccountItem(item)}
+                                      >
+                                        Reject
+                                      </Button>
+                                    )}
+                                  </>
+                                ) : (
+                                  <StatusBadge status={item.status} />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={accountPagination.safePage}
+                pageSize={tabStates.account_approval.pageSize}
+                totalItems={accountPagination.totalItems}
+                totalPages={accountPagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("account_approval", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("account_approval", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
+
+          {activeTab === "advance_payment" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.advance_payment.search}
+                onChange={(val) => handleTabSearchChange("advance_payment", val)}
+                totalFiltered={advancePagination.totalItems}
+                page={advancePagination.safePage}
+                pageSize={tabStates.advance_payment.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-345 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Tracking Number</th>
+                      <th className="px-5 py-4">Customer Name</th>
+                      <th className="px-5 py-4">Document</th>
+                      <th className="px-5 py-4">Current Status</th>
+                      <th className="px-5 py-4">Requested Advance</th>
+                      <th className="px-5 py-4">Payment Mode & Ref</th>
+                      <th className="px-5 py-4">Uploaded Proof</th>
+                      <th className="px-5 py-4">Remarks</th>
+                      <th className="px-5 py-4">Requested By & Date</th>
+                      <th className="px-5 py-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {advancePagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className="p-8 text-center text-soft">
+                          {tabStates.advance_payment.search
+                            ? `No records found matching "${tabStates.advance_payment.search}".`
+                            : "No pending advance payment approval requests."}
                         </td>
-                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {item.registrationOffice || "-"}
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {item.currentOffice || item.registrationOffice || "-"}
-                        </td>
-                        <td className="px-5 py-4 text-xs">
-                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedBy || "System User"}</p>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
-                          {formatDateTime(item.requestedAt)}
-                        </td>
-                        <td className="px-5 py-4 text-xs">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                            {item.fieldChanges?.length || 0} {item.fieldChanges?.length === 1 ? "field" : "fields"} changed
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            {item.status === "PENDING" ? (
-                              <>
-                                {canApproveEditRequests && (
+                      </tr>
+                    ) : (
+                      advancePagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = advancePagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
+                              {item.trackingNumber}
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                              <p className="text-xs text-soft">{item.mobile}</p>
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
+                              {item.documentName ? formatTitleCase(item.documentName) : "-"}
+                            </td>
+                            <td className="px-5 py-4 text-xs">
+                              <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                                Approved: {formatCurrency(item.currentAdvancePaid ?? 0)}
+                              </p>
+                              <p className="text-slate-500 dark:text-slate-400">
+                                Balance: {formatCurrency(item.currentBalance ?? (item.totalAmount - (item.currentAdvancePaid ?? 0)))}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-extrabold text-blue-700 dark:text-blue-300 text-base">
+                                {formatCurrency(item.advanceAmount)}
+                              </p>
+                              <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
+                              <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                                Ref: {item.referenceNumber || "-"}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4">
+                              {item.receiptFileUrl || item.receiptFileId ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => viewReceipt(item)}
+                                  className="gap-1.5 font-bold text-xs"
+                                >
+                                  <Eye size={14} /> View Proof
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-soft italic">No Proof Uploaded</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                              {item.remarks || "-"}
+                            </td>
+                            <td className="px-5 py-4 text-xs">
+                              <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.requestedBy)}</p>
+                              <p className="text-soft">{formatDate(item.requestedDate)}</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2">
+                                {canApproveAdvance && (
                                   <Button
                                     size="sm"
-                                    onClick={() => setApprovingEditRequest(item)}
+                                    onClick={() => setApprovingAdvance(item)}
                                   >
                                     Approve
                                   </Button>
                                 )}
-                                {canRejectEditRequests && (
+                                {canRejectAdvance && (
                                   <Button
                                     variant="danger"
                                     size="sm"
-                                    onClick={() => setRejectingEditRequest(item)}
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Rejected",
+                                        requestType: "ADVANCE_PAYMENT",
+                                        id: item.id,
+                                        title: `Reject Advance Payment (${item.trackingNumber})`,
+                                      })
+                                    }
                                   >
                                     Reject
                                   </Button>
                                 )}
-                                {!canApproveEditRequests && !canRejectEditRequests && (
-                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                {!canApproveAdvance && !canRejectAdvance && (
+                                  <span className="text-xs italic text-slate-400">
+                                    View Only
+                                  </span>
                                 )}
-                              </>
-                            ) : (
-                              <StatusBadge status={item.status} />
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={advancePagination.safePage}
+                pageSize={tabStates.advance_payment.pageSize}
+                totalItems={advancePagination.totalItems}
+                totalPages={advancePagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("advance_payment", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("advance_payment", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
-            {activeTab === "account_approval" && (
-              <table className="min-w-345 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Tracking / Invoice #</th>
-                    <th className="px-5 py-4">Customer / Item</th>
-                    <th className="px-5 py-4">Office</th>
-                    <th className="px-5 py-4">Category</th>
-                    <th className="px-5 py-4">Amount (Old → New)</th>
-                    <th className="px-5 py-4">Payment Mode</th>
-                    <th className="px-5 py-4">Requested By</th>
-                    <th className="px-5 py-4">Requested Date</th>
-                    <th className="px-5 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {accountApprovals.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-soft">
-                        No pending account statement approval requests.
-                      </td>
-                    </tr>
-                  ) : (
-                    accountApprovals.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
-                          {item.trackingNumber ? (
-                            <Link
-                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                              className="hover:underline"
-                            >
-                              {item.trackingNumber}
-                            </Link>
-                          ) : (
-                            item.newInvoiceNumber || item.oldInvoiceNumber || "-"
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {item.customerName ? formatTitleCase(item.customerName) : "-"}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {item.office || "-"}
-                        </td>
-                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300 text-xs">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                            {item.sourceType === "ADVANCE_PAYMENT" ? "Advance Payment" : "Account Panel"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap font-mono text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400 line-through">₹{item.oldAmount.toLocaleString("en-IN")}</span>
-                            <span className="text-slate-400">→</span>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{item.newAmount.toLocaleString("en-IN")}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                          {item.newPaymentMode || item.oldPaymentMode || "Cash"}
-                        </td>
-                        <td className="px-5 py-4 text-xs">
-                          <p className="font-bold text-slate-900 dark:text-white">{item.requestedByName || "Staff"}</p>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-soft whitespace-nowrap">
-                          {formatDateTime(item.requestedAt)}
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            {item.status === "Pending" ? (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setApprovingAccountItem(item)}
-                                >
-                                  Review & Approve
-                                </Button>
-                                {canRejectAccountApproval && (
-                                  <Button
-                                    variant="danger"
-                                    size="sm"
-                                    onClick={() => setRejectingAccountItem(item)}
-                                  >
-                                    Reject
-                                  </Button>
-                                )}
-                              </>
-                            ) : (
-                              <StatusBadge status={item.status} />
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-
-            {activeTab === "advance_payment" && (
-              <table className="min-w-345 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Tracking Number</th>
-                    <th className="px-5 py-4">Customer Name</th>
-                    <th className="px-5 py-4">Document</th>
-                    <th className="px-5 py-4">Current Status</th>
-                    <th className="px-5 py-4">Requested Advance</th>
-                    <th className="px-5 py-4">Payment Mode & Ref</th>
-                    <th className="px-5 py-4">Uploaded Proof</th>
-                    <th className="px-5 py-4">Remarks</th>
-                    <th className="px-5 py-4">Requested By & Date</th>
-                    <th className="px-5 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {advancePaymentRequests.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="p-8 text-center text-soft">
-                        No pending advance payment approval requests.
-                      </td>
-                    </tr>
-                  ) : (
-                    advancePaymentRequests.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
-                          {item.trackingNumber}
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
-                          <p className="text-xs text-soft">{item.mobile}</p>
-                        </td>
-                        <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                          {item.documentName ? formatTitleCase(item.documentName) : "-"}
-                        </td>
-                        <td className="px-5 py-4 text-xs">
-                          <p className="font-bold text-emerald-700 dark:text-emerald-300">
-                            Approved: {formatCurrency(item.currentAdvancePaid ?? 0)}
-                          </p>
-                          <p className="text-slate-500 dark:text-slate-400">
-                            Balance: {formatCurrency(item.currentBalance ?? (item.totalAmount - (item.currentAdvancePaid ?? 0)))}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-extrabold text-blue-700 dark:text-blue-300 text-base">
-                            {formatCurrency(item.advanceAmount)}
-                          </p>
-                          <p className="text-[11px] text-soft">Total: {formatCurrency(item.totalAmount)}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
-                          <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                            Ref: {item.referenceNumber || "-"}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          {item.receiptFileUrl || item.receiptFileId ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => viewReceipt(item)}
-                              className="gap-1.5 font-bold text-xs"
-                            >
-                              <Eye size={14} /> View Proof
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-soft italic">No Proof Uploaded</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300 max-w-xs truncate">
-                          {item.remarks || "-"}
-                        </td>
-                        <td className="px-5 py-4 text-xs">
-                          <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.requestedBy)}</p>
-                          <p className="text-soft">{formatDate(item.requestedDate)}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            {canApproveAdvance && (
-                              <Button
-                                size="sm"
-                                onClick={() => setApprovingAdvance(item)}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {canRejectAdvance && (
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() =>
-                                  setActionModal({
-                                    type: "Rejected",
-                                    requestType: "ADVANCE_PAYMENT",
-                                    id: item.id,
-                                    title: `Reject Advance Payment (${item.trackingNumber})`,
-                                  })
-                                }
-                              >
-                                Reject
-                              </Button>
-                            )}
-                            {!canApproveAdvance && !canRejectAdvance && (
-                              <span className="text-xs italic text-slate-400">
-                                View Only
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-
-            {activeTab === "movement_approval" && (
-              <div className="space-y-0">
-                <div className="flex items-center justify-between border-b border-(--border) bg-blue-50/50 px-5 py-3 dark:bg-white/5">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    <span>
-                      Selected:{" "}
-                      <strong className="font-extrabold text-blue-700 dark:text-blue-400">
-                        {selectedMovementIds.length}
-                      </strong>{" "}
-                      {selectedMovementIds.length === 1 ? "document" : "documents"}
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={selectedMovementIds.length === 0 || !canApproveMovement}
-                    onClick={() => setIsBulkMovementModalOpen(true)}
-                  >
-                    Approve Selected ({selectedMovementIds.length})
-                  </Button>
+          {activeTab === "movement_approval" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.movement_approval.search}
+                onChange={(val) => handleTabSearchChange("movement_approval", val)}
+                totalFiltered={movementPagination.totalItems}
+                page={movementPagination.safePage}
+                pageSize={tabStates.movement_approval.pageSize}
+              />
+              <div className="flex items-center justify-between border-b border-(--border) bg-blue-50/50 px-5 py-3 dark:bg-white/5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <span>
+                    Selected:{" "}
+                    <strong className="font-extrabold text-blue-700 dark:text-blue-400">
+                      {selectedMovementIds.length}
+                    </strong>{" "}
+                    {selectedMovementIds.length === 1 ? "document" : "documents"}
+                  </span>
                 </div>
-                <table className="w-full text-left text-sm">
+                <Button
+                  size="sm"
+                  disabled={selectedMovementIds.length === 0 || !canApproveMovement}
+                  onClick={() => setIsBulkMovementModalOpen(true)}
+                >
+                  Approve Selected ({selectedMovementIds.length})
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-300 text-left text-sm">
                   <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                     <tr>
+                      <th className="px-4 py-4 w-16 text-center">SL NO</th>
                       <th className="w-12 px-4 py-4 text-center">
                         <input
                           type="checkbox"
                           ref={selectAllCheckboxRef}
-                          checked={isAllMovementSelected}
+                          checked={isAllCurrentMovementSelected}
                           onChange={handleToggleSelectAllMovement}
-                          aria-label="Select all pending movement approvals"
+                          aria-label="Select all pending movement approvals on this page"
                           className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </th>
@@ -1283,105 +1675,132 @@ export function PendingApprovalDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                    {movementApprovals.length === 0 ? (
+                    {movementPagination.paginatedItems.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="p-8 text-center text-soft">
-                          No pending movement approval requests.
+                        <td colSpan={9} className="p-8 text-center text-soft">
+                          {tabStates.movement_approval.search
+                            ? `No records found matching "${tabStates.movement_approval.search}".`
+                            : "No pending movement approval requests."}
                         </td>
                       </tr>
                     ) : (
-                      movementApprovals.map((item) => (
-                        <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                          <td className="w-12 px-4 py-4 text-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedMovementIds.includes(item.id)}
-                              onChange={() => handleToggleSelectMovement(item.id)}
-                              aria-label={`Select document ${item.trackingNumber}`}
-                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                          </td>
-                          <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
-                            <Link
-                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                              className="hover:underline"
-                            >
-                              {item.trackingNumber}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
-                            {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : "-"}</p>
-                            <p className="text-xs text-soft">{item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.registrationOffice || "-"}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.currentOffice || item.registrationOffice || "-"}
-                          </td>
-                          <td className="px-4 py-4 text-xs whitespace-nowrap">
-                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
-                            <p className="text-soft">{formatDate(item.requestedDate)}</p>
-                          </td>
-                          <td className="px-4 py-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2">
-                              {canApproveMovement && (
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    setActionModal({
-                                      type: "Approved",
-                                      requestType: "MOVEMENT_APPROVAL",
-                                      id: item.id,
-                                      title: `Approve Document Movement (${item.trackingNumber})`,
-                                      meta: item,
-                                    })
-                                  }
-                                >
-                                  Approve
-                                </Button>
-                              )}
-                              {canRejectMovement && (
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() =>
-                                    setActionModal({
-                                      type: "Rejected",
-                                      requestType: "MOVEMENT_APPROVAL",
-                                      id: item.id,
-                                      title: `Reject Document Movement (${item.trackingNumber})`,
-                                      meta: item,
-                                    })
-                                  }
-                                >
-                                  Reject
-                                </Button>
-                              )}
-                              {!canApproveMovement && !canRejectMovement && (
-                                <span className="text-xs italic text-slate-400" title="Approval permission required">
-                                  View Only
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                      movementPagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = movementPagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-4 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="w-12 px-4 py-4 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedMovementIds.includes(item.id)}
+                                onChange={() => handleToggleSelectMovement(item.id)}
+                                aria-label={`Select document ${item.trackingNumber}`}
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                className="hover:underline"
+                              >
+                                {item.trackingNumber}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                              {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : "-"}</p>
+                              <p className="text-xs text-soft">{item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
+                            </td>
+                            <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.currentOffice || item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-4 py-4 text-xs whitespace-nowrap">
+                              <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
+                              <p className="text-soft">{formatDate(item.requestedDate)}</p>
+                            </td>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                {canApproveMovement && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Approved",
+                                        requestType: "MOVEMENT_APPROVAL",
+                                        id: item.id,
+                                        title: `Approve Document Movement (${item.trackingNumber})`,
+                                        meta: item,
+                                      })
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {canRejectMovement && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Rejected",
+                                        requestType: "MOVEMENT_APPROVAL",
+                                        id: item.id,
+                                        title: `Reject Document Movement (${item.trackingNumber})`,
+                                        meta: item,
+                                      })
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                )}
+                                {!canApproveMovement && !canRejectMovement && (
+                                  <span className="text-xs italic text-slate-400" title="Approval permission required">
+                                    View Only
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
-            )}
+              <TablePagination
+                page={movementPagination.safePage}
+                pageSize={tabStates.movement_approval.pageSize}
+                totalItems={movementPagination.totalItems}
+                totalPages={movementPagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("movement_approval", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("movement_approval", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
-            {activeTab === "rd_approval" && (
-              <div className="space-y-0">
-                <table className="w-full text-left text-sm">
+          {activeTab === "rd_approval" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.rd_approval.search}
+                onChange={(val) => handleTabSearchChange("rd_approval", val)}
+                totalFiltered={rdPagination.totalItems}
+                page={rdPagination.safePage}
+                pageSize={tabStates.rd_approval.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-300 text-left text-sm">
                   <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                     <tr>
+                      <th className="px-4 py-4 w-16 text-center">SL NO</th>
                       <th className="px-4 py-4">Tracking Number</th>
                       <th className="px-4 py-4">Customer Name</th>
                       <th className="px-4 py-4">Document / Process Type</th>
@@ -1394,92 +1813,110 @@ export function PendingApprovalDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                    {rdApprovals.length === 0 ? (
+                    {rdPagination.paginatedItems.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="p-8 text-center text-soft">
-                          No pending RD approval requests.
+                        <td colSpan={10} className="p-8 text-center text-soft">
+                          {tabStates.rd_approval.search
+                            ? `No records found matching "${tabStates.rd_approval.search}".`
+                            : "No pending RD approval requests."}
                         </td>
                       </tr>
                     ) : (
-                      rdApprovals.map((item) => (
-                        <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                          <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
-                            <Link
-                              href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                              className="hover:underline"
-                            >
-                              {item.trackingNumber}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
-                            {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
-                            <p className="text-xs text-soft">{item.processType ? formatTitleCase(item.processType) : "-"}</p>
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.registrationOffice || "-"}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.currentOffice || item.registrationOffice || "-"}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-                              <Building2 size={13} />
-                              {item.deliveryLocation || "-"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-xs whitespace-nowrap">
-                            <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
-                            <p className="text-soft">{formatDate(item.requestedDate)}</p>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <StatusBadge status={item.status} />
-                          </td>
-                          <td className="px-4 py-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2">
-                              {canApproveRD && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setApprovingRDItem(item);
-                                    setRdRemarks("");
-                                  }}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                >
-                                  <CheckCircle2 size={14} />
-                                  Approve
-                                </Button>
-                              )}
-                              {canRejectRD && (
-                                <Button
-                                  size="sm"
-                                  variant="danger"
-                                  onClick={() => {
-                                    setRejectingRDItem(item);
-                                    setRdRejectionReason("");
-                                  }}
-                                >
-                                  <XCircle size={14} />
-                                  Reject
-                                </Button>
-                              )}
-                              {!canApproveRD && !canRejectRD && (
-                                <span className="text-xs italic text-slate-400" title="RD approval permission required">
-                                  View Only
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                      rdPagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = rdPagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-4 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-4 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                              <Link
+                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                className="hover:underline"
+                              >
+                                {item.trackingNumber}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                              {item.mobile && item.mobile !== "-" && <p className="text-xs text-soft">{item.mobile}</p>}
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-medium text-slate-800 dark:text-slate-200">{item.documentName ? formatTitleCase(item.documentName) : item.documentType ? formatTitleCase(item.documentType) : "-"}</p>
+                              <p className="text-xs text-soft">{item.processType ? formatTitleCase(item.processType) : "-"}</p>
+                            </td>
+                            <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-4 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {item.currentOffice || item.registrationOffice || "-"}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                                <Building2 size={13} />
+                                {item.deliveryLocation || "-"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-xs whitespace-nowrap">
+                              <p className="font-medium text-slate-800 dark:text-slate-200">{item.requestedBy}</p>
+                              <p className="text-soft">{formatDate(item.requestedDate)}</p>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <StatusBadge status={item.status} />
+                            </td>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                {canApproveRD && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setApprovingRDItem(item);
+                                      setRdRemarks("");
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  >
+                                    <CheckCircle2 size={14} />
+                                    Approve
+                                  </Button>
+                                )}
+                                {canRejectRD && (
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    onClick={() => {
+                                      setRejectingRDItem(item);
+                                      setRdRejectionReason("");
+                                    }}
+                                  >
+                                    <XCircle size={14} />
+                                    Reject
+                                  </Button>
+                                )}
+                                {!canApproveRD && !canRejectRD && (
+                                  <span className="text-xs italic text-slate-400" title="RD approval permission required">
+                                    View Only
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
-            )}
+              <TablePagination
+                page={rdPagination.safePage}
+                pageSize={tabStates.rd_approval.pageSize}
+                totalItems={rdPagination.totalItems}
+                totalPages={rdPagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("rd_approval", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("rd_approval", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
             {/* Advance Details View */}
             {activeTab === "advance_details" && (
@@ -1564,433 +2001,583 @@ export function PendingApprovalDashboard() {
                   </div>
                 </div>
 
-                {/* Advance Details Data Table (Office Column Removed) */}
-                <div className="overflow-x-auto rounded-2xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
-                  <table className="min-w-310 text-left text-sm">
-                    <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                      <tr>
-                        <th className="px-5 py-4">Tracking Number</th>
-                        <th className="px-5 py-4">Customer Name</th>
-                        <th className="px-5 py-4">Advance Amount</th>
-                        <th className="px-5 py-4">Payment Mode</th>
-                        <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4">Created Date</th>
-                        <th className="px-5 py-4">Approved Date</th>
-                        <th className="px-5 py-4">Approved By</th>
-                        <th className="px-5 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                      {advanceDetailsLoading ? (
+                {/* Advance Details Data Table Card */}
+                <div className="overflow-hidden rounded-2xl border border-(--border) bg-white shadow-sm dark:bg-white/5">
+                  <TabSearchBar
+                    value={tabStates.advance_details.search}
+                    onChange={(val) => handleTabSearchChange("advance_details", val)}
+                    totalFiltered={advanceDetailsPagination.totalItems}
+                    page={advanceDetailsPagination.safePage}
+                    pageSize={tabStates.advance_details.pageSize}
+                  />
+                  <div className="overflow-x-auto">
+                    <table className="min-w-310 text-left text-sm">
+                      <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-soft">
-                            Loading advance details...
-                          </td>
+                          <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                          <th className="px-5 py-4">Tracking Number</th>
+                          <th className="px-5 py-4">Customer Name</th>
+                          <th className="px-5 py-4">Advance Amount</th>
+                          <th className="px-5 py-4">Payment Mode</th>
+                          <th className="px-5 py-4">Status</th>
+                          <th className="px-5 py-4">Created Date</th>
+                          <th className="px-5 py-4">Approved Date</th>
+                          <th className="px-5 py-4">Approved By</th>
+                          <th className="px-5 py-4 text-right">Actions</th>
                         </tr>
-                      ) : !hasSearchedAdvanceDetails ? (
-                        <tr>
-                          <td colSpan={9} className="p-8 text-center text-soft font-medium">
-                            No records found. Please select Office and filters to search advance details.
-                          </td>
-                        </tr>
-                      ) : allAdvanceRecords.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="p-8 text-center text-soft font-medium">
-                            No advance payment records match the selected filters.
-                          </td>
-                        </tr>
-                      ) : (
-                        allAdvanceRecords.map((item) => {
-                          const isApproved = item.status === "Approved";
+                      </thead>
+                      <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                        {advanceDetailsLoading ? (
+                          <tr>
+                            <td colSpan={10} className="p-8 text-center text-soft">
+                              Loading advance details...
+                            </td>
+                          </tr>
+                        ) : !hasSearchedAdvanceDetails ? (
+                          <tr>
+                            <td colSpan={10} className="p-8 text-center text-soft font-medium">
+                              No records found. Please select Office and filters to search advance details.
+                            </td>
+                          </tr>
+                        ) : advanceDetailsPagination.paginatedItems.length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="p-8 text-center text-soft font-medium">
+                              {tabStates.advance_details.search
+                                ? `No records found matching "${tabStates.advance_details.search}".`
+                                : "No advance payment records match the selected filters."}
+                            </td>
+                          </tr>
+                        ) : (
+                          advanceDetailsPagination.paginatedItems.map((item, rowIndex) => {
+                            const slNo = advanceDetailsPagination.startIndex + rowIndex + 1;
+                            const isApproved = item.status === "Approved";
 
-                          return (
-                            <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                              <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
-                                {item.trackingNumber}
-                              </td>
-                              <td className="px-5 py-4">
-                                <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
-                                <p className="text-xs text-soft">{item.mobile}</p>
-                              </td>
-                              <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
-                                {formatCurrency(item.advanceAmount)}
-                              </td>
-                              <td className="px-5 py-4">
-                                <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
-                                {item.referenceNumber && item.referenceNumber !== "-" && (
-                                  <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
-                                )}
-                              </td>
-                              <td className="px-5 py-4">
-                                <StatusBadge status={item.status} />
-                              </td>
-                              <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
-                                {formatDate(item.requestedDate)}
-                              </td>
-                              <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
-                                {isApproved && item.approvedDate ? formatDate(item.approvedDate) : ""}
-                              </td>
-                              <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                {isApproved ? formatTitleCase(item.approvedBy) || "" : ""}
-                              </td>
-                              <td className="px-5 py-4 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {/* Eye icon: ONLY for Approved records, opening Bank Proof */}
-                                  {isApproved && (
-                                    <Button
-                                      size="sm"
-                                      variant="secondary"
-                                      onClick={() => viewBankProof(item)}
-                                      title="View Bank Proof"
-                                      className="p-1.5 text-xs text-slate-700 border-slate-200 dark:text-slate-200"
-                                    >
-                                      <Eye size={14} />
-                                    </Button>
+                            return (
+                              <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                                <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                                  {slNo}
+                                </td>
+                                <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400">
+                                  {item.trackingNumber}
+                                </td>
+                                <td className="px-5 py-4">
+                                  <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.customerName)}</p>
+                                  <p className="text-xs text-soft">{item.mobile}</p>
+                                </td>
+                                <td className="px-5 py-4 font-extrabold text-blue-700 dark:text-blue-300 text-base">
+                                  {formatCurrency(item.advanceAmount)}
+                                </td>
+                                <td className="px-5 py-4">
+                                  <p className="font-bold text-slate-900 dark:text-white">{formatTitleCase(item.paymentMode || "Cash")}</p>
+                                  {item.referenceNumber && item.referenceNumber !== "-" && (
+                                    <p className="text-xs font-mono text-slate-500">Ref: {item.referenceNumber}</p>
                                   )}
-                                  {/* Edit button: ONLY for Approved records and if permitted */}
-                                  {isApproved && canManageAdvanceDetails && (
-                                    <Button
-                                      size="sm"
-                                      variant="secondary"
-                                      onClick={() => setEditingAdvance(item)}
-                                      title="Edit Advance Payment"
-                                      className="p-1.5 text-xs"
-                                    >
-                                      <Pencil size={14} />
-                                    </Button>
-                                  )}
-                                  {/* Delete button: Visible if permitted */}
-                                  {canManageAdvanceDetails && (
-                                    <Button
-                                      size="sm"
-                                      variant="danger"
-                                      onClick={() => setDeletingAdvance(item)}
-                                      title="Delete Advance Payment"
-                                      className="p-1.5 text-xs"
-                                    >
-                                      <Trash2 size={14} />
-                                    </Button>
-                                  )}
-                                  {!canManageAdvanceDetails && !isApproved && (
-                                    <span className="text-xs italic text-slate-400">View Only</span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                                </td>
+                                <td className="px-5 py-4">
+                                  <StatusBadge status={item.status} />
+                                </td>
+                                <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                                  {formatDate(item.requestedDate)}
+                                </td>
+                                <td className="px-5 py-4 text-xs text-slate-600 dark:text-slate-300">
+                                  {isApproved && item.approvedDate ? formatDate(item.approvedDate) : ""}
+                                </td>
+                                <td className="px-5 py-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                  {isApproved ? formatTitleCase(item.approvedBy) || "" : ""}
+                                </td>
+                                <td className="px-5 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* Eye icon: ONLY for Approved records, opening Bank Proof */}
+                                    {isApproved && (
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => viewBankProof(item)}
+                                        title="View Bank Proof"
+                                        className="p-1.5 text-xs text-slate-700 border-slate-200 dark:text-slate-200"
+                                      >
+                                        <Eye size={14} />
+                                      </Button>
+                                    )}
+                                    {/* Edit button: ONLY for Approved records and if permitted */}
+                                    {isApproved && canManageAdvanceDetails && (
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => setEditingAdvance(item)}
+                                        title="Edit Advance Payment"
+                                        className="p-1.5 text-xs"
+                                      >
+                                        <Pencil size={14} />
+                                      </Button>
+                                    )}
+                                    {/* Delete button: Visible if permitted */}
+                                    {canManageAdvanceDetails && (
+                                      <Button
+                                        size="sm"
+                                        variant="danger"
+                                        onClick={() => setDeletingAdvance(item)}
+                                        title="Delete Advance Payment"
+                                        className="p-1.5 text-xs"
+                                      >
+                                        <Trash2 size={14} />
+                                      </Button>
+                                    )}
+                                    {!canManageAdvanceDetails && !isApproved && (
+                                      <span className="text-xs italic text-slate-400">View Only</span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePagination
+                    page={advanceDetailsPagination.safePage}
+                    pageSize={tabStates.advance_details.pageSize}
+                    totalItems={advanceDetailsPagination.totalItems}
+                    totalPages={advanceDetailsPagination.totalPages}
+                    onPageChange={(p) => handleTabPageChange("advance_details", p)}
+                    onPageSizeChange={(s) => handleTabPageSizeChange("advance_details", s)}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                  />
                 </div>
               </div>
             )}
 
-            {activeTab === "corporate_approval" && (
-              <table className="min-w-7xl text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Company Name</th>
-                    <th className="px-5 py-4">Contact Person</th>
-                    <th className="px-5 py-4">Mobile / Email</th>
-                    <th className="px-5 py-4">Address</th>
-                    <th className="px-5 py-4">Agreement</th>
-                    <th className="px-5 py-4">Created By & Date</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {corporateApprovals.length === 0 ? (
+          {activeTab === "corporate_approval" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.corporate_approval.search}
+                onChange={(val) => handleTabSearchChange("corporate_approval", val)}
+                totalFiltered={corporatePagination.totalItems}
+                page={corporatePagination.safePage}
+                pageSize={tabStates.corporate_approval.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-7xl text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-soft">
-                        No pending corporate details approval requests.
-                      </td>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Company Name</th>
+                      <th className="px-5 py-4">Contact Person</th>
+                      <th className="px-5 py-4">Mobile / Email</th>
+                      <th className="px-5 py-4">Address</th>
+                      <th className="px-5 py-4">Agreement</th>
+                      <th className="px-5 py-4">Created By & Date</th>
+                      <th className="px-5 py-4">Status</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    corporateApprovals.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
-                          {formatTitleCase(item.companyName)}
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
-                          {formatTitleCase(item.contactPersonName)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-900 dark:text-white">{item.contactPersonMobile}</p>
-                          {item.email && <p className="text-xs text-soft">{item.email}</p>}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600 dark:text-slate-400">
-                          {item.address || "-"}
-                        </td>
-                        <td className="px-5 py-4">
-                          <AgreementCell file={item.agreementFile} />
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-900 dark:text-white">{formatTitleCase(item.createdBy || "System User")}</p>
-                          <p className="text-xs text-soft">{formatDate(item.createdAt)}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <StatusBadge status={item.approvalStatus} />
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {canEditCorporate && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setEditingCorporate(item)}
-                                title="Edit Info"
-                              >
-                                <Pencil size={14} className="mr-1" /> Edit
-                              </Button>
-                            )}
-                            {canApproveCorporate && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  setActionModal({
-                                    type: "Approved",
-                                    requestType: "CORPORATE_DETAILS",
-                                    id: item.id,
-                                    title: `Approve Corporate Details (${item.companyName})`,
-                                  })
-                                }
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {canRejectCorporate && (
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() =>
-                                  setActionModal({
-                                    type: "Rejected",
-                                    requestType: "CORPORATE_DETAILS",
-                                    id: item.id,
-                                    title: `Reject Corporate Details (${item.companyName})`,
-                                  })
-                                }
-                              >
-                                Reject
-                              </Button>
-                            )}
-                            {!canEditCorporate && !canApproveCorporate && !canRejectCorporate && (
-                              <span className="text-xs italic text-slate-400">View Only</span>
-                            )}
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {corporatePagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-soft">
+                          {tabStates.corporate_approval.search
+                            ? `No records found matching "${tabStates.corporate_approval.search}".`
+                            : "No pending corporate details approval requests."}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
+                    ) : (
+                      corporatePagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = corporatePagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+                              {formatTitleCase(item.companyName)}
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                              {formatTitleCase(item.contactPersonName)}
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-slate-900 dark:text-white">{item.contactPersonMobile}</p>
+                              {item.email && <p className="text-xs text-soft">{item.email}</p>}
+                            </td>
+                            <td className="px-5 py-4 text-slate-600 dark:text-slate-400">
+                              {item.address || "-"}
+                            </td>
+                            <td className="px-5 py-4">
+                              <AgreementCell file={item.agreementFile} />
+                            </td>
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-slate-900 dark:text-white">{formatTitleCase(item.createdBy || "System User")}</p>
+                              <p className="text-xs text-soft">{formatDate(item.createdAt)}</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <StatusBadge status={item.approvalStatus} />
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {canEditCorporate && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setEditingCorporate(item)}
+                                    title="Edit Info"
+                                  >
+                                    <Pencil size={14} className="mr-1" /> Edit
+                                  </Button>
+                                )}
+                                {canApproveCorporate && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Approved",
+                                        requestType: "CORPORATE_DETAILS",
+                                        id: item.id,
+                                        title: `Approve Corporate Details (${item.companyName})`,
+                                      })
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {canRejectCorporate && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Rejected",
+                                        requestType: "CORPORATE_DETAILS",
+                                        id: item.id,
+                                        title: `Reject Corporate Details (${item.companyName})`,
+                                      })
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                )}
+                                {!canEditCorporate && !canApproveCorporate && !canRejectCorporate && (
+                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={corporatePagination.safePage}
+                pageSize={tabStates.corporate_approval.pageSize}
+                totalItems={corporatePagination.totalItems}
+                totalPages={corporatePagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("corporate_approval", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("corporate_approval", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
-            {activeTab === "lob" && (
-              <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Lead Name</th>
-                    <th className="px-5 py-4">Requested By</th>
-                    <th className="px-5 py-4">Current Stage</th>
-                    <th className="px-5 py-4">Requested Stage</th>
-                    <th className="px-5 py-4">Reason</th>
-                    <th className="px-5 py-4">Request Date</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {lobRequests.length === 0 ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-soft">No pending LOB requests</td></tr>
-                  ) : (
-                    lobRequests.map((item) => {
-                      const leadName = `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() || "Lead";
-                      const requesterName = item.requester?.name || item.metadata?.requestedByName || formatTitleCase(item.requestedBy);
-                      const requesterRole = item.requester?.role || item.metadata?.requestedByRole || "Staff";
-                      const requesterOffice = item.requester?.office || item.metadata?.requestedByOffice || "N/A";
-                      const reasonText = item.reason || item.approvalRemarks || item.metadata?.reason || "No reason specified";
+          {activeTab === "lob" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.lob.search}
+                onChange={(val) => handleTabSearchChange("lob", val)}
+                totalFiltered={lobPagination.totalItems}
+                page={lobPagination.safePage}
+                pageSize={tabStates.lob.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-270 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Lead Name</th>
+                      <th className="px-5 py-4">Requested By</th>
+                      <th className="px-5 py-4">Current Stage</th>
+                      <th className="px-5 py-4">Requested Stage</th>
+                      <th className="px-5 py-4">Reason</th>
+                      <th className="px-5 py-4">Request Date</th>
+                      <th className="px-5 py-4">Status</th>
+                      <th className="px-5 py-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {lobPagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-soft">
+                          {tabStates.lob.search
+                            ? `No records found matching "${tabStates.lob.search}".`
+                            : "No pending LOB requests."}
+                        </td>
+                      </tr>
+                    ) : (
+                      lobPagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = lobPagination.startIndex + rowIndex + 1;
+                        const leadName = `${item.lead?.firstName || ""} ${item.lead?.lastName || ""}`.trim() || "Lead";
+                        const requesterName = item.requester?.name || item.metadata?.requestedByName || formatTitleCase(item.requestedBy);
+                        const requesterRole = item.requester?.role || item.metadata?.requestedByRole || "Staff";
+                        const requesterOffice = item.requester?.office || item.metadata?.requestedByOffice || "N/A";
+                        const reasonText = item.reason || item.approvalRemarks || item.metadata?.reason || "No reason specified";
 
-                      return (
-                        <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                          <td className="px-5 py-4">
-                            <div className="font-bold text-slate-900 dark:text-white">{leadName}</div>
-                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{item.lead?.leadCode}</span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="font-semibold text-slate-800 dark:text-slate-200">{requesterName}</div>
-                            <span className="text-xs text-soft">{requesterRole} • {requesterOffice}</span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                              {item.currentStatus || item.metadata?.currentStatus || item.lead?.leadStatus || "New"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                              LOB
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="max-w-xs truncate text-xs text-slate-700 dark:text-slate-300" title={reasonText}>
-                              {reasonText}
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 text-xs">{formatDate(item.requestedAt)}</td>
-                          <td className="px-5 py-4">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                              Pending
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex gap-2">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setSelectedLobDetail(item)}
-                              >
-                                View Details
-                              </Button>
-                              {canApproveLob && (
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="font-bold text-slate-900 dark:text-white">{leadName}</div>
+                              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{item.lead?.leadCode}</span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="font-semibold text-slate-800 dark:text-slate-200">{requesterName}</div>
+                              <span className="text-xs text-soft">{requesterRole} • {requesterOffice}</span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                                {item.currentStatus || item.metadata?.currentStatus || item.lead?.leadStatus || "New"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                LOB
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="max-w-xs truncate text-xs text-slate-700 dark:text-slate-300" title={reasonText}>
+                                {reasonText}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-xs">{formatDate(item.requestedAt)}</td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                Pending
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex gap-2">
                                 <Button
+                                  variant="secondary"
                                   size="sm"
-                                  onClick={() =>
-                                    setActionModal({
-                                      type: "Approved",
-                                      requestType: "LOB_REQUEST",
-                                      id: item.id,
-                                      title: "Approve LOB Request",
-                                      meta: {
-                                        leadCode: item.lead?.leadCode,
-                                        leadName,
-                                        requestedBy: requesterName,
-                                        remarks: reasonText,
-                                      },
-                                    })
-                                  }
+                                  onClick={() => setSelectedLobDetail(item)}
                                 >
-                                  Approve
+                                  View Details
                                 </Button>
-                              )}
-                              {canRejectLob && (
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() =>
-                                    setActionModal({
-                                      type: "Rejected",
-                                      requestType: "LOB_REQUEST",
-                                      id: item.id,
-                                      title: "Reject LOB Request",
-                                      meta: {
-                                        leadCode: item.lead?.leadCode,
-                                        leadName,
-                                        requestedBy: requesterName,
-                                        remarks: reasonText,
-                                      },
-                                    })
-                                  }
-                                >
-                                  Reject
-                                </Button>
-                              )}
-                              {!canApproveLob && !canRejectLob && (
-                                <span className="text-xs italic text-slate-400">View Only</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            )}
+                                {canApproveLob && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Approved",
+                                        requestType: "LOB_REQUEST",
+                                        id: item.id,
+                                        title: "Approve LOB Request",
+                                        meta: {
+                                          leadCode: item.lead?.leadCode,
+                                          leadName,
+                                          requestedBy: requesterName,
+                                          remarks: reasonText,
+                                        },
+                                      })
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {canRejectLob && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() =>
+                                      setActionModal({
+                                        type: "Rejected",
+                                        requestType: "LOB_REQUEST",
+                                        id: item.id,
+                                        title: "Reject LOB Request",
+                                        meta: {
+                                          leadCode: item.lead?.leadCode,
+                                          leadName,
+                                          requestedBy: requesterName,
+                                          remarks: reasonText,
+                                        },
+                                      })
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                )}
+                                {!canApproveLob && !canRejectLob && (
+                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={lobPagination.safePage}
+                pageSize={tabStates.lob.pageSize}
+                totalItems={lobPagination.totalItems}
+                totalPages={lobPagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("lob", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("lob", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
-            {activeTab === "inactive" && (
-              <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Lead Name</th>
-                    <th className="px-5 py-4">Service</th>
-                    <th className="px-5 py-4">Last Updated</th>
-                    <th className="px-5 py-4">Assigned To</th>
-                    <th className="px-5 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {inactiveLeads.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center text-soft">No inactive leads</td></tr>
-                  ) : (
-                    inactiveLeads.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
-                        <td className="px-5 py-4">{formatTitleCase(item.service)}</td>
-                        <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.updatedAt)}</td>
-                        <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex gap-2">
-                            {canApproveInactive && (
-                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "INACTIVE_LEAD", id: item.id, title: "Move Inactive Lead to LOB" })}>Move to LOB</Button>
-                            )}
-                            {canReturnInactive && (
-                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "INACTIVE_LEAD", id: item.id, title: "Return to User" })}>Return to User</Button>
-                            )}
-                            {!canApproveInactive && !canReturnInactive && (
-                              <span className="text-xs italic text-slate-400">View Only</span>
-                            )}
-                          </div>
+          {activeTab === "inactive" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.inactive.search}
+                onChange={(val) => handleTabSearchChange("inactive", val)}
+                totalFiltered={inactivePagination.totalItems}
+                page={inactivePagination.safePage}
+                pageSize={tabStates.inactive.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-270 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Lead Name</th>
+                      <th className="px-5 py-4">Service</th>
+                      <th className="px-5 py-4">Last Updated</th>
+                      <th className="px-5 py-4">Assigned To</th>
+                      <th className="px-5 py-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {inactivePagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-soft">
+                          {tabStates.inactive.search
+                            ? `No records found matching "${tabStates.inactive.search}".`
+                            : "No inactive leads."}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
+                    ) : (
+                      inactivePagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = inactivePagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
+                            <td className="px-5 py-4">{formatTitleCase(item.service)}</td>
+                            <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.updatedAt)}</td>
+                            <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
+                            <td className="px-5 py-4">
+                              <div className="flex gap-2">
+                                {canApproveInactive && (
+                                  <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "INACTIVE_LEAD", id: item.id, title: "Move Inactive Lead to LOB" })}>Move to LOB</Button>
+                                )}
+                                {canReturnInactive && (
+                                  <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "INACTIVE_LEAD", id: item.id, title: "Return to User" })}>Return to User</Button>
+                                )}
+                                {!canApproveInactive && !canReturnInactive && (
+                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={inactivePagination.safePage}
+                pageSize={tabStates.inactive.pageSize}
+                totalItems={inactivePagination.totalItems}
+                totalPages={inactivePagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("inactive", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("inactive", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
 
-            {activeTab === "overdue" && (
-              <table className="min-w-270 text-left text-sm">
-                <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
-                  <tr>
-                    <th className="px-5 py-4">Lead Name</th>
-                    <th className="px-5 py-4">Due Date</th>
-                    <th className="px-5 py-4">Assigned To</th>
-                    <th className="px-5 py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
-                  {overdueFollowups.length === 0 ? (
-                    <tr><td colSpan={4} className="p-8 text-center text-soft">No overdue follow-ups</td></tr>
-                  ) : (
-                    overdueFollowups.map((item) => (
-                      <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
-                        <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
-                        <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.nextFollowupAt)}</td>
-                        <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex gap-2">
-                            {canApproveOverdue && (
-                              <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Unlock Follow-up" })}>Unlock</Button>
-                            )}
-                            {canReturnOverdue && (
-                              <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Return to User" })}>Return to User</Button>
-                            )}
-                            {!canApproveOverdue && !canReturnOverdue && (
-                              <span className="text-xs italic text-slate-400">View Only</span>
-                            )}
-                          </div>
+          {activeTab === "overdue" && (
+            <div>
+              <TabSearchBar
+                value={tabStates.overdue.search}
+                onChange={(val) => handleTabSearchChange("overdue", val)}
+                totalFiltered={overduePagination.totalItems}
+                page={overduePagination.safePage}
+                pageSize={tabStates.overdue.pageSize}
+              />
+              <div className="overflow-x-auto">
+                <table className="min-w-270 text-left text-sm">
+                  <thead className="bg-blue-50 text-xs font-semibold tracking-wider text-soft dark:bg-white/5">
+                    <tr>
+                      <th className="px-5 py-4 w-16 text-center">SL NO</th>
+                      <th className="px-5 py-4">Lead Name</th>
+                      <th className="px-5 py-4">Due Date</th>
+                      <th className="px-5 py-4">Assigned To</th>
+                      <th className="px-5 py-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border) bg-white dark:bg-transparent">
+                    {overduePagination.paginatedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-soft">
+                          {tabStates.overdue.search
+                            ? `No records found matching "${tabStates.overdue.search}".`
+                            : "No overdue follow-ups."}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
+                    ) : (
+                      overduePagination.paginatedItems.map((item, rowIndex) => {
+                        const slNo = overduePagination.startIndex + rowIndex + 1;
+                        return (
+                          <tr key={item.id} className="transition hover:bg-blue-50/70 dark:hover:bg-white/5">
+                            <td className="px-5 py-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                              {slNo}
+                            </td>
+                            <td className="px-5 py-4 font-bold text-blue-700 dark:text-blue-400">{item.leadCode}</td>
+                            <td className="px-5 py-4 text-rose-600 font-semibold">{formatDate(item.nextFollowupAt)}</td>
+                            <td className="px-5 py-4">{formatTitleCase(item.assignedUser || "Unassigned")}</td>
+                            <td className="px-5 py-4">
+                              <div className="flex gap-2">
+                                {canApproveOverdue && (
+                                  <Button size="sm" onClick={() => setActionModal({ type: "Approved", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Unlock Follow-up" })}>Unlock</Button>
+                                )}
+                                {canReturnOverdue && (
+                                  <Button variant="ghost" size="sm" onClick={() => setActionModal({ type: "Returned", requestType: "OVERDUE_FOLLOWUP", id: item.id, title: "Return to User" })}>Return to User</Button>
+                                )}
+                                {!canApproveOverdue && !canReturnOverdue && (
+                                  <span className="text-xs italic text-slate-400">View Only</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={overduePagination.safePage}
+                pageSize={tabStates.overdue.pageSize}
+                totalItems={overduePagination.totalItems}
+                totalPages={overduePagination.totalPages}
+                onPageChange={(p) => handleTabPageChange("overdue", p)}
+                onPageSizeChange={(s) => handleTabPageSizeChange("overdue", s)}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
+            </div>
+          )}
         </div>
       )}
 
