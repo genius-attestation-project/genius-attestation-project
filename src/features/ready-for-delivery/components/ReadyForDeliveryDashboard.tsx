@@ -843,6 +843,7 @@ export function ReadyForDeliveryDashboard({
           registrationId={deliverItem.id}
           trackingNumber={deliverItem.registrationNumber}
           customerName={deliverItem.clientName}
+          documentStatus={deliverItem.trackingStatus || deliverItem.bmStatus}
           onSuccess={(result) => {
             if (result.isDelivered || result.isPendingApproval) {
               void loadReadyForDelivery();

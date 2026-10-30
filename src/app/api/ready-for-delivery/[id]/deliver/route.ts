@@ -4,7 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { getSessionAccess, hasOfficeAccess } from "@/features/admin/server/rbac.service";
 import { requireApiPermission } from "@/middleware/auth.middleware";
 import { jsonError, jsonOk } from "@/utils/response";
-import { verifyMainProcessCompleted, verifyCoreSubProcessCompleted } from "@/features/process/server/core-subprocess-validation";
+
+function isReadyForDeliveryStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const normalized = status.trim().toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ");
+  return normalized === "ready for delivery";
+}
 
 export async function POST(
   request: NextRequest,
@@ -73,11 +78,20 @@ export async function POST(
       }
     }
 
-    // 1. AUTHORITATIVE MAIN PROCESS VALIDATION BEFORE DELIVERY
-    const coreCheck = await verifyMainProcessCompleted(reg.trackingNumber, ownerAdminId);
-    if (!coreCheck.isCompleted) {
+    // Authoritative Document Status Validation:
+    // The transfer action must depend strictly on the document's Status.
+    // If Status = "Ready for Delivery", allow transfer regardless of main process or activity completion.
+    // If Status != "Ready for Delivery", block transfer with an appropriate message.
+    const effectiveStatus =
+      reg.trackingStatus?.trim() ||
+      reg.documentMovements?.[0]?.currentStatus?.trim() ||
+      reg.documentMovements?.[0]?.status?.trim() ||
+      reg.bmStatus?.trim() ||
+      "";
+
+    if (!isReadyForDeliveryStatus(effectiveStatus)) {
       return jsonError(
-        coreCheck.message || "Cannot deliver this document because the Main Process has not been completed.",
+        "Transfer not allowed. The document status must be 'Ready for Delivery' before proceeding.",
         400
       );
     }

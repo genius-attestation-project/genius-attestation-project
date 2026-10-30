@@ -7,12 +7,19 @@ import { Input } from "@/components/ui/Input";
 import { SearchableSelect, type SelectOption } from "@/components/ui/SearchableSelect";
 import { compressImage } from "@/utils/image-compressor";
 
+function isReadyForDeliveryStatus(status?: string | null): boolean {
+  if (!status) return false;
+  const normalized = status.trim().toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ");
+  return normalized === "ready for delivery";
+}
+
 type DeliverModalProps = {
   isOpen: boolean;
   onClose: () => void;
   registrationId: string;
   trackingNumber: string;
   customerName: string;
+  documentStatus?: string;
   onSuccess: (result: {
     isDelivered: boolean;
     requiresAdvancePayment?: boolean;
@@ -26,6 +33,7 @@ export function DeliverModal({
   registrationId,
   trackingNumber,
   customerName,
+  documentStatus,
   onSuccess,
 }: DeliverModalProps) {
   const [deliveryType, setDeliveryType] = useState<"User" | "Courier">("User");
@@ -51,7 +59,13 @@ export function DeliverModal({
       setCourierTrackingNumber("");
       setProofFile(null);
       setProofFileId(null);
-      setError(null);
+
+      // Validate Document Status upon opening modal
+      if (documentStatus && !isReadyForDeliveryStatus(documentStatus)) {
+        setError("Transfer not allowed. The document status must be 'Ready for Delivery' before proceeding.");
+      } else {
+        setError(null);
+      }
 
       setLoadingOptions(true);
       Promise.all([
@@ -72,7 +86,7 @@ export function DeliverModal({
         })
         .finally(() => setLoadingOptions(false));
     }
-  }, [isOpen]);
+  }, [isOpen, documentStatus]);
 
   if (!isOpen) return null;
 
@@ -119,6 +133,12 @@ export function DeliverModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validate authoritative Document Status before submitting
+    if (documentStatus && !isReadyForDeliveryStatus(documentStatus)) {
+      setError("Transfer not allowed. The document status must be 'Ready for Delivery' before proceeding.");
+      return;
+    }
 
     if (!deliveryType || !["User", "Courier"].includes(deliveryType)) {
       setError("Please complete all mandatory delivery information before continuing.");
