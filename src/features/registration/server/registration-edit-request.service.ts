@@ -1210,13 +1210,12 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       // ATOMIC SWAP WORKFLOW
       const tempTrackingNumber = `__SWAP_${Date.now()}_${currentReg.id.slice(-6)}__`;
 
-      // 1. Temporarily update Doc A to placeholder
+      // 1. Temporarily update Doc A to placeholder across Registration and all unique/relational tables (DocumentMovement, etc.)
       await tx.registration.update({
         where: { id: currentReg.id },
         data: { trackingNumber: tempTrackingNumber },
       });
-
-      // Also temporarily set MovementApproval for Doc A if exists (due to unique constraint)
+      await syncTrackingForDoc(tx, currentReg.id, tempTrackingNumber);
       await tx.movementApproval.updateMany({
         where: { registrationId: currentReg.id },
         data: { trackingNumber: tempTrackingNumber },
@@ -1225,6 +1224,11 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       // 2. Update Doc B's tracking number to Doc A's original tracking number (oldTrackingNumber)
       await tx.registration.update({
         where: { id: targetReg.id },
+        data: { trackingNumber: oldTrackingNumber },
+      });
+      await syncTrackingForDoc(tx, targetReg.id, oldTrackingNumber);
+      await tx.movementApproval.updateMany({
+        where: { registrationId: targetReg.id },
         data: { trackingNumber: oldTrackingNumber },
       });
 
@@ -1249,15 +1253,6 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
           },
         },
       });
-
-      // 4. Synchronize denormalized tables for Doc B (now has oldTrackingNumber)
-      await syncTrackingForDoc(tx, targetReg.id, oldTrackingNumber);
-      await tx.movementApproval.updateMany({
-        where: { registrationId: targetReg.id },
-        data: { trackingNumber: oldTrackingNumber },
-      });
-
-      // 5. Synchronize denormalized tables for Doc A (now has newTrackingNumber)
       await syncTrackingForDoc(tx, currentReg.id, newTrackingNumber!);
       await tx.movementApproval.updateMany({
         where: { registrationId: currentReg.id },
