@@ -199,9 +199,14 @@ export function SearchBar({
       );
     }
 
-    if (event.key === "Enter" && activeIndex >= 0) {
-      event.preventDefault();
-      navigateTo(flattenedResults[activeIndex].href);
+    if (event.key === "Enter") {
+      if (activeIndex >= 0) {
+        event.preventDefault();
+        navigateTo(flattenedResults[activeIndex].href);
+      } else if (flattenedResults.length > 0) {
+        event.preventDefault();
+        navigateTo(flattenedResults[0].href);
+      }
     }
   }
 

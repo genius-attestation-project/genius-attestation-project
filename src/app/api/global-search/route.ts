@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonError, jsonOk } from "@/utils/response";
 import { formatBundleNumber } from "@/utils/format";
 import { NextRequest } from "next/server";
+import { getSessionAccess, hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
 
 type SearchItem = {
   id: string;
@@ -89,11 +90,18 @@ function matchesModule(item: SearchItem, query: string) {
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
 
-    if (!ownerAdminId) {
-      return jsonError("No owner admin ID found.", 401);
+    if (!ownerAdminId || !session?.user) {
+      return jsonError("Unauthorized access.", 401);
     }
+
+    const access = await getSessionAccess(session.user.id);
+    const canSearchRegistrations =
+      Boolean(access?.isSuperAdmin) ||
+      hasPermission(access, "search_report.search") ||
+      hasPermission(access, "search_report.view") ||
+      hasPermission(access, "revenue_registration.view");
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.trim() ?? "";
@@ -148,35 +156,42 @@ export async function GET(request: NextRequest) {
           service: true,
         },
       }),
-      prisma.registration.findMany({
-        where: {
-          ownerAdminId,
-          OR: [
-            { trackingNumber: contains(query) },
-            { customerName: contains(query) },
-            { mobile: contains(query) },
-            { email: contains(query) },
-            { paymentStatus: contains(query) },
-            { trackingStatus: contains(query) },
-            { documentType: contains(query) },
-            { documentName: contains(query) },
-            { processType: contains(query) },
-            { subPackage: contains(query) },
-            { deliveryLocation: contains(query) },
-            { regionOfRegistration: contains(query) },
-          ],
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          trackingNumber: true,
-          customerName: true,
-          mobile: true,
-          paymentStatus: true,
-          trackingStatus: true,
-        },
-      }),
+      canSearchRegistrations
+        ? prisma.registration.findMany({
+            where: {
+              ownerAdminId,
+              OR: [
+                { trackingNumber: query },
+                { trackingNumber: contains(query) },
+                { customerName: contains(query) },
+                { mobile: contains(query) },
+                { email: contains(query) },
+                { paymentStatus: contains(query) },
+                { trackingStatus: contains(query) },
+                { documentType: contains(query) },
+                { documentName: contains(query) },
+                { processType: contains(query) },
+                { subPackage: contains(query) },
+                { deliveryLocation: contains(query) },
+                { regionOfRegistration: contains(query) },
+              ],
+            },
+            orderBy: { updatedAt: "desc" },
+            take: 12,
+            select: {
+              id: true,
+              trackingNumber: true,
+              customerName: true,
+              mobile: true,
+              paymentStatus: true,
+              trackingStatus: true,
+              approvalStatus: true,
+              regionOfRegistration: true,
+              officeLocationName: true,
+              officeLocationId: true,
+            },
+          })
+        : Promise.resolve([]),
       prisma.bundle.findMany({
         where: {
           ownerAdminId,
@@ -246,6 +261,41 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Sort registrations: exact tracking number match first, then prefix match
+    const sortedRegistrations = [...registrations].sort((a, b) => {
+      const cleanQ = query.toLowerCase();
+      const aExact = a.trackingNumber.trim().toLowerCase() === cleanQ;
+      const bExact = b.trackingNumber.trim().toLowerCase() === cleanQ;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+
+      const aStarts = a.trackingNumber.trim().toLowerCase().startsWith(cleanQ);
+      const bStarts = b.trackingNumber.trim().toLowerCase().startsWith(cleanQ);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+
+      return 0;
+    });
+
+    // Office visibility filtering for non-superadmins
+    let visibleRegistrations = sortedRegistrations;
+    if (access && !access.isSuperAdmin) {
+      visibleRegistrations = sortedRegistrations.filter((reg) => {
+        const regOffice =
+          reg.regionOfRegistration ||
+          (reg as any).officeLocationName ||
+          (reg as any).officeLocationId;
+
+        if (!regOffice) return true;
+
+        return (
+          hasOfficeAccess(access, regOffice, "search_report") ||
+          hasOfficeAccess(access, regOffice, "revenue_registration")
+        );
+      });
+    }
+    visibleRegistrations = visibleRegistrations.slice(0, 6);
+
     return jsonOk({
       modules: modules.filter((item) => matchesModule(item, query)).slice(0, 6),
       leads: leads.map((lead) => ({
@@ -254,12 +304,18 @@ export async function GET(request: NextRequest) {
         subtitle: `${lead.leadCode} • ${lead.mobileNumber} • ${lead.leadStatus}`,
         href: `/dashboard/lead-management/all-leads?query=${encodeURIComponent(lead.leadCode)}`,
       })),
-      registrations: registrations.map((registration) => ({
-        id: registration.id,
-        title: registration.trackingNumber,
-        subtitle: `${registration.customerName} • ${registration.paymentStatus} • ${registration.trackingStatus}`,
-        href: `/dashboard/search-report/general-search?trackingNumber=${encodeURIComponent(registration.trackingNumber)}`,
-      })),
+      registrations: visibleRegistrations.map((registration) => {
+        const customer = registration.customerName?.trim() || "Customer";
+        const currentStatus = registration.trackingStatus || "Registered";
+        const docStatus = registration.approvalStatus || registration.paymentStatus || "Pending";
+
+        return {
+          id: registration.id,
+          title: registration.trackingNumber,
+          subtitle: `${customer} • ${currentStatus} • ${docStatus}`,
+          href: `/dashboard/document-details/${encodeURIComponent(registration.trackingNumber)}`,
+        };
+      }),
       bundles: bundles.map((bundle) => ({
         id: bundle.id,
         title: formatBundleNumber(bundle.bundleNumber),
