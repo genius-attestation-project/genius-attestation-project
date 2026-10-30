@@ -43,7 +43,7 @@ function mapMovement(movement: any): HomeItem {
     deliveryLocation: reg.deliveryLocation ?? "-",
     totalCharges: reg.totalCharges ? Number(reg.totalCharges) : 0,
     createdBy: movement.createdBy ?? reg.createdBy ?? "-",
-    createdDate: formatDate(movement.createdAt),
+    createdDate: formatDate(reg.createdAt || movement.createdAt),
     createdAt: reg.createdAt || movement.createdAt,
     status: movement.status,
     trackingStatus: reg.trackingStatus || movement.status,
