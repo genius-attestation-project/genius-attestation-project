@@ -21,6 +21,7 @@ export type MultiFileUploadProps = {
   existingFiles?: ExistingFileItem[];
   onFilesChange: (fileStorageIds: string[]) => void;
   onRemoveExistingFile?: (fileId: string) => void;
+  showRemoveExistingFile?: boolean;
 };
 
 type UploadSlot = {
@@ -41,6 +42,7 @@ export function MultiFileUpload({
   existingFiles = [],
   onFilesChange,
   onRemoveExistingFile,
+  showRemoveExistingFile = true,
 }: MultiFileUploadProps) {
   const [slots, setSlots] = useState<UploadSlot[]>([
     {
@@ -220,7 +222,7 @@ export function MultiFileUpload({
                   >
                     <Eye size={14} className="mr-1" /> Preview
                   </Button>
-                  {onRemoveExistingFile && (
+                  {showRemoveExistingFile && onRemoveExistingFile && (
                     <Button
                       variant="danger"
                       size="sm"

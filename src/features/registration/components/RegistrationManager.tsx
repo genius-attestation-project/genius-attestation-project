@@ -2330,7 +2330,7 @@ export function RegistrationManager({
                   moduleName="Revenue Registration"
                   accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
                   onFilesChange={(ids) => setDocumentFileIds(ids)}
-                  onRemoveExistingFile={handleRemoveExistingFile}
+                  showRemoveExistingFile={false}
                   existingFiles={selected?.files.filter((f) => f.fileCategory === "DOCUMENT")}
                   required={false}
                 />
@@ -2434,7 +2434,7 @@ export function RegistrationManager({
                   moduleName="Revenue Registration"
                   accept=".jpg,.jpeg,.png,.webp,.pdf"
                   onFilesChange={(ids) => setAdvancePaymentFileIds(ids)}
-                  onRemoveExistingFile={handleRemoveExistingFile}
+                  showRemoveExistingFile={false}
                   existingFiles={selected?.files.filter((f) => f.fileCategory === "ADVANCE_PAYMENT")}
                   required={false}
                 />
@@ -2645,7 +2645,7 @@ export function RegistrationManager({
                   moduleName="Revenue Registration"
                   accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
                   onFilesChange={(ids) => setInvoiceFileIds(ids)}
-                  onRemoveExistingFile={handleRemoveExistingFile}
+                  showRemoveExistingFile={false}
                   existingFiles={selected?.files.filter((f) => f.fileCategory === "INVOICE" || f.fileCategory === "BILL")}
                   required={false}
                 />
@@ -2654,7 +2654,7 @@ export function RegistrationManager({
                   moduleName="Revenue Registration"
                   accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
                   onFilesChange={(ids) => setSupportingFileIds(ids)}
-                  onRemoveExistingFile={handleRemoveExistingFile}
+                  showRemoveExistingFile={false}
                   existingFiles={selected?.files.filter((f) => f.fileCategory === "SUPPORTING_DOCUMENT")}
                   required={false}
                 />
