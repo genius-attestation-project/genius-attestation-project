@@ -108,6 +108,9 @@ export const registrationInputSchema = z.object({
   invoiceFileIds: z.array(z.string()).optional().default([]),
   supportingFileIds: z.array(z.string()).optional().default([]),
   advancePaymentFileIds: z.array(z.string()).optional().default([]),
+  isSwap: z.boolean().optional().default(false),
+  targetRegistrationId: optionalText,
+  targetTrackingNumber: optionalText,
 }).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
   message: "Advance payment cannot exceed Total Charges.",
   path: ["requestedAdvanceAmount"],
@@ -169,6 +172,9 @@ export type RegistrationInput = {
   invoiceFileIds?: string[];
   supportingFileIds?: string[];
   advancePaymentFileIds?: string[];
+  isSwap?: boolean;
+  targetRegistrationId?: string;
+  targetTrackingNumber?: string;
 };
 
 export const documentItemInputSchema = z.object({

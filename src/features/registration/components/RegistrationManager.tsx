@@ -24,6 +24,7 @@ import {
   Send,
   Clock,
   AlertCircle,
+  ArrowLeftRight,
   Building2,
   Files,
 } from "lucide-react";
@@ -46,6 +47,7 @@ import { canUserAddAdvance } from "@/features/admin/utils/add-advance-permission
 import { calculatePaymentStatus } from "@/features/registration/server/payment-status.service";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
+import { TrackingConflictModal } from "@/features/registration/components/TrackingConflictModal";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { PriorityDot } from "@/components/ui/PriorityDot";
 import { ImportRegistrationWizard } from "@/features/registration/components/ImportRegistrationWizard";
@@ -391,7 +393,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-async function parseResponse(response: Response) {
+async function parseResponse<T = any>(response: Response): Promise<T> {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -658,6 +660,17 @@ export function RegistrationManager({
   const [officeLocationsLoading, setOfficeLocationsLoading] = useState(true);
   const [officeLocationsError, setOfficeLocationsError] = useState("");
   const [timelineTrackingNumber, setTimelineTrackingNumber] = useState<string | null>(null);
+  const [swapConflictModalOpen, setSwapConflictModalOpen] = useState(false);
+  const [conflictingRegistration, setConflictingRegistration] = useState<{
+    id: string;
+    trackingNumber: string;
+    customerName?: string | null;
+    documentType?: string | null;
+    documentName?: string | null;
+    regionOfRegistration?: string | null;
+    trackingStatus?: string | null;
+  } | null>(null);
+  const [isSwapPrepared, setIsSwapPrepared] = useState(false);
   
   const [documentTypeOptions, setDocumentTypeOptions] = useState<SelectOption[]>([]);
   const [processTypeOptions, setProcessTypeOptions] = useState<SelectOption[]>([]);
@@ -1222,6 +1235,9 @@ export function RegistrationManager({
   function openEdit(registration: Registration) {
     setSelected(registration);
     setForm(formFromRegistration(registration));
+    setIsSwapPrepared(false);
+    setConflictingRegistration(null);
+    setSwapConflictModalOpen(false);
     setDocumentFileIds([]);
     setInvoiceFileIds([]);
     setSupportingFileIds([]);
@@ -1279,10 +1295,44 @@ export function RegistrationManager({
 
       if (selected) {
         // Edit mode (strictly one registration)
-        const payload = { ...form };
+        const newTracking = (form.trackingNumber || "").trim();
+        const origTracking = (selected.trackingNumber || "").trim();
+        const isTrackingChanged = Boolean(newTracking && newTracking.toLowerCase() !== origTracking.toLowerCase());
+
+        // Proactive Conflict Check on Submit if not already prepared
+        if (isTrackingChanged && !isSwapPrepared) {
+          try {
+            const checkRes = await fetch(
+              `/api/registrations/check-tracking?trackingNumber=${encodeURIComponent(newTracking)}&excludeId=${selected.id}`
+            );
+            const checkData = await parseResponse<{ exists: boolean; registration?: any }>(checkRes);
+            if (checkData.exists && checkData.registration) {
+              setSaving(false);
+              setConflictingRegistration(checkData.registration);
+              setSwapConflictModalOpen(true);
+              return;
+            }
+          } catch (err: any) {
+            setSaving(false);
+            setError(err.message || "Failed to validate tracking number.");
+            return;
+          }
+        }
+
+        const payload = {
+          ...form,
+          ...(isSwapPrepared && conflictingRegistration
+            ? {
+                isSwap: true,
+                targetRegistrationId: conflictingRegistration.id,
+                targetTrackingNumber: conflictingRegistration.trackingNumber,
+              }
+            : {}),
+        };
         const parsed = registrationInputSchema.safeParse(payload);
 
         if (!parsed.success) {
+          setSaving(false);
           const firstIssue = parsed.error.issues[0];
           const fieldPath = firstIssue?.path.join(".");
           console.error("[RegistrationManager] Form validation error:", {
@@ -1306,8 +1356,12 @@ export function RegistrationManager({
           await uploadSelectedFiles(data.registration.id);
         }
         setSuccess(
-          data.message || "Edit approval request submitted. The document will update once approved."
+          data.message || (isSwapPrepared
+            ? "Tracking number swap approval request submitted. Tracking numbers will be swapped once approved."
+            : "Edit approval request submitted. The document will update once approved.")
         );
+        setIsSwapPrepared(false);
+        setConflictingRegistration(null);
         setDrawerMode(null);
         await fetchRegistrations();
         router.push("/dashboard/revenue-registration");
@@ -2172,9 +2226,68 @@ export function RegistrationManager({
                 <Input
                   label="Tracking Number"
                   value={form.trackingNumber}
-                  onChange={(event) => updateField("trackingNumber", event.target.value)}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    updateField("trackingNumber", val);
+                    if (isSwapPrepared && conflictingRegistration && val.trim().toLowerCase() !== conflictingRegistration.trackingNumber.toLowerCase()) {
+                      setIsSwapPrepared(false);
+                      setConflictingRegistration(null);
+                    }
+                  }}
+                  onBlur={async () => {
+                    if (!selected) return;
+                    const newTrk = (form.trackingNumber || "").trim();
+                    const origTrk = (selected.trackingNumber || "").trim();
+                    if (!newTrk || newTrk.toLowerCase() === origTrk.toLowerCase()) {
+                      setIsSwapPrepared(false);
+                      setConflictingRegistration(null);
+                      return;
+                    }
+                    if (isSwapPrepared && conflictingRegistration?.trackingNumber.toLowerCase() === newTrk.toLowerCase()) {
+                      return;
+                    }
+                    try {
+                      const res = await fetch(`/api/registrations/check-tracking?trackingNumber=${encodeURIComponent(newTrk)}&excludeId=${selected.id}`);
+                      const data = await parseResponse<{ exists: boolean; registration?: any }>(res);
+                      if (data.exists && data.registration) {
+                        setConflictingRegistration(data.registration);
+                        setSwapConflictModalOpen(true);
+                      } else {
+                        setIsSwapPrepared(false);
+                        setConflictingRegistration(null);
+                      }
+                    } catch (e) {
+                      console.error("Failed to check tracking conflict on blur", e);
+                    }
+                  }}
                   required
                 />
+                {isSwapPrepared && conflictingRegistration && (
+                  <div className="flex items-start gap-2.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 p-3.5 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+                    <ArrowLeftRight className="h-4 w-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+                    <div className="flex-1">
+                      <p className="font-bold">Tracking Number Swap Prepared</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed">
+                        This document ({selected.trackingNumber}) will swap tracking numbers with Document #{conflictingRegistration.trackingNumber} ({conflictingRegistration.customerName || "Customer"}) upon approval.
+                      </p>
+                      <p className="mt-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+                        Click &quot;Save Registration&quot; below to submit this swap request to Pending Approval.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSwapPrepared(false);
+                        setConflictingRegistration(null);
+                        updateField("trackingNumber", selected.trackingNumber);
+                      }}
+                      className="rounded-lg p-1 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                      title="Cancel swap and revert tracking number"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
                 <Input
                   label="Customer Name"
                   value={form.customerName}
@@ -3287,6 +3400,19 @@ export function RegistrationManager({
           trackingNumber={timelineTrackingNumber}
         />
       )}
+
+      <TrackingConflictModal
+        isOpen={swapConflictModalOpen}
+        trackingNumber={(form.trackingNumber || "").trim()}
+        conflictingDoc={conflictingRegistration}
+        onCancel={() => {
+          setSwapConflictModalOpen(false);
+        }}
+        onConfirmSwap={() => {
+          setSwapConflictModalOpen(false);
+          setIsSwapPrepared(true);
+        }}
+      />
 
       <CorporateDetailFormModal
         open={isCompanyModalOpen}

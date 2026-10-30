@@ -498,35 +498,114 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
     throw error;
   }
 
+  const isSwap = Boolean(input.isSwap);
+  let targetReg: any = null;
+
   // Duplicate Tracking Number Validation before creating edit request
   if (proposedTrackingNumber !== existing.trackingNumber) {
-    const duplicateReg = await prisma.registration.findFirst({
-      where: {
-        ownerAdminId,
-        trackingNumber: proposedTrackingNumber,
-        NOT: { id: existing.id },
-      },
-      select: { id: true },
-    });
-    if (duplicateReg) {
-      const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document.`);
-      error.statusCode = 409;
-      error.status = 409;
-      throw error;
-    }
+    if (!isSwap) {
+      const duplicateReg = await prisma.registration.findFirst({
+        where: {
+          ownerAdminId,
+          trackingNumber: proposedTrackingNumber,
+          NOT: { id: existing.id },
+        },
+        select: { id: true },
+      });
+      if (duplicateReg) {
+        const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document.`);
+        error.statusCode = 409;
+        error.status = 409;
+        throw error;
+      }
 
-    const duplicateMov = await prisma.documentMovement.findFirst({
-      where: {
-        trackingNumber: proposedTrackingNumber,
-        NOT: { registrationId: existing.id },
-      },
-      select: { id: true },
-    });
-    if (duplicateMov) {
-      const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document movement.`);
-      error.statusCode = 409;
-      error.status = 409;
-      throw error;
+      const duplicateMov = await prisma.documentMovement.findFirst({
+        where: {
+          trackingNumber: proposedTrackingNumber,
+          NOT: { registrationId: existing.id },
+        },
+        select: { id: true },
+      });
+      if (duplicateMov) {
+        const error: any = new Error(`Tracking number ${proposedTrackingNumber} is already assigned to another document movement.`);
+        error.statusCode = 409;
+        error.status = 409;
+        throw error;
+      }
+    } else {
+      // Validate tracking number swap request
+      targetReg = await prisma.registration.findFirst({
+        where: {
+          ownerAdminId,
+          OR: [
+            ...(input.targetRegistrationId ? [{ id: input.targetRegistrationId }] : []),
+            { trackingNumber: proposedTrackingNumber },
+          ],
+        },
+        select: {
+          id: true,
+          trackingNumber: true,
+          customerName: true,
+          documentType: true,
+          documentName: true,
+          regionOfRegistration: true,
+        },
+      });
+
+      if (!targetReg) {
+        const error: any = new Error(`Target document for tracking number swap not found.`);
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (targetReg.id === existing.id) {
+        const error: any = new Error(`Cannot swap tracking number with the same document.`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (targetReg.trackingNumber !== proposedTrackingNumber) {
+        const error: any = new Error(`Target document tracking number mismatch (${targetReg.trackingNumber} vs ${proposedTrackingNumber}).`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Check if target registration already has a pending edit request
+      const targetPending = await prisma.registrationEditRequest.findFirst({
+        where: {
+          ownerAdminId,
+          registrationId: targetReg.id,
+          status: "PENDING",
+        },
+        select: { id: true },
+      });
+      if (targetPending) {
+        const error: any = new Error(
+          `Target document (${targetReg.trackingNumber}) already has a pending edit request. Please resolve it first.`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // Check if another pending edit request already involves either document in a swap
+      const existingSwap = await prisma.registrationEditRequest.findFirst({
+        where: {
+          ownerAdminId,
+          status: "PENDING",
+          OR: [
+            { trackingNumber: existing.trackingNumber },
+            { trackingNumber: targetReg.trackingNumber },
+          ],
+        },
+        select: { id: true, trackingNumber: true },
+      });
+      if (existingSwap) {
+        const error: any = new Error(
+          `A pending edit request already involves document #${existingSwap.trackingNumber}. Please resolve it first.`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
     }
   }
 
@@ -534,9 +613,35 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
     ...originalSnapshot,
     ...input,
     trackingNumber: proposedTrackingNumber,
+    ...(isSwap && targetReg
+      ? {
+          isSwap: true,
+          targetRegistrationId: targetReg.id,
+          targetTrackingNumber: targetReg.trackingNumber,
+          sourceTrackingNumber: existing.trackingNumber,
+          targetCustomerName: targetReg.customerName,
+          targetDocumentType: targetReg.documentType || targetReg.documentName,
+        }
+      : {}),
   };
 
   const fieldChanges = computeFieldChanges(originalSnapshot, proposedSnapshot);
+
+  if (isSwap && targetReg) {
+    const tnIndex = fieldChanges.findIndex((c) => c.field === "trackingNumber");
+    const swapItem: FieldChangeItem = {
+      field: "trackingNumber",
+      fieldLabel: "Tracking Number (Swap)",
+      category: "Document Information",
+      oldValue: `${existing.trackingNumber} (Doc A)`,
+      newValue: `${targetReg.trackingNumber} (Swapping with Doc B: ${targetReg.customerName || "Customer"})`,
+    };
+    if (tnIndex >= 0) {
+      fieldChanges[tnIndex] = swapItem;
+    } else {
+      fieldChanges.unshift(swapItem);
+    }
+  }
 
   // 4. Handle Advance Payment changes
   const requestedAdvance = Number(input.requestedAdvanceAmount ?? 0);
@@ -664,11 +769,24 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
   await prisma.auditTrail.create({
     data: {
       registrationId: existing.id,
-      action: "Edit request created",
-      description: `Edit request created by ${requestedByName || "User"}. Changes proposed: ${changesSummary}`,
+      action: isSwap ? "Tracking number swap requested" : "Edit request created",
+      description: isSwap && targetReg
+        ? `Tracking number swap requested by ${requestedByName || "User"}. Swap proposed: ${existing.trackingNumber} ↔ ${targetReg.trackingNumber} (${targetReg.customerName || "Customer"}). Pending approval.`
+        : `Edit request created by ${requestedByName || "User"}. Changes proposed: ${changesSummary}`,
       performedBy: requestedByName || null,
     },
   }).catch(() => null);
+
+  if (isSwap && targetReg) {
+    await prisma.auditTrail.create({
+      data: {
+        registrationId: targetReg.id,
+        action: "Tracking number swap requested",
+        description: `Tracking number swap requested by ${requestedByName || "User"}. Swap proposed: ${targetReg.trackingNumber} ↔ ${existing.trackingNumber} (${existing.customerName || "Customer"}). Pending approval.`,
+        performedBy: requestedByName || null,
+      },
+    }).catch(() => null);
+  }
 
   const mapped = mapEditRequest(created);
   return {
@@ -773,6 +891,49 @@ export async function getEditRequestById(ownerAdminId: string, id: string) {
   return record ? mapEditRequest(record) : null;
 }
 
+async function syncTrackingForDoc(tx: any, regId: string, newTracking: string) {
+  await tx.documentMovement.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.bundleItem.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.processAssignment.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.paymentUpdate.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.accountStatementEntry.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.advancePaymentApproval.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.rDApproval.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.documentCommunication.updateMany({
+    where: { registrationId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.subPackageMovement.updateMany({
+    where: { documentId: regId },
+    data: { trackingNumber: newTracking },
+  });
+  await tx.documentWorkflowHistory.updateMany({
+    where: { documentId: regId },
+    data: { trackingNumber: newTracking },
+  });
+}
+
 export async function approveEditRequest(params: ApproveEditRequestParams) {
   const { ownerAdminId, approvedById, approvedByName } = params;
   const id = params.id || (params as any).editRequestId;
@@ -845,12 +1006,48 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
 
     const proposed = (editRequest.proposedSnapshot as unknown as Record<string, any>) || {};
     const fieldChanges = (editRequest.fieldChanges as unknown as FieldChangeItem[]) || [];
+    const isSwap = Boolean(proposed.isSwap);
+    const targetRegistrationId = proposed.targetRegistrationId;
+    const targetTrackingNumber = proposed.targetTrackingNumber;
 
     const newTrackingNumber = proposed.trackingNumber ? String(proposed.trackingNumber).trim() : null;
     const oldTrackingNumber = currentReg.trackingNumber;
     const isTrackingNumberChanged = Boolean(newTrackingNumber && newTrackingNumber !== oldTrackingNumber);
 
-    if (isTrackingNumberChanged) {
+    let targetReg: any = null;
+    if (isSwap) {
+      targetReg = await tx.registration.findFirst({
+        where: {
+          ownerAdminId,
+          id: targetRegistrationId,
+        },
+        include: {
+          documentMovements: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { currentOffice: true },
+          },
+        },
+      });
+
+      if (!targetReg) {
+        const error: any = new Error(
+          "Target document for tracking number swap not found."
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // Revalidate live tracking numbers before swapping to prevent stale race conditions
+      if (currentReg.trackingNumber !== editRequest.trackingNumber || targetReg.trackingNumber !== targetTrackingNumber) {
+        const error: any = new Error(
+          "Document tracking numbers have changed since the swap request was created. Please review and create a new request."
+        );
+        error.statusCode = 409;
+        error.status = 409;
+        throw error;
+      }
+    } else if (isTrackingNumberChanged) {
       // Revalidate uniqueness at approval time against live database
       const duplicateReg = await tx.registration.findFirst({
         where: {
@@ -1008,140 +1205,179 @@ export async function approveEditRequest(params: ApproveEditRequestParams) {
       });
     }
 
-    // Apply updates to Registration
-    const updatedReg = await tx.registration.update({
-      where: { id: currentReg.id },
-      data: {
-        ...updateData,
-        ...(isTrackingNumberChanged ? { trackingNumber: newTrackingNumber! } : {}),
-        trackingStatus: finalTrackingStatus,
-        bmStatus: finalBmStatus,
-        movementApproved: rfdSpecialHandled ? true : currentReg.movementApproved,
-        auditTrail: {
-          create: auditEntries,
+    let updatedReg: any;
+    if (isSwap && targetReg) {
+      // ATOMIC SWAP WORKFLOW
+      const tempTrackingNumber = `__SWAP_${Date.now()}_${currentReg.id.slice(-6)}__`;
+
+      // 1. Temporarily update Doc A to placeholder
+      await tx.registration.update({
+        where: { id: currentReg.id },
+        data: { trackingNumber: tempTrackingNumber },
+      });
+
+      // Also temporarily set MovementApproval for Doc A if exists (due to unique constraint)
+      await tx.movementApproval.updateMany({
+        where: { registrationId: currentReg.id },
+        data: { trackingNumber: tempTrackingNumber },
+      });
+
+      // 2. Update Doc B's tracking number to Doc A's original tracking number (oldTrackingNumber)
+      await tx.registration.update({
+        where: { id: targetReg.id },
+        data: { trackingNumber: oldTrackingNumber },
+      });
+
+      // 3. Update Doc A's tracking number to Doc B's original tracking number (newTrackingNumber) + apply update data
+      updatedReg = await tx.registration.update({
+        where: { id: currentReg.id },
+        data: {
+          ...updateData,
+          trackingNumber: newTrackingNumber!,
+          trackingStatus: finalTrackingStatus,
+          bmStatus: finalBmStatus,
+          movementApproved: rfdSpecialHandled ? true : currentReg.movementApproved,
+          auditTrail: {
+            create: [
+              ...auditEntries,
+              {
+                action: "Tracking numbers swapped",
+                description: `Tracking number swapped: ${oldTrackingNumber} → ${newTrackingNumber} (interchanged with Document #${targetReg.id} - ${targetReg.customerName || "Customer"}) via approved Edit Request #${editRequest.id} by ${approvedByName || "Approver"}.${remarksText}`,
+                performedBy: approvedByName || null,
+              },
+            ],
+          },
         },
-      },
-    });
-
-    // Synchronize related operational references across the system if Tracking Number changed
-    if (isTrackingNumberChanged) {
-      // 1. Synchronize DocumentMovement
-      await tx.documentMovement.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
       });
 
-      // 2. Synchronize BundleItem
-      await tx.bundleItem.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
+      // 4. Synchronize denormalized tables for Doc B (now has oldTrackingNumber)
+      await syncTrackingForDoc(tx, targetReg.id, oldTrackingNumber);
+      await tx.movementApproval.updateMany({
+        where: { registrationId: targetReg.id },
+        data: { trackingNumber: oldTrackingNumber },
       });
 
-      // 3. Synchronize ProcessAssignment
-      await tx.processAssignment.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 4. Synchronize PaymentUpdate
-      await tx.paymentUpdate.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 5. Synchronize AccountStatementEntry
-      await tx.accountStatementEntry.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 6. Synchronize AdvancePaymentApproval
-      await tx.advancePaymentApproval.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 7. Synchronize MovementApproval
+      // 5. Synchronize denormalized tables for Doc A (now has newTrackingNumber)
+      await syncTrackingForDoc(tx, currentReg.id, newTrackingNumber!);
       await tx.movementApproval.updateMany({
         where: { registrationId: currentReg.id },
         data: { trackingNumber: newTrackingNumber! },
       });
 
-      // 8. Synchronize RDApproval
-      await tx.rDApproval.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 9. Synchronize AccountApproval
-      const advanceApprovals = await tx.advancePaymentApproval.findMany({
-        where: { registrationId: currentReg.id },
-        select: { id: true },
-      });
-      const advIds = advanceApprovals.map((a: any) => a.id);
-      await tx.accountApproval.updateMany({
-        where: {
-          OR: [
-            ...(advIds.length > 0 ? [{ targetId: { in: advIds } }] : []),
-            { trackingNumber: oldTrackingNumber, office: currentReg.regionOfRegistration },
-          ],
+      // 6. Log movement history and audit trail for Doc B
+      await tx.movementHistory.create({
+        data: {
+          trackingNumber: oldTrackingNumber,
+          action: "Tracking Number Swapped",
+          oldStatus: newTrackingNumber!,
+          newStatus: oldTrackingNumber,
+          oldOffice: targetReg.regionOfRegistration || null,
+          newOffice: targetReg.regionOfRegistration || null,
+          performedBy: approvedByName || "System Approver",
+          remarks: `Tracking number swapped with Document #${currentReg.id} (${newTrackingNumber} → ${oldTrackingNumber}) via Edit Request #${editRequest.id}${remarksText}`.slice(0, 190),
         },
-        data: { trackingNumber: newTrackingNumber! },
       });
 
-      // 10. Synchronize DocumentCommunication
-      await tx.documentCommunication.updateMany({
-        where: { registrationId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
+      await tx.auditTrail.create({
+        data: {
+          registrationId: targetReg.id,
+          action: "Tracking numbers swapped",
+          description: `Tracking number swapped: ${newTrackingNumber} → ${oldTrackingNumber} (interchanged with Document #${currentReg.id} - ${currentReg.customerName || "Customer"}) via approved Edit Request #${editRequest.id} by ${approvedByName || "Approver"}.${remarksText}`,
+          performedBy: approvedByName || null,
+        },
       });
 
-      // 11. Synchronize DocumentReadState
-      await tx.documentReadState.updateMany({
-        where: { trackingNumber: oldTrackingNumber, ownerAdminId },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 12. Synchronize SubPackageMovement
-      await tx.subPackageMovement.updateMany({
-        where: { documentId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 13. Synchronize DocumentWorkflowHistory
-      await tx.documentWorkflowHistory.updateMany({
-        where: { documentId: currentReg.id },
-        data: { trackingNumber: newTrackingNumber! },
-      });
-
-      // 14. Synchronize MovementHistory and record tracking change event
-      await tx.movementHistory.updateMany({
-        where: { trackingNumber: oldTrackingNumber },
-        data: { trackingNumber: newTrackingNumber! },
-      });
+      // 7. Log movement history for Doc A
       await tx.movementHistory.create({
         data: {
           trackingNumber: newTrackingNumber!,
-          action: "Tracking Number Changed",
+          action: "Tracking Number Swapped",
           oldStatus: oldTrackingNumber,
           newStatus: newTrackingNumber!,
           oldOffice: currentReg.regionOfRegistration || null,
           newOffice: currentReg.regionOfRegistration || null,
           performedBy: approvedByName || "System Approver",
-          remarks: `Tracking number changed from ${oldTrackingNumber} to ${newTrackingNumber}${params.approvalRemarks ? ` | Remarks: ${params.approvalRemarks.trim()}` : ""}`.slice(0, 190),
+          remarks: `Tracking number swapped with Document #${targetReg.id} (${oldTrackingNumber} → ${newTrackingNumber}) via Edit Request #${editRequest.id}${remarksText}`.slice(0, 190),
+        },
+      });
+    } else {
+      // NORMAL UPDATE WORKFLOW (Non-swap)
+      updatedReg = await tx.registration.update({
+        where: { id: currentReg.id },
+        data: {
+          ...updateData,
+          ...(isTrackingNumberChanged ? { trackingNumber: newTrackingNumber! } : {}),
+          trackingStatus: finalTrackingStatus,
+          bmStatus: finalBmStatus,
+          movementApproved: rfdSpecialHandled ? true : currentReg.movementApproved,
+          auditTrail: {
+            create: auditEntries,
+          },
         },
       });
 
-      // 15. Synchronize BranchMovementRecord
-      await tx.branchMovementRecord.updateMany({
-        where: { trackingNumber: oldTrackingNumber, ownerAdminId },
-        data: { trackingNumber: newTrackingNumber! },
-      });
+      // Synchronize related operational references across the system if Tracking Number changed
+      if (isTrackingNumberChanged) {
+        await syncTrackingForDoc(tx, currentReg.id, newTrackingNumber!);
 
-      // 16. Synchronize FileStorage
-      await tx.fileStorage.updateMany({
-        where: { recordId: oldTrackingNumber },
-        data: { recordId: newTrackingNumber! },
-      });
+        // Synchronize MovementApproval
+        await tx.movementApproval.updateMany({
+          where: { registrationId: currentReg.id },
+          data: { trackingNumber: newTrackingNumber! },
+        });
+
+        // Synchronize AccountApproval
+        const advanceApprovals = await tx.advancePaymentApproval.findMany({
+          where: { registrationId: currentReg.id },
+          select: { id: true },
+        });
+        const advIds = advanceApprovals.map((a: any) => a.id);
+        await tx.accountApproval.updateMany({
+          where: {
+            OR: [
+              ...(advIds.length > 0 ? [{ targetId: { in: advIds } }] : []),
+              { trackingNumber: oldTrackingNumber, office: currentReg.regionOfRegistration },
+            ],
+          },
+          data: { trackingNumber: newTrackingNumber! },
+        });
+
+        // Synchronize DocumentReadState
+        await tx.documentReadState.updateMany({
+          where: { trackingNumber: oldTrackingNumber, ownerAdminId },
+          data: { trackingNumber: newTrackingNumber! },
+        });
+
+        // Synchronize MovementHistory and record tracking change event
+        await tx.movementHistory.updateMany({
+          where: { trackingNumber: oldTrackingNumber },
+          data: { trackingNumber: newTrackingNumber! },
+        });
+        await tx.movementHistory.create({
+          data: {
+            trackingNumber: newTrackingNumber!,
+            action: "Tracking Number Changed",
+            oldStatus: oldTrackingNumber,
+            newStatus: newTrackingNumber!,
+            oldOffice: currentReg.regionOfRegistration || null,
+            newOffice: currentReg.regionOfRegistration || null,
+            performedBy: approvedByName || "System Approver",
+            remarks: `Tracking number changed from ${oldTrackingNumber} to ${newTrackingNumber}${params.approvalRemarks ? ` | Remarks: ${params.approvalRemarks.trim()}` : ""}`.slice(0, 190),
+          },
+        });
+
+        // Synchronize BranchMovementRecord
+        await tx.branchMovementRecord.updateMany({
+          where: { trackingNumber: oldTrackingNumber, ownerAdminId },
+          data: { trackingNumber: newTrackingNumber! },
+        });
+
+        // Synchronize FileStorage
+        await tx.fileStorage.updateMany({
+          where: { recordId: oldTrackingNumber },
+          data: { recordId: newTrackingNumber! },
+        });
+      }
     }
 
     // 6. Update Edit Request Status to APPROVED
@@ -1204,18 +1440,31 @@ export async function rejectEditRequest(params: RejectEditRequestParams) {
     const proposed = (editRequest.proposedSnapshot as unknown as Record<string, any>) || {};
     const trackingInfo =
       proposed.trackingNumber && proposed.trackingNumber !== editRequest.trackingNumber
-        ? ` Proposed Tracking Number: ${editRequest.trackingNumber} → ${proposed.trackingNumber}.`
+        ? (proposed.isSwap
+            ? ` Proposed Tracking Number Swap: ${editRequest.trackingNumber} ↔ ${proposed.targetTrackingNumber}.`
+            : ` Proposed Tracking Number: ${editRequest.trackingNumber} → ${proposed.trackingNumber}.`)
         : "";
 
     // Log audit trail on Registration
     await tx.auditTrail.create({
       data: {
         registrationId: editRequest.registrationId,
-        action: "Edit request rejected",
+        action: proposed.isSwap ? "Tracking number swap rejected" : "Edit request rejected",
         description: `Edit request rejected by ${rejectedByName || "Approver"}.${trackingInfo} Reason: ${rejectionReason.trim()}`,
         performedBy: rejectedByName || null,
       },
     });
+
+    if (proposed.isSwap && proposed.targetRegistrationId) {
+      await tx.auditTrail.create({
+        data: {
+          registrationId: proposed.targetRegistrationId,
+          action: "Tracking number swap rejected",
+          description: `Tracking number swap request involving ${editRequest.trackingNumber} and ${proposed.targetTrackingNumber} was rejected by ${rejectedByName || "Approver"}. Reason: ${rejectionReason.trim()}`,
+          performedBy: rejectedByName || null,
+        },
+      }).catch(() => null);
+    }
 
     return mapEditRequest(updatedRequest);
   }, { timeout: 30000, maxWait: 10000 });

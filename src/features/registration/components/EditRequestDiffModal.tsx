@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertCircle, CheckCircle2, FileText, ArrowRight, User, Calendar, MapPin, Building } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, ArrowRight, ArrowLeftRight, User, Calendar, MapPin, Building } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDate, formatDateTime, formatTitleCase } from "@/utils/format";
 import type { RegistrationEditRequestItem } from "@/features/registration/types/registration-edit-request.types";
@@ -157,6 +157,22 @@ export function EditRequestDiffModal({
               </span>
             </div>
           </div>
+
+          {/* Swap Banner */}
+          {Boolean(request.proposedSnapshot?.isSwap) && (
+            <div className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 text-xs text-indigo-950 dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-200">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                <ArrowLeftRight className="h-4 w-4" />
+              </div>
+              <div>
+                <h5 className="font-bold text-indigo-900 dark:text-indigo-100">Tracking Number Swap Request</h5>
+                <p className="mt-1 text-[11px] leading-relaxed text-indigo-800 dark:text-indigo-300">
+                  Approving this request will atomically interchange tracking numbers between this document (<strong>{request.trackingNumber}</strong>) and target document (<strong>{request.proposedSnapshot?.targetTrackingNumber}</strong>{request.proposedSnapshot?.targetCustomerName ? ` - ${request.proposedSnapshot.targetCustomerName}` : ""}).
+                  All document IDs, customer records, payments, attachments, and database relationships will be preserved.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Changed Fields Diff Table */}
           <div>

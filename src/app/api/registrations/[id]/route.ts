@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const isEdit = Boolean(result && "status" in result && result.status === "PENDING" && (result.isEditRequest ?? true));
 
     return jsonOk({
-      message: result?.message || (isEdit ? "Edit approval request created successfully. Document changes will apply upon approval." : "Advance payment approval request created successfully."),
+      message: result?.message || (isEdit ? (parsed.data.isSwap ? "Tracking number swap approval request submitted successfully. Changes will apply upon approval." : "Edit approval request created successfully. Document changes will apply upon approval.") : "Advance payment approval request created successfully."),
       editRequest: isEdit ? (result.editRequest || result) : null,
       registration: { id },
       isEditRequest: isEdit,

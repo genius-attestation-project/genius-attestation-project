@@ -85,6 +85,11 @@ export function RejectEditRequestModal({
 
         {/* Content */}
         <div className="p-6 space-y-4">
+          {Boolean(request.proposedSnapshot?.isSwap) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              <strong>Tracking Number Swap Request:</strong> Rejecting this request will keep both Document <strong>{request.trackingNumber}</strong> and Document <strong>{request.proposedSnapshot?.targetTrackingNumber}</strong> with their original tracking numbers.
+            </div>
+          )}
           {error && (
             <div className="flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs font-semibold text-rose-700 dark:text-rose-300">
               <AlertCircle className="h-4 w-4 shrink-0" />

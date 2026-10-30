@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeftRight,
   BadgeCheck,
   Building2,
   CheckCircle2,
@@ -1269,12 +1270,22 @@ export function PendingApprovalDashboard() {
                               {slNo}
                             </td>
                             <td className="px-5 py-4 font-extrabold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">
-                              <Link
-                                href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
-                                className="hover:underline"
-                              >
-                                {item.trackingNumber}
-                              </Link>
+                              <div className="flex items-center gap-1.5">
+                                <Link
+                                  href={`/dashboard/document-details/${encodeURIComponent(item.trackingNumber)}`}
+                                  className="hover:underline"
+                                >
+                                  {item.trackingNumber}
+                                </Link>
+                                {Boolean(item.proposedSnapshot?.isSwap) && (
+                                  <span
+                                    title={`Tracking Number Swap with ${item.proposedSnapshot?.targetTrackingNumber}`}
+                                    className="inline-flex items-center gap-0.5 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                                  >
+                                    <ArrowLeftRight className="h-2.5 w-2.5" /> Swap
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-5 py-4">
                               <p className="font-bold text-slate-900 dark:text-white">
