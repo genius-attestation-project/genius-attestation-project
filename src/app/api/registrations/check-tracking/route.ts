@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
         documentType: true,
         documentName: true,
         regionOfRegistration: true,
-        officeLocationName: true,
         trackingStatus: true,
       },
     });
@@ -84,7 +83,6 @@ export async function GET(request: NextRequest) {
           documentType: true,
           documentName: true,
           regionOfRegistration: true,
-          officeLocationName: true,
           trackingStatus: true,
         },
       });
@@ -106,4 +104,3 @@ export async function GET(request: NextRequest) {
     return jsonError("Unable to verify tracking number.", 500);
   }
 }
-
