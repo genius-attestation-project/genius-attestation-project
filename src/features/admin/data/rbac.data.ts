@@ -281,58 +281,6 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     icon: FileSearch,
     menuPermission: "menu.search-report",
     pagePermission: "search_report.view",
-    children: [
-      {
-        label: "General Search",
-        href: "/dashboard/search-report/general-search",
-        icon: FileSearch,
-        menuPermission: "menu.search-report.general",
-        pagePermission: "search_report.view",
-      },
-    ],
-  },
-  {
-    label: "Revenue Report",
-    href: "/dashboard/revenue-report",
-    icon: FileSpreadsheet,
-    menuPermission: "menu.revenue-report",
-    pagePermission: "revenue_report.view",
-  },
-  {
-    label: "Reports & Analytics",
-    href: "/dashboard/reports",
-    icon: BarChart3,
-    menuPermission: "menu.reports",
-    pagePermission: "reports.view",
-  },
-  {
-    label: "BM Report",
-    href: "/dashboard/bm-report",
-    icon: ChartNoAxesColumn,
-    menuPermission: "menu.bm-report",
-    pagePermission: "bm_report.view",
-  },
-  {
-    label: "Process Module",
-    href: "/dashboard/process",
-    icon: ListChecks,
-    menuPermission: "menu.process",
-    pagePermission: "process.view",
-  },
-
-  {
-    label: "Ready For Delivery",
-    href: "/dashboard/ready-for-delivery",
-    icon: Truck,
-    menuPermission: "menu.ready-for-delivery",
-    pagePermission: "ready_for_delivery.view",
-  },
-  {
-    label: "Welcome Call",
-    href: "/dashboard/welcome-call",
-    icon: Handshake,
-    menuPermission: "menu.welcome-call",
-    pagePermission: "welcome_call.view",
   },
   {
     label: "Attendance",

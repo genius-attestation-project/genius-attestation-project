@@ -1,9 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, Building2, ChevronDown, ChevronLeft, Menu, Search } from "lucide-react";
+import { BadgeCheck, Building2, ChevronDown, ChevronLeft, FileSearch, Loader2, Menu, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -97,6 +97,8 @@ export function AppSidebar({
     }
     return filterNavigation(sidebarNavigation, permissions, isSuperAdmin, searchQuery);
   }, [permissions, isSuperAdmin, searchQuery, isAssignedOffice]);
+
+  const canSearchTracking = Boolean(isSuperAdmin || permissions.includes("search_report.search"));
 
   const activeLink = useMemo(() => {
     if (isAssignedOffice) {
@@ -275,6 +277,8 @@ export function AppSidebar({
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 onOpenSearch={() => {}}
+                canSearchTracking={canSearchTracking}
+                onNavigateTracking={() => setMobileOpen(false)}
               >
                 {renderNavItems(true)}
               </SidebarPanel>
@@ -297,6 +301,7 @@ export function AppSidebar({
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onOpenSearch={() => setCollapsed(false)}
+          canSearchTracking={canSearchTracking}
           toggle={
             <Button
               variant="ghost"
@@ -325,6 +330,8 @@ type SidebarPanelProps = {
   searchQuery: string;
   setSearchQuery: (val: string) => void;
   onOpenSearch: () => void;
+  canSearchTracking?: boolean;
+  onNavigateTracking?: () => void;
 };
 
 function SidebarPanel({
@@ -336,7 +343,9 @@ function SidebarPanel({
   children,
   searchQuery,
   setSearchQuery,
-  onOpenSearch
+  onOpenSearch,
+  canSearchTracking = false,
+  onNavigateTracking,
 }: SidebarPanelProps) {
   return (
     <div className="flex h-full flex-col gap-4 bg-(--bg-sidebar,white) px-3 py-5 text-slate-900 shadow-[2px_0_24px_rgba(15,23,42,0.01)] dark:bg-[#0f1115] dark:text-white">
@@ -362,24 +371,40 @@ function SidebarPanel({
 
       <div className="mt-2 px-1">
         {!collapsed ? (
-          <div className="relative group">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
-            <input 
-              type="text" 
-              placeholder="Search menu..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
-            />
-          </div>
+          <>
+            <div className="relative group">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
+              <input 
+                type="text" 
+                placeholder="Search menu..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
+              />
+            </div>
+            {canSearchTracking ? (
+              <SidebarTrackingSearch onNavigate={onNavigateTracking} />
+            ) : null}
+          </>
         ) : (
-          <button 
-            title="Search"
-            onClick={onOpenSearch}
-            className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
-          >
-            <Search size={18} />
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button 
+              title="Search menu"
+              onClick={onOpenSearch}
+              className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
+            >
+              <Search size={18} />
+            </button>
+            {canSearchTracking ? (
+              <button 
+                title="Search tracking number"
+                onClick={onOpenSearch}
+                className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
+              >
+                <FileSearch size={18} />
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
 
@@ -400,6 +425,94 @@ function SidebarPanel({
             </div>
           ) : null}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    const cleanTracking = trackingNumber.trim();
+    if (!cleanTracking) {
+      setSearchError("Please enter a tracking number.");
+      return;
+    }
+
+    if (isSearching) return;
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const res = await fetch(`/api/registrations/tracking/${encodeURIComponent(cleanTracking)}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 404) {
+        setSearchError("No document found for the entered tracking number.");
+        return;
+      }
+
+      if (res.status === 403) {
+        setSearchError(data.message || "You do not have permission to access this document.");
+        return;
+      }
+
+      if (!res.ok) {
+        setSearchError(data.message || "Failed to search tracking number.");
+        return;
+      }
+
+      const resolvedTracking = data?.registration?.trackingNumber || cleanTracking;
+      setTrackingNumber("");
+      setSearchError(null);
+      if (onNavigate) {
+        onNavigate();
+      }
+      router.push(`/dashboard/document-details/${encodeURIComponent(resolvedTracking)}`);
+    } catch (err: any) {
+      setSearchError(err?.message || "An unexpected error occurred while searching.");
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
+        <input
+          type="text"
+          placeholder="Enter Tracking Number"
+          value={trackingNumber}
+          onChange={(e) => {
+            setTrackingNumber(e.target.value);
+            if (searchError) setSearchError(null);
+          }}
+          disabled={isSearching}
+          className="min-w-0 flex-1 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3 py-1.5 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
+        />
+        <button
+          type="submit"
+          disabled={isSearching}
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+        >
+          {isSearching ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            "Go"
+          )}
+        </button>
+      </form>
+      {searchError ? (
+        <p className="mt-1 px-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 leading-tight">
+          {searchError}
+        </p>
       ) : null}
     </div>
   );

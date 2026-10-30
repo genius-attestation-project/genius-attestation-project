@@ -13,14 +13,12 @@ export async function GET(_: NextRequest, context: { params: Promise<{ trackingN
     }
 
     const access = await getSessionAccess(session.user.id);
-    const canView =
-      access?.isSuperAdmin ||
-      hasPermission(access, "search_report.view") ||
-      hasPermission(access, "search_report.search") ||
-      hasPermission(access, "revenue_registration.view");
+    const canSearch =
+      Boolean(access?.isSuperAdmin) ||
+      hasPermission(access, "search_report.search");
 
-    if (!canView) {
-      return jsonError("You do not have permission to view this registration.", 403);
+    if (!canSearch) {
+      return jsonError("You do not have permission to search registrations.", 403);
     }
 
     const { trackingNumber } = await context.params;

@@ -1,14 +1,12 @@
 "use client";
 
-import { FileSearch, Plus, Search, Eye, Route } from "lucide-react";
+import { FileSearch, Plus, Eye, Route } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Input } from "@/components/ui/Input";
 import { LiveTimelineModal } from "@/features/registration/components/LiveTimelineModal";
 import { RegistrationDetail } from "@/features/registration/components/RegistrationDetail";
 import type { Registration } from "@/features/registration/types/registration.types";
@@ -28,7 +26,6 @@ export function SearchReportClient() {
   const searchParams = useSearchParams();
   const queryTrackingNumber = searchParams.get("trackingNumber");
   
-  const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedValue, setSearchedValue] = useState("");
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [searched, setSearched] = useState(false);
@@ -64,14 +61,8 @@ export function SearchReportClient() {
     }
   }, []);
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await performSearch(trackingNumber.trim());
-  }
-
   useEffect(() => {
     if (queryTrackingNumber) {
-      setTrackingNumber(queryTrackingNumber);
       performSearch(queryTrackingNumber.trim());
     }
   }, [queryTrackingNumber, performSearch]);
@@ -84,29 +75,23 @@ export function SearchReportClient() {
 
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
-      <section className="rounded-2xl border border-(--border) bg-white/75 p-4 shadow-(--shadow-card) sm:rounded-[28px] sm:p-6 dark:bg-white/5">
-        <form onSubmit={handleSearch} className="flex flex-col gap-3 md:flex-row">
-          <div className="min-w-0 flex-1">
-            <Input
-              label="Tracking Number"
-              value={trackingNumber}
-              onChange={(event) => setTrackingNumber(event.target.value)}
-              placeholder="Enter tracking number"
-              required
-            />
+      {!queryTrackingNumber && !registration && (
+        <section className="rounded-2xl border border-(--border) bg-white/75 p-6 text-center shadow-(--shadow-card) sm:rounded-[28px] sm:p-8 dark:bg-white/5">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+            <FileSearch size={24} />
           </div>
-          <div className="flex items-end">
-            <Button type="submit" className="w-full md:w-auto" disabled={loading}>
-              <Search size={18} /> {loading ? "Searching..." : "Search"}
-            </Button>
-          </div>
-        </form>
-        {error ? (
-          <p className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-200">
-            {error}
+          <h3 className="mt-3 text-base font-bold text-foreground">General Search Relocated</h3>
+          <p className="mt-1 text-sm text-soft max-w-md mx-auto">
+            Tracking number search has been relocated to the sidebar navigation. Please use the search bar under the <strong>Search menu</strong> in the sidebar to look up document details.
           </p>
-        ) : null}
-      </section>
+        </section>
+      )}
+
+      {error ? (
+        <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-200">
+          {error}
+        </p>
+      ) : null}
 
       {registration ? (
         <RegistrationDetail 

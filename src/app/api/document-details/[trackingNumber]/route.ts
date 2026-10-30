@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
+import { getSessionAccess, hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
 
 export async function GET(
   req: NextRequest,
@@ -19,6 +20,20 @@ export async function GET(
     }
 
     const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
+
+    const access = await getSessionAccess(session.user.id);
+    const canView =
+      Boolean(access?.isSuperAdmin) ||
+      hasPermission(access, "search_report.search") ||
+      hasPermission(access, "search_report.view") ||
+      hasPermission(access, "revenue_registration.view");
+
+    if (!canView) {
+      return NextResponse.json(
+        { message: "You do not have permission to view document details." },
+        { status: 403 }
+      );
+    }
 
     // Fetch primary Registration with relations
     const registration = await prisma.registration.findFirst({
@@ -90,6 +105,27 @@ export async function GET(
         { message: `Document with Tracking Number "${trackingNumber}" was not found.` },
         { status: 404 }
       );
+    }
+
+    // Office visibility check for non-superadmins
+    if (access && !access.isSuperAdmin) {
+      const regOffice =
+        registration.regionOfRegistration ||
+        (registration as any).officeLocationName ||
+        (registration as any).officeLocationId;
+
+      if (regOffice) {
+        const isAllowed =
+          hasOfficeAccess(access, regOffice, "search_report") ||
+          hasOfficeAccess(access, regOffice, "revenue_registration");
+
+        if (!isAllowed) {
+          return NextResponse.json(
+            { message: "You are not authorized to view documents for this office." },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     // Fetch related timeline, activity movements, advance payment approvals, processType, and bundles.
