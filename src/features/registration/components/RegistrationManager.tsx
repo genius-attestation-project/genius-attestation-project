@@ -1281,6 +1281,60 @@ export function RegistrationManager({
     }
   }
 
+  async function handleSubmitSwapRequest() {
+    if (!selected || !conflictingRegistration) return;
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      const payload = {
+        ...form,
+        trackingNumber: (form.trackingNumber || "").trim(),
+        isSwap: true,
+        targetRegistrationId: conflictingRegistration.id,
+        targetTrackingNumber: conflictingRegistration.trackingNumber,
+      };
+
+      const parsed = registrationInputSchema.safeParse(payload);
+      if (!parsed.success) {
+        const firstIssue = parsed.error.issues[0];
+        const fieldPath = firstIssue?.path.join(".");
+        const errorMsg = fieldPath
+          ? `${fieldPath}: ${firstIssue.message}`
+          : firstIssue?.message ?? "Please complete all required fields.";
+        throw new Error(errorMsg);
+      }
+
+      const response = await fetch(`/api/registrations/${selected.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+
+      const data = await parseResponse(response);
+      if (data.registration?.id) {
+        await uploadSelectedFiles(data.registration.id);
+      }
+
+      setSuccess(
+        data.message ||
+          "Tracking number swap approval request submitted. Tracking numbers will be swapped once approved."
+      );
+      setSwapConflictModalOpen(false);
+      setConflictingRegistration(null);
+      setIsSwapPrepared(false);
+      setDrawerMode(null);
+      await fetchRegistrations();
+      router.push("/dashboard/revenue-registration");
+    } catch (err: any) {
+      setError(err.message || "Failed to submit tracking number swap request.");
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -3404,10 +3458,12 @@ export function RegistrationManager({
       <TrackingConflictModal
         isOpen={swapConflictModalOpen}
         trackingNumber={(form.trackingNumber || "").trim()}
+        currentDoc={selected}
         conflictingDoc={conflictingRegistration}
         onCancel={() => {
           setSwapConflictModalOpen(false);
         }}
+        onSubmitSwap={handleSubmitSwapRequest}
         onConfirmSwap={() => {
           setSwapConflictModalOpen(false);
           setIsSwapPrepared(true);
