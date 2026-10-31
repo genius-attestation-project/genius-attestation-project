@@ -90,6 +90,10 @@ export type Registration = {
   ownerAdminId?: string | null;
   createdBy?: { id: string; name: string | null; email: string | null; officeLocationId?: string | null; officeLocationName?: string | null } | null;
   createdById?: string | null;
+  createdByName?: string | null;
+  updatedBy?: { id: string; name: string | null; email: string | null } | string | null;
+  updatedById?: string | null;
+  updatedByName?: string | null;
   officeLocationId?: string | null;
   officeLocationName?: string | null;
   createdAt: string;

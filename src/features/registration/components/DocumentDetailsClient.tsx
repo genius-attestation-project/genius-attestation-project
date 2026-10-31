@@ -11,6 +11,30 @@ import { useDocumentMovementRealtime } from "@/features/document-movement/hooks/
 type Props = { trackingNumber: string };
 type DetailField = { label: string; value: React.ReactNode };
 
+function isUserIdLike(val: unknown): boolean {
+  if (typeof val !== "string") return false;
+  const s = val.trim();
+  if (!s) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+  if (/^c[a-z0-9]{20,32}$/i.test(s)) return true;
+  if (/^(other|owner|staff|test)[_-][a-z0-9_-]+$/i.test(s)) return true;
+  return false;
+}
+
+function formatAuditUser(val: unknown, fallback = "Unknown User"): string {
+  if (!val) return fallback;
+  if (typeof val === "object" && val !== null && "name" in val) {
+    const name = (val as any).name;
+    return typeof name === "string" && name.trim() && !isUserIdLike(name) ? name.trim() : fallback;
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed || isUserIdLike(trimmed)) return fallback;
+    return trimmed;
+  }
+  return fallback;
+}
+
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
     <section id={id} className="print-section overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
@@ -170,7 +194,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
             { label: "Process Type", value: reg.processType }, { label: "Issued Country", value: reg.documentIssuedCountry },
             { label: "Additional Process", value: reg.externalProcess }, { label: "Sub Package", value: reg.subPackage || "-" },
             { label: "Registered Date", value: formatDate(reg.createdAt) }, { label: "Region of Registration", value: reg.regionOfRegistration },
-            { label: "Registered By", value: reg.registeredPerson || reg.createdBy }, { label: "Collected By", value: reg.collectedPerson },
+            { label: "Registered By", value: reg.registeredPerson || formatAuditUser(reg.createdByName || reg.createdBy, "System") }, { label: "Collected By", value: reg.collectedPerson },
           ]} />
         </Section>
 
@@ -241,8 +265,10 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
         ]} /></Section>
 
         <Section title="Audit Information"><DetailsGrid fields={[
-          { label: "Created By", value: reg.createdBy || "System" }, { label: "Created Date", value: formatDateTime(reg.createdAt) },
-          { label: "Updated By", value: reg.updatedBy || reg.createdBy || "System" }, { label: "Updated Date", value: formatDateTime(reg.updatedAt) },
+          { label: "Created By", value: formatAuditUser(reg.createdByName || reg.createdBy) },
+          { label: "Created Date", value: formatDateTime(reg.createdAt) },
+          { label: "Updated By", value: formatAuditUser(reg.updatedByName || reg.updatedBy || reg.createdByName || reg.createdBy) },
+          { label: "Updated Date", value: formatDateTime(reg.updatedAt) },
         ]} /></Section>
       </div>
     </div>
