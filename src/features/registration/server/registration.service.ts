@@ -3,6 +3,13 @@ import { Prisma, FollowupActionType } from "@prisma/client";
 import { submitAdvancePaymentApproval, getApprovedAdvanceSum } from "@/features/revenue/server/advance-payment-approval.service";
 import { prisma } from "@/lib/prisma";
 import type { RegistrationInput, SharedCustomerInput, DocumentItemInput } from "@/features/registration/validations/registration.schema";
+import type { SessionAccess } from "@/features/admin/types/rbac.types";
+import {
+  hasPermission,
+  canUserViewDocumentDetails,
+  hasDocumentOfficeAccess,
+  hasOfficeAccess,
+} from "@/features/admin/server/rbac.service";
 
 const registrationInclude = {
   creator: {
@@ -601,6 +608,130 @@ export async function getRegistrationByTrackingNumber(ownerAdminId: string, trac
   });
 
   return registration ? mapRegistration(registration) : null;
+}
+
+export type TrackingSuggestion = {
+  id: string;
+  trackingNumber: string;
+  customerName: string | null;
+  documentType: string | null;
+  documentName: string | null;
+  status: string;
+};
+
+export async function searchTrackingSuggestions(
+  ownerAdminId: string,
+  query: string,
+  access: SessionAccess | null,
+  limit = 8
+): Promise<TrackingSuggestion[]> {
+  const cleanQ = query.trim();
+  if (!cleanQ) return [];
+
+  const isSuperAdmin = Boolean(access?.isSuperAdmin);
+  const canSearch =
+    isSuperAdmin ||
+    hasPermission(access, "search_report.search") ||
+    hasPermission(access, "search_report.view") ||
+    canUserViewDocumentDetails(access);
+
+  if (!canSearch) {
+    return [];
+  }
+
+  const registrations = await prisma.registration.findMany({
+    where: {
+      ...(isSuperAdmin ? {} : { ownerAdminId }),
+      trackingNumber: { contains: cleanQ },
+    },
+    select: {
+      id: true,
+      trackingNumber: true,
+      customerName: true,
+      documentType: true,
+      documentName: true,
+      trackingStatus: true,
+      approvalStatus: true,
+      regionOfRegistration: true,
+      regionOfRegistrationId: true,
+      documentMovements: {
+        select: {
+          currentOfficeId: true,
+          currentOffice: {
+            select: { officeName: true },
+          },
+          fromOfficeId: true,
+          fromOffice: {
+            select: { officeName: true },
+          },
+          toOfficeId: true,
+          toOffice: {
+            select: { officeName: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    take: 30,
+    orderBy: { createdAt: "desc" },
+  });
+
+  const authorized = isSuperAdmin
+    ? registrations
+    : registrations.filter((reg) => {
+        const latestMovement = reg.documentMovements?.[0];
+        const docOffices = [
+          reg.regionOfRegistration,
+          reg.regionOfRegistrationId,
+          latestMovement?.currentOffice?.officeName,
+          latestMovement?.currentOfficeId,
+          latestMovement?.fromOffice?.officeName,
+          latestMovement?.fromOfficeId,
+          latestMovement?.toOffice?.officeName,
+          latestMovement?.toOfficeId,
+        ];
+
+        const isDocAllowed = hasDocumentOfficeAccess(access, docOffices);
+        if (!isDocAllowed) return false;
+
+        if (reg.regionOfRegistration) {
+          const isAllowed =
+            hasOfficeAccess(access, reg.regionOfRegistration, "search_report") ||
+            hasOfficeAccess(access, reg.regionOfRegistration, "revenue_registration") ||
+            hasOfficeAccess(access, reg.regionOfRegistration);
+          if (!isAllowed) return false;
+        }
+
+        return true;
+      });
+
+  const lowerQ = cleanQ.toLowerCase();
+  const sorted = authorized.sort((a, b) => {
+    const aTrack = a.trackingNumber.trim().toLowerCase();
+    const bTrack = b.trackingNumber.trim().toLowerCase();
+
+    const aExact = aTrack === lowerQ;
+    const bExact = bTrack === lowerQ;
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+
+    const aStarts = aTrack.startsWith(lowerQ);
+    const bStarts = bTrack.startsWith(lowerQ);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+
+    return aTrack.localeCompare(bTrack);
+  });
+
+  return sorted.slice(0, limit).map((reg) => ({
+    id: reg.id,
+    trackingNumber: reg.trackingNumber,
+    customerName: reg.customerName,
+    documentType: reg.documentType,
+    documentName: reg.documentName,
+    status: reg.trackingStatus || reg.approvalStatus || "Registered",
+  }));
 }
 
 export async function createRegistrationsInTransaction(

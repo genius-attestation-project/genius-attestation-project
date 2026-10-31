@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/utils/response";
 import { getRegistrationByTrackingNumber } from "@/features/registration/server/registration.service";
-import { getSessionAccess, hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
+import { getSessionAccess, hasOfficeAccess, hasPermission, canUserViewDocumentDetails } from "@/features/admin/server/rbac.service";
 import { NextRequest } from "next/server";
 
 export async function GET(_: NextRequest, context: { params: Promise<{ trackingNumber: string }> }) {
@@ -15,7 +15,9 @@ export async function GET(_: NextRequest, context: { params: Promise<{ trackingN
     const access = await getSessionAccess(session.user.id);
     const canSearch =
       Boolean(access?.isSuperAdmin) ||
-      hasPermission(access, "search_report.search");
+      hasPermission(access, "search_report.search") ||
+      hasPermission(access, "search_report.view") ||
+      canUserViewDocumentDetails(access);
 
     if (!canSearch) {
       return jsonError("You do not have permission to search registrations.", 403);
@@ -37,7 +39,8 @@ export async function GET(_: NextRequest, context: { params: Promise<{ trackingN
       if (regOffice) {
         const isAllowed =
           hasOfficeAccess(access, regOffice, "search_report") ||
-          hasOfficeAccess(access, regOffice, "revenue_registration");
+          hasOfficeAccess(access, regOffice, "revenue_registration") ||
+          hasOfficeAccess(access, regOffice);
 
         if (!isAllowed) {
           return jsonError("You are not authorized to view registrations for this office.", 403);

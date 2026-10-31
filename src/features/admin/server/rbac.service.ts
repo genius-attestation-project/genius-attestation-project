@@ -1284,7 +1284,19 @@ export function expandEffectivePermissions(keys: string[]): string[] {
       ) {
         result.add("search_report.tracking_report.view");
         result.add("menu.search-report.tracking");
+        result.add("revenue_report.view");
+        result.add("menu.revenue-report");
       }
+    }
+
+    // 8.1. Revenue Report
+    if (
+      key.startsWith("revenue_report.") ||
+      key.startsWith("tracking_report.") ||
+      key.startsWith("search_report.tracking_report")
+    ) {
+      result.add("revenue_report.view");
+      result.add("menu.revenue-report");
     }
 
     // 9. Reports & Analytics

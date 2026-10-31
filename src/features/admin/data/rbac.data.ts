@@ -283,6 +283,13 @@ export const sidebarNavigation: NavigationItemDefinition[] = [
     pagePermission: "search_report.view",
   },
   {
+    label: "Revenue Report",
+    href: "/dashboard/revenue-report",
+    icon: FileSpreadsheet,
+    menuPermission: "menu.revenue-report",
+    pagePermission: "revenue_report.view",
+  },
+  {
     label: "Reports & Analytics",
     href: "/dashboard/reports",
     icon: BarChart3,

@@ -5,7 +5,7 @@ import { BadgeCheck, Building2, ChevronDown, ChevronLeft, FileSearch, Loader2, M
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -98,7 +98,11 @@ export function AppSidebar({
     return filterNavigation(sidebarNavigation, permissions, isSuperAdmin, searchQuery);
   }, [permissions, isSuperAdmin, searchQuery, isAssignedOffice]);
 
-  const canSearchTracking = Boolean(isSuperAdmin || permissions.includes("search_report.search"));
+  const canSearchTracking = Boolean(
+    isSuperAdmin ||
+    permissions.includes("search_report.search") ||
+    permissions.includes("search_report.view")
+  );
 
   const activeLink = useMemo(() => {
     if (isAssignedOffice) {
@@ -430,14 +434,143 @@ function SidebarPanel({
   );
 }
 
+type TrackingSuggestionItem = {
+  id: string;
+  trackingNumber: string;
+  customerName?: string | null;
+  documentType?: string | null;
+  documentName?: string | null;
+  status?: string | null;
+};
+
 function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  // Suggestions state
+  const [suggestions, setSuggestions] = useState<TrackingSuggestionItem[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Fetch suggestions with debouncing
+  useEffect(() => {
+    const cleanTracking = trackingNumber.trim();
+    if (!cleanTracking) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setIsLoadingSuggestions(false);
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      setIsLoadingSuggestions(true);
+      setShowSuggestions(true);
+
+      fetch(`/api/registrations/tracking/suggestions?q=${encodeURIComponent(cleanTracking)}`, {
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            return { suggestions: [] };
+          }
+          return res.json().catch(() => ({ suggestions: [] }));
+        })
+        .then((data) => {
+          if (controller.signal.aborted) return;
+          setSuggestions(data?.suggestions || []);
+          setHighlightedIndex(-1);
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            setSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsLoadingSuggestions(false);
+          }
+        });
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [trackingNumber]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  function handleSelectSuggestion(selectedTracking: string) {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setTrackingNumber("");
+    setSearchError(null);
+    if (onNavigate) {
+      onNavigate();
+    }
+    router.push(`/dashboard/document-details/${encodeURIComponent(selectedTracking)}`);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showSuggestions || (!isLoadingSuggestions && suggestions.length === 0)) {
+      if (e.key === "Escape") {
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === "Enter") {
+      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+        e.preventDefault();
+        handleSelectSuggestion(suggestions[highlightedIndex].trackingNumber);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowSuggestions(false);
+      setHighlightedIndex(-1);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    // If an item in suggestions is highlighted, select it
+    if (showSuggestions && highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+      handleSelectSuggestion(suggestions[highlightedIndex].trackingNumber);
+      return;
+    }
 
     const cleanTracking = trackingNumber.trim();
     if (!cleanTracking) {
@@ -447,6 +580,7 @@ function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
 
     if (isSearching) return;
 
+    setShowSuggestions(false);
     setIsSearching(true);
     setSearchError(null);
 
@@ -484,7 +618,7 @@ function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div className="mt-2">
+    <div ref={containerRef} className="relative mt-2">
       <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
         <input
           type="text"
@@ -493,7 +627,16 @@ function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
           onChange={(e) => {
             setTrackingNumber(e.target.value);
             if (searchError) setSearchError(null);
+            if (!showSuggestions && e.target.value.trim()) {
+              setShowSuggestions(true);
+            }
           }}
+          onFocus={() => {
+            if (trackingNumber.trim()) {
+              setShowSuggestions(true);
+            }
+          }}
+          onKeyDown={handleKeyDown}
           disabled={isSearching}
           className="min-w-0 flex-1 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3 py-1.5 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
         />
@@ -509,6 +652,63 @@ function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </button>
       </form>
+
+      {/* Suggestion Dropdown */}
+      {showSuggestions && trackingNumber.trim() ? (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200/80 bg-white/95 p-1 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-[#12141a]/95 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-white/10">
+          {isLoadingSuggestions ? (
+            <div className="flex items-center justify-center gap-2 py-3 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+              <Loader2 size={13} className="animate-spin text-blue-500" />
+              <span>Searching documents...</span>
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="py-3 px-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+              No matching documents found.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {suggestions.map((item, idx) => {
+                const isHighlighted = idx === highlightedIndex;
+                const docDetail = [item.customerName, item.documentType || item.documentName]
+                  .filter(Boolean)
+                  .join(" • ");
+
+                return (
+                  <button
+                    key={item.id || item.trackingNumber}
+                    type="button"
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onClick={() => handleSelectSuggestion(item.trackingNumber)}
+                    className={cn(
+                      "flex w-full flex-col items-start rounded-lg px-2.5 py-1.5 text-left transition-colors",
+                      isHighlighted
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
+                        : "text-slate-700 hover:bg-slate-50 dark:text-white/80 dark:hover:bg-white/5"
+                    )}
+                  >
+                    <div className="flex w-full items-center justify-between gap-1">
+                      <span className="truncate text-xs font-bold font-mono">
+                        {item.trackingNumber}
+                      </span>
+                      {item.status ? (
+                        <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-white/60">
+                          {item.status}
+                        </span>
+                      ) : null}
+                    </div>
+                    {docDetail ? (
+                      <span className="mt-0.5 w-full truncate text-[11px] text-slate-500 dark:text-slate-400">
+                        {docDetail}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {searchError ? (
         <p className="mt-1 px-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 leading-tight">
           {searchError}
