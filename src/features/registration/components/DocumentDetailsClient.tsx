@@ -96,10 +96,10 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
   });
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center gap-3 bg-white dark:bg-slate-900 p-8 text-lg font-bold text-slate-700 dark:text-slate-200"><RefreshCw className="animate-spin text-[#195b8e]" /> Loading document details...</div>;
-  if (error || !data) return <div className="mx-auto my-8 max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center"><p className="mb-5 text-lg font-bold text-red-700 dark:text-red-400">{error || "Unable to locate record."}</p><Link href="/dashboard/revenue-registration"><Button variant="secondary">Back to Registrations</Button></Link></div>;
+  if (error || !data || !data.registration) return <div className="mx-auto my-8 max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center"><p className="mb-5 text-lg font-bold text-red-700 dark:text-red-400">{error || "Unable to locate record."}</p><Link href="/dashboard/revenue-registration"><Button variant="secondary">Back to Registrations</Button></Link></div>;
 
-  const { registration: reg, currentProcess: proc, movementHistory = [], workflowHistory = [], advancePaymentApprovals = [], linkedDocuments = [] } = data;
-  const currentStatus = proc.currentStatus || reg.trackingStatus || "Registered";
+  const { registration: reg, currentProcess: proc = {}, movementHistory = [], workflowHistory = [], advancePaymentApprovals = [], linkedDocuments = [] } = data;
+  const currentStatus = proc?.currentStatus || reg?.trackingStatus || "Registered";
   const paymentFields: DetailField[] = [
     { label: "Total Amount", value: `₹${Number(reg.totalCharges || 0).toFixed(2)}` },
     { label: "Advance", value: `₹${Number(reg.advancePaid || 0).toFixed(2)}` },
@@ -225,7 +225,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
           { label: "Current Office", value: proc.currentOffice }, { label: "Current Department", value: proc.currentDepartment },
           { label: "Current Package", value: proc.currentPackage }, { label: "Current Sub Package", value: proc.currentSubPackage || "-" },
           { label: "Current Assigned User", value: proc.currentHandler }, { label: "Current Status", value: currentStatus },
-          { label: "Current Stage", value: proc.currentStage }, { label: "Number of Days", value: `${proc.daysCount} Days` },
+          { label: "Current Stage", value: proc?.currentStage }, { label: "Number of Days", value: `${proc?.daysCount ?? 0} Days` },
         ]} />
           <div className="mt-6">
             <h3 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-slate-700 dark:text-slate-300">Activity Status</h3>

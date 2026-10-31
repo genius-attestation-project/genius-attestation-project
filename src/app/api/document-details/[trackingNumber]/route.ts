@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
-import { getSessionAccess, hasOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
+import { getSessionAccess, canUserViewDocumentDetails, hasDocumentOfficeAccess } from "@/features/admin/server/rbac.service";
 
 function isUserIdLike(val: unknown): boolean {
   if (typeof val !== "string") return false;
@@ -32,11 +32,7 @@ export async function GET(
     const ownerAdminId = session.user.ownerAdminId ?? session.user.id;
 
     const access = await getSessionAccess(session.user.id);
-    const canView =
-      Boolean(access?.isSuperAdmin) ||
-      hasPermission(access, "search_report.search") ||
-      hasPermission(access, "search_report.view") ||
-      hasPermission(access, "revenue_registration.view");
+    const canView = canUserViewDocumentDetails(access);
 
     if (!canView) {
       return NextResponse.json(
@@ -45,11 +41,16 @@ export async function GET(
       );
     }
 
+    const identifier = trackingNumber.trim();
+
     // Fetch primary Registration with relations including creator
     const registration = await prisma.registration.findFirst({
       where: {
-        trackingNumber: trackingNumber.trim(),
-        ownerAdminId,
+        OR: [
+          { trackingNumber: identifier },
+          { id: identifier },
+        ],
+        ...(access?.isSuperAdmin ? {} : (ownerAdminId ? { ownerAdminId } : {})),
       },
       include: {
         creator: {
@@ -126,37 +127,41 @@ export async function GET(
 
     // Office visibility check for non-superadmins
     if (access && !access.isSuperAdmin) {
-      const regOffice =
-        registration.regionOfRegistration ||
-        (registration as any).officeLocationName ||
-        (registration as any).officeLocationId;
+      const latestMovement = registration.documentMovements?.[0];
+      const docOffices = [
+        registration.regionOfRegistration,
+        registration.regionOfRegistrationId,
+        latestMovement?.currentOffice?.officeName,
+        latestMovement?.currentOfficeId,
+        latestMovement?.fromOffice?.officeName,
+        latestMovement?.fromOfficeId,
+        latestMovement?.toOffice?.officeName,
+        latestMovement?.toOfficeId,
+      ];
 
-      if (regOffice) {
-        const isAllowed =
-          hasOfficeAccess(access, regOffice, "search_report") ||
-          hasOfficeAccess(access, regOffice, "revenue_registration");
-
-        if (!isAllowed) {
-          return NextResponse.json(
-            { message: "You are not authorized to view documents for this office." },
-            { status: 403 }
-          );
-        }
+      const isAllowed = hasDocumentOfficeAccess(access, docOffices);
+      if (!isAllowed) {
+        return NextResponse.json(
+          { message: "You are not authorized to view documents for this office." },
+          { status: 403 }
+        );
       }
     }
+
+    const canonicalTracking = registration.trackingNumber;
 
     // Fetch related timeline, activity movements, advance payment approvals, processType, and bundles.
     const [subPackageMovements, rawMovementHistory, workflowHistory, advancePaymentApprovals, processType, bundles] = await Promise.all([
       (prisma as any).subPackageMovement.findMany({
-        where: { trackingNumber: trackingNumber.trim() },
+        where: { trackingNumber: canonicalTracking },
         orderBy: { createdAt: "desc" },
       }),
       prisma.movementHistory.findMany({
-        where: { trackingNumber: trackingNumber.trim() },
+        where: { trackingNumber: canonicalTracking },
         orderBy: { performedAt: "desc" },
       }),
       (prisma as any).documentWorkflowHistory.findMany({
-        where: { trackingNumber: trackingNumber.trim() },
+        where: { trackingNumber: canonicalTracking },
         orderBy: { performedAt: "desc" },
       }),
       prisma.advancePaymentApproval.findMany({
@@ -169,13 +174,13 @@ export async function GET(
             where: {
               type: "PROCESS_TYPES",
               name: registration.processType,
-              ownerAdminId,
+              ownerAdminId: registration.ownerAdminId ?? ownerAdminId,
             },
             include: { subPackages: { orderBy: { name: "asc" } } },
           })
         : null,
       prisma.bundle.findMany({
-        where: { items: { some: { trackingNumber: trackingNumber.trim() } } },
+        where: { items: { some: { trackingNumber: canonicalTracking } } },
         include: { fromOffice: true, toOffice: true },
       }),
     ]);

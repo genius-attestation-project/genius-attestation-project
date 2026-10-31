@@ -1667,6 +1667,100 @@ export function hasPermission(
   return access.permissions.includes(code) || access.permissions.includes("*");
 }
 
+export function canUserViewDocumentDetails(
+  access: SessionAccess | { permissions?: string[]; isSuperAdmin?: boolean; role?: string; isAssignedOffice?: boolean } | null | undefined
+): boolean {
+  if (!access) return false;
+  if (
+    access.isSuperAdmin ||
+    access.role === "Super Admin" ||
+    (access as any).isAssignedOffice ||
+    (access as any).accountType === "ASSIGNED_OFFICE" ||
+    access.role === "AssignedOffice"
+  ) {
+    return true;
+  }
+
+  const allowedPermissions = [
+    // Search / Report
+    "search_report.search",
+    "search_report.view",
+    // Revenue Registration
+    "revenue_registration.view",
+    // Home Workflow
+    "home.view",
+    "home.document_in_hand.view",
+    "home.inbound.view",
+    "home.outbound.view",
+    "home.movement_history.view",
+    "home.document_in_hand.transfer",
+    "home.transfer",
+    "home.receive",
+    // Process Module
+    "process.view",
+    "process.document_in_hand.view",
+    // Ready For Delivery
+    "ready_for_delivery.view",
+    "ready_for_delivery.view_details",
+    // Pending Approvals & Edit Requests
+    "pending_approval.view",
+    "edit_request.view",
+    "account_approval.view",
+    // BM Report & Movements
+    "bm_report.view",
+    "document_movement.view",
+    // Account Statements
+    "account_statements.view",
+    "account_panel.view",
+    "account_menu.view",
+  ];
+
+  return allowedPermissions.some((perm) => hasPermission(access as any, perm));
+}
+
+export function hasDocumentOfficeAccess(
+  access: SessionAccess | { isSuperAdmin?: boolean; allowedOfficeIds?: string[] | null; allowedOfficeNames?: string[] | null; moduleOfficeVisibilities?: Record<string, { officeIds: string[]; officeNames: string[] }> | null; permissions?: string[] } | null | undefined,
+  docOffices: (string | null | undefined)[]
+): boolean {
+  if (!access) return false;
+  if (access.isSuperAdmin || access.allowedOfficeIds === null || access.allowedOfficeNames === null) {
+    return true;
+  }
+
+  const validOffices = docOffices
+    .filter((o): o is string => Boolean(o && typeof o === "string" && o.trim()))
+    .map((o) => o.trim());
+
+  if (validOffices.length === 0) return true;
+
+  const relevantModules = [
+    "home",
+    "search_report",
+    "revenue_registration",
+    "process",
+    "ready_for_delivery",
+    "pending_approval",
+    "bm_report",
+    "account_statements",
+  ];
+
+  const permissions = Array.isArray(access.permissions) ? access.permissions : [];
+
+  return validOffices.some((office) => {
+    // 1. Overall allowed office access
+    if (hasOfficeAccess(access as any, office)) return true;
+
+    // 2. Module-specific visibility for modules user is granted access to
+    return relevantModules.some((modKey) => {
+      const hasModPerm = permissions.some((p) => p.startsWith(`${modKey}.`) || p === modKey);
+      if (hasModPerm) {
+        return hasOfficeAccess(access as any, office, modKey);
+      }
+      return false;
+    });
+  });
+}
+
 export { canUserAddAdvance } from "@/features/admin/utils/add-advance-permission";
 
 export function getPermissionScope(

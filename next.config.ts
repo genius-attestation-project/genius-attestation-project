@@ -14,6 +14,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  redirects: async () => [
+    {
+      source: "/dashboard/document_details/:trackingNumber*",
+      destination: "/dashboard/document-details/:trackingNumber*",
+      permanent: true,
+    },
+    {
+      source: "/api/document_details/:trackingNumber*",
+      destination: "/api/document-details/:trackingNumber*",
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: "/:path*",
