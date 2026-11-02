@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import { FileSearch, Plus, Eye, Route } from "lucide-react";
@@ -73,6 +75,37 @@ export function SearchReportClient() {
     );
   }
 
+  const handleExportRegistration = () => {
+    if (!registration) return;
+    const dateStr = new Date().toISOString().split("T")[0];
+    exportToExcel({
+      filename: `Search_Report_${registration.trackingNumber}_${dateStr}`,
+      data: [
+        {
+          "Tracking Number": registration.trackingNumber,
+          "Customer Name": registration.customerName || "-",
+          "Mobile Number": registration.mobile || "-",
+          "Email": registration.email || "-",
+          "Address": registration.address || "-",
+          "Customer Type": registration.customerType || "-",
+          "Document Type": registration.documentType || "-",
+          "Document Name": registration.documentName || "-",
+          "Country": registration.documentIssuedCountry || "-",
+          "Process Type": registration.processType || "-",
+          "Priority": registration.priority || "Normal",
+          "Delivery Location": registration.deliveryLocation || "-",
+          "Registered Office": registration.regionOfRegistration || "-",
+          "Total Charges": registration.totalCharges ?? 0,
+          "Advance Paid": registration.advancePaid ?? 0,
+          "Balance Amount": (Number(registration.totalCharges || 0) - Number(registration.advancePaid || 0)).toFixed(2),
+          "Payment Status": registration.paymentStatus || "-",
+          "Tracking Status": registration.trackingStatus || "-",
+          "Registration Date": registration.createdAt ? new Date(registration.createdAt).toLocaleString() : "-",
+        },
+      ],
+    });
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {!queryTrackingNumber && !registration && (
@@ -106,6 +139,7 @@ export function SearchReportClient() {
               <Button variant="secondary" size="sm" onClick={() => setTimelineTrackingNumber(registration.trackingNumber)}>
                 <Route size={16} /> Timeline
               </Button>
+              <ExportButton onClick={handleExportRegistration} size="sm" />
             </div>
           }
           onRefreshRegistration={() => {

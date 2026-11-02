@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import { Edit3, MapPinHouse, Plus, Trash2 } from "lucide-react";
@@ -191,6 +193,21 @@ export function OfficeLocationManagement() {
     }
   }
 
+  const handleExportOffices = () => {
+    exportToExcel<OfficeLocationRow>({
+      filename: "Office_Locations",
+      data: officeLocations,
+      columns: [
+        { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+        { header: "Office Name", key: "officeName" },
+        { header: "Country / Location", key: "location" },
+        { header: "Timezone", key: "timezone" },
+        { header: "Employees", render: (r: OfficeLocationRow) => r.employees ?? 0 },
+        { header: "Created Date", key: "createdDate" },
+      ],
+    });
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {message ? (
@@ -209,10 +226,13 @@ export function OfficeLocationManagement() {
         title="Office Directory" 
         description="Real office locations saved in the workspace database."
         action={
-          <Button onClick={openCreateDrawer}>
-            <Plus size={16} />
-            Add Office
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton onClick={handleExportOffices} />
+            <Button onClick={openCreateDrawer}>
+              <Plus size={16} />
+              Add Office
+            </Button>
+          </div>
         }
       >
         {loading ? (

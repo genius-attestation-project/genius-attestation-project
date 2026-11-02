@@ -5,6 +5,8 @@ import type { AccountNode } from "@/features/account-menu/types/account-menu.typ
 import { AccountPanelTreeNode } from "./AccountPanelTreeNode";
 import { TransactionEntryModal } from "./TransactionEntryModal";
 import { Search, FolderTree, RefreshCw, Maximize2, Minimize2, Building2 } from "lucide-react";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 
 interface AvailableOffice {
   id: string;
@@ -108,6 +110,43 @@ export const AccountPanelDashboard: React.FC = () => {
     return filterTree(treeData, searchQuery);
   }, [treeData, searchQuery, filterTree]);
 
+  const handleExport = () => {
+    const flattenTree = (nodes: AccountNode[], prefix = ""): any[] => {
+      let result: any[] = [];
+      nodes.forEach((node) => {
+        result.push({
+          officeName: activeOffice?.name || "All Offices",
+          accountCode: node.code || (node.settings && node.settings.accountCode) || "-",
+          accountName: prefix ? `${prefix} > ${node.name}` : node.name,
+          accountType: node.type || "-",
+          categoryGroup: node.category || "-",
+          status: node.status ? "Active" : "Inactive",
+          balance: (node.settings && (node.settings.balance || node.settings.currentBalance)) || "-",
+        });
+        if (node.children && node.children.length > 0) {
+          result = result.concat(flattenTree(node.children, prefix ? `${prefix} > ${node.name}` : node.name));
+        }
+      });
+      return result;
+    };
+    const flatAccounts = flattenTree(treeData);
+    if (!flatAccounts.length) return;
+    exportToExcel({
+      filename: `account-panel-${activeOffice?.name ? activeOffice.name.toLowerCase().replace(/\s+/g, "-") : "all"}-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Account Panel",
+      columns: [
+        { header: "Office", accessor: (item) => item.officeName },
+        { header: "Account Code", accessor: (item) => item.accountCode },
+        { header: "Account Hierarchy / Name", accessor: (item) => item.accountName },
+        { header: "Account Type", accessor: (item) => item.accountType },
+        { header: "Category / Group", accessor: (item) => item.categoryGroup },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Balance", accessor: (item) => item.balance },
+      ],
+      data: flatAccounts,
+    });
+  };
+
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header Banner */}
@@ -184,6 +223,7 @@ export const AccountPanelDashboard: React.FC = () => {
               <Maximize2 className="h-3.5 w-3.5" />
               Expand All
             </button>
+            <ExportButton onClick={handleExport} size="sm" />
 
             <button
               type="button"

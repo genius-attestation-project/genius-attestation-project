@@ -6,6 +6,8 @@ import { BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { DataTable } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
@@ -57,8 +59,28 @@ export function LeaveApprovalManagement() {
     }
   }
 
+  const handleExport = () => {
+    if (!rows.length) return;
+    exportToExcel({
+      filename: `pending-leave-approvals-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Pending Leaves",
+      columns: [
+        { header: "Employee", accessor: (item) => item.userName },
+        { header: "Department", accessor: (item) => item.department },
+        { header: "Office", accessor: (item) => item.officeLocation },
+        { header: "Leave Type", accessor: (item) => item.leaveType },
+        { header: "From Date", accessor: (item) => item.fromDate },
+        { header: "To Date", accessor: (item) => item.toDate },
+        { header: "Days", accessor: (item) => item.totalDays },
+        { header: "Reason", accessor: (item) => item.reason || "-" },
+        { header: "Applied At", accessor: (item) => item.appliedAt },
+      ],
+      data: rows,
+    });
+  };
+
   return (
-    <DashboardCard title="Leave Approval" description="Approve or reject pending leave requests.">
+    <DashboardCard title="Leave Approval" description="Approve or reject pending leave requests." action={<ExportButton onClick={handleExport} size="sm" />}>
       {error ? <p className="mb-4 text-sm font-semibold text-rose-600">{error}</p> : null}
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 5 }).map((_, index) => <LoadingSkeleton key={index} className="h-14 w-full rounded-2xl" />)}</div>

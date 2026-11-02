@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import { Edit3, KeyRound, Plus, Trash2, UserCog, Users } from "lucide-react";
@@ -314,6 +316,54 @@ export function UsersManagement() {
     }
   }
 
+  async function handleExportUsers() {
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "10000",
+      });
+      if (query.trim()) params.set("query", query.trim());
+      if (statusFilter !== "all") params.set("status", statusFilter);
+
+      const res = await fetch(`/api/users?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json();
+      const exportList: UserAccessRow[] = data.users || users;
+
+      exportToExcel<UserAccessRow>({
+        filename: "Users_Export",
+        data: exportList,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Name", key: "name" },
+          { header: "Email", key: "email" },
+          { header: "Phone", key: "phone" },
+          { header: "Role", key: "role" },
+          { header: "Department", key: "department" },
+          { header: "Office Location", key: "officeLocation" },
+          { header: "Status", key: "status" },
+          { header: "Created Date", key: "createdDate" },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+      exportToExcel<UserAccessRow>({
+        filename: "Users_Export",
+        data: users,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Name", key: "name" },
+          { header: "Email", key: "email" },
+          { header: "Phone", key: "phone" },
+          { header: "Role", key: "role" },
+          { header: "Department", key: "department" },
+          { header: "Office Location", key: "officeLocation" },
+          { header: "Status", key: "status" },
+          { header: "Created Date", key: "createdDate" },
+        ],
+      });
+    }
+  }
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {message ? (
@@ -350,6 +400,7 @@ export function UsersManagement() {
             <p className="text-sm font-semibold text-soft">
               Showing {totalItems === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalItems)} of {totalItems} users
             </p>
+            <ExportButton onClick={handleExportUsers} />
             <Button onClick={openCreateDrawer}>
               <Plus size={16} />
               Add User

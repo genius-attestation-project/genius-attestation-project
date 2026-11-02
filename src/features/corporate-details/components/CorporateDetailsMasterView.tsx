@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { MasterLayout } from "@/features/master-configuration/components/MasterLayout";
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { CorporateDetailFormModal } from "@/features/corporate-details/components/CorporateDetailFormModal";
 import { Building2, CheckCircle2, Clock, Pencil, Search, Trash2, XCircle } from "lucide-react";
 
@@ -73,6 +75,24 @@ export function CorporateDetailsMasterView() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleExport = () => {
+    if (!data.length) return;
+    exportToExcel({
+      filename: `corporate-details-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Corporate Details',
+      columns: [
+        { header: 'Company Name', accessor: (item) => item.companyName },
+        { header: 'Contact Person', accessor: (item) => item.contactPersonName || '-' },
+        { header: 'Mobile', accessor: (item) => item.contactPersonMobile || '-' },
+        { header: 'Email', accessor: (item) => item.email || '-' },
+        { header: 'Approval Status', accessor: (item) => item.approvalStatus || '-' },
+        { header: 'Status', accessor: (item) => (item.isActive ? 'Active' : 'Inactive') },
+        { header: 'Created At', accessor: (item) => (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-') },
+      ],
+      data,
+    });
   };
 
   const renderApprovalBadge = (status: string) => {

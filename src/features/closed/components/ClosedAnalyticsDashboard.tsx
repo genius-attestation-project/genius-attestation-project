@@ -36,6 +36,8 @@ import type { ElementType } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 
@@ -394,7 +396,29 @@ export function ClosedAnalyticsDashboard() {
     assignedUsers: [],
     countries: [],
     previousStatuses: [],
-    officeLocations: [],
+        officeLocations: [],
+  };
+
+  const handleExport = () => {
+    if (!leads?.items?.length) return;
+    exportToExcel({
+      filename: `closed-leads-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Closed Leads",
+      columns: [
+        { header: "Lead Code", accessor: (item) => item.leadCode },
+        { header: "Client Name", accessor: (item) => item.clientName },
+        { header: "Mobile", accessor: (item) => item.mobile },
+        { header: "Email", accessor: (item) => item.email },
+        { header: "Service", accessor: (item) => item.service },
+        { header: "Country", accessor: (item) => item.country },
+        { header: "Amount", accessor: (item) => item.amount },
+        { header: "Assigned User", accessor: (item) => item.assignedUser || "Unassigned" },
+        { header: "Closed Date", accessor: (item) => item.closedDate },
+        { header: "Previous Status", accessor: (item) => item.previousStatus || "-" },
+        { header: "Created Date", accessor: (item) => item.createdDate },
+      ],
+      data: leads.items,
+    });
   };
 
   return (
@@ -673,7 +697,7 @@ export function ClosedAnalyticsDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <DashboardCard title="Closed Leads" description="All leads currently in Closed status with transition details" className="lg:col-span-2">
+        <DashboardCard title="Closed Leads" description="All leads currently in Closed status with transition details" className="lg:col-span-2" action={<ExportButton onClick={handleExport} size="sm" />}>
           {loading ? (
             <SectionSkeleton />
           ) : !leads?.items.length ? (

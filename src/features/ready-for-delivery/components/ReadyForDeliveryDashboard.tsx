@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import {
@@ -452,6 +454,39 @@ export function ReadyForDeliveryDashboard({
     document.body.removeChild(link);
   }
 
+  function handleExportExcel() {
+    if (items.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    const allSecItems: any[] = [];
+    sections.forEach((sec) => {
+      sec.items.forEach((item) => {
+        allSecItems.push(item);
+      });
+    });
+
+    exportToExcel({
+      filename: "Ready_For_Delivery",
+      data: allSecItems.length > 0 ? allSecItems : items,
+      columns: [
+        { header: "SL No.", render: (_, idx) => idx + 1 },
+        { header: "Tracking Number", render: (r) => r.compactTrackingNumber || r.registrationNumber || "" },
+        { header: "Registered Date", render: (r) => r.registeredDate || "-" },
+        { header: "Customer Name", render: (r) => r.clientName || "-" },
+        { header: "Registered Office", render: (r) => r.regionOfRegistration || "-" },
+        { header: "Collected Person", render: (r) => r.collectedPerson || "-" },
+        { header: "Created By", render: (r) => r.createdBy || "-" },
+        { header: "Amount", render: (r) => r.amount || 0 },
+        { header: "Advance", render: (r) => r.advancePaid || 0 },
+        { header: "Balance", render: (r) => r.balanceAmount || 0 },
+        { header: "Working Days", render: (r) => r.workingDays || "-" },
+        { header: "Mobile", render: (r) => r.mobile || "-" },
+        { header: "Priority", render: (r) => r.priority || "Normal" },
+      ],
+    });
+  }
+
   const totalDocCount = sections.reduce((acc, sec) => acc + (sec.items?.length || 0), 0);
 
   const displayCountryBanner = country ? country : "India";
@@ -481,6 +516,7 @@ export function ReadyForDeliveryDashboard({
             <Printer className="h-4 w-4 mr-1.5 text-slate-600 dark:text-slate-300" />
             Print
           </Button>
+          <ExportButton onClick={handleExportExcel} />
           <Button
             variant="secondary"
             size="sm"
@@ -489,7 +525,7 @@ export function ReadyForDeliveryDashboard({
             className="rounded-xl border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             <Download className="h-4 w-4 mr-1.5 text-slate-600 dark:text-slate-300" />
-            Export
+            CSV
           </Button>
           <Button
             variant="secondary"

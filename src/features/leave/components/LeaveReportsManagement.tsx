@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { DataTable } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { DepartmentRow, OfficeLocationRow, UserAccessRow } from "@/features/admin/types/rbac.types";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
@@ -60,6 +62,26 @@ export function LeaveReportsManagement() {
     void loadReport();
   }, []);
 
+  const handleExport = () => {
+    if (!rows.length) return;
+    exportToExcel({
+      filename: `leave-reports-${query.month}-${query.year}`,
+      sheetName: "Leave Reports",
+      columns: [
+        { header: "Employee", accessor: (item) => item.userName },
+        { header: "Department", accessor: (item) => item.department },
+        { header: "Office", accessor: (item) => item.officeLocation },
+        { header: "Leave Type", accessor: (item) => item.leaveType },
+        { header: "From Date", accessor: (item) => item.fromDate },
+        { header: "To Date", accessor: (item) => item.toDate },
+        { header: "Days", accessor: (item) => item.totalDays },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Applied At", accessor: (item) => item.appliedAt },
+      ],
+      data: rows,
+    });
+  };
+
   return (
     <div className="grid gap-6">
       <DashboardCard title="Leave Reports" description="Review permanent leave history with workspace filters.">
@@ -113,7 +135,7 @@ export function LeaveReportsManagement() {
         ))}
       </div>
 
-      <DashboardCard title="Leave Report Rows" description="All saved leave approvals, rejections, and cancellations remain in history.">
+      <DashboardCard title="Leave Report Rows" description="All saved leave approvals, rejections, and cancellations remain in history." action={<ExportButton onClick={handleExport} size="sm" />}>
         {error ? <p className="mb-4 text-sm font-semibold text-rose-600">{error}</p> : null}
         {loading ? (
           <div className="grid gap-3">{Array.from({ length: 6 }).map((_, index) => <LoadingSkeleton key={index} className="h-14 w-full rounded-2xl" />)}</div>

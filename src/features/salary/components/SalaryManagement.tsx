@@ -14,6 +14,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { DataTable } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
@@ -365,6 +367,27 @@ export function SalaryManagement({ mode }: SalaryModuleProps) {
   const showPayrollTable = mode === "dashboard" || mode === "payroll" || mode === "reports";
   const tableRows = mode === "dashboard" ? payrollRows : mode === "payroll" || mode === "reports" ? payrollRows : [];
 
+  const handleExport = () => {
+    const dataToExport = tableRows.length > 0 ? tableRows : calculationRows;
+    if (!dataToExport.length) return;
+    exportToExcel({
+      filename: `payroll-${month}-${year}`,
+      sheetName: "Payroll",
+      columns: [
+        { header: "Employee", accessor: (item) => item.userName },
+        { header: "Department", accessor: (item) => item.department },
+        { header: "Office Location", accessor: (item) => item.officeLocation },
+        { header: "Working Days", accessor: (item) => item.workingDays },
+        { header: "Present Days", accessor: (item) => item.presentDays },
+        { header: "Paid Leaves", accessor: (item) => item.paidLeaveDays },
+        { header: "Gross Salary", accessor: (item) => item.grossSalary },
+        { header: "Net Payable", accessor: (item) => item.netPayable },
+        { header: "Status", accessor: (item: any) => item.status || "Calculated" },
+      ],
+      data: dataToExport,
+    });
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <DashboardCard>
@@ -468,6 +491,7 @@ export function SalaryManagement({ mode }: SalaryModuleProps) {
         <DashboardCard
           title={mode === "dashboard" ? "Recent Payrolls" : mode === "payroll" ? "Monthly Payroll" : "Salary Reports"}
           description="Payroll snapshots stay fixed even if the source salary changes later."
+          action={<ExportButton onClick={handleExport} size="sm" />}
         >
           {loading ? (
             <div className="grid gap-3">

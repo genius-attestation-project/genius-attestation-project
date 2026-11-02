@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -174,12 +176,14 @@ function TabSearchBar({
   totalFiltered,
   page,
   pageSize,
+  onExport,
 }: {
   value: string;
   onChange: (val: string) => void;
   totalFiltered: number;
   page: number;
   pageSize: number;
+  onExport?: () => void;
 }) {
   const startItem = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, totalFiltered);
@@ -207,9 +211,14 @@ function TabSearchBar({
           </button>
         ) : null}
       </div>
-      <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
-        Showing {startItem}–{endItem} of {totalFiltered} records
-      </p>
+      <div className="flex items-center gap-3">
+        <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
+          Showing {startItem}–{endItem} of {totalFiltered} records
+        </p>
+        {onExport && (
+          <ExportButton onClick={onExport} size="sm" />
+        )}
+      </div>
     </div>
   );
 }
@@ -1180,6 +1189,168 @@ export function PendingApprovalDashboard() {
     }
   };
 
+  const handleExportTab = (tab: MainTabKey) => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    if (tab === "edit_request") {
+      exportToExcel({
+        filename: `Pending_Approval_Edit_Request_${dateStr}`,
+        data: filteredEditRequests,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Document Type", render: (r: any) => r.documentType || "" },
+          { header: "Document Name", render: (r: any) => r.documentName || "" },
+          { header: "Registration Office", render: (r: any) => r.registrationOffice || "" },
+          { header: "Current Office", render: (r: any) => r.currentOffice || "" },
+          { header: "Requested By", render: (r: any) => r.requestedBy || "" },
+          { header: "Request Date", render: (r: any) => r.requestedAt ? formatDate(r.requestedAt) : "" },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+        ],
+      });
+    } else if (tab === "account_approval") {
+      exportToExcel({
+        filename: `Pending_Approval_Account_Approval_${dateStr}`,
+        data: filteredAccountApprovals,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Office", render: (r: any) => r.office || "" },
+          { header: "Proposed Amount", render: (r: any) => r.newAmount ?? r.oldAmount ?? 0 },
+          { header: "Source Type", render: (r: any) => r.sourceType || "" },
+          { header: "Payment Mode", render: (r: any) => r.newPaymentMode || r.oldPaymentMode || "" },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+          { header: "Requested By", render: (r: any) => r.requestedByName || "" },
+          { header: "Request Date", render: (r: any) => r.requestedAt ? formatDate(r.requestedAt) : "" },
+        ],
+      });
+    } else if (tab === "advance_payment") {
+      exportToExcel({
+        filename: `Pending_Approval_Advance_Payment_${dateStr}`,
+        data: filteredAdvancePayments,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Office Location", render: (r: any) => r.office || "" },
+          { header: "Advance Amount", render: (r: any) => r.advanceAmount ?? 0 },
+          { header: "Payment Mode", render: (r: any) => r.paymentMode || "" },
+          { header: "Approval Status", render: (r: any) => r.approvalStatus || r.status || "Pending Approval" },
+          { header: "Requested By", render: (r: any) => r.requestedBy || "" },
+          { header: "Request Date", render: (r: any) => r.requestedDate ? formatDate(r.requestedDate) : "" },
+        ],
+      });
+    } else if (tab === "movement_approval") {
+      exportToExcel({
+        filename: `Pending_Approval_Movement_Approval_${dateStr}`,
+        data: filteredMovementApprovals,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Document Name", render: (r: any) => r.documentName || "" },
+          { header: "Document Type", render: (r: any) => r.documentType || "" },
+          { header: "Registration Office", render: (r: any) => r.registrationOffice || "" },
+          { header: "Current Office", render: (r: any) => r.currentOffice || "" },
+          { header: "Advance Amount", render: (r: any) => r.advanceAmount ?? 0 },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+          { header: "Requested By", render: (r: any) => r.requestedBy || "" },
+          { header: "Request Date", render: (r: any) => r.requestedDate ? formatDate(r.requestedDate) : "" },
+        ],
+      });
+    } else if (tab === "rd_approval") {
+      exportToExcel({
+        filename: `Pending_Approval_RD_Approval_${dateStr}`,
+        data: filteredRdApprovals,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Current Office", render: (r: any) => r.currentOffice || "" },
+          { header: "Delivery Location", render: (r: any) => r.deliveryLocation || "" },
+          { header: "Document Type", render: (r: any) => r.documentType || "" },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+          { header: "Requested By", render: (r: any) => r.requestedBy || "" },
+          { header: "Request Date", render: (r: any) => r.requestedDate ? formatDate(r.requestedDate) : "" },
+        ],
+      });
+    } else if (tab === "advance_details") {
+      exportToExcel({
+        filename: `Pending_Approval_Advance_Details_${dateStr}`,
+        data: filteredAdvanceDetails,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Tracking Number", render: (r: any) => r.trackingNumber || r.registrationNumber || "" },
+          { header: "Customer Name", render: (r: any) => r.customerName || "" },
+          { header: "Office Location", render: (r: any) => r.office || "" },
+          { header: "Advance Amount", render: (r: any) => r.advanceAmount ?? 0 },
+          { header: "Payment Mode", render: (r: any) => r.paymentMode || "" },
+          { header: "Status", render: (r: any) => r.status || r.approvalStatus || "" },
+          { header: "Requested Date", render: (r: any) => r.requestedDate ? formatDate(r.requestedDate) : (r.registeredDate ? formatDate(r.registeredDate) : "") },
+        ],
+      });
+    } else if (tab === "corporate_approval") {
+      exportToExcel({
+        filename: `Pending_Approval_Corporate_Details_${dateStr}`,
+        data: filteredCorporateApprovals,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Company Name", render: (r: any) => r.companyName || "" },
+          { header: "Category", render: (r: any) => r.category || "" },
+          { header: "Contact Person", render: (r: any) => r.contactPerson || r.contactPersonName || "" },
+          { header: "Phone", render: (r: any) => r.phone || "" },
+          { header: "Email", render: (r: any) => r.email || "" },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+          { header: "Request Date", render: (r: any) => r.createdAt ? formatDate(r.createdAt) : "" },
+        ],
+      });
+    } else if (tab === "lob") {
+      exportToExcel({
+        filename: `Pending_Approval_LOB_Requests_${dateStr}`,
+        data: filteredLobRequests,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Lead ID", render: (r: any) => r.leadId || "" },
+          { header: "Customer Name", render: (r: any) => r.lead?.name || r.customerName || "" },
+          { header: "Current LOB", render: (r: any) => r.currentLob || "" },
+          { header: "Requested LOB", render: (r: any) => r.requestedLob || "" },
+          { header: "Approval Status", render: (r: any) => r.status || "Pending" },
+          { header: "Requested By", render: (r: any) => r.requestedByName || r.requestedBy || "" },
+          { header: "Request Date", render: (r: any) => r.createdAt ? formatDate(r.createdAt) : "" },
+        ],
+      });
+    } else if (tab === "inactive") {
+      exportToExcel({
+        filename: `Pending_Approval_Inactive_Leads_${dateStr}`,
+        data: filteredInactiveLeads,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Lead ID", render: (r: any) => r.id || "" },
+          { header: "Customer Name", render: (r: any) => r.name || "" },
+          { header: "Phone", render: (r: any) => r.phone || "" },
+          { header: "Reason", render: (r: any) => r.inactiveReason || "" },
+          { header: "Status", render: (r: any) => r.status || "" },
+          { header: "Date", render: (r: any) => r.updatedAt ? formatDate(r.updatedAt) : "" },
+        ],
+      });
+    } else if (tab === "overdue") {
+      exportToExcel({
+        filename: `Pending_Approval_Overdue_Followups_${dateStr}`,
+        data: filteredOverdueFollowups,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Lead ID", render: (r: any) => r.id || "" },
+          { header: "Customer Name", render: (r: any) => r.name || "" },
+          { header: "Phone", render: (r: any) => r.phone || "" },
+          { header: "Followup Date", render: (r: any) => r.nextFollowupDate ? formatDate(r.nextFollowupDate) : "" },
+          { header: "Assigned To", render: (r: any) => r.assignedUser?.name || "" },
+          { header: "Status", render: (r: any) => r.status || "" },
+        ],
+      });
+    }
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <section className="rounded-[28px] border border-(--border) bg-white/80 p-4 shadow-(--shadow-card) sm:p-5 dark:bg-white/5">
@@ -1235,6 +1406,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={editPagination.totalItems}
                 page={editPagination.safePage}
                 pageSize={tabStates.edit_request.pageSize}
+                onExport={() => handleExportTab("edit_request")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-345 text-left text-sm">
@@ -1369,6 +1541,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={accountPagination.totalItems}
                 page={accountPagination.safePage}
                 pageSize={tabStates.account_approval.pageSize}
+                onExport={() => handleExportTab("account_approval")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-345 text-left text-sm">
@@ -1496,6 +1669,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={advancePagination.totalItems}
                 page={advancePagination.safePage}
                 pageSize={tabStates.advance_payment.pageSize}
+                onExport={() => handleExportTab("advance_payment")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-345 text-left text-sm">
@@ -1642,6 +1816,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={movementPagination.totalItems}
                 page={movementPagination.safePage}
                 pageSize={tabStates.movement_approval.pageSize}
+                onExport={() => handleExportTab("movement_approval")}
               />
               <div className="flex items-center justify-between border-b border-(--border) bg-blue-50/50 px-5 py-3 dark:bg-white/5">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -1806,6 +1981,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={rdPagination.totalItems}
                 page={rdPagination.safePage}
                 pageSize={tabStates.rd_approval.pageSize}
+                onExport={() => handleExportTab("rd_approval")}
               />
               <div className="overflow-x-auto">
                 <table className="w-full min-w-300 text-left text-sm">
@@ -2167,6 +2343,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={corporatePagination.totalItems}
                 page={corporatePagination.safePage}
                 pageSize={tabStates.corporate_approval.pageSize}
+                onExport={() => handleExportTab("corporate_approval")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-7xl text-left text-sm">
@@ -2299,6 +2476,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={lobPagination.totalItems}
                 page={lobPagination.safePage}
                 pageSize={tabStates.lob.pageSize}
+                onExport={() => handleExportTab("lob")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-270 text-left text-sm">
@@ -2452,6 +2630,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={inactivePagination.totalItems}
                 page={inactivePagination.safePage}
                 pageSize={tabStates.inactive.pageSize}
+                onExport={() => handleExportTab("inactive")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-270 text-left text-sm">
@@ -2526,6 +2705,7 @@ export function PendingApprovalDashboard() {
                 totalFiltered={overduePagination.totalItems}
                 page={overduePagination.safePage}
                 pageSize={tabStates.overdue.pageSize}
+                onExport={() => handleExportTab("overdue")}
               />
               <div className="overflow-x-auto">
                 <table className="min-w-270 text-left text-sm">

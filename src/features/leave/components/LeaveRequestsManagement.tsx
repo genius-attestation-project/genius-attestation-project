@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { DataTable } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { LeaveRequestRow } from "@/features/leave/types/leave.types";
@@ -51,8 +53,26 @@ export function LeaveRequestsManagement() {
     }
   }
 
+  const handleExport = () => {
+    if (!rows.length) return;
+    exportToExcel({
+      filename: `my-leave-requests-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Leave Requests",
+      columns: [
+        { header: "Leave Type", accessor: (item) => item.leaveType },
+        { header: "From Date", accessor: (item) => item.fromDate },
+        { header: "To Date", accessor: (item) => item.toDate },
+        { header: "Days", accessor: (item) => item.totalDays },
+        { header: "Reason", accessor: (item) => item.reason || "-" },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Applied At", accessor: (item) => item.appliedAt },
+      ],
+      data: rows,
+    });
+  };
+
   return (
-    <DashboardCard title="Leave Requests" description="Track your submitted leave requests and current approval status.">
+    <DashboardCard title="Leave Requests" description="Track your submitted leave requests and current approval status." action={<ExportButton onClick={handleExport} size="sm" />}>
       {error ? <p className="mb-4 text-sm font-semibold text-rose-600">{error}</p> : null}
       {loading ? (
         <div className="grid gap-3">{Array.from({ length: 5 }).map((_, index) => <LoadingSkeleton key={index} className="h-14 w-full rounded-2xl" />)}</div>

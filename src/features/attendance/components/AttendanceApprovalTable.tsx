@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
 import { readJsonResponse } from "@/utils/fetch";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 
 const STATUS_COLORS: Record<string, string> = {
   Present: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -121,6 +123,26 @@ export function AttendanceApprovalTable() {
     }
   }
 
+  const handleExport = () => {
+    if (!records.length) return;
+    exportToExcel({
+      filename: `attendance-approvals-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Attendance Approvals",
+      columns: [
+        { header: "Employee", accessor: (item) => item.userName || "-" },
+        { header: "Department", accessor: (item) => item.department || "-" },
+        { header: "Office", accessor: (item) => item.officeLocation || "-" },
+        { header: "Date", accessor: (item) => item.attendanceDate },
+        { header: "Check-In", accessor: (item) => item.checkinTime || "-" },
+        { header: "Check-Out", accessor: (item) => item.checkoutTime || "-" },
+        { header: "Total Hours", accessor: (item) => item.workingHours ?? "-" },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Approval Status", accessor: (item) => item.approvalStatus },
+      ],
+      data: records,
+    });
+  };
+
   const filterTabs: { key: FilterType; label: string }[] = [
     { key: "all", label: "All" },
     { key: "Pending", label: "Pending" },
@@ -165,6 +187,7 @@ export function AttendanceApprovalTable() {
         >
           Refresh
         </button>
+        <ExportButton onClick={handleExport} size="sm" />
       </div>
 
       {/* Table */}

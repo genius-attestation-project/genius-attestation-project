@@ -1,4 +1,5 @@
 "use client";
+import { exportToExcel } from "@/utils/excelExport";
 
 import React, { useState, useCallback } from "react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -120,6 +121,82 @@ export const AccountStatementsPage: React.FC = () => {
     });
   };
 
+  const handleExportExcel = () => {
+    if (!data) return;
+    const rows: Record<string, any>[] = [];
+
+    // Opening Balance
+    rows.push({
+      "Date": data.fromDate || "-",
+      "Transaction Type": "Opening Balance",
+      "Particulars / Description": "Opening Balance",
+      "Customer / Reference": "-",
+      "Payment Mode": "-",
+      "Credit Amount": data.openingBalance,
+      "Debit Amount": 0,
+    });
+
+    // Credit Advances
+    (data.credit.advances || []).forEach((adv) => {
+      rows.push({
+        "Date": adv.date ? adv.date.slice(0, 10) : "-",
+        "Transaction Type": "Credit - Advance",
+        "Particulars / Description": adv.trackingNumber ? `Tracking #${adv.trackingNumber}` : adv.invoiceNumber,
+        "Customer / Reference": adv.collectedBy || "-",
+        "Payment Mode": adv.paymentMode || "Cash",
+        "Credit Amount": adv.amount || 0,
+        "Debit Amount": 0,
+      });
+    });
+
+    // Credit More Advances
+    (data.credit.moreAdvances || []).forEach((m) => {
+      rows.push({
+        "Date": m.date ? m.date.slice(0, 10) : "-",
+        "Transaction Type": "Credit - More Advance",
+        "Particulars / Description": m.trackingNumber ? `Tracking #${m.trackingNumber}` : m.invoiceNumber,
+        "Customer / Reference": m.collectedBy || "-",
+        "Payment Mode": m.paymentMode || "Cash",
+        "Credit Amount": m.amount || 0,
+        "Debit Amount": 0,
+      });
+    });
+
+    // Credit Panel Credits
+    (data.credit.panelCredits || []).forEach((p) => {
+      rows.push({
+        "Date": p.date ? p.date.slice(0, 10) : "-",
+        "Transaction Type": "Credit - Panel Credit",
+        "Particulars / Description": p.narration || p.remarks || `Invoice #${p.invoiceNumber}`,
+        "Customer / Reference": p.collectedBy || "-",
+        "Payment Mode": p.paymentMode || "-",
+        "Credit Amount": p.amount || 0,
+        "Debit Amount": 0,
+      });
+    });
+
+    // Debit Groups
+    (data.debit.groups || []).forEach((g) => {
+      (g.items || []).forEach((item) => {
+        rows.push({
+          "Date": item.date ? item.date.slice(0, 10) : "-",
+          "Transaction Type": `Debit - ${g.accountName}`,
+          "Particulars / Description": item.narration || item.remarks || `Invoice #${item.invoiceNumber}`,
+          "Customer / Reference": item.collectedBy || "-",
+          "Payment Mode": item.paymentMode || "-",
+          "Credit Amount": 0,
+          "Debit Amount": item.amount || 0,
+        });
+      });
+    });
+
+    const safeOffice = office ? office.replace(/\s+/g, "_") : "All_Offices";
+    exportToExcel({
+      filename: `Account_Statements_${safeOffice}`,
+      data: rows,
+    });
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -171,6 +248,7 @@ export const AccountStatementsPage: React.FC = () => {
           onApplyFilters={fetchStatements}
           onResetFilters={handleResetFilters}
           onPrint={handlePrint}
+          onExportExcel={handleExportExcel}
           loading={loading}
         />
       </div>

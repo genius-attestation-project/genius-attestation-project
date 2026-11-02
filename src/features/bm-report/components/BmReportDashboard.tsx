@@ -14,6 +14,8 @@ import {
   Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { DocumentMovementDetailsModal } from "./DocumentMovementDetailsModal";
 import type { BmTrackingTab, BmLocationSection } from "../server/bm-tracking.service";
 
@@ -134,6 +136,35 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
   // Total count of documents across all current sections
   const totalDocuments = sections.reduce((acc, sec) => acc + (sec.documents?.length || 0), 0);
 
+  const handleExport = () => {
+    const allDocs = sections.flatMap((sec) =>
+      (sec.documents || []).map((doc, idx) => ({
+        ...doc,
+        slNo: idx + 1,
+        sectionLocation: sec.locationName,
+      }))
+    );
+    if (!allDocs.length) return;
+    exportToExcel({
+      filename: `bm-location-tracking-${selectedOffice || "all"}-${activeTab}-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "BM Tracking",
+      columns: [
+        { header: "Section / Location", accessor: (item) => item.sectionLocation },
+        { header: "Tracking Number", accessor: (item) => item.trackingNumber },
+        { header: "Registration Date", accessor: (item) => item.registrationDate },
+        { header: "Document Name", accessor: (item) => item.documentName },
+        { header: "Registration Office", accessor: (item) => item.registrationOffice },
+        { header: "Collected Person", accessor: (item) => item.collectedPerson || "-" },
+        { header: "Days", accessor: (item) => item.numberOfDays ?? "-" },
+        { header: "Delivery At", accessor: (item) => item.deliveryAt || "-" },
+        { header: "Document Type", accessor: (item) => item.documentType || "-" },
+        { header: "Process Type", accessor: (item) => item.processType || "-" },
+        { header: "Total Amount", accessor: (item) => item.totalAmount || "-" },
+      ],
+      data: allDocs,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -159,6 +190,7 @@ export function BmReportDashboard({ currentOfficeLocationName }: BmReportDashboa
             <RefreshCw className={`h-4 w-4 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          <ExportButton onClick={handleExport} size="sm" />
         </div>
       </div>
 

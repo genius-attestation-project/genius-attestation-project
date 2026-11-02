@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AttendanceRecord } from "@/features/attendance/types/attendance.types";
 import { readJsonResponse } from "@/utils/fetch";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 
 const STATUS_COLORS: Record<string, string> = {
   Present: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -44,10 +46,31 @@ export function AttendanceRecordsTable() {
     fetchRecords();
   }, [fetchRecords]);
 
+  const handleExport = () => {
+    if (!records.length) return;
+    exportToExcel({
+      filename: `attendance-records-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Attendance Records",
+      columns: [
+        { header: "Date", accessor: (item) => item.attendanceDate },
+        { header: "Check-In", accessor: (item) => item.checkinTime || "-" },
+        { header: "Check-Out", accessor: (item) => item.checkoutTime || "-" },
+        { header: "Total Hours", accessor: (item) => item.workingHours ?? "-" },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Approval Status", accessor: (item) => item.approvalStatus },
+        { header: "Approval Note", accessor: (item) => item.rejectionReason || "-" },
+      ],
+      data: records,
+    });
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="grid gap-4">
+      <div className="flex justify-end">
+        <ExportButton onClick={handleExport} size="sm" />
+      </div>
       {/* Table wrapper */}
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white dark:border-white/8 dark:bg-white/5">
         <div className="overflow-x-auto">

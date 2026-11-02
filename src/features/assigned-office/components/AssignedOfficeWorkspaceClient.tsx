@@ -27,6 +27,8 @@ import {
   Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { cn } from "@/utils/cn";
 import { DocumentInfoCard } from "@/components/ui/DocumentInfoCard";
 import { RetrieveConfirmationModal } from "@/features/document-movement/components/RetrieveConfirmationModal";
@@ -364,6 +366,26 @@ export function AssignedOfficeWorkspaceClient({
     }
   };
 
+  const handleExport = () => {
+    if (!items.length) return;
+    exportToExcel({
+      filename: `assigned-office-${officeName.toLowerCase().replace(/\s+/g, "-")}-${activeTab}-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: activeTab.slice(0, 31),
+      columns: [
+        { header: "Tracking Number", accessor: (item) => item.trackingNumber },
+        { header: "Customer Name", accessor: (item) => item.customerName || item.clientName || "-" },
+        { header: "Document Name", accessor: (item) => item.documentName || "-" },
+        { header: "Document Type", accessor: (item) => item.documentType || "-" },
+        { header: "Process Type", accessor: (item) => item.processType || "-" },
+        { header: "Priority", accessor: (item) => item.priority || "-" },
+        { header: "Status", accessor: (item) => item.status || activeTab },
+        { header: "Current Location", accessor: (item) => item.currentLocation || officeName },
+        { header: "Registration Date", accessor: (item) => item.registrationDate || item.createdAt || "-" },
+      ],
+      data: items,
+    });
+  };
+
   return (
     <div className="space-y-6 w-full pb-12">
       {/* Top Workspace Header */}
@@ -393,6 +415,7 @@ export function AssignedOfficeWorkspaceClient({
                 View Sub Packages
               </Button>
             </Link>
+            <ExportButton onClick={handleExport} size="sm" />
 
             <Button
               variant="secondary"

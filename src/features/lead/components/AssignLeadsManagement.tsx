@@ -4,6 +4,8 @@ import { CheckCheck, RefreshCw, UserRoundPlus, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -70,6 +72,25 @@ export function AssignLeadsManagement() {
     () => [{ label: "Unassigned", value: "unassigned" }, ...userOptions],
     [userOptions],
   );
+
+  const handleExport = () => {
+    if (!items.length) return;
+    exportToExcel({
+      filename: `assigned-leads-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Assigned Leads",
+      columns: [
+        { header: "Lead Code", accessor: (item) => item.leadCode },
+        { header: "Client Name", accessor: (item) => item.clientName },
+        { header: "Mobile Number", accessor: (item) => item.mobileNumber || item.mobile },
+        { header: "Service", accessor: (item) => item.service },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Assigned User", accessor: (item) => item.assignedUser || "Unassigned" },
+        { header: "Office Location", accessor: (item) => item.officeLocationName || "-" },
+        { header: "Created Date", accessor: (item) => item.createdDate || item.createdAt },
+      ],
+      data: items,
+    });
+  };
 
   async function loadUsers() {
     const data = await parseResponse<{ users: LeadAssignableUser[] }>(
@@ -271,6 +292,7 @@ export function AssignLeadsManagement() {
           <Button variant="secondary" onClick={() => void loadLeads()}>
             <RefreshCw size={16} /> Apply Filters
           </Button>
+          <ExportButton onClick={handleExport} />
           <Button
             variant="ghost"
             onClick={() => {

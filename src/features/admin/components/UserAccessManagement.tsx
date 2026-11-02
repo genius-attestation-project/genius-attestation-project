@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import {
@@ -1249,6 +1251,39 @@ export function UserAccessManagement() {
     setTimeout(() => setSuccessMessage(""), 4000);
   }
 
+  const handleExportAccess = () => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    if (activeTab === "offices") {
+      exportToExcel<UserAccessItem>({
+        filename: `User_Office_Visibility_${dateStr}`,
+        data: users,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Name", key: "name" },
+          { header: "Email", key: "email" },
+          { header: "Role", render: (r: UserAccessItem) => r.roleName || "-" },
+          { header: "Configured Offices Count", render: (r: UserAccessItem) => r.configuredOfficesCount ?? (r.officeLocationIds ? r.officeLocationIds.length : 0) },
+          { header: "Super Admin", render: (r: UserAccessItem) => r.isSuperAdmin ? "Yes" : "No" },
+          { header: "Status", render: (r: UserAccessItem) => r.isActive ? "Active" : "Inactive" },
+        ],
+      });
+    } else {
+      exportToExcel<UserAccessItem>({
+        filename: `User_Permissions_Matrix_${dateStr}`,
+        data: users,
+        columns: [
+          { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+          { header: "Name", key: "name" },
+          { header: "Email", key: "email" },
+          { header: "Role", render: (r: UserAccessItem) => r.roleName || "-" },
+          { header: "Custom Permissions Count", render: (r: UserAccessItem) => (userPermMap[r.id] || r.permissionKeys || []).length },
+          { header: "Assigned Permissions", render: (r: UserAccessItem) => (userPermMap[r.id] || r.permissionKeys || []).join(", ") },
+          { header: "Status", render: (r: UserAccessItem) => r.isActive ? "Active" : "Inactive" },
+        ],
+      });
+    }
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Tab Navigation & Controls Header */}
@@ -1276,6 +1311,9 @@ export function UserAccessManagement() {
           >
             2. Module & Action Permissions
           </button>
+        </div>
+        <div className="pb-2">
+          <ExportButton onClick={handleExportAccess} />
         </div>
 
         <div className="flex items-center gap-2 pb-2.5 sm:pb-3">

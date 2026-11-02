@@ -4,6 +4,8 @@ import { AlertCircle, Layers3 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -60,6 +62,22 @@ export function LeadLobManagement() {
     };
   }, []);
 
+  const handleExport = () => {
+    if (!data.items.length) return;
+    exportToExcel({
+      filename: `lead-lob-report-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "LOB Performance",
+      columns: [
+        { header: "Service", accessor: (item) => item.service },
+        { header: "Total Leads", accessor: (item) => item.leadCount },
+        { header: "Active Leads", accessor: (item) => item.activeLeads },
+        { header: "Closed Leads", accessor: (item) => item.closedLeads },
+        { header: "Revenue", accessor: (item) => item.totalRevenue },
+      ],
+      data: data.items,
+    });
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       <PageHeader
@@ -68,7 +86,7 @@ export function LeadLobManagement() {
         description="Live line-of-business performance grouped by service from PostgreSQL."
       />
 
-      <DashboardCard title="Service Performance" description="Lead volume and revenue by service.">
+      <DashboardCard title="Service Performance" description="Lead volume and revenue by service." action={<ExportButton onClick={handleExport} size="sm" />}>
         {loading ? (
           <div className="grid gap-3">
             {Array.from({ length: 5 }).map((_, index) => (

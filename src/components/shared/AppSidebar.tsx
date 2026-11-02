@@ -283,6 +283,7 @@ export function AppSidebar({
                 onOpenSearch={() => {}}
                 canSearchTracking={canSearchTracking}
                 onNavigateTracking={() => setMobileOpen(false)}
+                isSuperAdmin={isSuperAdmin}
               >
                 {renderNavItems(true)}
               </SidebarPanel>
@@ -306,6 +307,7 @@ export function AppSidebar({
           setSearchQuery={setSearchQuery}
           onOpenSearch={() => setCollapsed(false)}
           canSearchTracking={canSearchTracking}
+          isSuperAdmin={isSuperAdmin}
           toggle={
             <Button
               variant="ghost"
@@ -336,6 +338,7 @@ type SidebarPanelProps = {
   onOpenSearch: () => void;
   canSearchTracking?: boolean;
   onNavigateTracking?: () => void;
+  isSuperAdmin?: boolean;
 };
 
 function SidebarPanel({
@@ -350,6 +353,7 @@ function SidebarPanel({
   onOpenSearch,
   canSearchTracking = false,
   onNavigateTracking,
+  isSuperAdmin = false,
 }: SidebarPanelProps) {
   return (
     <div className="flex h-full flex-col gap-4 bg-(--bg-sidebar,white) px-3 py-5 text-slate-900 shadow-[2px_0_24px_rgba(15,23,42,0.01)] dark:bg-[#0f1115] dark:text-white">
@@ -373,44 +377,50 @@ function SidebarPanel({
          </div>
       )}
 
-      <div className="mt-2 px-1">
-        {!collapsed ? (
-          <>
-            <div className="relative group">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
-              <input 
-                type="text" 
-                placeholder="Search menu..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
-              />
+      {(isSuperAdmin || canSearchTracking) && (
+        <div className="mt-2 px-1">
+          {!collapsed ? (
+            <>
+              {isSuperAdmin ? (
+                <div className="relative group">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Search menu..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200/60 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
+                  />
+                </div>
+              ) : null}
+              {canSearchTracking ? (
+                <SidebarTrackingSearch onNavigate={onNavigateTracking} className={!isSuperAdmin ? "!mt-0" : undefined} />
+              ) : null}
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              {isSuperAdmin ? (
+                <button 
+                  title="Search menu"
+                  onClick={onOpenSearch}
+                  className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
+                >
+                  <Search size={18} />
+                </button>
+              ) : null}
+              {canSearchTracking ? (
+                <button 
+                  title="Search tracking number"
+                  onClick={onOpenSearch}
+                  className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
+                >
+                  <FileSearch size={18} />
+                </button>
+              ) : null}
             </div>
-            {canSearchTracking ? (
-              <SidebarTrackingSearch onNavigate={onNavigateTracking} />
-            ) : null}
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-1">
-            <button 
-              title="Search menu"
-              onClick={onOpenSearch}
-              className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
-            >
-              <Search size={18} />
-            </button>
-            {canSearchTracking ? (
-              <button 
-                title="Search tracking number"
-                onClick={onOpenSearch}
-                className="flex h-10 w-full items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white transition-colors"
-              >
-                <FileSearch size={18} />
-              </button>
-            ) : null}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1 pt-1 pb-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200 dark:scrollbar-thumb-white/10" aria-label="Dashboard">
         {children}
@@ -443,7 +453,7 @@ type TrackingSuggestionItem = {
   status?: string | null;
 };
 
-function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarTrackingSearch({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -618,7 +628,7 @@ function SidebarTrackingSearch({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div ref={containerRef} className="relative mt-2">
+    <div ref={containerRef} className={cn("relative mt-2", className)}>
       <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
         <input
           type="text"

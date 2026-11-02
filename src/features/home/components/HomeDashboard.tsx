@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import Link from "next/link";
@@ -666,6 +668,70 @@ export function HomeDashboard({
     }
   };
 
+  const handleExport = () => {
+    if (activeTab === "document_in_hand") {
+      exportToExcel({
+        filename: "Document_In_Hand",
+        data: inHandDocs,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Tracking Number", render: (r) => r.trackingNumber || r.registrationNumber || "" },
+          { header: "Registration Date", render: (r) => r.registeredDate ? formatDate(r.registeredDate) : "" },
+          { header: "Registration Office", render: (r) => r.regionOfRegistration || "" },
+          { header: "Document Name", render: (r) => r.documentName || "" },
+          { header: "Document Type", render: (r) => r.documentType || "" },
+          { header: "Delivery At", render: (r) => r.deliveryLocation || "" },
+          { header: "Process Type", render: (r) => r.processType || "" },
+          { header: "Number Of Days", render: (r) => r.workingDays || "" },
+          { header: "Total Amount", render: (r) => r.totalCharges ?? 0 },
+          { header: "Advance Amount", render: (r) => r.advancePaid ?? 0 },
+        ],
+      });
+    } else if (activeTab === "inbound") {
+      exportToExcel({
+        filename: "Inbound_Bundles",
+        data: inboundBundles,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Bundle Number", render: (r) => formatBundleNumber(r.bundleNumber) },
+          { header: "From (Origin Office)", render: (r) => r.fromOffice?.officeName || "Origin Office" },
+          { header: "Date Received", render: (r) => r.createdAt ? formatDate(r.createdAt) : "" },
+          { header: "Finished Days", render: (r) => calculateFinishedDays(r.createdAt) },
+          { header: "Status", render: (r) => r.status || "Pending" },
+        ],
+      });
+    } else if (activeTab === "outbound") {
+      exportToExcel({
+        filename: "Outbound_Bundles",
+        data: outboundBundles,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Bundle Number", render: (r) => formatBundleNumber(r.bundleNumber) },
+          { header: "From (Current Office)", render: (r) => r.fromOffice?.officeName || "Current Office" },
+          { header: "To (Destination Office)", render: (r) => r.toOffice?.officeName || "Destination" },
+          { header: "Date Sent", render: (r) => r.createdAt ? formatDate(r.createdAt) : "" },
+          { header: "Finished Days", render: (r) => calculateFinishedDays(r.createdAt) },
+          { header: "Status", render: (r) => r.status || "" },
+        ],
+      });
+    } else if (activeTab === "history") {
+      exportToExcel({
+        filename: "Movement_History",
+        data: movementHistory,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Tracking Number", render: (r) => r.trackingNumber || "" },
+          { header: "Action", render: (r) => r.action || "" },
+          { header: "Old Status", render: (r) => r.oldStatus || "-" },
+          { header: "New Status", render: (r) => r.newStatus || "-" },
+          { header: "Performed By", render: (r) => r.performedBy || "-" },
+          { header: "Date", render: (r) => r.performedAt ? new Date(r.performedAt).toLocaleString() : "" },
+          { header: "Remarks", render: (r) => r.remarks || "-" },
+        ],
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Controls: Tabs & Office Selector */}
@@ -775,7 +841,7 @@ export function HomeDashboard({
 
           {/* Main Tab Content */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-white/10 dark:bg-[#0f1422]">
-            {/* Search Bar */}
+            {/* Search Bar & Export */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -787,6 +853,7 @@ export function HomeDashboard({
                   className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
+              <ExportButton onClick={handleExport} />
             </div>
 
             {/* 1. DOCUMENT IN HAND TAB */}

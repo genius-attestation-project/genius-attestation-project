@@ -1,3 +1,5 @@
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import { AlertCircle, BriefcaseBusiness, Edit3, Plus, Trash2, Search } from "lucide-react";
@@ -142,6 +144,18 @@ export function DepartmentManagement() {
     }
   }
 
+  const handleExportDepartments = () => {
+    exportToExcel<DepartmentRow>({
+      filename: "Departments",
+      data: filteredDepartments,
+      columns: [
+        { header: "SL No.", render: (_: any, idx: number) => idx + 1 },
+        { header: "Department Name", key: "name" },
+        { header: "Created Date", key: "createdDate" },
+      ],
+    });
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {error ? (
@@ -154,10 +168,13 @@ export function DepartmentManagement() {
         action={
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SearchBar placeholder="Search departments..." onSearch={setSearchQuery} className="w-full sm:max-w-md" />
-            <Button onClick={openCreateDrawer}>
-              <Plus size={16} />
-              Add Department
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton onClick={handleExportDepartments} />
+              <Button onClick={openCreateDrawer}>
+                <Plus size={16} />
+                Add Department
+              </Button>
+            </div>
           </div>
         }
       >

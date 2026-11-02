@@ -1,3 +1,4 @@
+import { ExportButton } from "@/components/ui/ExportButton";
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ interface StatementFiltersProps {
   onApplyFilters: () => void;
   onResetFilters: () => void;
   onPrint: () => void;
+  onExportExcel?: () => void;
   loading?: boolean;
 }
 
@@ -39,6 +41,7 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
   onApplyFilters,
   onResetFilters,
   onPrint,
+  onExportExcel,
   loading = false,
 }) => {
   const [offices, setOffices] = useState<OfficeLocationItem[]>([]);
@@ -80,14 +83,19 @@ export const StatementFilters: React.FC<StatementFiltersProps> = ({
         </div>
 
         {hasSearched && canExport && (
-          <button
-            type="button"
-            onClick={onPrint}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer"
-          >
-            <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            Print / Export
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onPrint}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer"
+            >
+              <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              Print
+            </button>
+            {onExportExcel && (
+              <ExportButton onClick={onExportExcel} />
+            )}
+          </div>
         )}
       </div>
 

@@ -15,6 +15,7 @@ import { MasterLayout } from "@/features/master-configuration/components/MasterL
 import { MasterDataTable } from "@/features/master-configuration/components/MasterDataTable";
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Button } from "@/components/ui/Button";
+import { exportToExcel } from "@/utils/excelExport";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -414,6 +415,23 @@ export function PaymentModeMasterView() {
     </div>
   );
 
+  const handleExport = () => {
+    if (!data.length) return;
+    exportToExcel({
+      filename: `payment-modes-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Payment Modes",
+      columns: [
+        { header: "Payment Mode Name", accessor: (item) => item.paymentModeName },
+        { header: "Description", accessor: (item) => item.description || "-" },
+        { header: "Status", accessor: (item) => item.status },
+        { header: "Display Order", accessor: (item) => item.displayOrder },
+        { header: "Created By", accessor: (item) => item.createdBy || "-" },
+        { header: "Created At", accessor: (item) => item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-" },
+      ],
+      data,
+    });
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -437,6 +455,7 @@ export function PaymentModeMasterView() {
           onEdit={openEdit}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
+          onExport={handleExport}
           filterComponent={filterComponent}
         />
       </MasterLayout>

@@ -49,7 +49,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           userName={userName}
           userEmail={userEmail}
           permissions={session.user.permissions}
-          isSuperAdmin={session.user.isSuperAdmin}
+          isSuperAdmin={Boolean(session.user.isSuperAdmin || session.user.role === "Super Admin" || (session.user as any).roles?.includes("Super Admin"))}
           isAssignedOffice={isAssignedOfficePortalUser}
         />
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">

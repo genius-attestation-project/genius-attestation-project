@@ -8,6 +8,7 @@ import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { exportToExcel } from "@/utils/excelExport";
 
 // Map URL slugs to human-readable titles
 const pageTitles: Record<string, string> = {
@@ -312,6 +313,27 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
     return cols;
   }, [isDocumentType, isDocumentTypeCategory, isProcessType, isSubPackage]);
 
+  const handleExport = () => {
+    if (!data.length) return;
+    const exportColumns = [
+      { header: `${title} Name`, accessor: (item: any) => item.name || "" },
+      ...(isDocumentType ? [{ header: "Category", accessor: (item: any) => item.categoryRef?.name || item.category || "-" }] : []),
+      ...(isProcessType ? [
+        { header: "Main Process", accessor: (item: any) => item.coreSubPackage?.name || "-" },
+        { header: "Sub Process Linked", accessor: (item: any) => item.subPackages?.map((sp: any) => sp.name).join(", ") || "-" },
+      ] : []),
+      { header: "Description", accessor: (item: any) => item.description || "-" },
+      { header: "Status", accessor: (item: any) => item.isActive ? "Active" : "Inactive" },
+      { header: "Created At", accessor: (item: any) => item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-" },
+    ];
+    exportToExcel({
+      filename: `${title.toLowerCase().replace(/\s+/g, "-")}-master-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: title.slice(0, 31),
+      columns: exportColumns,
+      data,
+    });
+  };
+
   return (
     <>
       <MasterLayout
@@ -332,6 +354,7 @@ export function MasterConfigurationDynamicView({ slug }: { slug: string }) {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
+          onExport={handleExport}
           filterComponent={
             isProcessType ? (
               <div className="flex items-center gap-2">

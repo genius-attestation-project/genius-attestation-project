@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { FormDrawer } from "@/components/ui/FormDrawer";
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { exportToExcel } from "@/utils/excelExport";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
 import type { WelcomeCallResponse, WelcomeCallItem } from "@/features/welcome-call/types/welcome-call.types";
@@ -170,6 +172,28 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
     void loadWelcomeCalls("","Today");
   }, [currentOfficeLocationName]);
 
+  const handleExport = () => {
+    if (!items.length) return;
+    exportToExcel({
+      filename: `welcome-calls-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: "Welcome Calls",
+      columns: [
+        { header: "Registration Number", accessor: (item) => item.registrationNumber },
+        { header: "Client Name", accessor: (item) => item.clientName },
+        { header: "Mobile Number", accessor: (item) => item.mobile },
+        { header: "Process Type", accessor: (item) => item.processType },
+        { header: "Total Charges", accessor: (item) => item.totalCharges },
+        { header: "Committed Duration", accessor: (item) => item.committedDuration },
+        { header: "Service", accessor: (item) => item.service },
+        { header: "Office Location", accessor: (item) => item.officeLocation },
+        { header: "Assigned User", accessor: (item) => item.assignedUser },
+        { header: "Registration Date", accessor: (item) => item.registrationDate },
+        { header: "Status", accessor: (item) => item.welcomeCallStatus },
+      ],
+      data: items,
+    });
+  };
+
   async function updateStatus(item: WelcomeCallItem, status: string) {
     setUpdatingId(item.id);
     setError("");
@@ -284,6 +308,7 @@ export function WelcomeCallDashboard({ currentOfficeLocationName }: WelcomeCallD
             >
               <RefreshCw size={16} /> Refresh
             </Button>
+            <ExportButton onClick={handleExport} />
           </div>
 
           {error ? (

@@ -1,5 +1,8 @@
+
 "use client";
 
+import { exportToExcel } from "@/utils/excelExport";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -501,6 +504,71 @@ export function ProcessDashboard({
     return all.filter((t) => t.visible);
   }, [stats, canViewInHand, canViewInbound, canViewOutbound, canViewBundle]);
 
+  const handleExport = () => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    if (activeTab === "in_hand") {
+      exportToExcel({
+        filename: `Process_Document_In_Hand_${dateStr}`,
+        data: items,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Tracking Number", key: "trackingNumber" },
+          { header: "Customer Name", render: (r) => r.customerName || r.clientName || "" },
+          { header: "Registered Date", render: (r) => r.registeredDate ? formatDate(r.registeredDate) : "" },
+          { header: "Registered Office", render: (r) => r.registeredOffice || "" },
+          { header: "Document Name", render: (r) => r.documentName || "" },
+          { header: "Document Type", render: (r) => r.documentType || "" },
+          { header: "Delivery Location", render: (r) => r.deliveryLocation || "" },
+          { header: "Process Type", render: (r) => r.processType || "" },
+          { header: "Priority", render: (r) => r.priority || "Normal" },
+          { header: "Days Held", render: (r) => r.daysHeld ?? 0 },
+          { header: "Status", render: (r) => r.status || "IN_HAND" },
+        ],
+      });
+    } else if (activeTab === "inbound") {
+      exportToExcel({
+        filename: `Process_Inbound_Bundles_${dateStr}`,
+        data: items,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Bundle Number", render: (r) => formatBundleNumber(r.bundleNumber) },
+          { header: "From Office", render: (r) => r.fromOfficeName || "" },
+          { header: "Documents Count", render: (r) => r.documentCount ?? (r.items ? r.items.length : 0) },
+          { header: "Sent Date", render: (r) => r.sentDate || (r.createdAt ? formatDate(r.createdAt) : "") },
+          { header: "Status", render: (r) => r.status || "Inbound" },
+        ],
+      });
+    } else if (activeTab === "outbound") {
+      exportToExcel({
+        filename: `Process_Outbound_Bundles_${dateStr}`,
+        data: items,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Bundle Number", render: (r) => formatBundleNumber(r.bundleNumber) },
+          { header: "From Office", render: (r) => r.fromOfficeName || "" },
+          { header: "To Office", render: (r) => r.toOfficeName || "" },
+          { header: "Documents Count", render: (r) => r.documentCount ?? (r.items ? r.items.length : 0) },
+          { header: "Sent Date", render: (r) => r.sentDate || (r.createdAt ? formatDate(r.createdAt) : "") },
+          { header: "Status", render: (r) => r.status || "Outbound" },
+        ],
+      });
+    } else if (activeTab === "bundle") {
+      exportToExcel({
+        filename: `Process_Bundle_Movement_${dateStr}`,
+        data: items,
+        columns: [
+          { header: "SL No.", render: (_, idx) => idx + 1 },
+          { header: "Bundle Number", render: (r) => formatBundleNumber(r.bundleNumber) },
+          { header: "From Office", render: (r) => r.fromOfficeName || "" },
+          { header: "To Office", render: (r) => r.toOfficeName || "" },
+          { header: "Documents Count", render: (r) => r.documentCount ?? (r.items ? r.items.length : 0) },
+          { header: "Date", render: (r) => r.createdAt ? formatDate(r.createdAt) : "" },
+          { header: "Status", render: (r) => r.status || "" },
+        ],
+      });
+    }
+  };
+
   return (
     <div className="grid min-w-0 gap-4 sm:gap-6">
       {/* Top Banner with Header & Process Office Selector */}
@@ -668,9 +736,9 @@ export function ProcessDashboard({
         </div>
       )}
 
-      {/* Search Bar for Document In Hand */}
-      {activeTab === "in_hand" && (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Search Bar & Export */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {activeTab === "in_hand" ? (
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -691,8 +759,9 @@ export function ProcessDashboard({
               </button>
             )}
           </div>
-        </div>
-      )}
+        ) : <div />}
+        <ExportButton onClick={handleExport} />
+      </div>
 
       {/* Bulk Operations Toolbar */}
       {items.length > 0 && (activeTab === "in_hand" || activeTab === "inbound") && (

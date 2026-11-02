@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Edit2, Search, Trash2, ShieldAlert, CircleCheck, CircleMinus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { cn } from "@/utils/cn";
 
 type Column = {
@@ -22,6 +23,7 @@ type MasterDataTableProps = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   filterComponent?: React.ReactNode;
+  onExport?: () => void;
 };
 
 export function MasterDataTable({
@@ -35,6 +37,7 @@ export function MasterDataTable({
   searchQuery,
   onSearchChange,
   filterComponent,
+  onExport,
 }: MasterDataTableProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_12px_-4px_rgba(0,0,0,0.02)] dark:border-white/10 dark:bg-[#0f1115]">
@@ -50,9 +53,10 @@ export function MasterDataTable({
             className="h-10 w-full rounded-xl border border-slate-200/60 bg-slate-50/50 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-[#13151a]"
           />
         </div>
-        {filterComponent && (
+        {(filterComponent || onExport) && (
           <div className="flex items-center gap-2">
             {filterComponent}
+            {onExport && <ExportButton onClick={onExport} size="sm" />}
           </div>
         )}
       </div>
