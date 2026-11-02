@@ -18,6 +18,7 @@ export type MultiFileUploadProps = {
   fileCategory?: string;
   accept?: string;
   required?: boolean;
+  error?: string;
   existingFiles?: ExistingFileItem[];
   onFilesChange: (fileStorageIds: string[]) => void;
   onRemoveExistingFile?: (fileId: string) => void;
@@ -39,6 +40,7 @@ export function MultiFileUpload({
   moduleName,
   accept = ".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx",
   required = false,
+  error,
   existingFiles = [],
   onFilesChange,
   onRemoveExistingFile,
@@ -249,7 +251,11 @@ export function MultiFileUpload({
             <div key={slot.slotId} className="flex items-start gap-2">
               <div className="flex-1">
                 {!slot.file ? (
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50/50 p-5 transition-all hover:bg-blue-50 hover:border-blue-400 dark:border-blue-500/30 dark:bg-blue-500/5 dark:hover:bg-blue-500/10">
+                  <label className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-5 transition-all ${
+                    error
+                      ? "border-rose-400 bg-rose-50/40 hover:bg-rose-50/60 dark:border-rose-500/40 dark:bg-rose-950/20"
+                      : "border-blue-300 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-500/30 dark:bg-blue-500/5 dark:hover:bg-blue-500/10"
+                  }`}>
                     <FileUp className="mb-1.5 text-blue-500" size={22} />
                     <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                       Click to select or drag and drop
@@ -337,6 +343,7 @@ export function MultiFileUpload({
           <span>Add More Files</span>
         </button>
       </div>
+      {error && <p className="text-xs font-semibold text-rose-500 mt-0.5">{error}</p>}
     </div>
   );
 }

@@ -166,10 +166,10 @@ export function SearchableSelect({
         className={
           triggerClassName
             ? `flex w-full items-center justify-between transition-all ${
-                error ? "border-rose-500" : ""
+                error ? "border-rose-500 ring-2 ring-rose-500" : ""
               } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${triggerClassName}`
             : `flex min-h-10.5 w-full items-center justify-between rounded-xl border bg-white px-3 py-2 text-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:bg-slate-900 ${
-                error ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                error ? "border-rose-500 ring-2 ring-rose-500" : "border-slate-200 dark:border-slate-800"
               } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`
         }
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -340,6 +340,7 @@ export function SearchableSelect({
         )}
       </AnimatePresence>
       {name && <input type="hidden" name={name} value={value} />}
+      {error && <p className="text-xs font-semibold text-rose-500 mt-1">{error}</p>}
     </div>
   );
 }

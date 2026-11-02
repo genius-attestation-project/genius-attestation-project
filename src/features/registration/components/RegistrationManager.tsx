@@ -261,25 +261,55 @@ function getCountryCodeFromOffice(officeName: string, officeLocationsList: Offic
   return "in";
 }
 
+type CustomerFormErrors = {
+  customerName?: string;
+  mobile?: string;
+  customerType?: string;
+};
+
+type DocumentFormErrors = {
+  trackingNumber?: string;
+  documentType?: string;
+  documentIssuedCountry?: string;
+  documentName?: string;
+  processType?: string;
+  priority?: string;
+  deliveryLocation?: string;
+  totalCharges?: string;
+  collectedPerson?: string;
+  invoiceFileIds?: string;
+  supportingFileIds?: string;
+};
+
 function PhoneField({
   value,
   onChange,
   defaultCountry = "in",
+  required = false,
+  error,
 }: {
   value: string;
   onChange: (value: string) => void;
   defaultCountry?: string;
+  required?: boolean;
+  error?: string;
 }) {
   return (
     <label className="grid min-w-0 gap-2">
-      <span className="text-sm font-bold">Mobile Number</span>
+      <span className="text-sm font-bold">
+        Mobile Number {required && <span className="text-rose-500">*</span>}
+      </span>
       <PhoneInput
         defaultCountry={defaultCountry}
         value={value}
         onChange={(phone) => onChange(normalizePhoneValue(phone))}
         forceDialCode
         preferredCountries={["in", "ae", "sa", "qa", "om", "kw", "bh", "us", "gb"]}
-        className="registration-phone-input flex h-14 w-full items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-100 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/40"
+        className={`registration-phone-input flex h-14 w-full items-center rounded-xl border bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-100 transition ${
+          error
+            ? "border-rose-500 ring-2 ring-rose-500 focus-within:border-rose-500 focus-within:ring-2 focus-within:ring-rose-500"
+            : "border-gray-200 dark:border-slate-700 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/40"
+        }`}
         inputClassName="registration-phone-input__field flex-1 border-0 bg-transparent px-3 outline-none focus:ring-0 text-slate-900 dark:text-slate-100"
         countrySelectorStyleProps={{
           className: "registration-phone-input__country",
@@ -293,11 +323,11 @@ function PhoneField({
           },
         }}
         inputProps={{
-          required: true,
           inputMode: "tel",
           "aria-label": "Mobile Number",
         }}
       />
+      {error && <p className="text-xs font-semibold text-rose-500 mt-0.5">{error}</p>}
       <style jsx global>{`
         .registration-phone-input.react-international-phone-input-container {
           display: flex;
@@ -597,6 +627,27 @@ export function RegistrationManager({
     };
   }
 
+  const [customerErrors, setCustomerErrors] = useState<CustomerFormErrors>({});
+  const [docErrors, setDocErrors] = useState<Record<number, DocumentFormErrors>>({});
+
+  const clearCustomerError = (field: keyof CustomerFormErrors) => {
+    setCustomerErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const clearDocError = (index: number, field: keyof DocumentFormErrors) => {
+    setDocErrors((prev) => {
+      if (!prev[index]?.[field]) return prev;
+      const nextDoc = { ...prev[index] };
+      delete nextDoc[field];
+      return { ...prev, [index]: nextDoc };
+    });
+  };
+
   const [documents, setDocuments] = useState<DocumentFormState[]>([
     createBlankDocument("doc-1", currentOfficeLocationName, currentUserName, initialTrackingNumber),
   ]);
@@ -629,6 +680,15 @@ export function RegistrationManager({
   function removeDocument(index: number) {
     if (documents.length <= 1) return;
     setDocuments((prev) => prev.filter((_, i) => i !== index));
+    setDocErrors((prev) => {
+      const next: Record<number, DocumentFormErrors> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        const k = Number(key);
+        if (k < index) next[k] = val;
+        else if (k > index) next[k - 1] = val;
+      });
+      return next;
+    });
   }
 
   function updateDocumentField<K extends keyof DocumentFormState>(
@@ -643,6 +703,20 @@ export function RegistrationManager({
       }
       return next;
     });
+
+    if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        if (value.length > 0) {
+          clearDocError(index, field as keyof DocumentFormErrors);
+        }
+      } else if (field === "totalCharges") {
+        if (String(value).trim() !== "" && !isNaN(Number(value))) {
+          clearDocError(index, "totalCharges");
+        }
+      } else if (String(value).trim() !== "") {
+        clearDocError(index, field as keyof DocumentFormErrors);
+      }
+    }
   }
 
   function updateSharedCustomer<K extends keyof SharedCustomerState>(
@@ -650,6 +724,17 @@ export function RegistrationManager({
     value: SharedCustomerState[K]
   ) {
     setSharedCustomer((prev) => ({ ...prev, [field]: value }));
+    if (value) {
+      if (field === "mobile") {
+        if (String(value).replace(/\D/g, "").length >= 7) {
+          clearCustomerError("mobile");
+        }
+      } else if (field === "customerName" || field === "customerType") {
+        if (String(value).trim()) {
+          clearCustomerError(field);
+        }
+      }
+    }
   }
   const [personOptions, setPersonOptions] = useState<string[]>([]);
   const [commissionUserOptions, setCommissionUserOptions] = useState<SelectOption[]>([]);
@@ -1229,10 +1314,14 @@ export function RegistrationManager({
     setAdvancePaymentFileIds([]);
     setError("");
     setSuccess("");
+    setCustomerErrors({});
+    setDocErrors({});
     setDrawerMode("form");
   }
 
   function openEdit(registration: Registration) {
+    setCustomerErrors({});
+    setDocErrors({});
     setSelected(registration);
     setForm(formFromRegistration(registration));
     setIsSwapPrepared(false);
@@ -1428,27 +1517,104 @@ export function RegistrationManager({
         return;
       }
 
-      if (!sharedCustomer.customerName?.trim() && !sharedCustomer.mobile?.trim()) {
-        setError("Customer Name or Mobile Number is required.");
-        return;
+      // ── Mandatory Field Validation for Add Registration (14 fields) ──
+      const newCustomerErrors: CustomerFormErrors = {};
+
+      if (!sharedCustomer.customerName || !sharedCustomer.customerName.trim()) {
+        newCustomerErrors.customerName = "This field is mandatory.";
       }
 
+      const mobileDigits = (sharedCustomer.mobile || "").replace(/\D/g, "");
+      if (!sharedCustomer.mobile || !sharedCustomer.mobile.trim() || mobileDigits.length < 7) {
+        newCustomerErrors.mobile = "This field is mandatory.";
+      }
+
+      if (!sharedCustomer.customerType || !sharedCustomer.customerType.trim()) {
+        newCustomerErrors.customerType = "This field is mandatory.";
+      }
+
+      const newDocErrors: Record<number, DocumentFormErrors> = {};
+      let firstMissingLabel: string | null = null;
       const trackingSet = new Set<string>();
+
       for (let i = 0; i < documents.length; i++) {
         const doc = documents[i];
         const docLabel = `Document ${i + 1}`;
+        const errors: DocumentFormErrors = {};
         const trk = (doc.trackingNumber || "").trim();
 
+        // 1. Tracking Number
         if (!trk) {
-          setError(`${docLabel}: Tracking Number is required.`);
+          errors.trackingNumber = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Tracking Number`;
+        } else if (trackingSet.has(trk.toLowerCase())) {
+          setError(`Tracking Number "${trk}" is duplicated in this submission (${docLabel}). Each document must have a unique Tracking Number.`);
+          setSaving(false);
           return;
+        } else {
+          trackingSet.add(trk.toLowerCase());
         }
 
-        if (trackingSet.has(trk.toLowerCase())) {
-          setError(`Tracking Number "${trk}" is duplicated in this submission (${docLabel}). Each document must have a unique Tracking Number.`);
-          return;
+        // 2. Document Type
+        if (!doc.documentType || !doc.documentType.trim()) {
+          errors.documentType = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Document Type`;
         }
-        trackingSet.add(trk.toLowerCase());
+
+        // 3. Document Issued Country
+        if (!doc.documentIssuedCountry || !doc.documentIssuedCountry.trim()) {
+          errors.documentIssuedCountry = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Document Issued Country`;
+        }
+
+        // 4. Document Name
+        if (!doc.documentName || !doc.documentName.trim()) {
+          errors.documentName = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Document Name`;
+        }
+
+        // 5. Process Type
+        if (!doc.processType || !doc.processType.trim()) {
+          errors.processType = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Process Type`;
+        }
+
+        // 6. Special Processing Priority
+        if (!doc.priority || !doc.priority.trim()) {
+          errors.priority = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Special Processing Priority`;
+        }
+
+        // 7. Delivery Location
+        if (!doc.deliveryLocation || !doc.deliveryLocation.trim()) {
+          errors.deliveryLocation = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Delivery Location`;
+        }
+
+        // 8. Total Charges
+        const rawTotal = doc.totalCharges !== undefined && doc.totalCharges !== null ? String(doc.totalCharges).trim() : "";
+        if (rawTotal === "" || isNaN(Number(rawTotal)) || Number(rawTotal) < 0) {
+          errors.totalCharges = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Total Charges`;
+        }
+
+        // 9. Collected Person
+        if (!doc.collectedPerson || !doc.collectedPerson.trim()) {
+          errors.collectedPerson = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Collected Person`;
+        }
+
+        // 10. Bill Upload
+        if (!doc.invoiceFileIds || doc.invoiceFileIds.length === 0) {
+          errors.invoiceFileIds = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Bill Upload`;
+        }
+
+        // 11. Supporting Documents Upload
+        if (!doc.supportingFileIds || doc.supportingFileIds.length === 0) {
+          errors.supportingFileIds = "This field is mandatory.";
+          if (!firstMissingLabel) firstMissingLabel = `${docLabel} → Supporting Documents Upload`;
+        }
 
         const totalChargesNum = Number(doc.totalCharges || 0);
         const advanceNum = Number(doc.advancePaid || 0);
@@ -1456,12 +1622,43 @@ export function RegistrationManager({
 
         if (advanceNum > totalChargesNum) {
           setError(`${docLabel}: Advance payment (₹${advanceNum}) cannot exceed total charges (₹${totalChargesNum}).`);
+          setSaving(false);
           return;
         }
         if (reqAdvanceNum > totalChargesNum) {
           setError(`${docLabel}: Requested advance (₹${reqAdvanceNum}) cannot exceed total charges (₹${totalChargesNum}).`);
+          setSaving(false);
           return;
         }
+
+        if (Object.keys(errors).length > 0) {
+          newDocErrors[i] = errors;
+        }
+      }
+
+      const hasCustomerErrors = Object.keys(newCustomerErrors).length > 0;
+      const hasDocErrors = Object.keys(newDocErrors).length > 0;
+
+      if (hasCustomerErrors || hasDocErrors) {
+        setSaving(false);
+        setCustomerErrors(newCustomerErrors);
+        setDocErrors(newDocErrors);
+
+        if (hasCustomerErrors) {
+          const firstKey = Object.keys(newCustomerErrors)[0];
+          const fieldLabel =
+            firstKey === "customerName"
+              ? "Customer Name"
+              : firstKey === "mobile"
+              ? "Mobile Number"
+              : "Customer Type";
+          setError(`Customer Information → ${fieldLabel} → This field is mandatory.`);
+        } else if (firstMissingLabel) {
+          setError(`${firstMissingLabel} → This field is mandatory.`);
+        } else {
+          setError("This field is mandatory.");
+        }
+        return;
       }
 
       const multiPayload = {
@@ -2265,7 +2462,7 @@ export function RegistrationManager({
         description="Complete the customer, document, and commercial sections."
         onClose={() => setDrawerMode(null)}
       >
-        <form onSubmit={handleSubmit} className="grid gap-5">
+        <form onSubmit={handleSubmit} noValidate className="grid gap-5">
           {selected?.hasPendingEditRequest && (
             <div className="flex items-center gap-2.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -2834,14 +3031,17 @@ export function RegistrationManager({
               <Section title="Section 1: Customer Information">
                 <Input
                   label="Customer Name"
+                  required
                   value={sharedCustomer.customerName}
                   onChange={(event) => updateSharedCustomer("customerName", event.target.value)}
-                  required
+                  error={customerErrors.customerName}
                 />
                 <PhoneField
                   value={sharedCustomer.mobile}
+                  required
                   onChange={(value) => updateSharedCustomer("mobile", value)}
                   defaultCountry={defaultPhoneCountry}
+                  error={customerErrors.mobile}
                 />
                 <Input
                   label="Email"
@@ -2864,7 +3064,9 @@ export function RegistrationManager({
                   />
                 </label>
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold">Customer Type</span>
+                  <span className="text-sm font-bold">
+                    Customer Type <span className="text-rose-500">*</span>
+                  </span>
                   <SearchableSelect
                     value={sharedCustomer.customerType}
                     options={toSelectOptions(customerTypeOptions)}
@@ -2874,6 +3076,7 @@ export function RegistrationManager({
                     }}
                     placeholder="Select customer type"
                     name="customerType"
+                    error={customerErrors.customerType}
                   />
                 </label>
 
@@ -2984,8 +3187,11 @@ export function RegistrationManager({
                               value={doc.trackingNumber}
                               onChange={(e) => updateDocumentField(index, "trackingNumber", e.target.value)}
                               placeholder="e.g. 7854"
-                              required
-                              className="flex h-11 w-full rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-sm text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                              className={`flex h-11 w-full rounded-2xl border bg-white dark:bg-slate-800 px-3.5 text-sm text-slate-800 dark:text-slate-100 font-mono font-bold outline-none transition ${
+                                docErrors[index]?.trackingNumber
+                                  ? "border-rose-500 ring-2 ring-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500"
+                                  : "border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                              }`}
                             />
                             <Button
                               type="button"
@@ -2997,46 +3203,62 @@ export function RegistrationManager({
                               <Plus size={18} />
                             </Button>
                           </div>
+                          {docErrors[index]?.trackingNumber && (
+                            <p className="text-xs font-semibold text-rose-500 mt-0.5">
+                              {docErrors[index]?.trackingNumber}
+                            </p>
+                          )}
                         </div>
 
                         <label className="grid gap-2">
-                          <span className="text-sm font-bold">Document Type</span>
+                          <span className="text-sm font-bold">
+                            Document Type <span className="text-rose-500">*</span>
+                          </span>
                           <SearchableSelect
                             value={doc.documentType}
                             options={documentTypeSelectOptions}
                             onChange={(nextValue: string) => updateDocumentField(index, "documentType", nextValue)}
                             placeholder="Select document type"
                             name={`documentType-${index}`}
+                            error={docErrors[index]?.documentType}
                           />
                         </label>
 
                         <label className="grid gap-2">
-                          <span className="text-sm font-bold">Document Issued Country</span>
+                          <span className="text-sm font-bold">
+                            Document Issued Country <span className="text-rose-500">*</span>
+                          </span>
                           <SearchableSelect
                             value={doc.documentIssuedCountry}
                             options={countrySelectOptions}
                             onChange={(nextValue: string) => updateDocumentField(index, "documentIssuedCountry", nextValue)}
                             placeholder="Select document issued country"
                             name={`documentIssuedCountry-${index}`}
+                            error={docErrors[index]?.documentIssuedCountry}
                           />
                         </label>
 
                         <Input
                           label="Document Name"
+                          required
                           value={doc.documentName}
                           placeholder="Enter document name"
                           onChange={(event) => updateDocumentField(index, "documentName", event.target.value)}
                           maxLength={255}
+                          error={docErrors[index]?.documentName}
                         />
 
                         <label className="grid gap-2">
-                          <span className="text-sm font-bold">Process Type</span>
+                          <span className="text-sm font-bold">
+                            Process Type <span className="text-rose-500">*</span>
+                          </span>
                           <SearchableSelect
                             value={doc.processType}
                             options={processTypeSelectOptions}
                             onChange={(nextValue: string) => updateDocumentField(index, "processType", nextValue)}
                             placeholder="Select process type"
                             name={`processType-${index}`}
+                            error={docErrors[index]?.processType}
                           />
                         </label>
 
@@ -3047,13 +3269,16 @@ export function RegistrationManager({
                         />
 
                         <label className="grid gap-2">
-                          <span className="text-sm font-bold">Special Processing Priority</span>
+                          <span className="text-sm font-bold">
+                            Special Processing Priority <span className="text-rose-500">*</span>
+                          </span>
                           <SearchableSelect
                             value={doc.priority}
                             options={prioritySelectOptions}
                             onChange={(nextValue: string) => updateDocumentField(index, "priority", nextValue)}
                             placeholder="Select priority"
                             name={`priority-${index}`}
+                            error={docErrors[index]?.priority}
                           />
                         </label>
 
@@ -3064,7 +3289,9 @@ export function RegistrationManager({
                         />
 
                         <label className="grid gap-2">
-                          <span className="text-sm font-bold">Delivery Location</span>
+                          <span className="text-sm font-bold">
+                            Delivery Location <span className="text-rose-500">*</span>
+                          </span>
                           <SearchableSelect
                             value={doc.deliveryLocation}
                             options={toSelectOptions(deliveryLocationOptions)}
@@ -3075,6 +3302,7 @@ export function RegistrationManager({
                             loadingMessage="Loading office locations..."
                             emptyMessage="No office locations found"
                             errorMessage={officeLocationsError}
+                            error={docErrors[index]?.deliveryLocation}
                           />
                         </label>
 
@@ -3096,6 +3324,7 @@ export function RegistrationManager({
                           <div className="grid gap-4 md:grid-cols-2">
                             <Input
                               label="Total Charges"
+                              required
                               type="number"
                               min="0"
                               step="0.01"
@@ -3103,6 +3332,7 @@ export function RegistrationManager({
                               placeholder="Enter amount"
                               className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
                               onChange={(event) => updateDocumentField(index, "totalCharges", event.target.value)}
+                              error={docErrors[index]?.totalCharges}
                             />
 
                             <div className="grid gap-1.5">
@@ -3334,13 +3564,16 @@ export function RegistrationManager({
                             })()}
 
                             <label className="grid gap-2">
-                              <span className="text-sm font-bold">Collected Person</span>
+                              <span className="text-sm font-bold">
+                                Collected Person <span className="text-rose-500">*</span>
+                              </span>
                               <SearchableSelect
                                 value={doc.collectedPerson}
                                 options={toSelectOptions(personOptions)}
                                 onChange={(val) => updateDocumentField(index, "collectedPerson", val)}
                                 placeholder="Select person"
                                 name={`collectedPerson-${index}`}
+                                error={docErrors[index]?.collectedPerson}
                               />
                             </label>
 
@@ -3382,7 +3615,8 @@ export function RegistrationManager({
                                 moduleName="Revenue Registration"
                                 accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
                                 onFilesChange={(ids) => updateDocumentField(index, "invoiceFileIds", ids)}
-                                required={false}
+                                required={true}
+                                error={docErrors[index]?.invoiceFileIds}
                               />
                             </div>
 
@@ -3392,7 +3626,8 @@ export function RegistrationManager({
                                 moduleName="Revenue Registration"
                                 accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx"
                                 onFilesChange={(ids) => updateDocumentField(index, "supportingFileIds", ids)}
-                                required={false}
+                                required={true}
+                                error={docErrors[index]?.supportingFileIds}
                               />
                             </div>
                           </div>

@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { resolveOfficeLocationName } from "@/lib/office-location";
 import { jsonError, jsonOk } from "@/utils/response";
 import { bulkDeleteRegistrations, createRegistration, createRegistrationsInTransaction, listRegistrations } from "@/features/registration/server/registration.service";
-import { registrationInputSchema, multiRegistrationInputSchema, SharedCustomerInput, DocumentItemInput } from "@/features/registration/validations/registration.schema";
+import { registrationInputSchema, multiRegistrationInputSchema, createSingleRegistrationSchema, SharedCustomerInput, DocumentItemInput } from "@/features/registration/validations/registration.schema";
 import { hasPermission } from "@/features/admin/server/rbac.service";
 import { NextRequest } from "next/server";
 
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       }
       normalizedPayload = parsedMulti.data;
     } else {
-      const parsedSingle = registrationInputSchema.safeParse(body);
+      const parsedSingle = createSingleRegistrationSchema.safeParse(body);
       if (!parsedSingle.success) {
         const firstIssue = parsedSingle.error.issues[0];
         const fieldPath = firstIssue?.path.join(".");

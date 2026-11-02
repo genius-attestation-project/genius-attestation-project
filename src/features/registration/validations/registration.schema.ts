@@ -16,6 +16,10 @@ const requiredText = (label: string, maxLen?: number) =>
     .refine((val) => val.length > 0, `${label} is required.`)
     .refine((val) => !maxLen || val.length <= maxLen, `${label} cannot exceed ${maxLen} characters.`);
 
+const mandatoryText = z
+  .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
+  .refine((val) => val.length > 0, "This field is mandatory.");
+
 const optionalEmail = z
   .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
   .refine((val) => val === "" || z.string().email().safeParse(val).success, "Enter a valid email address.")
@@ -39,6 +43,21 @@ const optionalPhone = z
   .optional()
   .default("");
 
+const mandatoryPhone = z
+  .preprocess((val) => (val === null || val === undefined ? "" : String(val).trim()), z.string())
+  .transform((value) => {
+    const digits = value.replace(/\D/g, "");
+    if (!digits) return "";
+    if (value.startsWith("+")) return `+${digits}`;
+    if (digits.length === 10) return `+91${digits}`;
+    return `+${digits}`;
+  })
+  .refine((value) => {
+    if (!value) return false;
+    const digits = value.replace(/\D/g, "");
+    return digits.length >= 7 && digits.length <= 15;
+  }, "This field is mandatory.");
+
 const numericField = (label: string, required = false) =>
   z.preprocess((val) => {
     if (val === null || val === undefined || val === "") return required ? undefined : 0;
@@ -49,6 +68,21 @@ const numericField = (label: string, required = false) =>
     }
     return val;
   }, z.number({ message: `${label} must be a valid number.` }).min(0, `${label} cannot be negative.`));
+
+const mandatoryNumeric = (label = "Amount") =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === "") return undefined;
+    if (typeof val === "number") return val;
+    if (typeof val === "string") {
+      const cleaned = val.replace(/[^0-9.-]/g, "").trim();
+      return cleaned === "" ? undefined : Number(cleaned);
+    }
+    return val;
+  }, z.number({ message: "This field is mandatory." }).min(0, `${label} cannot be negative.`));
+
+const mandatoryFileIds = z
+  .array(z.string())
+  .refine((arr) => Array.isArray(arr) && arr.length > 0, "This field is mandatory.");
 
 export const registrationInputSchema = z.object({
   trackingNumber: requiredText("Tracking number"),
@@ -178,17 +212,17 @@ export type RegistrationInput = {
 };
 
 export const documentItemInputSchema = z.object({
-  trackingNumber: requiredText("Tracking number"),
-  documentType: optionalText,
-  documentName: optionalText,
-  documentIssuedCountry: optionalText,
-  processType: optionalText,
+  trackingNumber: mandatoryText,
+  documentType: mandatoryText,
+  documentName: mandatoryText,
+  documentIssuedCountry: mandatoryText,
+  processType: mandatoryText,
   subPackage: optionalText,
   externalProcess: optionalText,
-  priority: optionalText,
+  priority: mandatoryText,
   committedDuration: optionalText,
-  deliveryLocation: optionalText,
-  totalCharges: numericField("Total charges", false),
+  deliveryLocation: mandatoryText,
+  totalCharges: mandatoryNumeric("Total charges"),
   advancePaid: numericField("Advance paid", false),
   requestedAdvanceAmount: numericField("Requested advance amount", false),
   paymentMode: optionalText,
@@ -209,7 +243,7 @@ export const documentItemInputSchema = z.object({
   paymentReferenceNo: optionalText,
   paymentDescription: optionalText,
   paymentStatus: optionalText,
-  collectedPerson: optionalText,
+  collectedPerson: mandatoryText,
   commissionToUserId: optionalText,
   commissionToName: optionalText,
   commissionToEmail: optionalText,
@@ -222,8 +256,8 @@ export const documentItemInputSchema = z.object({
   ).optional().default("Pending"),
   trackingStatus: optionalText,
   documentFileIds: z.array(z.string()).optional().default([]),
-  invoiceFileIds: z.array(z.string()).optional().default([]),
-  supportingFileIds: z.array(z.string()).optional().default([]),
+  invoiceFileIds: mandatoryFileIds,
+  supportingFileIds: mandatoryFileIds,
   advancePaymentFileIds: z.array(z.string()).optional().default([]),
 }).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
   message: "Advance payment cannot exceed Total Charges.",
@@ -280,14 +314,14 @@ export type DocumentItemInput = {
 
 export const sharedCustomerInputSchema = z.object({
   leadId: optionalText,
-  customerName: optionalText,
-  mobile: optionalPhone,
+  customerName: mandatoryText,
+  mobile: mandatoryPhone,
   email: optionalEmail,
   address: optionalText,
   country: optionalText,
   state: optionalText,
   city: optionalText,
-  customerType: optionalText,
+  customerType: mandatoryText,
   corporateDetailId: optionalText,
 });
 
@@ -327,3 +361,68 @@ export type MultiRegistrationInput = {
   documents: DocumentItemInput[];
 };
 
+export const createSingleRegistrationSchema = z.object({
+  trackingNumber: mandatoryText,
+  customerName: mandatoryText,
+  mobile: mandatoryPhone,
+  email: optionalEmail,
+  address: optionalText,
+  country: optionalText,
+  state: optionalText,
+  city: optionalText,
+  customerType: mandatoryText,
+  corporateDetailId: optionalText,
+  documentType: mandatoryText,
+  documentName: mandatoryText,
+  documentIssuedCountry: mandatoryText,
+  processType: mandatoryText,
+  subPackage: optionalText,
+  externalProcess: optionalText,
+  priority: mandatoryText,
+  committedDuration: optionalText,
+  deliveryLocation: mandatoryText,
+  totalCharges: mandatoryNumeric("Total charges"),
+  advancePaid: numericField("Advance paid", false),
+  requestedAdvanceAmount: numericField("Requested advance amount", false),
+  paymentMode: optionalText,
+  upiTransactionId: optionalText,
+  bankName: optionalText,
+  transactionRefNo: optionalText,
+  transferDate: optionalText,
+  chequeNumber: optionalText,
+  chequeDate: optionalText,
+  ddNumber: optionalText,
+  ddDate: optionalText,
+  cardLast4: optionalText,
+  approvalCode: optionalText,
+  paymentGateway: optionalText,
+  onlineTransactionId: optionalText,
+  walletName: optionalText,
+  walletTransactionId: optionalText,
+  paymentReferenceNo: optionalText,
+  paymentDescription: optionalText,
+  paymentStatus: optionalText,
+  collectedPerson: mandatoryText,
+  commissionToUserId: optionalText,
+  commissionToName: optionalText,
+  commissionToEmail: optionalText,
+  registeredPerson: optionalText,
+  regionOfRegistration: optionalText,
+  regionOfRegistrationId: optionalText,
+  approvalStatus: z.preprocess(
+    (val) => (val && approvalStatusOptions.includes(val as any) ? val : "Pending"),
+    z.enum(approvalStatusOptions),
+  ).optional().default("Pending"),
+  trackingStatus: optionalText,
+  leadId: optionalText,
+  documentFileIds: z.array(z.string()).optional().default([]),
+  invoiceFileIds: mandatoryFileIds,
+  supportingFileIds: mandatoryFileIds,
+  advancePaymentFileIds: z.array(z.string()).optional().default([]),
+  isSwap: z.boolean().optional().default(false),
+  targetRegistrationId: optionalText,
+  targetTrackingNumber: optionalText,
+}).refine((data) => (data.requestedAdvanceAmount ?? data.advancePaid ?? 0) <= (data.totalCharges ?? 0), {
+  message: "Advance payment cannot exceed Total Charges.",
+  path: ["requestedAdvanceAmount"],
+});

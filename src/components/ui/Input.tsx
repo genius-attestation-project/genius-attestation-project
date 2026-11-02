@@ -10,6 +10,8 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   description?: string;
   capitalizeFirstLetter?: boolean;
+  required?: boolean;
+  error?: string;
 };
 
 export function Input({
@@ -20,6 +22,8 @@ export function Input({
   capitalizeFirstLetter,
   onBlur,
   type,
+  required,
+  error,
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +47,10 @@ export function Input({
   return (
     <label className="grid min-w-0 gap-2" htmlFor={inputId}>
       <span className="flex min-w-0 items-center justify-between gap-3">
-        <span className="text-sm font-bold">{formatTitleCase(label)}</span>
+        <span className="text-sm font-bold">
+          {formatTitleCase(label)}
+          {required && <span className="text-rose-500 ml-1">*</span>}
+        </span>
         {description ? <span className="text-xs text-muted">{formatTitleCase(description)}</span> : null}
       </span>
       <div className="relative flex items-center w-full">
@@ -51,7 +58,10 @@ export function Input({
           id={inputId}
           type={inputType}
           className={cn(
-            "h-12 w-full min-w-0 rounded-xl bg-white/80 px-4 text-(--text) outline-none ring-1 ring-slate-900/10 transition placeholder:text-(--text-muted) focus:ring-2 focus:ring-blue-500 dark:bg-white/5 dark:ring-white/10 dark:focus:ring-blue-500/80",
+            "h-12 w-full min-w-0 rounded-xl bg-white/80 px-4 text-(--text) outline-none ring-1 transition placeholder:text-(--text-muted) dark:bg-white/5",
+            error
+              ? "ring-2 ring-rose-500 border-rose-500 focus:ring-2 focus:ring-rose-500 dark:ring-rose-500"
+              : "ring-slate-900/10 focus:ring-2 focus:ring-blue-500 dark:ring-white/10 dark:focus:ring-blue-500/80",
             isPassword && "pr-11",
             className,
           )}
@@ -70,6 +80,7 @@ export function Input({
           </button>
         ) : null}
       </div>
+      {error && <p className="text-xs font-semibold text-rose-500 mt-0.5">{error}</p>}
     </label>
   );
 }
