@@ -154,6 +154,17 @@
   .text-muted {
     color: var(--text-muted);
   }
+
+  /* Scoped utility to hide increment/decrement number spinner controls */
+  .no-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 @media print {

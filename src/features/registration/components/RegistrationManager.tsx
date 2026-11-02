@@ -2521,6 +2521,7 @@ export function RegistrationManager({
                   step="0.01"
                   value={form.totalCharges}
                   placeholder="Enter amount"
+                  className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
                   onChange={(event) => updateField("totalCharges", event.target.value)}
                 />
                 {pendingRequestedAdvance > 0 && (
@@ -3100,6 +3101,7 @@ export function RegistrationManager({
                               step="0.01"
                               value={doc.totalCharges}
                               placeholder="Enter amount"
+                              className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
                               onChange={(event) => updateDocumentField(index, "totalCharges", event.target.value)}
                             />
 

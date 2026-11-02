@@ -110,7 +110,7 @@ export function AddAdvanceModal({
   // ── Form State ──────────────────────────────────────────────────────────
   const [advanceAmount, setAdvanceAmount] = useState<string>("");
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
-  const [paymentMode, setPaymentMode] = useState<string>("Cash");
+  const [paymentMode, setPaymentMode] = useState<string>("");
   const [collectedBy, setCollectedBy] = useState<string>("");
   const [remarks, setRemarks] = useState<string>("");
   const [proofFileIds, setProofFileIds] = useState<string[]>([]);
@@ -169,7 +169,7 @@ export function AddAdvanceModal({
     if (isOpen) {
       setAdvanceAmount("");
       setPaymentDate(todayStr);
-      setPaymentMode("Cash");
+      setPaymentMode("");
       setCollectedBy("");
       setRemarks("");
       setProofFileIds([]);
@@ -287,7 +287,7 @@ export function AddAdvanceModal({
     }
 
     if (!paymentMode) {
-      setError("Payment Mode is mandatory.");
+      setError("Please select a payment mode.");
       return;
     }
 
@@ -414,7 +414,7 @@ export function AddAdvanceModal({
   };
 
   const modeKey = (paymentMode || "").trim().toLowerCase();
-  const isProofRequired = modeKey !== "cash";
+  const isProofRequired = Boolean(modeKey && modeKey !== "cash");
 
   return (
     <div
@@ -533,6 +533,7 @@ export function AddAdvanceModal({
               <div>
                 <FieldLabel required>Payment Mode</FieldLabel>
                 <FieldSelect value={paymentMode} onChange={handlePaymentModeChange} required>
+                  <option value="">Select Payment Mode</option>
                   {paymentModeOptions.map((mode) => (
                     <option key={mode} value={mode}>{mode}</option>
                   ))}
@@ -817,6 +818,8 @@ export function AddAdvanceModal({
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                   {isProofRequired
                     ? "Accepted: JPG, PNG, WEBP, PDF · Required"
+                    : !modeKey
+                    ? "Accepted: JPG, PNG, WEBP, PDF"
                     : "Accepted: JPG, PNG, WEBP, PDF · Optional for Cash"}
                 </p>
               </div>
@@ -831,6 +834,8 @@ export function AddAdvanceModal({
               ? `✓ ${proofFileIds.length} proof file${proofFileIds.length > 1 ? "s" : ""} attached`
               : isProofRequired
               ? "Upload proof to enable submission"
+              : !modeKey
+              ? "Select a payment mode to proceed"
               : "Direct cash payment · Proof upload optional"}
           </p>
 
