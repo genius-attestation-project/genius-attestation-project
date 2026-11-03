@@ -76,6 +76,7 @@ export interface CountryAnalyticsItem {
   totalCharges: number;
   totalPaid: number;
   totalBalance: number;
+  totalOffices?: number;
 }
 
 export interface OfficeAnalyticsItem {
@@ -93,6 +94,7 @@ export interface CountryOfficeAnalyticsItem {
   totalCharges: number;
   totalPaid: number;
   totalBalance: number;
+  totalOffices?: number;
   offices: OfficeAnalyticsItem[];
 }
 
@@ -110,6 +112,38 @@ export interface TrackingReportResult {
 }
 
 /**
+ * Normalizes country strings to authoritative country names without duplicating UAE, Qatar, India, etc.
+ */
+export function normalizeCountryName(country?: string | null): string | null {
+  if (!country) return null;
+  const c = country.trim();
+  const lower = c.toLowerCase();
+  if (
+    lower === "uae" ||
+    lower === "u.a.e." ||
+    lower === "united arab emirates" ||
+    lower === "dubai" ||
+    lower === "abu dhabi" ||
+    lower === "sharjah" ||
+    lower === "ajman"
+  ) {
+    return "UAE";
+  }
+  if (lower === "qatar" || lower === "doha") {
+    return "Qatar";
+  }
+  if (lower === "india" || lower === "in") {
+    return "India";
+  }
+  if (lower === "kuwait") return "Kuwait";
+  if (lower === "bahrain" || lower === "manama") return "Bahrain";
+  if (lower === "oman" || lower === "muscat") return "Oman";
+  if (lower === "saudi arabia" || lower === "ksa" || lower === "saudi" || lower === "riyadh") return "Saudi Arabia";
+  if (lower === "united kingdom" || lower === "uk") return "United Kingdom";
+  return c;
+}
+
+/**
  * Resolves authoritative country name for an office or registration based on office metadata and registration country.
  */
 export function resolveCountry(
@@ -119,30 +153,56 @@ export function resolveCountry(
 ): string {
   const cleanName = (officeName || "").toLowerCase().trim();
   const cleanLoc = (officeLocation || "").toLowerCase().trim();
-  const cleanRegCountry = (regCountry || "").trim();
+  const normRegCountry = normalizeCountryName(regCountry);
 
+  // 1. Check office location first (definitive physical office territory)
   if (
-    cleanName.includes("dubai") || cleanName.includes("uae") || cleanName.includes("abu dhabi") || cleanName.includes("sharjah") ||
     cleanLoc.includes("dubai") || cleanLoc.includes("uae") || cleanLoc.includes("emirates") || cleanLoc.includes("united arab")
   ) {
     return "UAE";
   }
-  if (
-    cleanName.includes("qatar") || cleanName.includes("doha") ||
-    cleanLoc.includes("qatar") || cleanLoc.includes("doha")
-  ) {
+  if (cleanLoc.includes("qatar") || cleanLoc.includes("doha")) {
     return "Qatar";
   }
-  if (cleanName.includes("kuwait") || cleanLoc.includes("kuwait")) {
+  if (cleanLoc.includes("kuwait")) {
     return "Kuwait";
   }
-  if (cleanName.includes("bahrain") || cleanLoc.includes("bahrain") || cleanLoc.includes("manama")) {
+  if (cleanLoc.includes("bahrain") || cleanLoc.includes("manama")) {
     return "Bahrain";
   }
-  if (cleanName.includes("oman") || cleanLoc.includes("oman") || cleanLoc.includes("muscat")) {
+  if (cleanLoc.includes("oman") || cleanLoc.includes("muscat")) {
     return "Oman";
   }
-  if (cleanName.includes("saudi") || cleanLoc.includes("saudi") || cleanLoc.includes("riyadh")) {
+  if (cleanLoc.includes("saudi") || cleanLoc.includes("riyadh")) {
+    return "Saudi Arabia";
+  }
+  if (
+    cleanLoc.includes("india") || cleanLoc.includes("kerala") || cleanLoc.includes("tamilnadu") ||
+    cleanLoc.includes("delhi") || cleanLoc.includes("maharashtra") || cleanLoc.includes("bangalore") ||
+    cleanLoc.includes("karnataka") || cleanLoc.includes("telangana")
+  ) {
+    return "India";
+  }
+
+  // 2. Check office name keywords
+  if (
+    cleanName.includes("dubai") || cleanName.includes("uae") || cleanName.includes("abu dhabi") || cleanName.includes("sharjah")
+  ) {
+    return "UAE";
+  }
+  if (cleanName.includes("qatar") || cleanName.includes("doha")) {
+    return "Qatar";
+  }
+  if (cleanName.includes("kuwait")) {
+    return "Kuwait";
+  }
+  if (cleanName.includes("bahrain")) {
+    return "Bahrain";
+  }
+  if (cleanName.includes("oman")) {
+    return "Oman";
+  }
+  if (cleanName.includes("saudi")) {
     return "Saudi Arabia";
   }
   if (
@@ -151,16 +211,14 @@ export function resolveCountry(
     cleanName.includes("delhi") || cleanName.includes("mumbai") || cleanName.includes("bangalore") ||
     cleanName.includes("jeevan bhima") || cleanName.includes("hyderabad") || cleanName.includes("madurai") ||
     cleanName.includes("coimbatore") || cleanName.includes("kollam") || cleanName.includes("kottayam") ||
-    cleanName.includes("malappuram") ||
-    cleanLoc.includes("india") || cleanLoc.includes("kerala") || cleanLoc.includes("tamilnadu") ||
-    cleanLoc.includes("delhi") || cleanLoc.includes("maharashtra") || cleanLoc.includes("bangalore") ||
-    cleanLoc.includes("telangana")
+    cleanName.includes("malappuram") || cleanName.includes("head office") || cleanName.includes("alhind")
   ) {
     return "India";
   }
 
-  if (cleanRegCountry && cleanRegCountry !== "-" && cleanRegCountry !== "N/A") {
-    return cleanRegCountry;
+  // 3. Normalized registration country fallback
+  if (normRegCountry && normRegCountry !== "-" && normRegCountry !== "N/A") {
+    return normRegCountry;
   }
 
   return "India";
@@ -402,14 +460,17 @@ export async function getTrackingReport(
   let grandTotalPaid = 0;
   let grandTotalBalance = 0;
 
-  const countryAnalyticsMap = new Map<string, { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
+  const countryAnalyticsMap = new Map<
+    string,
+    { totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number; officeSet: Set<string> }
+  >();
   const officeAnalyticsMap = new Map<string, { country: string; totalDocuments: number; totalCharges: number; totalPaid: number; totalBalance: number }>();
   const countryOfficesMap = new Map<string, Map<string, OfficeAnalyticsItem>>();
 
   for (const reg of allRegistrations) {
     const resolvedOffice =
-      reg.regionOfRegistration ||
       reg.regionOfRegistrationRef?.officeName ||
+      reg.regionOfRegistration ||
       reg.creator?.officeLocationRef?.officeName ||
       "Unassigned Office";
 
@@ -430,13 +491,20 @@ export async function getTrackingReport(
 
     // Country Analytics Aggregation
     if (!countryAnalyticsMap.has(country)) {
-      countryAnalyticsMap.set(country, { totalDocuments: 0, totalCharges: 0, totalPaid: 0, totalBalance: 0 });
+      countryAnalyticsMap.set(country, {
+        totalDocuments: 0,
+        totalCharges: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+        officeSet: new Set<string>(),
+      });
     }
     const countryStats = countryAnalyticsMap.get(country)!;
     countryStats.totalDocuments += 1;
     countryStats.totalCharges += charge;
     countryStats.totalPaid += paid;
     countryStats.totalBalance += balance;
+    countryStats.officeSet.add(resolvedOffice);
 
     // Office Analytics Aggregation
     if (!officeAnalyticsMap.has(resolvedOffice)) {
@@ -473,7 +541,11 @@ export async function getTrackingReport(
   const countryAnalytics: CountryAnalyticsItem[] = Array.from(countryAnalyticsMap.entries())
     .map(([country, stats]) => ({
       country,
-      ...stats,
+      totalDocuments: stats.totalDocuments,
+      totalCharges: stats.totalCharges,
+      totalPaid: stats.totalPaid,
+      totalBalance: stats.totalBalance,
+      totalOffices: stats.officeSet.size,
     }))
     .sort((a, b) => b.totalCharges - a.totalCharges);
 
@@ -502,6 +574,7 @@ export async function getTrackingReport(
         totalCharges,
         totalPaid,
         totalBalance,
+        totalOffices: offices.length,
         offices,
       };
     })
@@ -544,8 +617,8 @@ export async function getTrackingReport(
   for (const reg of paginatedRegistrations) {
     overallCounter++;
     const resolvedOffice =
-      reg.regionOfRegistration ||
       reg.regionOfRegistrationRef?.officeName ||
+      reg.regionOfRegistration ||
       reg.creator?.officeLocationRef?.officeName ||
       "Unassigned Office";
 
