@@ -474,8 +474,6 @@ export function TrackingReportClient({ canExport = true }: TrackingReportClientP
           loading={loading}
           error={error}
           onRetry={() => void executeSearch(1, pageSize)}
-          fromDate={fromDate}
-          toDate={toDate}
         />
       )}
 
