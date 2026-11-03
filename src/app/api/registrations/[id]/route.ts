@@ -39,13 +39,17 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
   try {
     const session = await auth();
-    const ownerAdminId = session?.user?.ownerAdminId;
+    const ownerAdminId = session?.user?.ownerAdminId ?? session?.user?.id;
     if (!ownerAdminId || !session?.user) return jsonError("Unauthorized", 401);
 
     const canEdit =
+      Boolean(session.user?.isSuperAdmin) ||
+      session.user?.role === "Super Admin" ||
       hasPermission(session.user, "revenue_registration.edit") ||
       hasPermission(session.user, "revenue_registration.create_request") ||
-      hasPermission(session.user, "edit.create_request");
+      hasPermission(session.user, "edit.create_request") ||
+      hasPermission(session.user, "document_details.edit") ||
+      hasPermission(session.user, "edit_request.create");
 
     if (!canEdit) {
       return jsonError("You do not have permission to edit revenue registrations.", 403);
@@ -58,14 +62,12 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       return jsonError(parsed.error.issues[0]?.message ?? "Invalid registration payload.");
     }
 
-    const sourceOfficeName = await resolveOfficeLocationName({
+    const resolvedOffice = await resolveOfficeLocationName({
       ownerAdminId,
       officeLocationId: session.user?.officeLocationId,
       officeLocationName: session.user?.officeLocationName,
     });
-    if (!sourceOfficeName) {
-      return jsonError("Assign a valid office location to the current user before updating registrations.", 400);
-    }
+    const sourceOfficeName = resolvedOffice || session.user?.officeLocationName || "Head Office";
 
     const requestedByName = session.user?.name ?? session.user?.email ?? "User";
     const result = await createEditRequest({

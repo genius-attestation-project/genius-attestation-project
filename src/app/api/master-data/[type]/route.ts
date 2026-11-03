@@ -43,17 +43,26 @@ function getMasterDataPermissionKey(slug: string, action: "view" | "create" | "e
  * is authorized to consume read-only active lookup/reference data for a given master type.
  */
 function isAuthorizedMasterDataLookupConsumer(user: any, slug: string): boolean {
+  if (user?.isSuperAdmin || user?.role === "Super Admin") return true;
+
   const normalized = slug.toLowerCase().replace(/_/g, "-");
 
   // Lead Management consumers
   const hasLeadCreateOrEdit = hasPermission(user, "leads.create") || hasPermission(user, "leads.edit");
   const hasAssignLeads = hasPermission(user, "assigned_leads.view");
 
-  // Revenue Registration consumers
+  // Revenue Registration and Document Details consumers
   const hasRevenueRegistration =
     hasPermission(user, "revenue_registration.view") ||
     hasPermission(user, "revenue_registration.create") ||
-    hasPermission(user, "revenue_registration.edit");
+    hasPermission(user, "revenue_registration.edit") ||
+    hasPermission(user, "revenue_registration.create_request") ||
+    hasPermission(user, "document_details.view") ||
+    hasPermission(user, "document_details.edit") ||
+    hasPermission(user, "search_report.view") ||
+    hasPermission(user, "edit.create_request") ||
+    hasPermission(user, "edit_request.create") ||
+    hasPermission(user, "edit_request.view");
 
   // Process module consumers
   const hasProcessModule =
@@ -87,7 +96,7 @@ function isAuthorizedMasterDataLookupConsumer(user: any, slug: string): boolean 
 
     case "sub-process":
     case "sub-packages":
-      return hasProcessModule;
+      return hasProcessModule || hasRevenueRegistration;
 
     default:
       return false;

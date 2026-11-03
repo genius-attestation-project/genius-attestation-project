@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateNumberOfDays } from "@/utils/days-calculator";
-import { getSessionAccess, canUserViewDocumentDetails, hasDocumentOfficeAccess } from "@/features/admin/server/rbac.service";
+import { getSessionAccess, canUserViewDocumentDetails, hasDocumentOfficeAccess, hasPermission } from "@/features/admin/server/rbac.service";
 
 function isUserIdLike(val: unknown): boolean {
   if (typeof val !== "string") return false;
@@ -40,6 +40,16 @@ export async function GET(
         { status: 403 }
       );
     }
+
+    const canEdit = Boolean(
+      access?.isSuperAdmin ||
+      access?.role === "Super Admin" ||
+      hasPermission(access as any, "revenue_registration.edit") ||
+      hasPermission(access as any, "revenue_registration.create_request") ||
+      hasPermission(access as any, "edit.create_request") ||
+      hasPermission(access as any, "document_details.edit") ||
+      hasPermission(access as any, "edit_request.create")
+    );
 
     const identifier = trackingNumber.trim();
 
@@ -150,8 +160,8 @@ export async function GET(
 
     const canonicalTracking = registration.trackingNumber;
 
-    // Fetch related timeline, activity movements, advance payment approvals, processType, and bundles.
-    const [subPackageMovements, rawMovementHistory, workflowHistory, advancePaymentApprovals, processType, bundles] = await Promise.all([
+    // Fetch related timeline, activity movements, advance payment approvals, processType, bundles, and pending edit request.
+    const [subPackageMovements, rawMovementHistory, workflowHistory, advancePaymentApprovals, processType, bundles, pendingEditRequest] = await Promise.all([
       (prisma as any).subPackageMovement.findMany({
         where: { trackingNumber: canonicalTracking },
         orderBy: { createdAt: "desc" },
@@ -182,6 +192,13 @@ export async function GET(
       prisma.bundle.findMany({
         where: { items: { some: { trackingNumber: canonicalTracking } } },
         include: { fromOffice: true, toOffice: true },
+      }),
+      prisma.registrationEditRequest.findFirst({
+        where: {
+          registrationId: registration.id,
+          status: "PENDING",
+        },
+        orderBy: { requestedAt: "desc" },
       }),
     ]);
 
@@ -447,6 +464,20 @@ export async function GET(
     }
 
     return NextResponse.json({
+      canEdit,
+      pendingEditRequest: pendingEditRequest
+        ? {
+            id: pendingEditRequest.id,
+            trackingNumber: pendingEditRequest.trackingNumber,
+            status: pendingEditRequest.status,
+            requestedBy: pendingEditRequest.requestedBy || "User",
+            requestedById: pendingEditRequest.requestedById,
+            requestedAt: pendingEditRequest.requestedAt.toISOString(),
+            fieldChanges: pendingEditRequest.fieldChanges,
+            originalSnapshot: pendingEditRequest.originalSnapshot,
+            proposedSnapshot: pendingEditRequest.proposedSnapshot,
+          }
+        : null,
       linkedDocuments,
       registration: {
         ...registration,
