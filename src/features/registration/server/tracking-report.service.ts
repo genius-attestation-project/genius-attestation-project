@@ -119,48 +119,147 @@ export function resolveCountry(
 ): string {
   const cleanName = (officeName || "").toLowerCase().trim();
   const cleanLoc = (officeLocation || "").toLowerCase().trim();
-  const cleanRegCountry = (regCountry || "").trim();
+  const cleanRegCountry = (regCountry || "").toLowerCase().trim();
 
+  // 1. Authoritative Office Location check (from OfficeLocation table in DB)
   if (
-    cleanName.includes("dubai") || cleanName.includes("uae") || cleanName.includes("abu dhabi") || cleanName.includes("sharjah") ||
-    cleanLoc.includes("dubai") || cleanLoc.includes("uae") || cleanLoc.includes("emirates") || cleanLoc.includes("united arab")
+    cleanLoc.includes("dubai") ||
+    cleanLoc.includes("uae") ||
+    cleanLoc.includes("emirates") ||
+    cleanLoc.includes("united arab") ||
+    cleanLoc.includes("abu dhabi") ||
+    cleanLoc.includes("sharjah")
   ) {
     return "UAE";
   }
-  if (
-    cleanName.includes("qatar") || cleanName.includes("doha") ||
-    cleanLoc.includes("qatar") || cleanLoc.includes("doha")
-  ) {
+  if (cleanLoc.includes("qatar") || cleanLoc.includes("doha")) {
     return "Qatar";
   }
-  if (cleanName.includes("kuwait") || cleanLoc.includes("kuwait")) {
+  if (cleanLoc.includes("kuwait")) {
     return "Kuwait";
   }
-  if (cleanName.includes("bahrain") || cleanLoc.includes("bahrain") || cleanLoc.includes("manama")) {
+  if (cleanLoc.includes("bahrain") || cleanLoc.includes("manama")) {
     return "Bahrain";
   }
-  if (cleanName.includes("oman") || cleanLoc.includes("oman") || cleanLoc.includes("muscat")) {
+  if (cleanLoc.includes("oman") || cleanLoc.includes("muscat")) {
     return "Oman";
   }
-  if (cleanName.includes("saudi") || cleanLoc.includes("saudi") || cleanLoc.includes("riyadh")) {
+  if (cleanLoc.includes("saudi") || cleanLoc.includes("riyadh")) {
     return "Saudi Arabia";
   }
   if (
-    cleanName.includes("india") || cleanName.includes("calicut") || cleanName.includes("chennai") ||
-    cleanName.includes("kochi") || cleanName.includes("ernakulam") || cleanName.includes("thrissur") ||
-    cleanName.includes("delhi") || cleanName.includes("mumbai") || cleanName.includes("bangalore") ||
-    cleanName.includes("jeevan bhima") || cleanName.includes("hyderabad") || cleanName.includes("madurai") ||
-    cleanName.includes("coimbatore") || cleanName.includes("kollam") || cleanName.includes("kottayam") ||
-    cleanName.includes("malappuram") ||
-    cleanLoc.includes("india") || cleanLoc.includes("kerala") || cleanLoc.includes("tamilnadu") ||
-    cleanLoc.includes("delhi") || cleanLoc.includes("maharashtra") || cleanLoc.includes("bangalore") ||
-    cleanLoc.includes("telangana")
+    cleanLoc.includes("india") ||
+    cleanLoc.includes("kerala") ||
+    cleanLoc.includes("tamilnadu") ||
+    cleanLoc.includes("delhi") ||
+    cleanLoc.includes("maharashtra") ||
+    cleanLoc.includes("bangalore") ||
+    cleanLoc.includes("telangana") ||
+    cleanLoc.includes("karnataka") ||
+    cleanLoc.includes("chennai") ||
+    cleanLoc.includes("kochi") ||
+    cleanLoc.includes("calicut") ||
+    cleanLoc.includes("malappuram") ||
+    cleanLoc.includes("thrissur") ||
+    cleanLoc.includes("ernakulam") ||
+    cleanLoc.includes("coimbatore") ||
+    cleanLoc.includes("madurai") ||
+    cleanLoc.includes("mumbai") ||
+    cleanLoc.includes("hyderabad")
   ) {
     return "India";
   }
 
-  if (cleanRegCountry && cleanRegCountry !== "-" && cleanRegCountry !== "N/A") {
-    return cleanRegCountry;
+  // 2. Office Name check
+  if (
+    cleanName.includes("dubai") ||
+    cleanName.includes("uae") ||
+    cleanName.includes("abu dhabi") ||
+    cleanName.includes("sharjah")
+  ) {
+    return "UAE";
+  }
+  if (cleanName.includes("qatar") || cleanName.includes("doha")) {
+    return "Qatar";
+  }
+  if (cleanName.includes("kuwait")) {
+    return "Kuwait";
+  }
+  if (cleanName.includes("bahrain") || cleanName.includes("manama")) {
+    return "Bahrain";
+  }
+  if (cleanName.includes("oman") || cleanName.includes("muscat")) {
+    return "Oman";
+  }
+  if (cleanName.includes("saudi") || cleanName.includes("riyadh")) {
+    return "Saudi Arabia";
+  }
+  if (
+    cleanName.includes("india") ||
+    cleanName.includes("calicut") ||
+    cleanName.includes("chennai") ||
+    cleanName.includes("kochi") ||
+    cleanName.includes("ernakulam") ||
+    cleanName.includes("thrissur") ||
+    cleanName.includes("delhi") ||
+    cleanName.includes("mumbai") ||
+    cleanName.includes("bangalore") ||
+    cleanName.includes("jeevan bhima") ||
+    cleanName.includes("hyderabad") ||
+    cleanName.includes("madurai") ||
+    cleanName.includes("coimbatore") ||
+    cleanName.includes("kollam") ||
+    cleanName.includes("kottayam") ||
+    cleanName.includes("malappuram") ||
+    cleanName.includes("kerala")
+  ) {
+    return "India";
+  }
+
+  // 3. Customer / Registration Country check (Normalized)
+  if (
+    cleanRegCountry.includes("dubai") ||
+    cleanRegCountry.includes("uae") ||
+    cleanRegCountry.includes("united arab") ||
+    cleanRegCountry.includes("emirates") ||
+    cleanRegCountry.includes("abu dhabi") ||
+    cleanRegCountry.includes("sharjah")
+  ) {
+    return "UAE";
+  }
+  if (cleanRegCountry.includes("qatar") || cleanRegCountry.includes("doha")) {
+    return "Qatar";
+  }
+  if (cleanRegCountry.includes("kuwait")) {
+    return "Kuwait";
+  }
+  if (cleanRegCountry.includes("bahrain") || cleanRegCountry.includes("manama")) {
+    return "Bahrain";
+  }
+  if (cleanRegCountry.includes("oman") || cleanRegCountry.includes("muscat")) {
+    return "Oman";
+  }
+  if (cleanRegCountry.includes("saudi") || cleanRegCountry.includes("riyadh")) {
+    return "Saudi Arabia";
+  }
+  if (
+    cleanRegCountry.includes("india") ||
+    cleanRegCountry.includes("kerala") ||
+    cleanRegCountry.includes("tamil") ||
+    cleanRegCountry.includes("delhi")
+  ) {
+    return "India";
+  }
+
+  if (
+    regCountry &&
+    cleanRegCountry !== "-" &&
+    cleanRegCountry !== "n/a" &&
+    cleanRegCountry !== "null" &&
+    cleanRegCountry !== "undefined" &&
+    cleanRegCountry !== "none"
+  ) {
+    return regCountry.trim();
   }
 
   return "India";
@@ -386,16 +485,71 @@ export async function getTrackingReport(
       balanceAmount: true,
       country: true,
       regionOfRegistration: true,
+      regionOfRegistrationId: true,
       regionOfRegistrationRef: {
-        select: { officeName: true, location: true },
+        select: { id: true, officeName: true, location: true },
       },
       creator: {
         select: {
-          officeLocationRef: { select: { officeName: true, location: true } },
+          officeLocationRef: { select: { id: true, officeName: true, location: true } },
         },
       },
     },
   });
+
+  // Pre-load all registered office locations for authoritative country resolution
+  const allOfficeLocations = await prisma.officeLocation.findMany({
+    where: { ownerAdminId },
+    select: { id: true, officeName: true, location: true },
+  });
+
+  const officeLocationById = new Map<string, { id: string; officeName: string; location: string }>();
+  const officeLocationByName = new Map<string, { id: string; officeName: string; location: string }>();
+
+  for (const loc of allOfficeLocations) {
+    officeLocationById.set(loc.id, loc);
+    officeLocationByName.set(loc.officeName.trim().toLowerCase(), loc);
+  }
+
+  // Consistent office-to-country mapping cache to ensure offices are never split across multiple countries
+  const officeToCountryCache = new Map<string, string>();
+
+  const resolveOfficeAndCountry = (reg: {
+    regionOfRegistrationId?: string | null;
+    regionOfRegistration?: string | null;
+    regionOfRegistrationRef?: { id?: string; officeName: string; location?: string | null } | null;
+    creator?: { officeLocationRef?: { id?: string; officeName: string; location?: string | null } | null } | null;
+    country?: string | null;
+  }) => {
+    const locRef =
+      (reg.regionOfRegistrationId ? officeLocationById.get(reg.regionOfRegistrationId) : null) ||
+      reg.regionOfRegistrationRef ||
+      (reg.regionOfRegistration ? officeLocationByName.get(reg.regionOfRegistration.trim().toLowerCase()) : null) ||
+      reg.creator?.officeLocationRef;
+
+    const resolvedOffice =
+      locRef?.officeName ||
+      reg.regionOfRegistration ||
+      reg.regionOfRegistrationRef?.officeName ||
+      reg.creator?.officeLocationRef?.officeName ||
+      "Unassigned Office";
+
+    const officeLocation = locRef?.location || reg.creator?.officeLocationRef?.location || null;
+
+    if (resolvedOffice !== "Unassigned Office" && officeToCountryCache.has(resolvedOffice.toLowerCase())) {
+      return {
+        resolvedOffice,
+        country: officeToCountryCache.get(resolvedOffice.toLowerCase())!,
+      };
+    }
+
+    const country = resolveCountry(resolvedOffice, officeLocation, reg.country);
+    if (resolvedOffice !== "Unassigned Office") {
+      officeToCountryCache.set(resolvedOffice.toLowerCase(), country);
+    }
+
+    return { resolvedOffice, country };
+  };
 
   const total = allRegistrations.length;
   let grandTotalCharge = 0;
@@ -407,18 +561,7 @@ export async function getTrackingReport(
   const countryOfficesMap = new Map<string, Map<string, OfficeAnalyticsItem>>();
 
   for (const reg of allRegistrations) {
-    const resolvedOffice =
-      reg.regionOfRegistration ||
-      reg.regionOfRegistrationRef?.officeName ||
-      reg.creator?.officeLocationRef?.officeName ||
-      "Unassigned Office";
-
-    const officeLocation =
-      reg.regionOfRegistrationRef?.location ||
-      reg.creator?.officeLocationRef?.location ||
-      null;
-
-    const country = resolveCountry(resolvedOffice, officeLocation, reg.country);
+    const { resolvedOffice, country } = resolveOfficeAndCountry(reg);
 
     const charge = Number(reg.totalCharges ?? 0);
     const paid = Number(reg.advancePaid ?? 0);
@@ -543,18 +686,7 @@ export async function getTrackingReport(
 
   for (const reg of paginatedRegistrations) {
     overallCounter++;
-    const resolvedOffice =
-      reg.regionOfRegistration ||
-      reg.regionOfRegistrationRef?.officeName ||
-      reg.creator?.officeLocationRef?.officeName ||
-      "Unassigned Office";
-
-    const officeLocation =
-      reg.regionOfRegistrationRef?.location ||
-      reg.creator?.officeLocationRef?.location ||
-      null;
-
-    const country = resolveCountry(resolvedOffice, officeLocation, reg.country);
+    const { resolvedOffice, country } = resolveOfficeAndCountry(reg);
 
     if (!countrySectionsMap.has(country)) {
       countrySectionsMap.set(country, new Map());
