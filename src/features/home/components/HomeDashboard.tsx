@@ -1,6 +1,6 @@
+"use client";
 import { exportToExcel } from "@/utils/excelExport";
 import { ExportButton } from "@/components/ui/ExportButton";
-"use client";
 
 import Link from "next/link";
 import { useEffect, useState, useMemo, useRef } from "react";

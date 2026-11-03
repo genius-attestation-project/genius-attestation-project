@@ -1,6 +1,6 @@
+"use client";
 import { exportToExcel } from "@/utils/excelExport";
 import { ExportButton } from "@/components/ui/ExportButton";
-"use client";
 
 import { Edit3, MapPinHouse, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

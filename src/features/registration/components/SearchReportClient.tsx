@@ -1,6 +1,6 @@
+"use client";
 import { exportToExcel } from "@/utils/excelExport";
 import { ExportButton } from "@/components/ui/ExportButton";
-"use client";
 
 import { FileSearch, Plus, Eye, Route } from "lucide-react";
 import Link from "next/link";

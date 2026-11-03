@@ -1,6 +1,6 @@
+"use client";
 import { exportToExcel } from "@/utils/excelExport";
 import { ExportButton } from "@/components/ui/ExportButton";
-"use client";
 
 import { Edit3, KeyRound, Plus, Trash2, UserCog, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
