@@ -130,6 +130,7 @@ export const registrationInputSchema = z.object({
   commissionToName: optionalText,
   commissionToEmail: optionalText,
   registeredPerson: optionalText,
+  registeredDate: optionalText,
   regionOfRegistration: optionalText,
   regionOfRegistrationId: optionalText,
   approvalStatus: z.preprocess(
@@ -197,6 +198,7 @@ export type RegistrationInput = {
   commissionToName?: string;
   commissionToEmail?: string;
   registeredPerson?: string;
+  registeredDate?: string;
   regionOfRegistration?: string;
   regionOfRegistrationId?: string;
   approvalStatus?: (typeof approvalStatusOptions)[number];

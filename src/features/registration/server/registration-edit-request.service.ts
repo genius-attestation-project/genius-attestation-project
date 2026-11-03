@@ -35,6 +35,8 @@ const EXTRA_FIELD_LABELS: Record<string, { label: string; category?: string }> =
   leadId: { label: "Linked Lead", category: "Customer Information" },
   corporateDetailId: { label: "Corporate Company", category: "Customer Information" },
   requestedAdvanceAmount: { label: "Requested Advance Amount", category: "Commercial & Payment" },
+  registeredDate: { label: "Registered Date", category: "Registration & Workflow" },
+  registered_date: { label: "Registered Date", category: "Registration & Workflow" },
 };
 
 export function getFieldLabel(key: string): { label: string; category?: string } {
@@ -115,6 +117,22 @@ export function areFieldValuesEqual(key: string, a: any, b: any): boolean {
     const strA = normA === null || normA === "" ? "Pending" : String(normA).trim();
     const strB = normB === null || normB === "" ? "Pending" : String(normB).trim();
     return strA.toLowerCase() === strB.toLowerCase();
+  }
+
+  if (key === "registeredDate" || key === "registered_date") {
+    const toDateKey = (val: any): string => {
+      if (!val) return "";
+      if (val instanceof Date) return val.toISOString().slice(0, 10);
+      const s = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const [d, m, y] = s.split("/");
+        return `${y}-${m}-${d}`;
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? s : d.toISOString().slice(0, 10);
+    };
+    return toDateKey(normA) === toDateKey(normB);
   }
 
   // 3. One is null, the other is non-null
@@ -249,6 +267,25 @@ export function computeFieldChanges(
         formattedNew = formattedNew === null ? 0 : formattedNew;
       }
 
+      if (key === "registeredDate" || key === "registered_date") {
+        const toDDMMYYYY = (val: any) => {
+          if (!val) return null;
+          const s = String(val).trim();
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const [y, m, d] = s.slice(0, 10).split("-");
+            return `${d}/${m}/${y}`;
+          }
+          const d = new Date(val);
+          if (isNaN(d.getTime())) return s;
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          return `${day}/${month}/${d.getFullYear()}`;
+        };
+        formattedOld = toDDMMYYYY(oldVal);
+        formattedNew = toDDMMYYYY(newVal);
+      }
+
       changes.push({
         field: key,
         fieldLabel: fieldMeta.label,
@@ -344,6 +381,18 @@ export function buildRegistrationDataForApproval(
         }
       : {}),
     registeredPerson: input.registeredPerson || null,
+    ...(input.registeredDate
+      ? {
+          registeredDate:
+            input.registeredDate instanceof Date
+              ? input.registeredDate
+              : new Date(
+                  typeof input.registeredDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.registeredDate)
+                    ? `${input.registeredDate}T00:00:00.000Z`
+                    : input.registeredDate
+                ),
+        }
+      : {}),
     regionOfRegistration: input.regionOfRegistration || null,
     approvalStatus: input.approvalStatus || "Pending",
   };
@@ -481,6 +530,9 @@ export async function createEditRequest(params: CreateEditRequestParams): Promis
     commissionToName: existing.commissionToName,
     commissionToEmail: existing.commissionToEmail,
     registeredPerson: existing.registeredPerson,
+    registeredDate: (existing as any).registeredDate
+      ? (existing as any).registeredDate.toISOString().slice(0, 10)
+      : existing.createdAt.toISOString().slice(0, 10),
     regionOfRegistration: existing.regionOfRegistration,
     approvalStatus: existing.approvalStatus,
     trackingStatus: existing.trackingStatus || "Registered",

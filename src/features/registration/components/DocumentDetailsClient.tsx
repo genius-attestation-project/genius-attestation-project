@@ -32,7 +32,7 @@ type DetailField = {
   label: string;
   value: React.ReactNode;
   editable?: boolean;
-  type?: "text" | "number" | "select";
+  type?: "text" | "number" | "select" | "date";
   options?: SelectOption[];
 };
 
@@ -82,6 +82,37 @@ function normalizeVal(val: any): string {
   return String(val).trim();
 }
 
+function toISODateString(val: any): string {
+  if (!val) return "";
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      return trimmed.slice(0, 10);
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [d, m, y] = trimmed.split("/");
+      return `${y}-${m}-${d}`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateDisplay(val: any): string {
+  if (!val) return "-";
+  const s = String(val).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, d] = s.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return formatDate(val);
+}
+
 const CUSTOMER_TYPE_OPTIONS: SelectOption[] = [
   { value: "Individual", label: "Individual" },
   { value: "Corporate", label: "Corporate" },
@@ -95,7 +126,7 @@ const PRIORITY_OPTIONS: SelectOption[] = [
 
 const EDITABLE_FIELD_DEFINITIONS: Record<
   string,
-  { label: string; section: string; type: "text" | "number" | "select" }
+  { label: string; section: string; type: "text" | "number" | "select" | "date" }
 > = {
   documentType: { label: "Document Type", section: "Document Type", type: "select" },
   processType: { label: "Process Type", section: "Document Type", type: "select" },
@@ -107,6 +138,7 @@ const EDITABLE_FIELD_DEFINITIONS: Record<
   externalProcess: { label: "Additional Process", section: "Document Type", type: "text" },
   documentName: { label: "Document Name", section: "Document Details", type: "text" },
   subPackage: { label: "Sub Package", section: "Document Details", type: "select" },
+  registeredDate: { label: "Registered Date", section: "Document Details", type: "date" },
   registeredPerson: { label: "Registered By", section: "Document Details", type: "text" },
   collectedPerson: { label: "Collected By", section: "Document Details", type: "text" },
   customerName: { label: "Customer Name", section: "Customer Information", type: "text" },
@@ -251,6 +283,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
         externalProcess: reg?.externalProcess || "",
         documentName: reg?.documentName || "",
         subPackage: reg?.subPackage && reg?.subPackage !== "-" ? reg?.subPackage : "",
+        registeredDate: toISODateString(reg?.registeredDate || reg?.createdAt),
         registeredPerson: reg?.registeredPerson || "",
         collectedPerson: reg?.collectedPerson || "",
         customerName: reg?.customerName || "",
@@ -304,7 +337,9 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
     if (!reg) return;
     setFormValues((prev) => ({
       ...prev,
-      [fieldKey]: reg[fieldKey] ?? "",
+      [fieldKey]: fieldKey === "registeredDate"
+        ? toISODateString(reg.registeredDate || reg.createdAt)
+        : (reg[fieldKey] ?? ""),
     }));
     setEditingFields((prev) => {
       const next = new Set(prev);
@@ -319,6 +354,19 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
     const diffs: { key: string; label: string; oldValue: string; newValue: string }[] = [];
 
     for (const [key, def] of Object.entries(EDITABLE_FIELD_DEFINITIONS)) {
+      if (key === "registeredDate") {
+        const orig = toISODateString(reg.registeredDate || reg.createdAt);
+        const curr = toISODateString(formValues.registeredDate);
+        if (orig !== curr) {
+          diffs.push({
+            key,
+            label: def.label,
+            oldValue: formatDateDisplay(orig),
+            newValue: formatDateDisplay(curr),
+          });
+        }
+        continue;
+      }
       const orig = normalizeVal(reg[key]);
       const curr = normalizeVal(formValues[key]);
       if (orig !== curr) {
@@ -362,6 +410,7 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
         documentIssuedCountry: formValues.documentIssuedCountry ?? reg.documentIssuedCountry ?? "",
         processType: formValues.processType ?? reg.processType ?? "",
         subPackage: formValues.subPackage ?? (reg.subPackage === "-" ? "" : reg.subPackage) ?? "",
+        registeredDate: formValues.registeredDate || undefined,
         externalProcess: formValues.externalProcess ?? reg.externalProcess ?? "",
         priority: formValues.priority ?? reg.priority ?? "Normal",
         committedDuration: formValues.committedDuration ?? reg.committedDuration ?? "",
@@ -516,6 +565,13 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
                           </option>
                         ))}
                       </select>
+                    ) : type === "date" ? (
+                      <input
+                        type="date"
+                        value={currentVal ?? ""}
+                        onChange={(e) => handleFieldChange(key!, e.target.value)}
+                        className="w-full rounded-lg border border-blue-500 bg-white px-2.5 py-1 text-xs sm:text-sm font-semibold text-slate-900 shadow-xs focus:border-blue-600 focus:outline-hidden dark:border-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                      />
                     ) : (
                       <input
                         type={type === "number" ? "number" : "text"}
@@ -549,7 +605,9 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <span className={isModified ? "font-bold text-blue-700 dark:text-blue-300" : ""}>
-                        {currentVal || (value ?? "-")}
+                        {type === "date"
+                          ? formatDateDisplay(currentVal || (value ?? "-"))
+                          : (currentVal || (value ?? "-"))}
                       </span>
                       {isModified && (
                         <span className="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
@@ -909,7 +967,13 @@ export function DocumentDetailsClient({ trackingNumber }: Props) {
               type: "select",
               options: subPackageOptions,
             },
-            { label: "Registered Date", value: formatDate(reg.createdAt) },
+            {
+              key: "registeredDate",
+              label: "Registered Date",
+              value: formatDateDisplay(reg.registeredDate || reg.createdAt),
+              editable: true,
+              type: "date",
+            },
             { label: "Region of Registration", value: reg.regionOfRegistration },
             {
               key: "registeredPerson",

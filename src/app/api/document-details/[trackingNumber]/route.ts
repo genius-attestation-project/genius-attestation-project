@@ -481,6 +481,9 @@ export async function GET(
       linkedDocuments,
       registration: {
         ...registration,
+        registeredDate: (registration as any).registeredDate
+          ? (registration as any).registeredDate.toISOString()
+          : null,
         subPackage: currentSubPackage || "-",
         subPackageId: currentSubPackageId,
         totalCharges: Number(registration.totalCharges || 0),
